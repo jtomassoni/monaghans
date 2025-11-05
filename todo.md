@@ -25,18 +25,20 @@ Build a simple, fast website for a neighborhood dive bar with an owner-friendly 
 
 ## Phase 1 — Data Model (Prisma)
 
-- [ ] Install Prisma + SQLite driver
-- [ ] Define model: `Special` (title, description, price notes, appliesOn weekdays, time window, start/end optional, image)
-- [ ] Define model: `Event` (title, description, start/end, venue area, recurrence RRULE string, exceptions array, isAllDay, tags)
-- [ ] Define model: `Announcement` (title, body rich text, heroImage, publishAt, crossPost flags)
-- [ ] Define model: `Page` (slug, title, content rich text/MDX-like, images)
-- [ ] Define model: `Setting` (hours JSON, address, phone, Google Map embed, theme options, ordering toggle)
-- [ ] Define model: `PostQueue` (channel, payload JSON, status, scheduledAt)
-- [ ] Create initial migration
-- [ ] Create seed script with realistic sample data
-- [ ] Verify: Prisma migrate runs; seed creates realistic samples
+- [x] Install Prisma + SQLite driver
+- [x] Define model: `Special` (title, description, price notes, appliesOn weekdays, time window, start/end optional, image)
+- [x] Define model: `Event` (title, description, start/end, venue area, recurrence RRULE string, exceptions array, isAllDay, tags)
+- [x] Define model: `Announcement` (title, body rich text, heroImage, publishAt, crossPost flags)
+- [x] Define model: `Page` (slug, title, content rich text/MDX-like, images)
+- [x] Define model: `Setting` (hours JSON, address, phone, Google Map embed, theme options, ordering toggle)
+- [x] Define model: `PostQueue` (channel, payload JSON, status, scheduledAt)
+- [x] Create initial migration
+- [x] Create seed script with realistic sample data
+- [x] Verify: Prisma migrate runs; seed creates realistic samples
 
 **Acceptance Criteria:** All models defined; migration successful; seed script creates test data.
+
+**Status:** ✅ Complete
 
 ---
 
