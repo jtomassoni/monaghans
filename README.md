@@ -74,8 +74,22 @@ See `.env.example` for all required environment variables. Key ones:
 
 1. Push your code to GitHub
 2. Import project in Vercel
-3. Add environment variables in Vercel dashboard
-4. Deploy!
+3. Add environment variables in Vercel dashboard:
+   - `DATABASE_URL` - **IMPORTANT**: Use a Postgres database URL (SQLite won't work on Vercel)
+     - Option 1: Use Vercel Postgres (recommended)
+     - Option 2: Use external Postgres (e.g., Neon, Supabase, Railway)
+   - `NEXTAUTH_SECRET` - Generate with `openssl rand -base64 32`
+   - `NEXTAUTH_URL` - Your production URL (e.g., `https://your-domain.vercel.app`)
+4. After first deploy, run migrations:
+   ```bash
+   npx vercel env pull .env.local
+   npm run db:migrate
+   npm run db:seed
+   ```
+   Or use Vercel CLI: `vercel db:migrate` if using Vercel Postgres
+5. Redeploy!
+
+**Note:** SQLite (`file:./dev.db`) only works locally. Production requires Postgres.
 
 ### Database Backups
 
