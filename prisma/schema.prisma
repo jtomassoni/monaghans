@@ -1,0 +1,87 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Special {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  priceNotes  String?  // e.g., "$3 drafts", "Happy hour prices"
+  appliesOn   String   // JSON array of weekdays: ["Monday", "Tuesday", ...]
+  timeWindow  String?  // e.g., "11am-3pm", "Happy Hour"
+  startDate   DateTime? // Optional start date
+  endDate     DateTime? // Optional end date
+  image       String?  // Path to image in /public/uploads
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Event {
+  id            String   @id @default(cuid())
+  title         String
+  description   String?
+  startDateTime DateTime
+  endDateTime   DateTime?
+  venueArea     String   @default("bar") // "bar", "stage", "other"
+  recurrenceRule String? // RRULE string (RFC 5545)
+  exceptions    String?  // JSON array of exception dates: ["2024-01-15", ...]
+  isAllDay      Boolean  @default(false)
+  tags          String?  // JSON array of tags: ["live-music", "trivia", ...]
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Announcement {
+  id            String    @id @default(cuid())
+  title         String
+  body          String    // Rich text content (markdown or HTML)
+  heroImage     String?   // Path to image
+  publishAt     DateTime?
+  isPublished   Boolean   @default(false)
+  crossPostFacebook Boolean @default(false)
+  crossPostInstagram Boolean @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Page {
+  id        String   @id @default(cuid())
+  slug      String   @unique // e.g., "about", "menu", "contact"
+  title     String
+  content   String   // Rich text content (markdown or HTML)
+  images    String?  // JSON array of image paths
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Setting {
+  id              String   @id @default(cuid())
+  key             String   @unique
+  value           String   // JSON value for complex data
+  description     String?
+  updatedAt       DateTime @updatedAt
+}
+
+model PostQueue {
+  id          String   @id @default(cuid())
+  channel     String   // "facebook", "instagram"
+  payload     String   // JSON payload with caption, link, image, etc.
+  status      String   @default("staged") // "staged", "sent", "failed"
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  error       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+

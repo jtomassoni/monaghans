@@ -9,15 +9,17 @@ Build a simple, fast website for a neighborhood dive bar with an owner-friendly 
 
 ## Phase 0 — Repo Hygiene
 
-- [ ] Initialize Next.js project with TypeScript, App Router
-- [ ] Configure ESLint and Prettier
-- [ ] Setup Tailwind CSS + shadcn/ui
-- [ ] Add .env.example with placeholders (DATABASE_URL, NEXTAUTH_SECRET, EMAIL_SERVER*, SOCIAL_* stubs)
-- [ ] Add README.md with run, build, deploy instructions for non-technical collaborator
-- [ ] Add scripts/seed.ts to seed sample specials/events
-- [ ] Verify: `pnpm dev` boots; lint passes; sample data script runs
+- [x] Initialize Next.js project with TypeScript, App Router
+- [x] Configure ESLint and Prettier
+- [x] Setup Tailwind CSS + shadcn/ui
+- [x] Add .env.example with placeholders (DATABASE_URL, NEXTAUTH_SECRET, EMAIL_SERVER*, SOCIAL_* stubs)
+- [x] Add README.md with run, build, deploy instructions for non-technical collaborator
+- [x] Add scripts/seed.ts to seed sample specials/events
+- [x] Verify: `npm run dev` boots; lint passes; sample data script runs
 
-**Acceptance Criteria:** Clean project structure; developer can run `pnpm dev` successfully; linting configured.
+**Acceptance Criteria:** Clean project structure; developer can run `npm run dev` successfully; linting configured.
+
+**Status:** ✅ Complete
 
 ---
 
@@ -147,5 +149,13 @@ Build a simple, fast website for a neighborhood dive bar with an owner-friendly 
 
 ## Progress Log
 
-*Last updated: [Auto-updated after each change]*
+*Last updated: 2025-11-05*
+
+### Completed
+- ✅ Phase 0: Project initialized with Next.js, TypeScript, Tailwind, ESLint, Prettier
+- ✅ Phase 1: Prisma schema defined with all models (Special, Event, Announcement, Page, Setting, PostQueue)
+- ✅ Database migrated and seeded with sample data
+
+### Next Steps
+- Phase 2: Build admin dashboard and CRUD forms
 
