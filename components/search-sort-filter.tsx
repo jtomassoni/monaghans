@@ -136,29 +136,29 @@ export default function SearchSortFilter<T extends Record<string, any>>({
   return (
     <div className="space-y-2.5">
       {/* Search, Sort, and Action Row */}
-      <div className="flex gap-2.5 flex-wrap items-center">
+      <div className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center">
         {/* Action Button */}
         {actionButton && (
-          <div className="flex-shrink-0">
+          <div className="flex-shrink-0 w-full sm:w-auto">
             {actionButton}
           </div>
         )}
         
         {/* Search Bar */}
-        <div className="flex-1 min-w-[200px] relative">
+        <div className="flex-1 min-w-0 relative">
           <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 w-4 h-4 pointer-events-none" />
           <input
             type="text"
             placeholder={searchPlaceholder}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 shadow-sm transition-all duration-200 text-sm"
+            className="w-full pl-10 pr-4 py-2.5 sm:py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 shadow-sm transition-all duration-200 text-sm touch-manipulation"
           />
         </div>
 
         {/* Sort Dropdown */}
         {sortOptions.length > 0 && (
-          <div className="relative">
+          <div className="relative w-full sm:w-auto sm:min-w-[180px]">
             <FaSort className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 w-4 h-4 pointer-events-none z-10" />
             <select
               value={selectedSortIndex}
@@ -170,7 +170,7 @@ export default function SearchSortFilter<T extends Record<string, any>>({
                   setSortBy(sortOptions[index - 1] || null);
                 }
               }}
-              className="pl-10 pr-8 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 shadow-sm appearance-none transition-all duration-200 min-w-[180px] text-sm"
+              className="w-full pl-10 pr-8 py-2.5 sm:py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 shadow-sm appearance-none transition-all duration-200 text-sm touch-manipulation"
             >
               <option value="0">Sort by...</option>
               {sortOptions.map((option, index) => (
@@ -190,17 +190,17 @@ export default function SearchSortFilter<T extends Record<string, any>>({
 
       {/* Filter Dropdown */}
       {filterOptions.length > 0 && (
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-2 flex-1">
-            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 font-medium">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1 min-w-0">
+            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 font-medium flex-shrink-0">
               <FaFilter className="w-4 h-4" />
               <span>Filter:</span>
             </div>
-            <div className="relative flex-1 min-w-[200px]">
+            <div className="relative flex-1 min-w-0">
               <select
                 value={activeFilter}
                 onChange={(e) => setActiveFilter(e.target.value)}
-                className="w-full pl-4 pr-8 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 shadow-sm appearance-none transition-all duration-200 text-sm"
+                className="w-full pl-4 pr-8 py-2.5 sm:py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 shadow-sm appearance-none transition-all duration-200 text-sm touch-manipulation"
               >
                 <option value="all">All Items</option>
                 {filterOptions.map((filter) => (

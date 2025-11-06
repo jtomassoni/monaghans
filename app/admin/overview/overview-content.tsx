@@ -132,7 +132,7 @@ export default function OverviewContent({
 
   return (
     <>
-      <div className="flex-1 overflow-hidden p-4 relative z-10">
+      <div className="flex-1 overflow-hidden p-3 sm:p-4 relative z-10">
         <div className="max-w-7xl mx-auto h-full flex flex-col gap-3">
           {/* Stats Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 flex-shrink-0">

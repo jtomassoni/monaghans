@@ -134,6 +134,8 @@ export default async function HomePage() {
         if (!Array.isArray(appliesOn)) {
           appliesOn = [];
         }
+        // Normalize day names (trim whitespace, ensure proper case)
+        appliesOn = appliesOn.map(day => day.trim()).filter(day => day.length > 0);
       }
     } catch {
       // Invalid JSON, skip
@@ -145,21 +147,30 @@ export default async function HomePage() {
 
     // If weekly recurring days are set
     if (appliesOn.length > 0) {
-      // Check if today matches a recurring day
-      if (appliesOn.includes(todayName)) {
-        // If there's also a date range, check if today is within it
+      // Check if today matches a recurring day (case-insensitive comparison)
+      const matchesDay = appliesOn.some(day => 
+        day.toLowerCase() === todayName.toLowerCase()
+      );
+      
+      if (matchesDay) {
+        // Weekly recurring specials should show based on day match only
+        // Date ranges are optional and only used if both dates are set AND valid
+        // This prioritizes the weekly recurring pattern over date restrictions
         if (startDate && endDate) {
           const start = new Date(startDate);
           start.setHours(0, 0, 0, 0);
           const end = new Date(endDate);
           end.setHours(23, 59, 59, 999);
           
+          // Check if we're within the date range
           if (todayStart >= start && todayStart <= end) {
             todaysDrinkSpecial = special;
             break;
           }
+          // If dates are set but outside range, skip this special
+          // (this allows date-limited recurring specials)
         } else {
-          // No date range restriction, just check the day
+          // No date range restriction, show based on day match
           todaysDrinkSpecial = special;
           break;
         }

@@ -274,10 +274,10 @@ export default function DashboardContent({ events: initialEvents, specials, anno
           <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-rose-200/15 dark:from-rose-900/20 to-transparent rounded-full blur-3xl"></div>
         </div>
         {/* Header */}
-        <div className="flex-shrink-0 px-6 py-3 border-b border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm relative z-10">
+        <div className="flex-shrink-0 px-4 sm:px-6 py-3 border-b border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm relative z-10">
           <div className="flex justify-between items-center">
-            <div className="flex items-center gap-4">
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
                 Calendar
               </h1>
               <p className="text-gray-500 dark:text-gray-400 text-xs hidden sm:block">
@@ -290,7 +290,7 @@ export default function DashboardContent({ events: initialEvents, specials, anno
         {/* Main Content */}
         <div className="flex-1 flex overflow-hidden min-h-0 relative z-10">
           {/* Calendar */}
-          <div className="flex-1 overflow-hidden p-6 pb-6 min-h-0 flex flex-col">
+          <div className="flex-1 overflow-hidden p-3 sm:p-6 pb-3 sm:pb-6 min-h-0 flex flex-col">
             <CalendarView
               events={events}
               specials={specials}

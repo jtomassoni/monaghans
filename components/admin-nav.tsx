@@ -14,17 +14,23 @@ import {
   FaGlobe, 
   FaSignOutAlt,
   FaChevronDown,
+  FaChevronLeft,
+  FaChevronRight,
   FaExternalLinkAlt,
   FaHome,
   FaEdit,
   FaMoon,
-  FaSun,
   FaBullhorn,
   FaHistory,
   FaFacebook,
-  FaShareAlt
+  FaShareAlt,
+  FaBars,
+  FaTimes
 } from 'react-icons/fa';
 import { useTheme } from './theme-provider';
+import { useEffect } from 'react';
+import AdminMobileHeader from './admin-mobile-header';
+import AdminMobileMenu from './admin-mobile-menu';
 
 interface AdminNavProps {
   isSuperadmin: boolean;
@@ -35,7 +41,33 @@ interface AdminNavProps {
 export default function AdminNav({ isSuperadmin, userName, userEmail }: AdminNavProps) {
   const pathname = usePathname();
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarCompact, setSidebarCompact] = useState(false);
   const { theme, toggleTheme } = useTheme();
+
+  const closeMobileMenu = () => setMobileMenuOpen(false);
+
+  // Close mobile menu when route changes
+  useEffect(() => {
+    closeMobileMenu();
+  }, [pathname]);
+
+  // Auto-compact sidebar on portrait orientation for better vertical monitor support
+  useEffect(() => {
+    const handleResize = () => {
+      // Check if height > width (portrait mode) and width is small enough
+      if (window.innerHeight > window.innerWidth && window.innerWidth < 1200) {
+        setSidebarCompact(true);
+      } else if (window.innerWidth >= 1200) {
+        // Auto-expand on larger landscape screens
+        setSidebarCompact(false);
+      }
+    };
+
+    handleResize(); // Check on mount
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const navItems = [
     { href: '/admin/overview', label: 'Overview', icon: FaHome },
@@ -69,141 +101,219 @@ export default function AdminNav({ isSuperadmin, userName, userEmail }: AdminNav
     return pathname?.startsWith(href);
   };
 
-  return (
-    <div className="flex flex-col h-full bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 relative z-20">
+  const navContent = (
+    <>
       {/* Logo/Brand */}
-      <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-        <Link href="/admin" className="flex items-center gap-3 group cursor-pointer">
-          <div className="text-3xl group-hover:scale-110 transition-transform duration-200">
-            <FaBeer className="w-8 h-8 text-yellow-400" />
-          </div>
-          <div>
-            <div className="text-xl font-bold text-gray-900 dark:text-white">Monaghan&apos;s</div>
-            <div className="text-xs text-gray-600 dark:text-gray-400">Admin Panel</div>
-          </div>
-        </Link>
+      <div className={`border-b border-gray-200 dark:border-gray-700 relative ${sidebarCompact ? 'p-3' : 'p-4 md:p-6'}`}>
+        <div className="flex items-center justify-between gap-2">
+          <Link 
+            href="/admin" 
+            className="flex items-center gap-3 group cursor-pointer flex-1 min-w-0" 
+            onClick={closeMobileMenu}
+          >
+            <div className="text-3xl group-hover:scale-110 transition-transform duration-200 flex-shrink-0">
+              <FaBeer className="w-8 h-8 text-yellow-400" />
+            </div>
+            <div className="min-w-0">
+              <div className={`font-bold text-gray-900 dark:text-white ${sidebarCompact ? 'text-lg' : 'text-xl'}`}>Monaghan&apos;s</div>
+              <div className={`text-gray-600 dark:text-gray-400 ${sidebarCompact ? 'text-[10px]' : 'text-xs'}`}>Admin Panel</div>
+            </div>
+          </Link>
+          {/* Close button - mobile only */}
+          <button
+            onClick={closeMobileMenu}
+            className="md:hidden p-3 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-800 active:bg-gray-300 dark:active:bg-gray-700 text-gray-700 dark:text-gray-300 touch-manipulation flex-shrink-0 cursor-pointer"
+            aria-label="Close sidebar"
+            type="button"
+          >
+            <FaTimes className="w-6 h-6 pointer-events-none" />
+          </button>
+        </div>
+        {/* Desktop compact/expand button */}
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setSidebarCompact(!sidebarCompact);
+          }}
+          className="hidden md:block absolute -right-3 top-6 p-2 bg-white dark:bg-gray-800 rounded-full border border-gray-200 dark:border-gray-700 shadow-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 z-30"
+          aria-label={sidebarCompact ? 'Expand sidebar' : 'Make sidebar compact'}
+          type="button"
+        >
+          {sidebarCompact ? (
+            <FaChevronRight className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+          ) : (
+            <FaChevronLeft className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+          )}
+        </button>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+      <nav className={`flex-1 space-y-2 overflow-y-auto ${sidebarCompact ? 'p-2' : 'p-4'}`}>
         {navItems.map((item) => (
           <Link
             key={item.href}
             href={item.href}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group cursor-pointer ${
+            onClick={closeMobileMenu}
+            className={`flex items-center gap-3 ${sidebarCompact ? 'px-2 py-2' : 'px-4 py-3'} rounded-xl transition-all duration-200 group cursor-pointer ${
               isActive(item.href)
                 ? 'bg-blue-500/90 dark:bg-blue-600/90 text-white border border-blue-400 dark:border-blue-500'
                 : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
             }`}
           >
-            <item.icon className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" />
-            <span className="font-medium">{item.label}</span>
+            <item.icon className={`group-hover:scale-110 transition-transform duration-200 flex-shrink-0 ${sidebarCompact ? 'w-4 h-4' : 'w-5 h-5'}`} />
+            <span className={`font-medium ${sidebarCompact ? 'text-sm' : ''}`}>{item.label}</span>
           </Link>
         ))}
 
         {isSuperadmin && (
           <Link
             href="/admin/users"
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group cursor-pointer ${
+            onClick={closeMobileMenu}
+            className={`flex items-center gap-3 ${sidebarCompact ? 'px-2 py-2' : 'px-4 py-3'} rounded-xl transition-all duration-200 group cursor-pointer ${
               isActive('/admin/users')
                 ? 'bg-blue-500/90 dark:bg-blue-600/90 text-white border border-blue-400 dark:border-blue-500'
                 : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
             }`}
           >
-            <FaUsers className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" />
-            <span className="font-medium">Users</span>
+            <FaUsers className={`group-hover:scale-110 transition-transform duration-200 flex-shrink-0 ${sidebarCompact ? 'w-4 h-4' : 'w-5 h-5'}`} />
+            <span className={`font-medium ${sidebarCompact ? 'text-sm' : ''}`}>Users</span>
           </Link>
         )}
       </nav>
 
       {/* Bottom Actions */}
-      <div className="p-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
+      <div className={`border-t border-gray-200 dark:border-gray-700 space-y-2 ${sidebarCompact ? 'p-2' : 'p-4'}`}>
         <Link
           href="/admin/activity"
-          className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group cursor-pointer ${
+          onClick={(e) => {
+            e.stopPropagation();
+            closeMobileMenu();
+          }}
+          className={`flex items-center gap-3 ${sidebarCompact ? 'px-2 py-2' : 'px-4 py-3'} rounded-xl transition-all duration-200 group cursor-pointer ${
             isActive('/admin/activity')
               ? 'bg-blue-500/90 dark:bg-blue-600/90 text-white border border-blue-400 dark:border-blue-500'
               : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
           }`}
         >
-          <FaHistory className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" />
-          <span className="font-medium">Activity</span>
+          <FaHistory className={`group-hover:scale-110 transition-transform duration-200 flex-shrink-0 ${sidebarCompact ? 'w-4 h-4' : 'w-5 h-5'}`} />
+          <span className={`font-medium ${sidebarCompact ? 'text-sm' : ''}`}>Activity</span>
         </Link>
 
         <Link
           href="/admin/settings"
-          className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group cursor-pointer ${
+          onClick={(e) => {
+            e.stopPropagation();
+            closeMobileMenu();
+          }}
+          className={`flex items-center gap-3 ${sidebarCompact ? 'px-2 py-2' : 'px-4 py-3'} rounded-xl transition-all duration-200 group cursor-pointer ${
             isActive('/admin/settings')
               ? 'bg-blue-500/90 dark:bg-blue-600/90 text-white border border-blue-400 dark:border-blue-500'
               : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
           }`}
         >
-          <FaCog className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" />
-          <span className="font-medium">Settings</span>
+          <FaCog className={`group-hover:scale-110 transition-transform duration-200 flex-shrink-0 ${sidebarCompact ? 'w-4 h-4' : 'w-5 h-5'}`} />
+          <span className={`font-medium ${sidebarCompact ? 'text-sm' : ''}`}>Settings</span>
         </Link>
 
         <Link
           href="/"
           target="_blank"
-          className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white transition-all duration-200 group cursor-pointer"
+          onClick={(e) => {
+            e.stopPropagation();
+            closeMobileMenu();
+          }}
+          className={`flex items-center gap-3 ${sidebarCompact ? 'px-2 py-2' : 'px-4 py-3'} rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white transition-all duration-200 group cursor-pointer`}
         >
-          <FaGlobe className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" />
-          <span className="font-medium">View Site</span>
-          <FaExternalLinkAlt className="ml-auto w-3 h-3" />
+          <FaGlobe className={`group-hover:scale-110 transition-transform duration-200 flex-shrink-0 ${sidebarCompact ? 'w-4 h-4' : 'w-5 h-5'}`} />
+          <span className={`font-medium ${sidebarCompact ? 'text-sm' : ''}`}>View Site</span>
+          <FaExternalLinkAlt className="ml-auto w-3 h-3 flex-shrink-0" />
         </Link>
 
         {/* Theme Toggle */}
         <button
-          onClick={toggleTheme}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white transition-all duration-200 group cursor-pointer"
-          aria-label="Toggle theme"
+          onClick={() => {
+            toggleTheme();
+            closeMobileMenu();
+          }}
+          className={`w-full flex items-center justify-between gap-3 ${sidebarCompact ? 'px-2 py-2' : 'px-4 py-3'} rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white transition-all duration-200 group cursor-pointer`}
+          aria-label={theme === 'dark' ? 'Dark mode on' : 'Dark mode off'}
         >
-          {theme === 'light' ? (
-            <>
-              <FaMoon className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" />
-              <span className="font-medium">Dark Mode</span>
-            </>
-          ) : (
-            <>
-              <FaSun className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" />
-              <span className="font-medium">Light Mode</span>
-            </>
-          )}
+          <div className="flex items-center gap-3">
+            <FaMoon className={`group-hover:scale-110 transition-transform duration-200 flex-shrink-0 ${sidebarCompact ? 'w-4 h-4' : 'w-5 h-5'}`} />
+            <span className={`font-medium ${sidebarCompact ? 'text-sm' : ''}`}>Dark Mode</span>
+          </div>
+          <div className={`relative w-10 h-5 rounded-full transition-colors duration-200 ${
+            theme === 'dark' ? 'bg-blue-500 dark:bg-blue-600' : 'bg-gray-400 dark:bg-gray-600'
+          }`}>
+            <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200 shadow-md ${
+              theme === 'dark' ? 'translate-x-5' : 'translate-x-0'
+            }`} />
+          </div>
         </button>
 
         {/* User Menu */}
         <div className="relative">
           <button
-            onClick={() => setShowUserMenu(!showUserMenu)}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white transition-all duration-200 group"
+            onClick={() => {
+              setShowUserMenu(!showUserMenu);
+              // Don't close menu on user menu click, let user interact with dropdown
+            }}
+            className={`w-full flex items-center gap-3 ${sidebarCompact ? 'px-2 py-2' : 'px-4 py-3'} rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white transition-all duration-200 group`}
           >
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm">
+            <div className={`rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold flex-shrink-0 ${sidebarCompact ? 'w-6 h-6 text-xs' : 'w-8 h-8 text-sm'}`}>
               {userName?.[0]?.toUpperCase() || userEmail?.[0]?.toUpperCase() || 'A'}
             </div>
-            <div className="flex-1 text-left">
-              <div className="text-sm font-medium text-gray-900 dark:text-white">{userName || 'Admin'}</div>
-              <div className="text-xs text-gray-600 dark:text-gray-400 truncate max-w-[120px]">{userEmail}</div>
+            <div className="flex-1 text-left min-w-0">
+              <div className={`font-medium text-gray-900 dark:text-white truncate ${sidebarCompact ? 'text-xs' : 'text-sm'}`}>{userName || 'Admin'}</div>
+              {!sidebarCompact && (
+                <div className="text-xs text-gray-600 dark:text-gray-400 truncate">{userEmail}</div>
+              )}
             </div>
-            <FaChevronDown className={`w-3 h-3 transition-transform duration-200 ${showUserMenu ? 'rotate-180' : ''}`} />
+            <FaChevronDown className={`w-3 h-3 transition-transform duration-200 flex-shrink-0 ${showUserMenu ? 'rotate-180' : ''}`} />
           </button>
 
           {showUserMenu && (
-            <div className="absolute bottom-full left-0 right-0 mb-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl overflow-hidden">
+            <div className="absolute bottom-full left-0 right-0 mb-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl overflow-hidden z-10 min-w-[140px]">
               <button
                 onClick={() => {
                   setShowUserMenu(false);
+                  closeMobileMenu();
                   signOut({ callbackUrl: '/' });
                 }}
                 className="w-full px-4 py-3 text-left text-red-400 dark:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 flex items-center gap-2"
               >
-                <FaSignOutAlt className="w-4 h-4" />
+                <FaSignOutAlt className="w-4 h-4 flex-shrink-0" />
                 <span>Sign Out</span>
               </button>
             </div>
           )}
         </div>
       </div>
-    </div>
+    </>
+  );
+
+  return (
+    <>
+      {/* Mobile Header with Hamburger */}
+      <AdminMobileHeader onMenuClick={() => setMobileMenuOpen(true)} />
+
+      {/* Mobile Menu - Brand new implementation */}
+      <AdminMobileMenu
+        isOpen={mobileMenuOpen}
+        onClose={closeMobileMenu}
+        isSuperadmin={isSuperadmin}
+        userName={userName}
+        userEmail={userEmail}
+      />
+
+      {/* Sidebar - Desktop */}
+      <aside className={`hidden md:flex flex-col h-full bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 relative z-20 transition-all duration-300 ease-in-out ${
+        sidebarCompact ? 'w-52' : 'w-64'
+      }`}>
+        {navContent}
+      </aside>
+    </>
   );
 }
 

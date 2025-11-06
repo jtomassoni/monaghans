@@ -1276,25 +1276,25 @@ export default function CalendarView({ events, specials, announcements = [], onE
   return (
     <div className="flex flex-col h-full min-h-0" ref={calendarRef}>
         {/* Calendar Header */}
-      <div className="flex justify-center items-center mb-3 flex-shrink-0 gap-4">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row justify-center items-center mb-3 flex-shrink-0 gap-2 sm:gap-4">
+        <div className="flex items-center gap-2 flex-wrap justify-center">
           <button
             onClick={() => navigateDate('prev')}
-            className="w-9 h-9 flex items-center justify-center bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 transition-all duration-200 hover:shadow-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white flex-shrink-0 cursor-pointer active:scale-95 z-10 relative"
+            className="w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 transition-all duration-200 hover:shadow-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white flex-shrink-0 cursor-pointer active:scale-95 z-10 relative touch-manipulation"
             aria-label="Previous"
           >
             <HiChevronLeft className="w-5 h-5 pointer-events-none" />
           </button>
-          <div className="relative px-4 min-w-[240px] flex items-center justify-center">
+          <div className="relative px-2 sm:px-4 min-w-[200px] sm:min-w-[240px] flex items-center justify-center">
             {viewMode === 'month' ? (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 sm:gap-2 flex-wrap justify-center">
                 <button
                   data-month-trigger
                   onClick={() => {
                     setShowMonthPicker(!showMonthPicker);
                     setShowYearPicker(false);
                   }}
-                  className="text-xl font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer active:scale-95 z-10 relative"
+                  className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer active:scale-95 z-10 relative touch-manipulation px-1 py-1"
                 >
                   {format(currentDate, 'MMMM')}
                 </button>
@@ -1304,13 +1304,13 @@ export default function CalendarView({ events, specials, announcements = [], onE
                     setShowYearPicker(!showYearPicker);
                     setShowMonthPicker(false);
                   }}
-                  className="text-xl font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer active:scale-95 z-10 relative"
+                  className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer active:scale-95 z-10 relative touch-manipulation px-1 py-1"
                 >
                   {format(currentDate, 'yyyy')}
                 </button>
               </div>
             ) : viewMode === 'week' ? (
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white whitespace-nowrap">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white text-center sm:whitespace-nowrap px-2">
                 {`${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d, yyyy')}`}
               </h2>
             ) : (
@@ -1320,7 +1320,7 @@ export default function CalendarView({ events, specials, announcements = [], onE
                   setShowYearPicker(!showYearPicker);
                   setShowMonthPicker(false);
                 }}
-                className="text-2xl font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer active:scale-95 z-10 relative"
+                className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer active:scale-95 z-10 relative touch-manipulation px-1 py-1"
               >
                 {format(currentDate, 'yyyy')}
               </button>
@@ -1337,7 +1337,7 @@ export default function CalendarView({ events, specials, announcements = [], onE
                     <button
                       key={month}
                       onClick={() => handleMonthSelect(index)}
-                      className={`px-3 py-2 rounded-lg transition-all duration-200 text-sm font-medium cursor-pointer active:scale-95 z-10 relative ${
+                      className={`px-3 py-2.5 sm:py-2 rounded-lg transition-all duration-200 text-sm font-medium cursor-pointer active:scale-95 z-10 relative touch-manipulation ${
                         index === getCurrentMonth()
                           ? 'bg-blue-500/90 dark:bg-blue-600/90 text-white'
                           : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -1361,7 +1361,7 @@ export default function CalendarView({ events, specials, announcements = [], onE
                     <button
                       key={year}
                       onClick={() => handleYearSelect(year)}
-                      className={`px-3 py-2 rounded-lg transition-all duration-200 text-sm font-medium cursor-pointer active:scale-95 ${
+                      className={`px-3 py-2.5 sm:py-2 rounded-lg transition-all duration-200 text-sm font-medium cursor-pointer active:scale-95 touch-manipulation ${
                         year === getCurrentYear()
                           ? 'bg-blue-500/90 dark:bg-blue-600/90 text-white'
                           : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -1376,24 +1376,24 @@ export default function CalendarView({ events, specials, announcements = [], onE
           </div>
           <button
             onClick={() => navigateDate('next')}
-            className="w-9 h-9 flex items-center justify-center bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 transition-all duration-200 hover:shadow-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white flex-shrink-0 cursor-pointer active:scale-95 z-10 relative"
+            className="w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 transition-all duration-200 hover:shadow-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white flex-shrink-0 cursor-pointer active:scale-95 z-10 relative touch-manipulation"
             aria-label="Next"
           >
             <HiChevronRight className="w-5 h-5 pointer-events-none" />
           </button>
           <button
             onClick={() => setCurrentDate(new Date())}
-            className="px-4 py-1.5 text-xs bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg transition-all duration-200 hover:scale-105 text-white font-semibold ml-2 flex-shrink-0 cursor-pointer active:scale-95 z-10 relative border border-blue-400 dark:border-blue-500"
+            className="px-4 py-2 sm:py-1.5 text-xs bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg transition-all duration-200 hover:scale-105 text-white font-semibold flex-shrink-0 cursor-pointer active:scale-95 z-10 relative border border-blue-400 dark:border-blue-500 touch-manipulation"
           >
             Today
           </button>
         </div>
 
         {/* View Mode Switcher */}
-        <div className="flex gap-0.5 bg-gray-100 dark:bg-gray-800 rounded-lg p-1 border border-gray-200 dark:border-gray-700">
+        <div className="flex gap-0.5 bg-gray-100 dark:bg-gray-800 rounded-lg p-1 border border-gray-200 dark:border-gray-700 w-full sm:w-auto justify-center">
           <button
             onClick={() => setViewMode('month')}
-            className={`px-4 py-2 rounded-md transition-all duration-200 flex items-center gap-1.5 text-xs font-medium cursor-pointer active:scale-95 z-10 relative ${
+            className={`px-4 py-2.5 sm:py-2 rounded-md transition-all duration-200 flex items-center gap-1.5 text-xs font-medium cursor-pointer active:scale-95 z-10 relative touch-manipulation flex-1 sm:flex-initial ${
               viewMode === 'month'
                 ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-gray-700/50'
@@ -1404,7 +1404,7 @@ export default function CalendarView({ events, specials, announcements = [], onE
           </button>
           <button
             onClick={() => setViewMode('week')}
-            className={`px-4 py-2 rounded-md transition-all duration-200 flex items-center gap-1.5 text-xs font-medium cursor-pointer active:scale-95 z-10 relative ${
+            className={`px-4 py-2.5 sm:py-2 rounded-md transition-all duration-200 flex items-center gap-1.5 text-xs font-medium cursor-pointer active:scale-95 z-10 relative touch-manipulation flex-1 sm:flex-initial ${
               viewMode === 'week'
                 ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-gray-700/50'
