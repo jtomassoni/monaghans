@@ -124,27 +124,54 @@ export default async function HomePage() {
 
   let todaysDrinkSpecial = null;
   for (const special of allDrinkSpecials) {
-    if (special.appliesOn) {
-      // Weekly recurring special
-      try {
-        const appliesOn = typeof special.appliesOn === 'string' 
+    // Parse appliesOn if it exists
+    let appliesOn: string[] = [];
+    try {
+      if (special.appliesOn) {
+        appliesOn = typeof special.appliesOn === 'string' 
           ? JSON.parse(special.appliesOn) 
           : special.appliesOn;
-        if (Array.isArray(appliesOn) && appliesOn.includes(todayName)) {
+        if (!Array.isArray(appliesOn)) {
+          appliesOn = [];
+        }
+      }
+    } catch {
+      // Invalid JSON, skip
+      appliesOn = [];
+    }
+
+    const startDate = special.startDate ? new Date(special.startDate) : null;
+    const endDate = special.endDate ? new Date(special.endDate) : null;
+
+    // If weekly recurring days are set
+    if (appliesOn.length > 0) {
+      // Check if today matches a recurring day
+      if (appliesOn.includes(todayName)) {
+        // If there's also a date range, check if today is within it
+        if (startDate && endDate) {
+          const start = new Date(startDate);
+          start.setHours(0, 0, 0, 0);
+          const end = new Date(endDate);
+          end.setHours(23, 59, 59, 999);
+          
+          if (todayStart >= start && todayStart <= end) {
+            todaysDrinkSpecial = special;
+            break;
+          }
+        } else {
+          // No date range restriction, just check the day
           todaysDrinkSpecial = special;
           break;
         }
-      } catch {
-        // Invalid JSON, skip
       }
-    } else if (special.startDate) {
-      // Date-based special
-      const startDate = new Date(special.startDate);
-      startDate.setHours(0, 0, 0, 0);
-      const endDate = special.endDate ? new Date(special.endDate) : startDate;
-      endDate.setHours(23, 59, 59, 999);
+    } else if (startDate) {
+      // Date-based special (no weekly recurring)
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+      const end = endDate ? new Date(endDate) : start;
+      end.setHours(23, 59, 59, 999);
       
-      if (todayStart >= startDate && todayStart <= endDate) {
+      if (todayStart >= start && todayStart <= end) {
         todaysDrinkSpecial = special;
         break;
       }
@@ -194,7 +221,7 @@ export default async function HomePage() {
   return (
     <main className="min-h-screen bg-[var(--color-background)] text-[var(--color-foreground)] scroll-smooth">
       {/* Hero Section */}
-      <section className="relative h-screen flex items-center justify-center overflow-hidden">
+      <section className="relative min-h-screen md:h-screen flex items-center justify-center overflow-y-auto overflow-x-hidden">
         <div className="absolute inset-0 z-0">
           <Image
             src="/pics/hero.png"
@@ -207,10 +234,10 @@ export default async function HomePage() {
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/80" />
         </div>
         
-        <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
+        <div className="relative z-10 text-center px-3 sm:px-4 max-w-4xl mx-auto py-12 md:py-0">
           {/* Announcement Banner - Ribbon Style */}
           {publishedAnnouncements.length > 0 && (
-            <div className="mb-8 animate-fade-in">
+            <div className="mb-4 sm:mb-6 md:mb-8 animate-fade-in">
               {publishedAnnouncements.map((announcement) => {
                 const hasCTA = announcement.ctaText && announcement.ctaUrl;
                 return (
@@ -219,26 +246,26 @@ export default async function HomePage() {
                     className={`max-w-3xl mx-auto relative ${hasCTA ? 'transform hover:scale-[1.02] transition-transform duration-300' : ''}`}
                   >
                     {/* Ribbon-style announcement */}
-                    <div className="relative bg-gradient-to-r from-yellow-500 via-orange-500 to-red-500 p-1 rounded-lg shadow-2xl">
-                      <div className="bg-black/90 backdrop-blur-md rounded-md p-6 md:p-8">
-                        <div className="flex items-center gap-2 mb-3">
-                          <svg className="w-5 h-5 md:w-6 md:h-6 text-orange-400 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
+                    <div className="relative bg-gradient-to-r from-yellow-500 via-orange-500 to-red-500 p-0.5 sm:p-1 rounded-lg shadow-2xl">
+                      <div className="bg-black/90 backdrop-blur-md rounded-md p-4 sm:p-6 md:p-8">
+                        <div className="flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3">
+                          <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-orange-400 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                           </svg>
-                          <span className="text-orange-400 text-xs md:text-sm font-bold uppercase tracking-widest">
+                          <span className="text-orange-400 text-[10px] xs:text-xs sm:text-xs md:text-sm font-bold uppercase tracking-wider sm:tracking-widest">
                             Announcement
                           </span>
                         </div>
                         
-                        <h2 className="text-3xl md:text-4xl lg:text-5xl font-black text-white mb-4 drop-shadow-lg">
+                        <h2 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-black text-white mb-2 sm:mb-3 md:mb-4 drop-shadow-lg leading-tight">
                           {announcement.title}
                         </h2>
                         
                         {announcement.body && (
                           <div 
-                            className={`text-base md:text-lg text-white/95 mb-4 prose prose-invert prose-lg max-w-none
-                              prose-headings:text-white prose-headings:font-bold
-                              prose-p:text-white/95 prose-p:leading-relaxed
+                            className={`text-xs sm:text-sm md:text-base lg:text-lg text-white/95 mb-3 sm:mb-4 prose prose-invert max-w-none
+                              prose-headings:text-white prose-headings:font-bold prose-headings:text-base sm:prose-headings:text-lg md:prose-headings:text-xl
+                              prose-p:text-white/95 prose-p:leading-relaxed prose-p:text-xs sm:prose-p:text-sm md:prose-p:text-base
                               prose-strong:text-white prose-strong:font-bold
                               prose-a:text-orange-400 prose-a:font-semibold hover:prose-a:text-orange-300
                               prose-ul:text-white/95 prose-li:text-white/95 ${hasCTA ? '' : 'mb-0'}`}
@@ -247,15 +274,15 @@ export default async function HomePage() {
                         )}
 
                         {hasCTA && (
-                          <div className="mt-6 flex justify-center">
+                          <div className="mt-4 sm:mt-6 flex justify-center">
                             <a
                               href={announcement.ctaUrl || '#'}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-400 hover:to-red-400 text-white font-bold text-sm md:text-base rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+                              className="inline-flex items-center gap-1.5 sm:gap-2 px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-400 hover:to-red-400 text-white font-bold text-xs sm:text-sm md:text-base rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
                             >
                               <span>{announcement.ctaText}</span>
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                               </svg>
                             </a>
@@ -264,8 +291,8 @@ export default async function HomePage() {
                       </div>
                     </div>
                     {/* Decorative corner elements */}
-                    <div className="absolute -top-2 -left-2 w-6 h-6 bg-orange-500 rotate-45"></div>
-                    <div className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rotate-45"></div>
+                    <div className="absolute -top-1 -left-1 sm:-top-2 sm:-left-2 w-4 h-4 sm:w-6 sm:h-6 bg-orange-500 rotate-45"></div>
+                    <div className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 w-4 h-4 sm:w-6 sm:h-6 bg-red-500 rotate-45"></div>
                   </div>
                 );
               })}
@@ -274,41 +301,41 @@ export default async function HomePage() {
 
           {/* Today's Specials */}
           {(todaysFoodSpecial || todaysDrinkSpecial) && (
-            <div className="mb-8 max-w-3xl mx-auto animate-fade-in">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="mb-4 sm:mb-6 md:mb-8 max-w-3xl mx-auto animate-fade-in">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                 {/* Food Special */}
                 {todaysFoodSpecial && (
-                  <div className="relative bg-gradient-to-r from-orange-950/90 via-red-950/90 to-orange-950/90 backdrop-blur-md rounded-xl p-6 md:p-8 shadow-xl overflow-hidden">
+                  <div className="relative bg-gradient-to-r from-orange-950/90 via-red-950/90 to-orange-950/90 backdrop-blur-md rounded-lg sm:rounded-xl p-4 sm:p-6 md:p-8 shadow-xl overflow-hidden">
                     <div className="absolute inset-0 opacity-10">
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-orange-400 rounded-full -mr-16 -mt-16"></div>
-                      <div className="absolute bottom-0 left-0 w-24 h-24 bg-red-400 rounded-full -ml-12 -mb-12"></div>
+                      <div className="absolute top-0 right-0 w-24 h-24 sm:w-32 sm:h-32 bg-orange-400 rounded-full -mr-12 -mt-12 sm:-mr-16 sm:-mt-16"></div>
+                      <div className="absolute bottom-0 left-0 w-16 h-16 sm:w-24 sm:h-24 bg-red-400 rounded-full -ml-8 -mb-8 sm:-ml-12 sm:-mb-12"></div>
                     </div>
                     <div className="relative z-10">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="p-2 bg-orange-500/30 rounded-lg">
-                          <svg className="w-6 h-6 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+                        <div className="p-1.5 sm:p-2 bg-orange-500/30 rounded-lg">
+                          <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                           </svg>
                         </div>
-                        <span className="text-orange-400 text-xs md:text-sm font-bold uppercase tracking-wider">
+                        <span className="text-orange-400 text-[10px] xs:text-xs sm:text-xs md:text-sm font-bold uppercase tracking-wider">
                           Today&apos;s Food Special
                         </span>
                       </div>
-                      <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">
+                      <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-white mb-1.5 sm:mb-2 leading-tight">
                         {todaysFoodSpecial.title}
                       </h2>
                       {todaysFoodSpecial.description && (
-                        <p className="text-base text-white/90 mb-2">
+                        <p className="text-xs sm:text-sm md:text-base text-white/90 mb-1.5 sm:mb-2 leading-relaxed">
                           {todaysFoodSpecial.description}
                         </p>
                       )}
                       {todaysFoodSpecial.priceNotes && (
-                        <p className="text-orange-400 font-semibold text-sm md:text-base">
+                        <p className="text-orange-400 font-semibold text-xs sm:text-sm md:text-base">
                           {todaysFoodSpecial.priceNotes}
                         </p>
                       )}
                       {todaysFoodSpecial.timeWindow && (
-                        <p className="text-white/70 text-xs mt-2">
+                        <p className="text-white/70 text-[10px] xs:text-xs mt-1.5 sm:mt-2">
                           {todaysFoodSpecial.timeWindow}
                         </p>
                       )}
@@ -318,37 +345,37 @@ export default async function HomePage() {
 
                 {/* Drink Special */}
                 {todaysDrinkSpecial && (
-                  <div className="relative bg-gradient-to-r from-blue-950/90 via-indigo-950/90 to-blue-950/90 backdrop-blur-md rounded-xl p-6 md:p-8 shadow-xl overflow-hidden">
+                  <div className="relative bg-gradient-to-r from-blue-950/90 via-indigo-950/90 to-blue-950/90 backdrop-blur-md rounded-lg sm:rounded-xl p-4 sm:p-6 md:p-8 shadow-xl overflow-hidden">
                     <div className="absolute inset-0 opacity-10">
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-blue-400 rounded-full -mr-16 -mt-16"></div>
-                      <div className="absolute bottom-0 left-0 w-24 h-24 bg-indigo-400 rounded-full -ml-12 -mb-12"></div>
+                      <div className="absolute top-0 right-0 w-24 h-24 sm:w-32 sm:h-32 bg-blue-400 rounded-full -mr-12 -mt-12 sm:-mr-16 sm:-mt-16"></div>
+                      <div className="absolute bottom-0 left-0 w-16 h-16 sm:w-24 sm:h-24 bg-indigo-400 rounded-full -ml-8 -mb-8 sm:-ml-12 sm:-mb-12"></div>
                     </div>
                     <div className="relative z-10">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="p-2 bg-blue-500/30 rounded-lg">
-                          <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+                        <div className="p-1.5 sm:p-2 bg-blue-500/30 rounded-lg">
+                          <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
                           </svg>
                         </div>
-                        <span className="text-blue-400 text-xs md:text-sm font-bold uppercase tracking-wider">
+                        <span className="text-blue-400 text-[10px] xs:text-xs sm:text-xs md:text-sm font-bold uppercase tracking-wider">
                           Today&apos;s Drink Special
                         </span>
                       </div>
-                      <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">
+                      <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-white mb-1.5 sm:mb-2 leading-tight">
                         {todaysDrinkSpecial.title}
                       </h2>
                       {todaysDrinkSpecial.description && (
-                        <p className="text-base text-white/90 mb-2">
+                        <p className="text-xs sm:text-sm md:text-base text-white/90 mb-1.5 sm:mb-2 leading-relaxed">
                           {todaysDrinkSpecial.description}
                         </p>
                       )}
                       {todaysDrinkSpecial.priceNotes && (
-                        <p className="text-blue-400 font-semibold text-sm md:text-base">
+                        <p className="text-blue-400 font-semibold text-xs sm:text-sm md:text-base">
                           {todaysDrinkSpecial.priceNotes}
                         </p>
                       )}
                       {todaysDrinkSpecial.timeWindow && (
-                        <p className="text-white/70 text-xs mt-2">
+                        <p className="text-white/70 text-[10px] xs:text-xs mt-1.5 sm:mt-2">
                           {todaysDrinkSpecial.timeWindow}
                         </p>
                       )}
