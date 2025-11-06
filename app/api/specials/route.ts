@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, handleError, getCurrentUser, logActivity } from '@/lib/api-helpers';
+import { getMountainTimeWeekday } from '@/lib/timezone';
 
 export async function GET(req: NextRequest) {
   try {
@@ -13,7 +14,7 @@ export async function GET(req: NextRequest) {
       where.isActive = true;
     }
     if (today) {
-      const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+      const todayName = getMountainTimeWeekday();
       where.appliesOn = {
         contains: todayName,
       };

@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import ImageCarousel from '@/components/image-carousel';
 import Footer from '@/components/footer';
 import { marked } from 'marked';
+import { getMountainTimeToday, getMountainTimeTomorrow, getMountainTimeWeekday, getMountainTimeNow } from '@/lib/timezone';
 
 // Configure marked to allow HTML
 marked.setOptions({
@@ -11,12 +12,15 @@ marked.setOptions({
   gfm: true,
 });
 
+// Force dynamic rendering to prevent caching - we need fresh data for today's specials
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function HomePage() {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const tomorrowStart = new Date(today);
-  tomorrowStart.setDate(tomorrowStart.getDate() + 1);
-  tomorrowStart.setHours(0, 0, 0, 0);
+  // Use Mountain Time for all date calculations
+  const today = getMountainTimeToday();
+  const tomorrowStart = getMountainTimeTomorrow();
+  const now = getMountainTimeNow();
 
   // Fetch today's events (all day, not just tonight)
   const todaysEvents = await prisma.event.findMany({
@@ -36,7 +40,7 @@ export default async function HomePage() {
     where: {
       isActive: true,
       startDateTime: {
-        gte: new Date(), // Start from now
+        gte: now, // Start from now (Mountain Time)
       },
     },
     orderBy: { startDateTime: 'asc' },
@@ -44,7 +48,6 @@ export default async function HomePage() {
   });
 
   // Fetch published announcements (most recent first)
-  const now = new Date();
   const publishedAnnouncements = await prisma.announcement.findMany({
     where: {
       isPublished: true,
@@ -91,10 +94,9 @@ export default async function HomePage() {
     where: { key: 'homepageGallery' },
   });
 
-  // Fetch today's specials
-  const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
-  const todayStart = new Date(today);
-  todayStart.setHours(0, 0, 0, 0);
+  // Fetch today's specials using Mountain Time
+  const todayName = getMountainTimeWeekday();
+  const todayStart = getMountainTimeToday();
 
   // Get today's food special (date-based or weekly recurring)
   const allFoodSpecials = await prisma.special.findMany({
@@ -266,7 +268,13 @@ export default async function HomePage() {
       return 'Open Daily';
     }
 
-    const todayDay = days[today.getDay() === 0 ? 6 : today.getDay() - 1];
+    // Get today's day name in Mountain Time
+    const mtToday = getMountainTimeNow();
+    const mtDayName = mtToday.toLocaleDateString('en-US', { 
+      weekday: 'long',
+      timeZone: 'America/Denver'
+    }).toLowerCase();
+    const todayDay = days.find(day => dayNames[days.indexOf(day)].toLowerCase() === mtDayName) || days[0];
     const todayHours = hours[todayDay];
     
     if (todayHours) {

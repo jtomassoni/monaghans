@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { postToFacebook, formatDailySpecialsForFacebook } from '@/lib/facebook-helpers';
+import { getMountainTimeToday, getMountainTimeTomorrow, getMountainTimeWeekday } from '@/lib/timezone';
 
 /**
  * API endpoint for daily posts about specials and events
@@ -48,14 +49,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get today's date
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    // Get today's date in Mountain Time
+    const today = getMountainTimeToday();
+    const tomorrow = getMountainTimeTomorrow();
 
     // Get active specials for today
-    const todayWeekday = today.toLocaleDateString('en-US', { weekday: 'long' });
+    const todayWeekday = getMountainTimeWeekday();
     const allSpecials = await prisma.special.findMany({
       where: {
         isActive: true,

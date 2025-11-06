@@ -1,13 +1,12 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import MenuDisplay from '@/components/menu-display';
+import { getMountainTimeToday, getMountainTimeTomorrow } from '@/lib/timezone';
 
 export default async function MenuPage() {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const tomorrowStart = new Date(today);
-  tomorrowStart.setDate(tomorrowStart.getDate() + 1);
-  tomorrowStart.setHours(0, 0, 0, 0);
+  // Use Mountain Time for date calculations
+  const today = getMountainTimeToday();
+  const tomorrowStart = getMountainTimeTomorrow();
 
   const [breakfastSections, dinnerSections, dailySpecials] = await Promise.all([
     prisma.menuSection.findMany({
