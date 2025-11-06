@@ -5,6 +5,40 @@ import ImageCarousel from '@/components/image-carousel';
 import Footer from '@/components/footer';
 import { marked } from 'marked';
 import { getMountainTimeToday, getMountainTimeTomorrow, getMountainTimeWeekday, getMountainTimeNow } from '@/lib/timezone';
+import { startOfDay, endOfDay } from 'date-fns';
+
+// Helper function to parse YYYY-MM-DD date strings as Mountain Time (not UTC)
+// This prevents dates from shifting by a day due to timezone conversion
+function parseMountainTimeDate(dateStr: string): Date {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  // Try different UTC hours to find which one gives us MT midnight
+  for (let offsetHours = 6; offsetHours <= 7; offsetHours++) {
+    const candidate = new Date(Date.UTC(year, month - 1, day, offsetHours, 0, 0));
+    const mtCandidate = candidate.toLocaleString('en-US', { 
+      timeZone: 'America/Denver',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+    
+    const candidateParts = mtCandidate.split(', ');
+    const candidateDate = candidateParts[0];
+    const candidateTime = candidateParts[1];
+    
+    const targetDate = `${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}/${year}`;
+    
+    if (candidateDate === targetDate && candidateTime === '00:00:00') {
+      return candidate;
+    }
+  }
+  
+  // Fallback: use UTC-7 (MST)
+  return new Date(Date.UTC(year, month - 1, day, 7, 0, 0));
+}
 
 // Configure marked to allow HTML
 marked.setOptions({
@@ -49,23 +83,23 @@ export default async function HomePage() {
 
   // Fetch published announcements (most recent first)
   const publishedAnnouncements = await prisma.announcement.findMany({
-    where: {
-      isPublished: true,
-      AND: [
-        {
-          OR: [
-            { publishAt: null },
-            { publishAt: { lte: now } },
-          ],
-        },
-        {
-          OR: [
-            { expiresAt: null },
-            { expiresAt: { gte: now } },
-          ],
-        },
-      ],
-    },
+      where: {
+        isPublished: true,
+        AND: [
+          {
+            OR: [
+              { publishAt: null },
+              { publishAt: { lte: now } },
+            ],
+          },
+          {
+            OR: [
+              { expiresAt: null },
+              { expiresAt: { gte: now } },
+            ] as any,
+          },
+        ],
+      },
     orderBy: { createdAt: 'desc' },
     take: 1, // Show only the most recent announcement
   });
@@ -126,8 +160,26 @@ export default async function HomePage() {
       appliesOn = [];
     }
 
-    const startDate = special.startDate ? new Date(special.startDate) : null;
-    const endDate = special.endDate ? new Date(special.endDate) : null;
+    // Parse dates as Mountain Time dates (not UTC) to prevent day shifts
+    let startDateStr: string | null = null;
+    let endDateStr: string | null = null;
+    
+    if (special.startDate) {
+      const startDateValue = special.startDate as string | Date;
+      startDateStr = typeof startDateValue === 'string' 
+        ? startDateValue.split('T')[0] 
+        : startDateValue.toISOString().split('T')[0];
+    }
+    
+    if (special.endDate) {
+      const endDateValue = special.endDate as string | Date;
+      endDateStr = typeof endDateValue === 'string' 
+        ? endDateValue.split('T')[0] 
+        : endDateValue.toISOString().split('T')[0];
+    }
+    
+    const startDate = startDateStr ? parseMountainTimeDate(startDateStr) : null;
+    const endDate = endDateStr ? parseMountainTimeDate(endDateStr) : null;
 
     // If weekly recurring days are set
     if (appliesOn.length > 0) {
@@ -141,8 +193,7 @@ export default async function HomePage() {
         // Only check startDate to see if special has started yet
         // Ignore endDate for weekly recurring patterns (they recur indefinitely)
         if (startDate) {
-          const start = new Date(startDate);
-          start.setHours(0, 0, 0, 0);
+          const start = startOfDay(startDate);
           
           // Only check if we're past the start date
           if (todayStart >= start) {
@@ -160,10 +211,8 @@ export default async function HomePage() {
       // Date-based special (no weekly recurring)
       // Only show specials that have both startDate and endDate set
       if (endDate) {
-        const start = new Date(startDate);
-        start.setHours(0, 0, 0, 0);
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
+        const start = startOfDay(startDate);
+        const end = endOfDay(endDate);
         
         if (todayStart >= start && todayStart <= end) {
           todaysFoodSpecial = special;
@@ -201,8 +250,26 @@ export default async function HomePage() {
       appliesOn = [];
     }
 
-    const startDate = special.startDate ? new Date(special.startDate) : null;
-    const endDate = special.endDate ? new Date(special.endDate) : null;
+    // Parse dates as Mountain Time dates (not UTC) to prevent day shifts
+    let startDateStr: string | null = null;
+    let endDateStr: string | null = null;
+    
+    if (special.startDate) {
+      const startDateValue = special.startDate as string | Date;
+      startDateStr = typeof startDateValue === 'string' 
+        ? startDateValue.split('T')[0] 
+        : startDateValue.toISOString().split('T')[0];
+    }
+    
+    if (special.endDate) {
+      const endDateValue = special.endDate as string | Date;
+      endDateStr = typeof endDateValue === 'string' 
+        ? endDateValue.split('T')[0] 
+        : endDateValue.toISOString().split('T')[0];
+    }
+    
+    const startDate = startDateStr ? parseMountainTimeDate(startDateStr) : null;
+    const endDate = endDateStr ? parseMountainTimeDate(endDateStr) : null;
 
     // If weekly recurring days are set
     if (appliesOn.length > 0) {
@@ -216,8 +283,7 @@ export default async function HomePage() {
         // Only check startDate to see if special has started yet
         // Ignore endDate for weekly recurring patterns (they recur indefinitely)
         if (startDate) {
-          const start = new Date(startDate);
-          start.setHours(0, 0, 0, 0);
+          const start = startOfDay(startDate);
           
           // Only check if we're past the start date
           if (todayStart >= start) {
@@ -233,10 +299,8 @@ export default async function HomePage() {
       }
     } else if (startDate) {
       // Date-based special (no weekly recurring)
-      const start = new Date(startDate);
-      start.setHours(0, 0, 0, 0);
-      const end = endDate ? new Date(endDate) : start;
-      end.setHours(23, 59, 59, 999);
+      const start = startOfDay(startDate);
+      const end = endDate ? endOfDay(endDate) : start;
       
       if (todayStart >= start && todayStart <= end) {
         todaysDrinkSpecial = special;
@@ -307,55 +371,131 @@ export default async function HomePage() {
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/80" />
         </div>
         
-        <div className="relative z-10 text-center px-3 sm:px-4 max-w-4xl mx-auto py-12 md:py-0">
-          {/* Announcement Banner - Ribbon Style */}
+        <div className="relative z-10 w-full px-3 sm:px-4 md:px-6 lg:px-8 max-w-7xl mx-auto py-12 md:py-16">
+          {/* Main Header */}
+          <div className="text-center mb-8 md:mb-12">
+            <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold mb-4 md:mb-6 text-white drop-shadow-2xl">
+              {hero.title || "Monaghan's"}
+            </h1>
+            <p className="text-2xl md:text-3xl lg:text-4xl mb-3 md:mb-4 text-white/90 font-light">
+              {hero.tagline || "Bar & Grill"}
+            </p>
+            <p className="text-lg md:text-xl lg:text-2xl mb-6 md:mb-8 text-white/80 italic">
+              {hero.subtitle || "Established 1892 • Denver's Second-Oldest Bar • Minority Woman Owned"}
+            </p>
+            
+            {/* Key Info */}
+            <div className="flex flex-wrap justify-center gap-4 md:gap-6 text-sm md:text-base mb-6 md:mb-8">
+              {contact.city && (
+                <div className="flex items-center gap-2 text-white/90">
+                  <svg className="w-5 h-5 text-[var(--color-accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <span>{contact.city}, CO</span>
+                </div>
+              )}
+              {contact.phone && (
+                <div className="flex items-center gap-2 text-white/90">
+                  <svg className="w-5 h-5 text-[var(--color-accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                  </svg>
+                  <span>{contact.phone}</span>
+                </div>
+              )}
+              {formatHours() !== 'Open Daily' && (
+                <div className="flex items-center gap-2 text-white/90">
+                  <svg className="w-5 h-5 text-[var(--color-accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>{formatHours().replace('Today: ', '')}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Announcement Banner - Compact if not important */}
           {publishedAnnouncements.length > 0 && (
-            <div className="mb-4 sm:mb-6 md:mb-8 animate-fade-in">
+            <div className="mb-6 md:mb-8 max-w-4xl mx-auto animate-fade-in">
               {publishedAnnouncements.map((announcement) => {
-                const hasCTA = announcement.ctaText && announcement.ctaUrl;
+                const announcementWithCTA = announcement as typeof announcement & { ctaText?: string | null; ctaUrl?: string | null };
+                const hasCTA = announcementWithCTA.ctaText && announcementWithCTA.ctaUrl;
+                const isImportant = announcement.title.toLowerCase() !== 'test' && announcement.title.trim().length > 0;
+                
+                if (!isImportant) {
+                  // Compact banner for less important announcements
+                  return (
+                    <div key={announcement.id} className={`bg-gradient-to-r from-yellow-500/20 via-orange-500/20 to-red-500/20 backdrop-blur-sm border border-orange-500/30 rounded-lg p-4 ${hasCTA ? 'pb-6' : ''}`}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <svg className="w-4 h-4 text-orange-400" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                        </svg>
+                        <span className="text-orange-400 text-xs font-semibold uppercase tracking-wider">Announcement</span>
+                      </div>
+                      <h2 className="text-lg md:text-xl font-bold text-white mb-1">{announcement.title}</h2>
+                      {announcement.body && (
+                        <div 
+                          className={`text-sm text-white/90 prose prose-invert prose-sm max-w-none prose-headings:text-white prose-p:text-white/90 prose-p:my-1 ${hasCTA ? 'mb-4' : ''}`}
+                          dangerouslySetInnerHTML={{ __html: marked(announcement.body) }}
+                        />
+                      )}
+                      {hasCTA && (
+                        <div className="mt-4 flex justify-center">
+                          <a
+                            href={announcementWithCTA.ctaUrl || '#'}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-400 hover:to-red-400 text-white font-bold text-xs rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+                          >
+                            <span>{announcementWithCTA.ctaText}</span>
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                            </svg>
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+                
+                // Full banner for important announcements
                 return (
                   <div
                     key={announcement.id}
-                    className={`max-w-3xl mx-auto relative ${hasCTA ? 'transform hover:scale-[1.02] transition-transform duration-300' : ''}`}
+                    className={`relative ${hasCTA ? 'transform hover:scale-[1.01] transition-transform duration-300' : ''}`}
                   >
-                    {/* Ribbon-style announcement */}
                     <div className="relative bg-gradient-to-r from-yellow-500 via-orange-500 to-red-500 p-0.5 sm:p-1 rounded-lg shadow-2xl">
-                      <div className="bg-black/90 backdrop-blur-md rounded-md p-4 sm:p-6 md:p-8">
-                        <div className="flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3">
-                          <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-orange-400 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
+                      <div className={`bg-black/90 backdrop-blur-md rounded-md p-4 sm:p-6 md:p-8 ${hasCTA ? 'pb-6 sm:pb-8 md:pb-10' : ''}`}>
+                        <div className="flex items-center gap-2 mb-3">
+                          <svg className="w-5 h-5 text-orange-400 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                           </svg>
-                          <span className="text-orange-400 text-[10px] xs:text-xs sm:text-xs md:text-sm font-bold uppercase tracking-wider sm:tracking-widest">
+                          <span className="text-orange-400 text-xs sm:text-sm font-bold uppercase tracking-wider">
                             Announcement
                           </span>
                         </div>
                         
-                        <h2 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-black text-white mb-2 sm:mb-3 md:mb-4 drop-shadow-lg leading-tight">
+                        <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-white mb-3 drop-shadow-lg">
                           {announcement.title}
                         </h2>
                         
                         {announcement.body && (
                           <div 
-                            className={`text-xs sm:text-sm md:text-base lg:text-lg text-white/95 mb-3 sm:mb-4 prose prose-invert max-w-none
-                              prose-headings:text-white prose-headings:font-bold prose-headings:text-base sm:prose-headings:text-lg md:prose-headings:text-xl
-                              prose-p:text-white/95 prose-p:leading-relaxed prose-p:text-xs sm:prose-p:text-sm md:prose-p:text-base
-                              prose-strong:text-white prose-strong:font-bold
-                              prose-a:text-orange-400 prose-a:font-semibold hover:prose-a:text-orange-300
-                              prose-ul:text-white/95 prose-li:text-white/95 ${hasCTA ? '' : 'mb-0'}`}
+                            className={`text-sm sm:text-base text-white/95 prose prose-invert max-w-none prose-headings:text-white prose-p:text-white/95 prose-p:my-2 ${hasCTA ? 'mb-6' : 'mb-4'}`}
                             dangerouslySetInnerHTML={{ __html: marked(announcement.body) }}
                           />
                         )}
 
                         {hasCTA && (
-                          <div className="mt-4 sm:mt-6 flex justify-center">
+                          <div className="mt-6 flex justify-center">
                             <a
-                              href={announcement.ctaUrl || '#'}
+                              href={announcementWithCTA.ctaUrl || '#'}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1.5 sm:gap-2 px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-400 hover:to-red-400 text-white font-bold text-xs sm:text-sm md:text-base rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+                              className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-400 hover:to-red-400 text-white font-bold text-sm rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
                             >
-                              <span>{announcement.ctaText}</span>
-                              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <span>{announcementWithCTA.ctaText}</span>
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                               </svg>
                             </a>
@@ -363,258 +503,236 @@ export default async function HomePage() {
                         )}
                       </div>
                     </div>
-                    {/* Decorative corner elements */}
-                    <div className="absolute -top-1 -left-1 sm:-top-2 sm:-left-2 w-4 h-4 sm:w-6 sm:h-6 bg-orange-500 rotate-45"></div>
-                    <div className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 w-4 h-4 sm:w-6 sm:h-6 bg-red-500 rotate-45"></div>
                   </div>
                 );
               })}
             </div>
           )}
 
-          {/* Today's Specials */}
-          {(todaysFoodSpecial || todaysDrinkSpecial) && (
-            <div className="mb-4 sm:mb-6 md:mb-8 max-w-3xl mx-auto animate-fade-in">
-              <div className={`grid gap-3 sm:gap-4 ${
-                todaysFoodSpecial && todaysDrinkSpecial
-                  ? 'grid-cols-1 md:grid-cols-2'
-                  : 'grid-cols-1'
-              }`}>
-                {/* Food Special */}
-                {todaysFoodSpecial && (
-                  <div className={`relative bg-gradient-to-r from-orange-950/90 via-red-950/90 to-orange-950/90 backdrop-blur-md rounded-lg sm:rounded-xl p-4 sm:p-6 md:p-8 shadow-xl overflow-hidden ${
-                    !todaysDrinkSpecial ? 'max-w-2xl mx-auto' : ''
-                  }`}>
-                    <div className="absolute inset-0 opacity-10">
-                      <div className="absolute top-0 right-0 w-24 h-24 sm:w-32 sm:h-32 bg-orange-400 rounded-full -mr-12 -mt-12 sm:-mr-16 sm:-mt-16"></div>
-                      <div className="absolute bottom-0 left-0 w-16 h-16 sm:w-24 sm:h-24 bg-red-400 rounded-full -ml-8 -mb-8 sm:-ml-12 sm:-mb-12"></div>
-                    </div>
-                    <div className="relative z-10">
-                      <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
-                        <div className="p-1.5 sm:p-2 bg-orange-500/30 rounded-lg">
-                          <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                          </svg>
-                        </div>
-                        <span className="text-orange-400 text-[10px] xs:text-xs sm:text-xs md:text-sm font-bold uppercase tracking-wider">
-                          Today&apos;s Food Special
-                        </span>
+          {/* Today's Highlights Section - Dynamic Content */}
+          <div className="mb-8 md:mb-12 max-w-7xl mx-auto">
+            {/* Section Header */}
+            <div className="text-center mb-6 md:mb-8">
+              <h2 className="text-3xl md:text-4xl font-bold text-white mb-2">Today&apos;s Highlights</h2>
+              <div className="w-20 h-0.5 bg-gradient-to-r from-transparent via-white/50 to-transparent mx-auto"></div>
+            </div>
+
+            {/* Dynamic Content Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
+              {/* Food Special */}
+              {todaysFoodSpecial && (
+                <div className="group relative bg-gradient-to-br from-orange-950/95 via-red-950/95 to-orange-950/95 backdrop-blur-md rounded-2xl p-6 md:p-8 shadow-2xl overflow-hidden animate-fade-in hover:scale-[1.02] transition-all duration-300 border border-orange-500/20">
+                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <div className="absolute top-0 right-0 w-40 h-40 bg-orange-400/20 rounded-full -mr-20 -mt-20 blur-2xl"></div>
+                    <div className="absolute bottom-0 left-0 w-32 h-32 bg-red-400/20 rounded-full -ml-16 -mb-16 blur-2xl"></div>
+                  </div>
+                  <div className="relative z-10">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2.5 bg-gradient-to-br from-orange-500/40 to-red-500/40 rounded-xl backdrop-blur-sm">
+                        <svg className="w-6 h-6 text-orange-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                        </svg>
                       </div>
-                      <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-white mb-1.5 sm:mb-2 leading-tight">
-                        {todaysFoodSpecial.title}
-                      </h2>
-                      {todaysFoodSpecial.description && (
-                        <p className="text-xs sm:text-sm md:text-base text-white/90 mb-1.5 sm:mb-2 leading-relaxed">
-                          {todaysFoodSpecial.description}
-                        </p>
-                      )}
-                      {todaysFoodSpecial.priceNotes && (
-                        <p className="text-orange-400 font-semibold text-xs sm:text-sm md:text-base">
+                      <span className="text-orange-300 text-xs font-bold uppercase tracking-wider">
+                        Today&apos;s Food Special
+                      </span>
+                    </div>
+                    <h3 className="text-2xl md:text-3xl font-bold text-white mb-3 leading-tight">
+                      {todaysFoodSpecial.title}
+                    </h3>
+                    {todaysFoodSpecial.description && (
+                      <p className="text-sm md:text-base text-white/90 mb-3 leading-relaxed">
+                        {todaysFoodSpecial.description}
+                      </p>
+                    )}
+                    {todaysFoodSpecial.priceNotes && (
+                      <div className="inline-block px-4 py-2 bg-gradient-to-r from-orange-500/30 to-red-500/30 rounded-lg backdrop-blur-sm mb-3">
+                        <p className="text-orange-200 font-bold text-base md:text-lg">
                           {todaysFoodSpecial.priceNotes}
                         </p>
-                      )}
-                      {todaysFoodSpecial.timeWindow && (
-                        <p className="text-white/70 text-[10px] xs:text-xs mt-1.5 sm:mt-2">
-                          {todaysFoodSpecial.timeWindow}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Drink Special */}
-                {todaysDrinkSpecial && (
-                  <div className={`relative bg-gradient-to-r from-blue-950/90 via-indigo-950/90 to-blue-950/90 backdrop-blur-md rounded-lg sm:rounded-xl p-4 sm:p-6 md:p-8 shadow-xl overflow-hidden ${
-                    !todaysFoodSpecial ? 'max-w-2xl mx-auto' : ''
-                  }`}>
-                    <div className="absolute inset-0 opacity-10">
-                      <div className="absolute top-0 right-0 w-24 h-24 sm:w-32 sm:h-32 bg-blue-400 rounded-full -mr-12 -mt-12 sm:-mr-16 sm:-mt-16"></div>
-                      <div className="absolute bottom-0 left-0 w-16 h-16 sm:w-24 sm:h-24 bg-indigo-400 rounded-full -ml-8 -mb-8 sm:-ml-12 sm:-mb-12"></div>
-                    </div>
-                    <div className="relative z-10">
-                      <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
-                        <div className="p-1.5 sm:p-2 bg-blue-500/30 rounded-lg">
-                          <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                          </svg>
-                        </div>
-                        <span className="text-blue-400 text-[10px] xs:text-xs sm:text-xs md:text-sm font-bold uppercase tracking-wider">
-                          Today&apos;s Drink Special
-                        </span>
                       </div>
-                      <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-white mb-1.5 sm:mb-2 leading-tight">
-                        {todaysDrinkSpecial.title}
-                      </h2>
-                      {todaysDrinkSpecial.description && (
-                        <p className="text-xs sm:text-sm md:text-base text-white/90 mb-1.5 sm:mb-2 leading-relaxed">
-                          {todaysDrinkSpecial.description}
-                        </p>
-                      )}
-                      {todaysDrinkSpecial.priceNotes && (
-                        <p className="text-blue-400 font-semibold text-xs sm:text-sm md:text-base">
+                    )}
+                    {todaysFoodSpecial.timeWindow && (
+                      <div className="flex items-center gap-2 text-white/70 text-sm mt-4 pt-4 border-t border-white/10">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>{todaysFoodSpecial.timeWindow}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Drink Special */}
+              {todaysDrinkSpecial && (
+                <div className="group relative bg-gradient-to-br from-blue-950/95 via-indigo-950/95 to-purple-950/95 backdrop-blur-md rounded-2xl p-6 md:p-8 shadow-2xl overflow-hidden animate-fade-in hover:scale-[1.02] transition-all duration-300 border border-blue-500/20">
+                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <div className="absolute top-0 right-0 w-40 h-40 bg-blue-400/20 rounded-full -mr-20 -mt-20 blur-2xl"></div>
+                    <div className="absolute bottom-0 left-0 w-32 h-32 bg-indigo-400/20 rounded-full -ml-16 -mb-16 blur-2xl"></div>
+                  </div>
+                  <div className="relative z-10">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2.5 bg-gradient-to-br from-blue-500/40 to-indigo-500/40 rounded-xl backdrop-blur-sm">
+                        <svg className="w-6 h-6 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                        </svg>
+                      </div>
+                      <span className="text-blue-300 text-xs font-bold uppercase tracking-wider">
+                        Today&apos;s Drink Special
+                      </span>
+                    </div>
+                    <h3 className="text-2xl md:text-3xl font-bold text-white mb-3 leading-tight">
+                      {todaysDrinkSpecial.title}
+                    </h3>
+                    {todaysDrinkSpecial.description && (
+                      <p className="text-sm md:text-base text-white/90 mb-3 leading-relaxed">
+                        {todaysDrinkSpecial.description}
+                      </p>
+                    )}
+                    {todaysDrinkSpecial.priceNotes && (
+                      <div className="inline-block px-4 py-2 bg-gradient-to-r from-blue-500/30 to-indigo-500/30 rounded-lg backdrop-blur-sm mb-3">
+                        <p className="text-blue-200 font-bold text-base md:text-lg">
                           {todaysDrinkSpecial.priceNotes}
                         </p>
+                      </div>
+                    )}
+                    {todaysDrinkSpecial.timeWindow && (
+                      <div className="flex items-center gap-2 text-white/70 text-sm mt-4 pt-4 border-t border-white/10">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>{todaysDrinkSpecial.timeWindow}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Today's Event */}
+              {todaysEvents.length > 0 && (
+                <div className="group relative bg-gradient-to-br from-purple-950/95 via-pink-950/95 to-purple-950/95 backdrop-blur-md rounded-2xl p-6 md:p-8 shadow-2xl overflow-hidden animate-fade-in hover:scale-[1.02] transition-all duration-300 border border-purple-500/20">
+                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-purple-400/20 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+                    <div className="absolute bottom-0 left-0 w-24 h-24 bg-pink-400/20 rounded-full -ml-12 -mb-12 blur-2xl"></div>
+                  </div>
+                  <div className="relative z-10 flex flex-col h-full">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2.5 bg-gradient-to-br from-purple-500/40 to-pink-500/40 rounded-xl backdrop-blur-sm">
+                        <svg className="w-6 h-6 text-purple-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                      <span className="text-purple-300 text-xs font-bold uppercase tracking-wider">
+                        Today&apos;s Event
+                      </span>
+                    </div>
+                    
+                    <h3 className="text-2xl md:text-3xl font-bold text-white mb-3 leading-tight flex-1">
+                      {todaysEvents[0].title}
+                    </h3>
+                    
+                    {todaysEvents[0].description && (
+                      <p className="text-sm md:text-base text-white/90 mb-4 leading-relaxed">
+                        {todaysEvents[0].description}
+                      </p>
+                    )}
+                    
+                    <div className="flex items-center gap-3 pt-4 mt-auto border-t border-white/10">
+                      <div className="p-2 bg-purple-500/20 rounded-lg">
+                        <svg className="w-5 h-5 text-purple-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <span className="text-purple-200 font-semibold text-sm md:text-base block">
+                          {new Date(todaysEvents[0].startDateTime).toLocaleTimeString('en-US', {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                          })}
+                          {todaysEvents[0].endDateTime &&
+                            ` - ${new Date(todaysEvents[0].endDateTime).toLocaleTimeString('en-US', {
+                              hour: 'numeric',
+                              minute: '2-digit',
+                            })}`}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Happy Hour - Permanent Banner Style */}
+            {happyHour && happyHour.enabled && (
+              <div className="relative bg-gradient-to-r from-green-950/95 via-emerald-950/95 to-green-950/95 backdrop-blur-md rounded-2xl p-6 md:p-8 shadow-xl overflow-hidden border border-green-500/30">
+                {/* Decorative Pattern */}
+                <div className="absolute inset-0 opacity-5">
+                  <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.1)_1px,transparent_1px)] bg-[length:20px_20px]"></div>
+                </div>
+                <div className="absolute top-0 right-0 w-72 h-72 bg-green-400/5 rounded-full -mr-36 -mt-36 blur-3xl"></div>
+                <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-400/5 rounded-full -ml-32 -mb-32 blur-3xl"></div>
+                
+                <div className="relative z-10">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 md:gap-6">
+                    {/* Left Content */}
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2.5 bg-green-500/20 rounded-xl backdrop-blur-sm border border-green-400/30">
+                          <svg className="w-6 h-6 text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <span className="text-green-300/90 text-xs font-semibold uppercase tracking-wider block">
+                            Always Available
+                          </span>
+                          <span className="text-green-200 text-lg font-bold">
+                            Daily Happy Hour
+                          </span>
+                        </div>
+                      </div>
+                      <h3 className="text-2xl md:text-3xl font-bold text-white mb-2">
+                        {happyHour.title || 'Buy One Get One'}
+                      </h3>
+                      {happyHour.description && (
+                        <p className="text-white/90 text-sm md:text-base mb-2 leading-relaxed">
+                          {happyHour.description}
+                        </p>
                       )}
-                      {todaysDrinkSpecial.timeWindow && (
-                        <p className="text-white/70 text-[10px] xs:text-xs mt-1.5 sm:mt-2">
-                          {todaysDrinkSpecial.timeWindow}
+                      {happyHour.details && (
+                        <p className="text-white/70 text-xs md:text-sm mt-2">
+                          {happyHour.details}
                         </p>
                       )}
                     </div>
+                    
+                    {/* Right Time Badge */}
+                    {happyHour.times && (
+                      <div className="flex-shrink-0">
+                        <div className="inline-flex flex-col items-center gap-2 px-6 md:px-8 py-5 md:py-6 bg-green-500/20 backdrop-blur-md rounded-2xl border border-green-400/30 shadow-lg">
+                          <svg className="w-7 h-7 md:w-8 md:h-8 text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span className="text-lg md:text-xl font-bold text-green-200 whitespace-nowrap">
+                            {happyHour.times}
+                          </span>
+                          <span className="text-xs text-green-300/80 font-semibold uppercase tracking-wider">
+                            Every Day
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold mb-6 text-white drop-shadow-2xl">
-            {hero.title || "Monaghan's"}
-          </h1>
-          <p className="text-2xl md:text-3xl lg:text-4xl mb-4 text-white/90 font-light">
-            {hero.tagline || "Bar & Grill"}
-          </p>
-          <p className="text-xl md:text-2xl mb-6 text-white/80 italic">
-            {hero.subtitle || "Established 1892 • Denver's Second-Oldest Bar • Minority Woman Owned"}
-          </p>
-          
-          {/* Key Info */}
-          <div className="mb-8 flex flex-wrap justify-center gap-4 md:gap-6 text-sm md:text-base">
-            {contact.address && (
-              <div className="flex items-center gap-2 text-white/90">
-                <svg className="w-5 h-5 text-[var(--color-accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                <span>{contact.city || 'Sheridan'}, CO</span>
-              </div>
-            )}
-            {contact.phone && (
-              <div className="flex items-center gap-2 text-white/90">
-                <svg className="w-5 h-5 text-[var(--color-accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                </svg>
-                <span>{contact.phone}</span>
-              </div>
-            )}
-            {formatHours() !== 'Open Daily' && (
-              <div className="flex items-center gap-2 text-white/90">
-                <svg className="w-5 h-5 text-[var(--color-accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span>{formatHours().replace('Today: ', '')}</span>
+                </div>
+                
+                {/* Subtle shine effect */}
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/3 to-transparent pointer-events-none"></div>
               </div>
             )}
           </div>
           
-          {/* Today's Events - Card with accent bar */}
-          {todaysEvents.length > 0 && (
-            <div className="mb-8 max-w-2xl mx-auto">
-              <div className="relative bg-black/70 backdrop-blur-md rounded-lg shadow-xl overflow-hidden">
-                {/* Left accent bar */}
-                <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-purple-500 via-pink-500 to-purple-700"></div>
-                
-                <div className="pl-6 pr-6 md:pl-8 md:pr-8 py-6 md:py-8">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-purple-500/20 rounded-lg">
-                      <svg className="w-5 h-5 md:w-6 md:h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                    </div>
-                    <span className="text-purple-400 text-sm md:text-base font-semibold uppercase tracking-wider">
-                      Today&apos;s Event
-                    </span>
-                  </div>
-                  
-                  <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white mb-3">
-                    {todaysEvents[0].title}
-                  </h2>
-                  
-                  {todaysEvents[0].description && (
-                    <p className="text-base md:text-lg text-white/90 mb-4">
-                      {todaysEvents[0].description}
-                    </p>
-                  )}
-                  
-                  <div className="flex flex-wrap items-center gap-4 text-sm md:text-base pt-4 border-t border-white/10">
-                    <div className="flex items-center gap-2">
-                      <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <span className="text-purple-300 font-semibold">
-                        {new Date(todaysEvents[0].startDateTime).toLocaleTimeString('en-US', {
-                          hour: 'numeric',
-                          minute: '2-digit',
-                        })}
-                        {todaysEvents[0].endDateTime &&
-                          ` - ${new Date(todaysEvents[0].endDateTime).toLocaleTimeString('en-US', {
-                            hour: 'numeric',
-                            minute: '2-digit',
-                          })}`}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Happy Hour - Horizontal bar style */}
-          {happyHour && happyHour.enabled && (
-            <div className="mb-8 max-w-2xl mx-auto">
-              <div className="relative bg-gradient-to-r from-green-950/90 via-emerald-950/90 to-green-950/90 backdrop-blur-md rounded-2xl p-6 md:p-8 shadow-xl overflow-hidden">
-                {/* Decorative background pattern */}
-                <div className="absolute inset-0 opacity-10">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-green-400 rounded-full -mr-16 -mt-16"></div>
-                  <div className="absolute bottom-0 left-0 w-24 h-24 bg-emerald-400 rounded-full -ml-12 -mb-12"></div>
-                </div>
-                
-                <div className="relative z-10">
-                  <div className="flex items-start justify-between gap-4 mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2.5 bg-green-500/30 rounded-xl">
-                        <svg className="w-6 h-6 md:w-7 md:h-7 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <div className="text-green-400 text-xs md:text-sm font-bold uppercase tracking-widest mb-1">
-                          Daily Happy Hour
-                        </div>
-                        <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white">
-                          {happyHour.title || 'Buy One Get One'}
-                        </h2>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {happyHour.description && (
-                    <p className="text-base md:text-lg text-white/90 mb-4">
-                      {happyHour.description}
-                    </p>
-                  )}
-                  
-                  <div className="space-y-2 pt-4 border-t border-green-500/30">
-                    {happyHour.times && (
-                      <div className="flex items-center gap-2">
-                        <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span className="text-lg md:text-xl font-bold text-green-400">
-                          {happyHour.times}
-                        </span>
-                      </div>
-                    )}
-                    {happyHour.details && (
-                      <p className="text-sm md:text-base text-white/80 pl-7">
-                        {happyHour.details}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-          
+          {/* Call to Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             {contact.phone && (
               <a

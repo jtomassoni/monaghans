@@ -27,6 +27,48 @@ import { FaMicrophone, FaBrain, FaCalendarAlt, FaUtensils, FaBeer, FaTable, FaCa
 import { FaFootball } from 'react-icons/fa6';
 import { HiChevronLeft, HiChevronRight } from 'react-icons/hi';
 
+// Helper function to parse YYYY-MM-DD date strings as Mountain Time (not UTC)
+// This prevents dates from shifting by a day due to timezone conversion
+function parseMountainTimeDate(dateStr: string): Date {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  // Create date as if it's Mountain Time midnight
+  // We'll use Intl to find what UTC time corresponds to MT midnight
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Denver',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  
+  // Try different UTC hours to find which one gives us MT midnight
+  for (let offsetHours = 6; offsetHours <= 7; offsetHours++) {
+    const candidate = new Date(Date.UTC(year, month - 1, day, offsetHours, 0, 0));
+    const mtCandidate = candidate.toLocaleString('en-US', { 
+      timeZone: 'America/Denver',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+    
+    const candidateParts = mtCandidate.split(', ');
+    const candidateDate = candidateParts[0];
+    const candidateTime = candidateParts[1];
+    
+    const targetDate = `${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}/${year}`;
+    
+    if (candidateDate === targetDate && candidateTime === '00:00:00') {
+      return candidate;
+    }
+  }
+  
+  // Fallback: use UTC-7 (MST)
+  return new Date(Date.UTC(year, month - 1, day, 7, 0, 0));
+}
+
 interface CalendarEvent {
   id: string;
   title: string;
@@ -336,11 +378,12 @@ export default function CalendarView({ events, specials, announcements = [], onE
 
       // Handle food specials (with dates)
       if (special.type === 'food') {
-        const startDate = special.startDate ? new Date(special.startDate) : null;
-        const endDate = special.endDate ? new Date(special.endDate) : null;
+        // Parse dates as Mountain Time dates (not UTC) to prevent day shifts
+        const startDate = special.startDate ? parseMountainTimeDate(special.startDate.split('T')[0]) : null;
+        const endDate = special.endDate ? parseMountainTimeDate(special.endDate.split('T')[0]) : null;
 
         if (startDate) {
-          // Normalize to start of day in local time to prevent timezone issues
+          // Normalize to start of day in Mountain Time to prevent timezone issues
           const normalizedStartDate = startOfDay(startDate);
           const normalizedEndDate = endDate ? startOfDay(endDate) : normalizedStartDate;
           
@@ -365,8 +408,11 @@ export default function CalendarView({ events, specials, announcements = [], onE
       // Handle drink specials (with weekly recurring days or date ranges)
       if (special.type === 'drink') {
         const appliesOn = special.appliesOn ? (typeof special.appliesOn === 'string' ? JSON.parse(special.appliesOn) : special.appliesOn) : [];
-        const startDate = special.startDate ? new Date(special.startDate) : null;
-        const endDate = special.endDate ? new Date(special.endDate) : null;
+        // Parse dates as Mountain Time dates (not UTC) to prevent day shifts
+        const startDateStr = special.startDate ? special.startDate.split('T')[0] : null;
+        const endDateStr = special.endDate ? special.endDate.split('T')[0] : null;
+        const startDate = startDateStr ? parseMountainTimeDate(startDateStr) : null;
+        const endDate = endDateStr ? parseMountainTimeDate(endDateStr) : null;
         
         // If weekly recurring days are set
         if (appliesOn.length > 0) {
@@ -396,7 +442,7 @@ export default function CalendarView({ events, specials, announcements = [], onE
           }
         } else if (startDate) {
           // If date range is set (no weekly recurring)
-          // Normalize to start of day in local time to prevent timezone issues
+          // Normalize to start of day in Mountain Time to prevent timezone issues
           const normalizedStartDate = startOfDay(startDate);
           const normalizedEndDate = endDate ? startOfDay(endDate) : normalizedStartDate;
           
@@ -420,18 +466,49 @@ export default function CalendarView({ events, specials, announcements = [], onE
     announcements.forEach((announcement) => {
       if (!announcement.publishAt || !announcement.expiresAt) return;
 
-      const startDate = new Date(announcement.publishAt);
-      const endDate = new Date(announcement.expiresAt);
+      // Parse dates and get their Mountain Time date components
+      // Dates from Prisma are UTC DateTime, interpret them in Mountain Time
+      const publishDateUTC = new Date(announcement.publishAt);
+      const expireDateUTC = new Date(announcement.expiresAt);
       
-      // Create date range from start to end (inclusive)
-      let date = new Date(Math.max(startDate.getTime(), rangeStart.getTime()));
-      const rangeEndDate = new Date(Math.min(endDate.getTime(), rangeEnd.getTime()));
+      // Use formatToParts to get date components reliably in Mountain Time
+      const publishFormatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/Denver',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      });
+      const expireFormatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/Denver',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      });
+      
+      const publishParts = publishFormatter.formatToParts(publishDateUTC);
+      const expireParts = expireFormatter.formatToParts(expireDateUTC);
+      
+      const publishYear = parseInt(publishParts.find(p => p.type === 'year')!.value);
+      const publishMonth = parseInt(publishParts.find(p => p.type === 'month')!.value);
+      const publishDay = parseInt(publishParts.find(p => p.type === 'day')!.value);
+      
+      const expireYear = parseInt(expireParts.find(p => p.type === 'year')!.value);
+      const expireMonth = parseInt(expireParts.find(p => p.type === 'month')!.value);
+      const expireDay = parseInt(expireParts.find(p => p.type === 'day')!.value);
+      
+      // Create Date objects representing MT midnight for these dates
+      const startDateMT = parseMountainTimeDate(`${publishYear}-${String(publishMonth).padStart(2, '0')}-${String(publishDay).padStart(2, '0')}`);
+      const endDateMT = parseMountainTimeDate(`${expireYear}-${String(expireMonth).padStart(2, '0')}-${String(expireDay).padStart(2, '0')}`);
+      
+      // Create date range from start to end (inclusive) in Mountain Time
+      let date = new Date(Math.max(startDateMT.getTime(), rangeStart.getTime()));
+      const rangeEndDate = new Date(Math.min(endDateMT.getTime(), rangeEnd.getTime()));
       
       while (date <= rangeEndDate) {
         if (isWithinInterval(date, { start: rangeStart, end: rangeEnd })) {
           items.push({
             ...announcement,
-            date: new Date(date),
+            date: startOfDay(new Date(date)),
           });
         }
         date = addDays(date, 1);
@@ -516,10 +593,22 @@ export default function CalendarView({ events, specials, announcements = [], onE
         ? 'bg-yellow-500/80 dark:bg-yellow-600/80 border-yellow-400 dark:border-yellow-500'
         : 'bg-gray-500/60 dark:bg-gray-600/60 border-gray-400 dark:border-gray-500';
     }
-    if (item.recurrenceRule) {
-      return 'bg-purple-500/80 dark:bg-purple-600/80 border-purple-400 dark:border-purple-500';
+    // For events, assign colors based on icon type (same logic as getItemIcon)
+    const title = item.title.toLowerCase();
+    if (title.includes('broncos')) {
+      return 'bg-green-500/80 dark:bg-green-600/80 border-green-400 dark:border-green-500';
     }
-    return 'bg-blue-500/80 dark:bg-blue-600/80 border-blue-400 dark:border-blue-500';
+    if (title.includes('poker')) {
+      return 'bg-red-500/80 dark:bg-red-600/80 border-red-400 dark:border-red-500';
+    }
+    if (title.includes('karaoke') || title.includes('kareoke')) {
+      return 'bg-pink-500/80 dark:bg-pink-600/80 border-pink-400 dark:border-pink-500';
+    }
+    if (title.includes('trivia')) {
+      return 'bg-indigo-500/80 dark:bg-indigo-600/80 border-indigo-400 dark:border-indigo-500';
+    }
+    // Default calendar icon events get teal/cyan color
+    return 'bg-cyan-500/80 dark:bg-cyan-600/80 border-cyan-400 dark:border-cyan-500';
   };
 
   const getItemIcon = (item: CalendarItem) => {

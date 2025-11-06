@@ -1,12 +1,16 @@
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
+import { getMountainTimeNow } from '@/lib/timezone';
 
 export default async function EventsPage() {
+  // Use Mountain Time for date comparison to match the homepage
+  const now = getMountainTimeNow();
+  
   const events = await prisma.event.findMany({
     where: {
       isActive: true,
       startDateTime: {
-        gte: new Date(),
+        gte: now,
       },
     },
     orderBy: { startDateTime: 'asc' },

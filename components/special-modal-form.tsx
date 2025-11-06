@@ -37,30 +37,39 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  // Helper function to format date to YYYY-MM-DD format
+  // Helper function to format date to YYYY-MM-DD format (in Mountain Time)
   const formatDateForInput = (date: any): string => {
     if (!date) return '';
-    if (typeof date === 'string') {
-      // If it's already a string, check if it's ISO format and extract date part
-      if (date.includes('T')) {
-        return date.split('T')[0];
-      }
-      // If it's already in YYYY-MM-DD format, return as is
+    
+    // Convert to Date object if needed
+    let dateObj: Date;
+    if (date instanceof Date) {
+      dateObj = date;
+    } else if (typeof date === 'string') {
+      // If it's already in YYYY-MM-DD format, return as is (assuming it's already Mountain Time)
       if (date.match(/^\d{4}-\d{2}-\d{2}$/)) {
         return date;
       }
-      // Try to parse it
-      const parsed = new Date(date);
-      if (!isNaN(parsed.getTime())) {
-        return parsed.toISOString().split('T')[0];
-      }
-      return date;
+      // Parse ISO string or other date string
+      dateObj = new Date(date);
+    } else {
+      return '';
     }
-    // If it's a Date object
-    if (date instanceof Date) {
-      return date.toISOString().split('T')[0];
+    
+    // Check if date is valid
+    if (isNaN(dateObj.getTime())) {
+      return '';
     }
-    return '';
+    
+    // Format in Mountain Time to get the correct date
+    const mtStr = dateObj.toLocaleDateString('en-US', {
+      timeZone: 'America/Denver',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    const [month, day, year] = mtStr.split('/');
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
   };
 
   const [formData, setFormData] = useState({

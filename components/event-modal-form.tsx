@@ -109,39 +109,100 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
   const [loading, setLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   
-  // Helper function to format date for datetime-local input (local time, not UTC)
+  // Helper function to convert datetime-local string to Date object treating it as Mountain Time
+  // datetime-local format: "YYYY-MM-DDTHH:mm" (no timezone info)
+  const parseAsMountainTime = (dateTimeLocal: string): Date => {
+    if (!dateTimeLocal) return new Date();
+    
+    // Parse the datetime-local string
+    const [datePart, timePart] = dateTimeLocal.split('T');
+    const [year, month, day] = datePart.split('-').map(Number);
+    const [hours, minutes] = (timePart || '00:00').split(':').map(Number);
+    
+    // Create a test date to determine if DST is active on that date
+    // We'll test both possible offsets and see which one gives us the correct Mountain Time
+    // MT is UTC-7 (MST) or UTC-6 (MDT)
+    for (let offsetHours = 6; offsetHours <= 7; offsetHours++) {
+      const candidateUTC = new Date(Date.UTC(year, month - 1, day, hours + offsetHours, minutes, 0));
+      const mtStr = candidateUTC.toLocaleString('en-US', { 
+        timeZone: 'America/Denver',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      });
+      
+      const [candidateDate, candidateTime] = mtStr.split(', ');
+      const targetDate = `${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}/${year}`;
+      const targetTime = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`;
+      
+      if (candidateDate === targetDate && candidateTime === targetTime) {
+        return candidateUTC;
+      }
+    }
+    
+    // Fallback: use UTC-7 (MST) - most common case
+    return new Date(Date.UTC(year, month - 1, day, hours + 7, minutes, 0));
+  };
+
+  // Helper function to format date for datetime-local input (Mountain Time displayed as local)
   const formatDateTimeLocal = (dateTime: string): string => {
     // If already in local format (no timezone), use as-is
     if (!dateTime.includes('Z') && !dateTime.includes('+') && !dateTime.includes('-', 10)) {
       return dateTime.slice(0, 16);
     }
-    // Otherwise parse and convert to local time
+    // Otherwise parse and convert to Mountain Time for display
     const date = new Date(dateTime);
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
+    // Format as Mountain Time
+    const mtStr = date.toLocaleString('en-US', {
+      timeZone: 'America/Denver',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+    
+    // Parse the formatted string: "MM/DD/YYYY, HH:MM"
+    const [datePart, timePart] = mtStr.split(', ');
+    const [month, day, year] = datePart.split('/').map(Number);
+    const [hours, minutes] = timePart.split(':').map(Number);
+    
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
   };
 
-  // Helper function to get today's date/time in datetime-local format
+  // Helper function to get today's date/time in datetime-local format (Mountain Time)
   const getTodayDateTime = (): string => {
     const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
+    const mtStr = now.toLocaleString('en-US', {
+      timeZone: 'America/Denver',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+    
+    const [datePart, timePart] = mtStr.split(', ');
+    const [month, day, year] = datePart.split('/').map(Number);
+    const [hours, minutes] = timePart.split(':').map(Number);
+    
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
   };
 
-  // Helper function to add 3 hours to a datetime string
+  // Helper function to add 3 hours to a datetime string (in Mountain Time)
   const addThreeHours = (dateTime: string): string => {
     if (!dateTime) return '';
-    const date = new Date(dateTime);
-    date.setHours(date.getHours() + 3);
-    return formatDateTimeLocal(date.toISOString());
+    // Parse as Mountain Time, add 3 hours in Mountain Time, then format back
+    const parsed = parseAsMountainTime(dateTime);
+    // Add 3 hours worth of milliseconds
+    const threeHoursLater = new Date(parsed.getTime() + 3 * 60 * 60 * 1000);
+    return formatDateTimeLocal(threeHoursLater.toISOString());
   };
   
   // Parse existing RRULE if editing
@@ -374,8 +435,9 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
           ...formData,
           venueArea: 'bar', // Default value for API compatibility
           recurrenceRule,
-          startDateTime: new Date(formData.startDateTime).toISOString(),
-          endDateTime: formData.endDateTime ? new Date(formData.endDateTime).toISOString() : null,
+          // Convert datetime-local strings to UTC, treating them as Mountain Time
+          startDateTime: parseAsMountainTime(formData.startDateTime).toISOString(),
+          endDateTime: formData.endDateTime ? parseAsMountainTime(formData.endDateTime).toISOString() : null,
         }),
       });
 

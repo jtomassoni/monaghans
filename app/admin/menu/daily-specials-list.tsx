@@ -136,20 +136,35 @@ export default function DailySpecialsList({ initialSpecials }: DailySpecialsList
   }
 
   const isPast = (item: DailySpecial) => {
-    // For daily specials, check if the date has passed
+    // For daily specials, check if the date has passed (using Mountain Time)
     const dateToCheck = item.endDate ? new Date(item.endDate) : (item.startDate ? new Date(item.startDate) : null);
     if (!dateToCheck) return false;
+    
+    // Get today's date in Mountain Time
     const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    const checkDate = new Date(dateToCheck);
-    checkDate.setHours(0, 0, 0, 0);
-    return checkDate < now;
+    const mtToday = now.toLocaleDateString('en-US', {
+      timeZone: 'America/Denver',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    const mtDate = dateToCheck.toLocaleDateString('en-US', {
+      timeZone: 'America/Denver',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    
+    // Compare dates in Mountain Time
+    return mtDate < mtToday;
   };
 
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'No date';
+    // Format date in Mountain Time to prevent timezone shifts
     return new Date(dateString).toLocaleDateString('en-US', {
+      timeZone: 'America/Denver',
       month: 'short',
       day: 'numeric',
       year: 'numeric',

@@ -162,7 +162,9 @@ export default function DrinkSpecialsList({ initialSpecials }: DrinkSpecialsList
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'No date';
+    // Format date in Mountain Time to prevent timezone shifts
     return new Date(dateString).toLocaleDateString('en-US', {
+      timeZone: 'America/Denver',
       month: 'short',
       day: 'numeric',
       year: 'numeric',

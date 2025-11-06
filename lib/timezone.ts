@@ -108,3 +108,39 @@ export function getMountainTimeWeekday(): string {
 export function getMountainTimeNow(): Date {
   return new Date();
 }
+
+/**
+ * Parse a YYYY-MM-DD date string as Mountain Time (not UTC)
+ * This prevents dates from shifting by a day due to timezone conversion
+ * Returns a Date object representing midnight in Mountain Time for that date
+ */
+export function parseMountainTimeDate(dateStr: string): Date {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  // Try different UTC hours to find which one gives us MT midnight
+  for (let offsetHours = 6; offsetHours <= 7; offsetHours++) {
+    const candidate = new Date(Date.UTC(year, month - 1, day, offsetHours, 0, 0));
+    const mtCandidate = candidate.toLocaleString('en-US', { 
+      timeZone: 'America/Denver',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+    
+    const candidateParts = mtCandidate.split(', ');
+    const candidateDate = candidateParts[0];
+    const candidateTime = candidateParts[1];
+    
+    const targetDate = `${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}/${year}`;
+    
+    if (candidateDate === targetDate && candidateTime === '00:00:00') {
+      return candidate;
+    }
+  }
+  
+  // Fallback: use UTC-7 (MST)
+  return new Date(Date.UTC(year, month - 1, day, 7, 0, 0));
+}

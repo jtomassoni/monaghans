@@ -8,6 +8,82 @@ import { showToast } from '@/components/toast';
 import StatusToggle from '@/components/status-toggle';
 import DateTimePicker from '@/components/date-time-picker';
 
+// Helper function to convert UTC ISO string to datetime-local string (Mountain Time)
+// Used when loading dates from the database to display in the form
+function convertUTCToMountainTimeLocal(utcISO: string): string {
+  const utcDate = new Date(utcISO);
+  
+  // Get the date/time components in Mountain Time
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Denver',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+  
+  const parts = formatter.formatToParts(utcDate);
+  const year = parts.find(p => p.type === 'year')!.value;
+  const month = parts.find(p => p.type === 'month')!.value;
+  const day = parts.find(p => p.type === 'day')!.value;
+  const hour = parts.find(p => p.type === 'hour')!.value;
+  const minute = parts.find(p => p.type === 'minute')!.value;
+  
+  // Return datetime-local format: "YYYY-MM-DDTHH:mm"
+  return `${year}-${month}-${day}T${hour}:${minute}`;
+}
+
+// Helper function to convert datetime-local string (interpreted as Mountain Time) to UTC ISO string
+// datetime-local format: "YYYY-MM-DDTHH:mm" (no timezone)
+// We interpret this as Mountain Time and convert to UTC
+function convertMountainTimeToUTC(datetimeLocal: string): string {
+  const [datePart, timePart] = datetimeLocal.split('T');
+  const [year, month, day] = datePart.split('-').map(Number);
+  const [hours, minutes] = timePart.split(':').map(Number);
+  
+  // Create a date string formatted for Mountain Time
+  // Format: "YYYY-MM-DDTHH:mm:ss" and interpret as Mountain Time
+  const mtDateString = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`;
+  
+  // Use Intl to find what UTC time corresponds to this MT time
+  // Try different UTC offsets (6 or 7 hours ahead) to find the right one
+  for (let offsetHours = 6; offsetHours <= 7; offsetHours++) {
+    // Try creating UTC date with offset
+    const candidateUTC = new Date(Date.UTC(year, month - 1, day, hours + offsetHours, minutes, 0));
+    
+    // Check what Mountain Time this UTC time represents
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Denver',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+    
+    const mtParts = formatter.formatToParts(candidateUTC);
+    const mtYear = parseInt(mtParts.find(p => p.type === 'year')!.value);
+    const mtMonth = parseInt(mtParts.find(p => p.type === 'month')!.value);
+    const mtDay = parseInt(mtParts.find(p => p.type === 'day')!.value);
+    const mtHour = parseInt(mtParts.find(p => p.type === 'hour')!.value);
+    const mtMinute = parseInt(mtParts.find(p => p.type === 'minute')!.value);
+    
+    // Check if this UTC time matches our target Mountain Time
+    if (mtYear === year && mtMonth === month && mtDay === day && mtHour === hours && mtMinute === minutes) {
+      return candidateUTC.toISOString();
+    }
+  }
+  
+  // Fallback: assume UTC-7 (MST) - add 7 hours to the MT time
+  const utcDate = new Date(Date.UTC(year, month - 1, day, hours + 7, minutes, 0));
+  return utcDate.toISOString();
+}
+
 interface Announcement {
   id?: string;
   title: string;
@@ -41,10 +117,10 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
     title: announcement?.title || '',
     body: announcement?.body || '',
     publishAt: announcement?.publishAt
-      ? new Date(announcement.publishAt).toISOString().slice(0, 16)
+      ? convertUTCToMountainTimeLocal(announcement.publishAt)
       : '',
     expiresAt: announcement?.expiresAt
-      ? new Date(announcement.expiresAt).toISOString().slice(0, 16)
+      ? convertUTCToMountainTimeLocal(announcement.expiresAt)
       : '',
     crossPostFacebook: announcement?.crossPostFacebook ?? false,
     crossPostInstagram: announcement?.crossPostInstagram ?? false,
@@ -64,10 +140,10 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
         title: announcement.title || '',
         body: announcement.body || '',
         publishAt: announcement.publishAt
-          ? new Date(announcement.publishAt).toISOString().slice(0, 16)
+          ? convertUTCToMountainTimeLocal(announcement.publishAt)
           : '',
         expiresAt: announcement.expiresAt
-          ? new Date(announcement.expiresAt).toISOString().slice(0, 16)
+          ? convertUTCToMountainTimeLocal(announcement.expiresAt)
           : '',
         crossPostFacebook: announcement.crossPostFacebook ?? false,
         crossPostInstagram: announcement.crossPostInstagram ?? false,
@@ -205,24 +281,14 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
       const method = announcement?.id ? 'PUT' : 'POST';
 
       // Convert datetime-local strings to ISO strings
-      // datetime-local inputs return values in format "YYYY-MM-DDTHH:mm" (local time, no timezone)
-      // We need to preserve the local time when converting to ISO
+      // datetime-local inputs return values in format "YYYY-MM-DDTHH:mm" (no timezone)
+      // We interpret these as Mountain Time and convert to UTC
       const publishAtISO = formData.publishAt && formData.publishAt.trim() 
-        ? (() => {
-            const date = new Date(formData.publishAt);
-            // Check if date is valid
-            if (isNaN(date.getTime())) return null;
-            return date.toISOString();
-          })()
+        ? convertMountainTimeToUTC(formData.publishAt)
         : null;
       
       const expiresAtISO = formData.expiresAt && formData.expiresAt.trim()
-        ? (() => {
-            const date = new Date(formData.expiresAt);
-            // Check if date is valid
-            if (isNaN(date.getTime())) return null;
-            return date.toISOString();
-          })()
+        ? convertMountainTimeToUTC(formData.expiresAt)
         : null;
 
       const res = await fetch(url, {
