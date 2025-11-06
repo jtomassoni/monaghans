@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { FaSearch, FaSort, FaFilter } from 'react-icons/fa';
 
 export type SortOption<T> = {
@@ -23,6 +23,7 @@ interface SearchSortFilterProps<T> {
   sortOptions?: SortOption<T>[];
   filterOptions?: FilterOption<T>[];
   defaultSort?: SortOption<T>;
+  actionButton?: React.ReactNode;
 }
 
 export default function SearchSortFilter<T extends Record<string, any>>({
@@ -33,6 +34,7 @@ export default function SearchSortFilter<T extends Record<string, any>>({
   sortOptions = [],
   filterOptions = [],
   defaultSort,
+  actionButton,
 }: SearchSortFilterProps<T>) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption<T> | null>(defaultSort || null);
@@ -92,10 +94,38 @@ export default function SearchSortFilter<T extends Record<string, any>>({
     return result;
   }, [items, searchQuery, sortBy, activeFilter, searchFields, filterOptions]);
 
-  // Notify parent of filtered results
-  useMemo(() => {
-    onFilteredItemsChange(filteredAndSorted);
-  }, [filteredAndSorted, onFilteredItemsChange]);
+  // Store callback in ref to avoid including it in dependency array
+  const callbackRef = useRef(onFilteredItemsChange);
+  useEffect(() => {
+    callbackRef.current = onFilteredItemsChange;
+  }, [onFilteredItemsChange]);
+
+  // Store previous filtered items to compare
+  const prevFilteredRef = useRef<T[]>([]);
+  
+  // Compare arrays by serializing IDs (or item references if no ID)
+  const getArraySignature = (arr: T[]): string => {
+    return arr.map(item => {
+      // Try to use id if available, otherwise use the whole item serialized
+      const id = (item as any).id;
+      return id !== undefined ? String(id) : JSON.stringify(item);
+    }).join('|');
+  };
+
+  // Notify parent of filtered results only when they actually change
+  useEffect(() => {
+    const prevFiltered = prevFilteredRef.current;
+    const currentFiltered = filteredAndSorted;
+    
+    // Compare using serialized signatures
+    const prevSignature = getArraySignature(prevFiltered);
+    const currentSignature = getArraySignature(currentFiltered);
+    
+    if (prevSignature !== currentSignature) {
+      prevFilteredRef.current = currentFiltered;
+      callbackRef.current(currentFiltered);
+    }
+  }, [filteredAndSorted]);
 
   const selectedSortIndex = useMemo(() => {
     if (!sortBy) return 0;
@@ -104,25 +134,32 @@ export default function SearchSortFilter<T extends Record<string, any>>({
   }, [sortBy, sortOptions]);
 
   return (
-    <div className="space-y-3 mb-4">
-      {/* Search and Sort Row */}
-      <div className="flex gap-3 flex-wrap items-center">
+    <div className="space-y-2.5">
+      {/* Search, Sort, and Action Row */}
+      <div className="flex gap-2.5 flex-wrap items-center">
+        {/* Action Button */}
+        {actionButton && (
+          <div className="flex-shrink-0">
+            {actionButton}
+          </div>
+        )}
+        
         {/* Search Bar */}
-        <div className="flex-1 min-w-[280px] relative">
-          <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
+        <div className="flex-1 min-w-[200px] relative">
+          <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 w-4 h-4 pointer-events-none" />
           <input
             type="text"
             placeholder={searchPlaceholder}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-all duration-200"
+            className="w-full pl-10 pr-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 shadow-sm transition-all duration-200 text-sm"
           />
         </div>
 
         {/* Sort Dropdown */}
         {sortOptions.length > 0 && (
           <div className="relative">
-            <FaSort className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none z-10" />
+            <FaSort className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 w-4 h-4 pointer-events-none z-10" />
             <select
               value={selectedSortIndex}
               onChange={(e) => {
@@ -133,7 +170,7 @@ export default function SearchSortFilter<T extends Record<string, any>>({
                   setSortBy(sortOptions[index - 1] || null);
                 }
               }}
-              className="pl-10 pr-8 py-2.5 bg-white border border-gray-300 rounded-lg text-gray-900 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm appearance-none transition-all duration-200 min-w-[200px]"
+              className="pl-10 pr-8 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 shadow-sm appearance-none transition-all duration-200 min-w-[180px] text-sm"
             >
               <option value="0">Sort by...</option>
               {sortOptions.map((option, index) => (
@@ -143,7 +180,7 @@ export default function SearchSortFilter<T extends Record<string, any>>({
               ))}
             </select>
             <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </div>
@@ -151,43 +188,48 @@ export default function SearchSortFilter<T extends Record<string, any>>({
         )}
       </div>
 
-      {/* Filter Buttons */}
+      {/* Filter Dropdown */}
       {filterOptions.length > 0 && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-2 text-sm text-gray-600 font-medium mr-1">
-            <FaFilter className="w-4 h-4" />
-            <span>Filter:</span>
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-2 flex-1">
+            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 font-medium">
+              <FaFilter className="w-4 h-4" />
+              <span>Filter:</span>
+            </div>
+            <div className="relative flex-1 min-w-[200px]">
+              <select
+                value={activeFilter}
+                onChange={(e) => setActiveFilter(e.target.value)}
+                className="w-full pl-4 pr-8 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 shadow-sm appearance-none transition-all duration-200 text-sm"
+              >
+                <option value="all">All Items</option>
+                {filterOptions.map((filter) => (
+                  <option key={filter.value} value={filter.value}>
+                    {filter.label}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                <svg className="w-4 h-4 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
           </div>
-          <button
-            onClick={() => setActiveFilter('all')}
-            className={`px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 shadow-sm ${
-              activeFilter === 'all'
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-500/30 hover:bg-blue-700'
-                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 hover:border-gray-400'
-            }`}
-          >
-            All
-          </button>
-          {filterOptions.map((filter) => (
-            <button
-              key={filter.value}
-              onClick={() => setActiveFilter(filter.value)}
-              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 shadow-sm ${
-                activeFilter === filter.value
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/30 hover:bg-blue-700'
-                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 hover:border-gray-400'
-              }`}
-            >
-              {filter.label}
-            </button>
-          ))}
+          
+          {/* Results Count */}
+          {(searchQuery || activeFilter !== 'all' || sortBy) && (
+            <div className="text-sm text-gray-600 dark:text-gray-400 font-medium flex-shrink-0">
+              {filteredAndSorted.length} of {items.length}
+            </div>
+          )}
         </div>
       )}
 
-      {/* Results Count */}
-      {(searchQuery || activeFilter !== 'all' || sortBy) && (
-        <div className="text-sm text-gray-600 font-medium pt-1">
-          Showing {filteredAndSorted.length} of {items.length} items
+      {/* Results Count (when no filters but has search/sort) */}
+      {filterOptions.length === 0 && (searchQuery || sortBy) && (
+        <div className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+          {filteredAndSorted.length} of {items.length}
         </div>
       )}
     </div>

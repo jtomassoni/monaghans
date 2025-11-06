@@ -1,0 +1,305 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { 
+  FaCalendarAlt, 
+  FaStar, 
+  FaUtensils, 
+  FaBullhorn,
+  FaClock,
+  FaEdit,
+  FaPlus,
+  FaTrash,
+  FaUsers,
+} from 'react-icons/fa';
+import QuickActions from '@/components/quick-actions';
+import PreviewSite from '@/components/preview-site';
+import AnnouncementModalForm from '@/components/announcement-modal-form';
+import EventModalForm from '@/components/event-modal-form';
+import SpecialModalForm from '@/components/special-modal-form';
+
+interface OverviewContentProps {
+  stats: Array<{
+    title: string;
+    total: number;
+    active: number;
+    iconName: string;
+    href: string;
+    color: string;
+    bgColor: string;
+    textColor: string;
+    details?: string;
+    inactive?: number;
+    unpublished?: number;
+  }>;
+  upcomingEvents: Array<{
+    id: string;
+    title: string;
+    startDateTime: Date | string;
+    venueArea?: string | null;
+    formattedDateTime: string;
+  }>;
+  recentActivities: Array<{
+    id: string;
+    action: string;
+    description: string;
+    createdAt: Date | string;
+    formattedDateTime: string;
+    user: {
+      name: string | null;
+      email: string;
+    };
+  }>;
+  publishedAnnouncementsCount: number;
+}
+
+export default function OverviewContent({
+  stats,
+  upcomingEvents,
+  recentActivities,
+  publishedAnnouncementsCount,
+}: OverviewContentProps) {
+  const router = useRouter();
+  const [announcementModalOpen, setAnnouncementModalOpen] = useState(false);
+  const [eventModalOpen, setEventModalOpen] = useState(false);
+  const [specialModalOpen, setSpecialModalOpen] = useState(false);
+
+  // Listen for modal open events
+  useEffect(() => {
+    const handleOpenAnnouncement = () => {
+      setAnnouncementModalOpen(true);
+    };
+    const handleOpenEvent = () => {
+      setEventModalOpen(true);
+    };
+    const handleOpenSpecial = () => {
+      setSpecialModalOpen(true);
+    };
+
+    window.addEventListener('openAnnouncementModal', handleOpenAnnouncement);
+    window.addEventListener('openNewEvent', handleOpenEvent);
+    window.addEventListener('openNewSpecial', handleOpenSpecial);
+
+    return () => {
+      window.removeEventListener('openAnnouncementModal', handleOpenAnnouncement);
+      window.removeEventListener('openNewEvent', handleOpenEvent);
+      window.removeEventListener('openNewSpecial', handleOpenSpecial);
+    };
+  }, []);
+
+  const handleModalSuccess = () => {
+    router.refresh();
+  };
+
+  // Helper function to format date for datetime-local input (local time, not UTC)
+  const formatDateTimeLocal = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  };
+
+  const getDefaultEventData = () => {
+    const now = new Date();
+    const startDateTime = new Date(now);
+    startDateTime.setHours(12, 0, 0, 0);
+    const endDateTime = new Date(startDateTime);
+    endDateTime.setHours(endDateTime.getHours() + 3);
+    return {
+      title: '',
+      description: '',
+      startDateTime: formatDateTimeLocal(startDateTime),
+      endDateTime: formatDateTimeLocal(endDateTime),
+      venueArea: 'bar',
+      recurrenceRule: '',
+      isAllDay: false,
+      tags: [],
+      isActive: true,
+    };
+  };
+
+  // Icon mapping for stats
+  const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+    FaCalendarAlt,
+    FaUtensils,
+    FaBullhorn,
+    FaUsers,
+  };
+
+  return (
+    <>
+      <div className="flex-1 overflow-hidden p-4 relative z-10">
+        <div className="max-w-7xl mx-auto h-full flex flex-col gap-3">
+          {/* Stats Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 flex-shrink-0">
+            {stats.map((stat) => {
+              const Icon = iconMap[stat.iconName];
+              return (
+                <Link
+                  key={stat.title}
+                  href={stat.href}
+                  className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all duration-200 hover:scale-[1.02] p-4 group"
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div className={`p-2 rounded-lg ${stat.bgColor}`}>
+                      <Icon className={`w-5 h-5 ${stat.textColor}`} />
+                    </div>
+                    <div className={`px-3 py-1 rounded-full text-xs font-semibold ${stat.color} text-white border border-white/20`}>
+                      {stat.active} {stat.title === 'Specials & Events' || stat.title === 'Announcements' ? 'Active' : stat.title === 'Menu' ? 'Items' : 'Total'}
+                    </div>
+                  </div>
+                  <h3 className="text-base font-bold text-gray-900 dark:text-white mb-0.5 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                    {stat.title}
+                  </h3>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                    {stat.details ? (
+                      <span>{stat.details}</span>
+                    ) : (
+                      <span>{stat.total} {stat.total === 1 ? 'item' : 'items'} total</span>
+                    )}
+                    {stat.title === 'Specials & Events' && (
+                      <span className="text-gray-400 dark:text-gray-500"> • {stat.active} active</span>
+                    )}
+                    {stat.title === 'Announcements' && (
+                      <span className="text-gray-400 dark:text-gray-500"> • {publishedAnnouncementsCount} published</span>
+                    )}
+                    {stat.inactive !== undefined && stat.inactive > 0 && (
+                      <span className="text-orange-600 dark:text-orange-400"> • {stat.inactive} unavailable</span>
+                    )}
+                    {stat.unpublished !== undefined && stat.unpublished > 0 && (
+                      <span className="text-orange-600 dark:text-orange-400"> • {stat.unpublished} unpublished</span>
+                    )}
+                  </p>
+                </Link>
+              );
+            })}
+          </div>
+
+          {/* Two Column Layout for Events and Activity */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 flex-shrink-0">
+            {/* Upcoming Events */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <FaClock className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  Upcoming Events
+                </h2>
+                <Link
+                  href="/admin/specials-events"
+                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  View All
+                </Link>
+              </div>
+              {upcomingEvents.length > 0 ? (
+                <div className="space-y-2">
+                  {upcomingEvents.map((event: any) => (
+                    <Link
+                      key={event.id}
+                      href={`/admin/specials-events?id=${event.id}`}
+                      className="block p-2 rounded border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-sm font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 truncate">
+                            {event.title}
+                          </h3>
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+                            {event.formattedDateTime}
+                            {event.venueArea && (
+                              <span className="ml-1.5 text-gray-500 dark:text-gray-500">• {event.venueArea}</span>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-gray-500 dark:text-gray-400 text-center py-2">
+                  No upcoming events
+                </p>
+              )}
+            </div>
+
+            {/* Recent Activity */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <FaEdit className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                  Recent Activity
+                </h2>
+                <Link
+                  href="/admin/activity"
+                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                >
+                  View All
+                  <FaEdit className="w-2.5 h-2.5" />
+                </Link>
+              </div>
+              <div className="space-y-2">
+                {recentActivities.length > 0 ? (
+                  recentActivities.map((activity: any) => (
+                    <div
+                      key={activity.id}
+                      className="py-1.5 border-b border-gray-100 dark:border-gray-700 last:border-b-0"
+                    >
+                      <div className="flex items-start gap-1.5">
+                        {activity.action === 'create' && <FaPlus className="w-2.5 h-2.5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />}
+                        {activity.action === 'update' && <FaEdit className="w-2.5 h-2.5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />}
+                        {activity.action === 'delete' && <FaTrash className="w-2.5 h-2.5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-gray-900 dark:text-white">
+                            <span className="font-semibold">{activity.user.name || activity.user.email}</span>{' '}
+                            <span className="text-gray-600 dark:text-gray-400">{activity.description}</span>
+                          </p>
+                          <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+                            {activity.formattedDateTime}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 py-2">No recent activity</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Actions and Preview Site - Compact Row */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 flex-shrink-0">
+            <QuickActions />
+            <PreviewSite />
+          </div>
+        </div>
+      </div>
+
+      {/* Modals */}
+      <AnnouncementModalForm
+        isOpen={announcementModalOpen}
+        onClose={() => setAnnouncementModalOpen(false)}
+        onSuccess={handleModalSuccess}
+      />
+
+      <EventModalForm
+        isOpen={eventModalOpen}
+        onClose={() => setEventModalOpen(false)}
+        event={getDefaultEventData()}
+        onSuccess={handleModalSuccess}
+      />
+
+      <SpecialModalForm
+        isOpen={specialModalOpen}
+        onClose={() => setSpecialModalOpen(false)}
+        defaultType="food"
+        onSuccess={handleModalSuccess}
+      />
+    </>
+  );
+}
+

@@ -1,0 +1,1294 @@
+'use client';
+
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { RRule } from 'rrule';
+import { 
+  format, 
+  startOfMonth, 
+  endOfMonth, 
+  startOfWeek, 
+  endOfWeek, 
+  addDays, 
+  isSameMonth, 
+  isSameDay, 
+  addMonths, 
+  subMonths,
+  startOfDay,
+  endOfDay,
+  eachDayOfInterval,
+  addWeeks,
+  subWeeks,
+  getHours,
+  getMinutes,
+  isSameWeek,
+  isWithinInterval
+} from 'date-fns';
+import { FaMicrophone, FaBrain, FaCalendarAlt, FaUtensils, FaBeer, FaTable, FaCalendarWeek, FaDice, FaBullhorn } from 'react-icons/fa';
+import { FaFootball } from 'react-icons/fa6';
+import { HiChevronLeft, HiChevronRight } from 'react-icons/hi';
+
+interface CalendarEvent {
+  id: string;
+  title: string;
+  description: string | null;
+  startDateTime: string;
+  endDateTime: string | null;
+  venueArea: string;
+  recurrenceRule: string | null;
+  exceptions: string | null;
+  isAllDay: boolean;
+  tags: string[] | null;
+  isActive: boolean;
+  eventType: 'event';
+}
+
+interface CalendarSpecial {
+  id: string;
+  title: string;
+  description: string | null;
+  priceNotes: string | null;
+  type: 'food' | 'drink';
+  appliesOn: string | null;
+  timeWindow: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  isActive: boolean;
+  eventType: 'special';
+}
+
+interface CalendarAnnouncement {
+  id: string;
+  title: string;
+  body: string;
+  publishAt: string | null;
+  expiresAt: string | null;
+  isPublished: boolean;
+  eventType: 'announcement';
+}
+
+type CalendarItem = (CalendarEvent | CalendarSpecial | CalendarAnnouncement) & { date: Date };
+
+interface CalendarViewProps {
+  events: CalendarEvent[];
+  specials: CalendarSpecial[];
+  announcements?: CalendarAnnouncement[];
+  onEventClick?: (eventId: string, occurrenceDate?: Date) => void;
+  onSpecialClick?: (specialId: string) => void;
+  onNewEvent?: (date: Date) => void;
+  onEventUpdate?: () => void;
+  onEventAdded?: (event: CalendarEvent) => void;
+  onEventDeleted?: (eventId: string) => void; // Callback when event is deleted
+}
+
+type ViewMode = 'month' | 'week';
+
+export default function CalendarView({ events, specials, announcements = [], onEventClick, onSpecialClick, onNewEvent, onEventUpdate, onEventAdded, onEventDeleted }: CalendarViewProps) {
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [hoveredDay, setHoveredDay] = useState<Date | null>(null);
+  const [hoveredTimeSlot, setHoveredTimeSlot] = useState<{ day: Date; hour: number } | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('week');
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
+  const [showYearPicker, setShowYearPicker] = useState(false);
+  const calendarRef = useRef<HTMLDivElement>(null);
+  const monthPickerRef = useRef<HTMLDivElement>(null);
+  const yearPickerRef = useRef<HTMLDivElement>(null);
+  const [calendarHeight, setCalendarHeight] = useState(600);
+  const [draggedEvent, setDraggedEvent] = useState<CalendarEvent | null>(null);
+  const [dragPreview, setDragPreview] = useState<{ top: number; day: Date } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [hasDragged, setHasDragged] = useState(false);
+  const [localEvents, setLocalEvents] = useState<CalendarEvent[]>(events);
+  const [newEventIds, setNewEventIds] = useState<Set<string>>(new Set());
+
+  // Update local events when props change
+  useEffect(() => {
+    setLocalEvents(events);
+  }, [events]);
+
+  // Handle event deletion by removing from local state
+  useEffect(() => {
+    if (onEventDeleted) {
+      // This will be called from parent when event is deleted
+    }
+  }, [onEventDeleted]);
+
+  // Listen for new events being added
+  useEffect(() => {
+    if (onEventAdded) {
+      // This will be called from parent when event is created
+    }
+  }, [onEventAdded]);
+
+  useEffect(() => {
+    const updateHeight = () => {
+      if (calendarRef.current) {
+        const rect = calendarRef.current.getBoundingClientRect();
+        setCalendarHeight(rect.height);
+      }
+    };
+
+    updateHeight();
+    window.addEventListener('resize', updateHeight);
+    return () => window.removeEventListener('resize', updateHeight);
+  }, [viewMode]);
+
+  // Close pickers when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        monthPickerRef.current && 
+        !monthPickerRef.current.contains(event.target as Node) &&
+        !(event.target as HTMLElement).closest('[data-month-trigger]')
+      ) {
+        setShowMonthPicker(false);
+      }
+      if (
+        yearPickerRef.current && 
+        !yearPickerRef.current.contains(event.target as Node) &&
+        !(event.target as HTMLElement).closest('[data-year-trigger]')
+      ) {
+        setShowYearPicker(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const monthStart = startOfMonth(currentDate);
+  const monthEnd = endOfMonth(currentDate);
+  const calendarStart = startOfWeek(monthStart);
+  const calendarEnd = endOfWeek(monthEnd);
+
+  const weekStart = startOfWeek(currentDate);
+  const weekEnd = endOfWeek(currentDate);
+
+  // Generate all calendar items
+  const getAllItems = useMemo(() => {
+    const items: CalendarItem[] = [];
+    const rangeStart = viewMode === 'week' ? weekStart : calendarStart;
+    const rangeEnd = viewMode === 'week' ? weekEnd : calendarEnd;
+
+    // Process events
+    events.forEach((event) => {
+      if (!event.isActive) return;
+
+      const startDate = new Date(event.startDateTime);
+      const endDate = event.endDateTime ? new Date(event.endDateTime) : null;
+
+      if (event.recurrenceRule) {
+        try {
+          // Parse exceptions if they exist
+          const exceptions: string[] = event.exceptions ? JSON.parse(event.exceptions) : [];
+          
+          // For monthly events with BYMONTHDAY, we need to handle timezone issues
+          // The problem: BYMONTHDAY is set to the local day (e.g., 18), but RRule uses UTC internally
+          // Solution: Update BYMONTHDAY to match the UTC day that corresponds to the local target day
+          let ruleToUse = event.recurrenceRule;
+          let dtstartDate: Date;
+          
+          if (event.recurrenceRule.includes('BYMONTHDAY')) {
+            // Extract the day-of-month from the RRULE (this is the local day the user wants)
+            const monthDayMatch = event.recurrenceRule.match(/BYMONTHDAY=(\d+)/);
+            if (monthDayMatch) {
+              const targetDay = parseInt(monthDayMatch[1]);
+              
+              // Get year/month from the local displayed date (what user sees)
+              const localYear = startDate.getFullYear();
+              const localMonth = startDate.getMonth();
+              
+              // The key: We need to find what UTC day-of-month, when displayed in local time,
+              // shows as the target day. We'll sample multiple times throughout the local day
+              // to find the UTC day that corresponds to it.
+              
+              // Check at local midday (most reliable)
+              const localTargetMidday = new Date(localYear, localMonth, targetDay, 12, 0, 0);
+              const utcMiddayDay = localTargetMidday.getUTCDate();
+              const utcTargetYear = localTargetMidday.getUTCFullYear();
+              const utcTargetMonth = localTargetMidday.getUTCMonth();
+              
+              // Use the UTC day from midday (most representative of the day)
+              const utcCorrespondingDay = utcMiddayDay;
+              
+              // Update the RRULE to use the UTC day instead of the local day
+              // This ensures RRule calculates occurrences correctly in UTC
+              ruleToUse = event.recurrenceRule.replace(/BYMONTHDAY=\d+/, `BYMONTHDAY=${utcCorrespondingDay}`);
+              
+              // Create dtstart at UTC noon on the corresponding UTC day
+              // This ensures BYMONTHDAY matches dtstart correctly
+              dtstartDate = new Date(Date.UTC(utcTargetYear, utcTargetMonth, utcCorrespondingDay, 12, 0, 0));
+            } else {
+              dtstartDate = startDate;
+            }
+          } else {
+            // For other cases, use the date as-is (already converted to local by JavaScript)
+            dtstartDate = startDate;
+          }
+          
+          // Create RRule with updated BYMONTHDAY and dtstart
+          const rule = RRule.fromString(ruleToUse);
+          const ruleOptions = {
+            ...rule.options,
+            dtstart: dtstartDate,
+          };
+          const ruleWithDtstart = new RRule(ruleOptions);
+          
+          // Use between with inclusive=true to include start date if it's in range
+          // Also ensure we start from the event's start date, not before it
+          const searchStart = startDate > rangeStart ? startDate : rangeStart;
+          const occurrences = ruleWithDtstart.between(searchStart, rangeEnd, true);
+          
+          // Always include the initial event occurrence if it's in the visible range
+          // This ensures the first occurrence appears even if RRule calculation misses it
+          if (isWithinInterval(startDate, { start: rangeStart, end: rangeEnd })) {
+            const startDateStr = format(startDate, 'yyyy-MM-dd');
+            if (!exceptions.includes(startDateStr)) {
+              // Check if the initial occurrence wasn't already added by the RRule
+              const alreadyIncluded = occurrences.some(occ => 
+                format(occ, 'yyyy-MM-dd') === startDateStr
+              );
+              if (!alreadyIncluded) {
+                occurrences.unshift(startDate);
+              }
+            }
+          }
+          
+          occurrences.forEach((occurrence) => {
+            // Skip if this occurrence is in the exceptions list
+            const occurrenceDateStr = format(occurrence, 'yyyy-MM-dd');
+            if (exceptions.includes(occurrenceDateStr)) {
+              return;
+            }
+            
+            // For monthly events with BYMONTHDAY, RRule returns UTC dates
+            // We need to ensure these display correctly in local time
+            // If the target day and occurrence day don't match in local time, adjust
+            let eventStart: Date;
+            if (event.recurrenceRule && event.recurrenceRule.includes('BYMONTHDAY')) {
+              const monthDayMatch = event.recurrenceRule.match(/BYMONTHDAY=(\d+)/);
+              if (monthDayMatch) {
+                const targetDay = parseInt(monthDayMatch[1]); // This is the original local day from RRULE
+                const occurrenceLocalDay = occurrence.getDate(); // What day the occurrence shows in local time
+                
+                // If RRule returned a date that displays as a different day in local time,
+                // we need to adjust it to match the target day
+                if (occurrenceLocalDay !== targetDay) {
+                  // Get the year/month from the occurrence
+                  const occYear = occurrence.getFullYear();
+                  const occMonth = occurrence.getMonth();
+                  
+                  // Create a date with the target day in local timezone
+                  // Use the same time as the original occurrence
+                  const occHours = occurrence.getHours();
+                  const occMinutes = occurrence.getMinutes();
+                  const occSeconds = occurrence.getSeconds();
+                  
+                  eventStart = new Date(occYear, occMonth, targetDay, occHours, occMinutes, occSeconds);
+                } else {
+                  eventStart = new Date(occurrence);
+                }
+              } else {
+                eventStart = new Date(occurrence);
+              }
+            } else {
+              eventStart = new Date(occurrence);
+            }
+            
+            const eventEnd = endDate 
+              ? new Date(eventStart.getTime() + (endDate.getTime() - startDate.getTime()))
+              : null;
+
+            items.push({
+              ...event,
+              date: eventStart,
+              startDateTime: eventStart.toISOString(),
+              endDateTime: eventEnd?.toISOString() || null,
+            });
+          });
+        } catch (e) {
+          if (isWithinInterval(startDate, { start: rangeStart, end: rangeEnd })) {
+            items.push({
+              ...event,
+              date: startDate,
+            });
+          }
+        }
+      } else {
+        if (isWithinInterval(startDate, { start: rangeStart, end: rangeEnd })) {
+          items.push({
+            ...event,
+            date: startDate,
+          });
+        }
+      }
+    });
+
+    // Process specials (daily specials - food type with dates)
+    specials.forEach((special) => {
+      if (!special.isActive) return;
+      if (special.type !== 'food') return;
+
+      const startDate = special.startDate ? new Date(special.startDate) : null;
+      const endDate = special.endDate ? new Date(special.endDate) : null;
+
+      if (startDate) {
+        // If only startDate is provided, treat it as a single-day special
+        const effectiveEndDate = endDate || startDate;
+        
+        let date = new Date(Math.max(startDate.getTime(), rangeStart.getTime()));
+        const rangeEndDate = new Date(Math.min(effectiveEndDate.getTime(), rangeEnd.getTime()));
+        
+        while (date <= rangeEndDate) {
+          if (isWithinInterval(date, { start: rangeStart, end: rangeEnd })) {
+            items.push({
+              ...special,
+              date: new Date(date),
+            });
+          }
+          date = addDays(date, 1);
+        }
+      }
+    });
+
+    // Process announcements
+    announcements.forEach((announcement) => {
+      if (!announcement.publishAt || !announcement.expiresAt) return;
+
+      const startDate = new Date(announcement.publishAt);
+      const endDate = new Date(announcement.expiresAt);
+      
+      // Create date range from start to end (inclusive)
+      let date = new Date(Math.max(startDate.getTime(), rangeStart.getTime()));
+      const rangeEndDate = new Date(Math.min(endDate.getTime(), rangeEnd.getTime()));
+      
+      while (date <= rangeEndDate) {
+        if (isWithinInterval(date, { start: rangeStart, end: rangeEnd })) {
+          items.push({
+            ...announcement,
+            date: new Date(date),
+          });
+        }
+        date = addDays(date, 1);
+      }
+    });
+
+    return items.sort((a, b) => a.date.getTime() - b.date.getTime());
+  }, [localEvents, specials, announcements, currentDate, calendarStart, calendarEnd, weekStart, weekEnd, viewMode]);
+
+  // Group items by date
+  const itemsByDate = useMemo(() => {
+    const grouped: Record<string, CalendarItem[]> = {};
+    getAllItems.forEach((item) => {
+      const dateKey = format(item.date, 'yyyy-MM-dd');
+      if (!grouped[dateKey]) {
+        grouped[dateKey] = [];
+      }
+      grouped[dateKey].push(item);
+    });
+    return grouped;
+  }, [getAllItems]);
+
+  const getItemsForDate = (date: Date) => {
+    const dateKey = format(date, 'yyyy-MM-dd');
+    const allItems = itemsByDate[dateKey] || [];
+    
+    const foodSpecials = allItems.filter(item => item.eventType === 'special' && item.type === 'food');
+    const drinkSpecials = allItems.filter(item => item.eventType === 'special' && item.type === 'drink');
+    const announcements = allItems.filter(item => item.eventType === 'announcement');
+    const eventItems = allItems.filter(item => item.eventType === 'event');
+    
+    const sortedEvents = eventItems.sort((a, b) => {
+      const aIsBroncos = a.title.toLowerCase().includes('broncos');
+      const bIsBroncos = b.title.toLowerCase().includes('broncos');
+      const aIsPoker = a.title.toLowerCase().includes('poker');
+      const bIsPoker = b.title.toLowerCase().includes('poker');
+      const aIsKaraoke = a.title.toLowerCase().includes('karaoke') || a.title.toLowerCase().includes('kareoke');
+      const bIsKaraoke = b.title.toLowerCase().includes('karaoke') || b.title.toLowerCase().includes('kareoke');
+      const aIsRecurring = !!a.recurrenceRule;
+      const bIsRecurring = !!b.recurrenceRule;
+      
+      if (aIsBroncos && !bIsBroncos) return -1;
+      if (!aIsBroncos && bIsBroncos) return 1;
+      if (aIsPoker && !bIsPoker) return -1;
+      if (!aIsPoker && bIsPoker) return 1;
+      if (aIsKaraoke && !bIsKaraoke) return -1;
+      if (!aIsKaraoke && bIsKaraoke) return 1;
+      if (aIsRecurring && !bIsRecurring) return -1;
+      if (!aIsRecurring && bIsRecurring) return 1;
+      
+      return 0;
+    });
+    
+    const prioritized: CalendarItem[] = [];
+    
+    if (foodSpecials.length > 0) {
+      prioritized.push(foodSpecials[0]);
+    }
+    
+    if (drinkSpecials.length > 0) {
+      prioritized.push(drinkSpecials[0]);
+    }
+    
+    if (announcements.length > 0) {
+      prioritized.push(...announcements.slice(0, viewMode === 'week' ? 5 : 2));
+    }
+    
+    const maxEvents = viewMode === 'week' ? 10 : 2;
+    prioritized.push(...sortedEvents.slice(0, maxEvents));
+    
+    return prioritized;
+  };
+
+  const getItemColor = (item: CalendarItem) => {
+    if (item.eventType === 'special') {
+      return item.type === 'food' 
+        ? 'bg-orange-500/80 dark:bg-orange-600/80 border-orange-400 dark:border-orange-500' 
+        : 'bg-blue-500/80 dark:bg-blue-600/80 border-blue-400 dark:border-blue-500';
+    }
+    if (item.eventType === 'announcement') {
+      return item.isPublished
+        ? 'bg-yellow-500/80 dark:bg-yellow-600/80 border-yellow-400 dark:border-yellow-500'
+        : 'bg-gray-500/60 dark:bg-gray-600/60 border-gray-400 dark:border-gray-500';
+    }
+    if (item.recurrenceRule) {
+      return 'bg-purple-500/80 dark:bg-purple-600/80 border-purple-400 dark:border-purple-500';
+    }
+    return 'bg-blue-500/80 dark:bg-blue-600/80 border-blue-400 dark:border-blue-500';
+  };
+
+  const getItemIcon = (item: CalendarItem) => {
+    if (item.eventType === 'special') {
+      return item.type === 'food' ? <FaUtensils className="inline-block w-2.5 h-2.5" /> : <FaBeer className="inline-block w-2.5 h-2.5" />;
+    }
+    if (item.eventType === 'announcement') {
+      return <FaBullhorn className="inline-block w-2.5 h-2.5" />;
+    }
+    const title = item.title.toLowerCase();
+    if (title.includes('broncos')) return <FaFootball className="inline-block w-2.5 h-2.5" />;
+    if (title.includes('poker')) return <FaDice className="inline-block w-2.5 h-2.5" />;
+    if (title.includes('karaoke') || title.includes('kareoke')) return <FaMicrophone className="inline-block w-2.5 h-2.5" />;
+    if (title.includes('trivia')) return <FaBrain className="inline-block w-2.5 h-2.5" />;
+    return <FaCalendarAlt className="inline-block w-2.5 h-2.5" />;
+  };
+
+  const navigateDate = (direction: 'prev' | 'next') => {
+    if (viewMode === 'month') {
+      setCurrentDate(direction === 'prev' ? subMonths(currentDate, 1) : addMonths(currentDate, 1));
+    } else if (viewMode === 'week') {
+      setCurrentDate(direction === 'prev' ? subWeeks(currentDate, 1) : addWeeks(currentDate, 1));
+    } else {
+      setCurrentDate(direction === 'prev' ? subMonths(currentDate, 1) : addMonths(currentDate, 1));
+    }
+  };
+
+  const handleMonthSelect = (monthIndex: number) => {
+    setCurrentDate(new Date(currentDate.getFullYear(), monthIndex, 1));
+    setShowMonthPicker(false);
+  };
+
+  const handleYearSelect = (year: number) => {
+    setCurrentDate(new Date(year, currentDate.getMonth(), 1));
+    setShowYearPicker(false);
+  };
+
+  const getCurrentYear = () => currentDate.getFullYear();
+  const getCurrentMonth = () => currentDate.getMonth();
+
+  const months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  const getYearRange = () => {
+    const currentYear = getCurrentYear();
+    const years = [];
+    for (let i = currentYear - 12; i <= currentYear + 12; i++) {
+      years.push(i);
+    }
+    return years;
+  };
+
+  // Drag and drop handlers for week view
+  const handleDragStart = (e: React.DragEvent, event: CalendarEvent) => {
+    if (event.isAllDay) return; // Don't allow dragging all-day events
+    setIsDragging(true);
+    setHasDragged(false);
+    setDraggedEvent(event);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', event.id);
+    
+    // Create a custom drag image that maintains original size
+    const dragImage = e.currentTarget.cloneNode(true) as HTMLElement;
+    const rect = e.currentTarget.getBoundingClientRect();
+    
+    // Preserve the original dimensions and positioning
+    dragImage.style.position = 'fixed';
+    dragImage.style.left = `${rect.left}px`;
+    dragImage.style.top = `${rect.top}px`;
+    dragImage.style.width = `${rect.width}px`;
+    dragImage.style.height = `${rect.height}px`;
+    dragImage.style.margin = '0';
+    dragImage.style.padding = '0';
+    dragImage.style.opacity = '0.8';
+    dragImage.style.transform = 'rotate(2deg)';
+    dragImage.style.pointerEvents = 'none';
+    dragImage.style.zIndex = '10000';
+    
+    document.body.appendChild(dragImage);
+    
+    // Calculate offset from mouse position to element position
+    const offsetX = e.clientX - rect.left;
+    const offsetY = e.clientY - rect.top;
+    
+    e.dataTransfer.setDragImage(dragImage, offsetX, offsetY);
+    
+    // Clean up after a short delay
+    setTimeout(() => {
+      if (document.body.contains(dragImage)) {
+        document.body.removeChild(dragImage);
+      }
+    }, 0);
+  };
+
+  const handleDragOver = (e: React.DragEvent, day: Date, hourHeight: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setHasDragged(true);
+    
+    if (!draggedEvent) return;
+    
+    const rect = e.currentTarget.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const hour = Math.floor(y / hourHeight);
+    const minutes = Math.floor((y % hourHeight) / hourHeight * 60);
+    const clampedHour = Math.max(0, Math.min(23, hour));
+    const clampedMinutes = Math.floor(minutes / 30) * 30; // Snap to 30-minute intervals (:00 or :30)
+    
+    setDragPreview({
+      top: clampedHour * hourHeight + (clampedMinutes / 60) * hourHeight,
+      day: day
+    });
+  };
+
+  const handleDrop = async (e: React.DragEvent, day: Date, hourHeight: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!draggedEvent) {
+      setIsDragging(false);
+      setDragPreview(null);
+      return;
+    }
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const hour = Math.floor(y / hourHeight);
+    const minutes = Math.floor((y % hourHeight) / hourHeight * 60);
+    const clampedHour = Math.max(0, Math.min(23, hour));
+    const clampedMinutes = Math.floor(minutes / 30) * 30; // Snap to 30-minute intervals (:00 or :30)
+
+    // Calculate new start date/time
+    const originalStart = new Date(draggedEvent.startDateTime);
+    const originalEnd = draggedEvent.endDateTime ? new Date(draggedEvent.endDateTime) : null;
+    const duration = originalEnd ? originalEnd.getTime() - originalStart.getTime() : 60 * 60 * 1000; // Default 1 hour
+
+    const newStart = new Date(day);
+    newStart.setHours(clampedHour, clampedMinutes, 0, 0);
+    
+    const newEnd = new Date(newStart.getTime() + duration);
+
+    try {
+      // Update the event
+      const res = await fetch(`/api/events/${draggedEvent.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: draggedEvent.title,
+          description: draggedEvent.description || '',
+          startDateTime: newStart.toISOString(),
+          endDateTime: newEnd.toISOString(),
+          venueArea: draggedEvent.venueArea || 'bar',
+          recurrenceRule: draggedEvent.recurrenceRule || null,
+          isAllDay: false,
+          tags: draggedEvent.tags || [],
+          isActive: draggedEvent.isActive,
+        }),
+      });
+
+      if (res.ok) {
+        const updatedEvent = await res.json();
+        
+        // Update local state immediately for smooth UX
+        setLocalEvents(prevEvents => 
+          prevEvents.map(event => 
+            event.id === draggedEvent.id 
+              ? {
+                  ...event,
+                  startDateTime: updatedEvent.startDateTime,
+                  endDateTime: updatedEvent.endDateTime,
+                } as CalendarEvent
+              : event
+          )
+        );
+        
+        // Also notify parent if callback exists
+        if (onEventUpdate) {
+          onEventUpdate();
+        }
+        
+        // Don't refresh - local state update is enough for smooth UX
+      } else {
+        console.error('Failed to update event');
+        // On error, show toast but don't reload
+        // The error is already logged, user can try again
+      }
+    } catch (error) {
+      console.error('Failed to update event:', error);
+      // On error, show toast but don't reload
+      // The error is already logged, user can try again
+    }
+
+    setIsDragging(false);
+    setDraggedEvent(null);
+    setDragPreview(null);
+    setHasDragged(false);
+  };
+
+  const handleDragEnd = () => {
+    setIsDragging(false);
+    setDraggedEvent(null);
+    setDragPreview(null);
+    setHasDragged(false);
+  };
+
+  const renderMonthView = () => {
+    const days = [];
+    let day = calendarStart;
+    while (day <= calendarEnd) {
+      days.push(new Date(day));
+      day = addDays(day, 1);
+    }
+
+    // Calculate day height more conservatively to ensure it fits
+    const availableHeight = calendarHeight > 0 ? calendarHeight - 120 : 400; // Account for header and padding
+    const dayHeight = Math.max(50, Math.floor(availableHeight / 6)); // 6 rows max, ensure it fits
+
+    return (
+      <>
+        <div className="grid grid-cols-7 gap-2 mb-3 px-2 pt-2 pb-3 border-b border-gray-200 dark:border-gray-700">
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+            <div key={day} className="text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider py-2">
+              {day}
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-7 gap-2 px-2" style={{ minHeight: `${dayHeight * 6}px` }}>
+          {days.map((day, idx) => {
+            const isCurrentMonth = isSameMonth(day, currentDate);
+            const isToday = isSameDay(day, new Date());
+            const items = getItemsForDate(day);
+            const dateKey = format(day, 'yyyy-MM-dd');
+            const hasAnyItems = (itemsByDate[dateKey]?.length || 0) > 0;
+            const isHovered = hoveredDay && isSameDay(day, hoveredDay);
+
+            return (
+              <div
+                key={idx}
+                onMouseEnter={() => setHoveredDay(day)}
+                onMouseLeave={() => setHoveredDay(null)}
+                className={`rounded-lg p-2 relative transition-all duration-300 flex flex-col border ${
+                  isCurrentMonth 
+                    ? 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500' 
+                    : 'bg-gray-50/50 dark:bg-gray-800/50 border-gray-100 dark:border-gray-700 opacity-60'
+                } ${
+                  isToday 
+                    ? 'ring-2 ring-blue-500 dark:ring-blue-400 ring-offset-2 ring-offset-white dark:ring-offset-gray-800 shadow-md' 
+                    : ''
+                } ${
+                  isHovered && isCurrentMonth
+                    ? 'scale-[1.02] z-10 shadow-md'
+                    : ''
+                } overflow-hidden`}
+                style={{ minHeight: `${dayHeight}px` }}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <div
+                    className={`text-xs font-bold transition-all duration-200 ${
+                      isCurrentMonth 
+                        ? isToday 
+                          ? 'text-blue-400 dark:text-blue-400' 
+                          : 'text-gray-900 dark:text-white' 
+                        : 'text-gray-400 dark:text-gray-500'
+                    } ${isToday ? 'scale-110' : ''}`}
+                  >
+                    {format(day, 'd')}
+                  </div>
+                  {isCurrentMonth && onNewEvent && hasAnyItems && (
+                    <button
+                      onClick={() => onNewEvent(day)}
+                      className={`w-4 h-4 flex items-center justify-center bg-blue-600 hover:bg-blue-500 rounded-full text-white text-[10px] font-bold transition-all duration-200 hover:scale-110 shadow-lg ${isHovered ? 'opacity-100' : 'opacity-0'}`}
+                      title="Add new event"
+                    >
+                      +
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex-1 space-y-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
+                  {items.map((item, itemIdx) => {
+                    const event = item.eventType === 'event' ? item as CalendarEvent : null;
+                    const announcement = item.eventType === 'announcement' ? item as CalendarAnnouncement : null;
+                    const isRecurring = event && !!event.recurrenceRule;
+                    
+                    // Build tooltip with event details
+                    const tooltipParts: string[] = [item.title];
+                    if (announcement) {
+                      if (announcement.publishAt) {
+                        const publishDate = format(new Date(announcement.publishAt), 'MMM d, yyyy h:mm a');
+                        tooltipParts.push(`Publish: ${publishDate}`);
+                      }
+                      if (announcement.expiresAt) {
+                        const expireDate = format(new Date(announcement.expiresAt), 'MMM d, yyyy h:mm a');
+                        tooltipParts.push(`Expires: ${expireDate}`);
+                      }
+                      tooltipParts.push(`Status: ${announcement.isPublished ? 'Published' : 'Draft'}`);
+                    }
+                    if (event) {
+                      if (!event.isAllDay) {
+                        const startTime = format(new Date(event.startDateTime), 'h:mm a');
+                        const endTime = event.endDateTime ? format(new Date(event.endDateTime), 'h:mm a') : null;
+                        tooltipParts.push(`Time: ${startTime}${endTime ? ` - ${endTime}` : ''}`);
+                      }
+                      if (event.description) {
+                        tooltipParts.push(`Description: ${event.description}`);
+                      }
+                      if (event.venueArea && event.venueArea !== 'bar') {
+                        tooltipParts.push(`Venue: ${event.venueArea.charAt(0).toUpperCase() + event.venueArea.slice(1)}`);
+                      }
+                      if (event.tags && event.tags.length > 0) {
+                        tooltipParts.push(`Tags: ${event.tags.join(', ')}`);
+                      }
+                      if (isRecurring) {
+                        tooltipParts.push('🔄 Recurring Event');
+                      }
+                    }
+                    
+                    return (
+                      <div
+                        key={`${item.id}-${format(item.date, 'yyyy-MM-dd')}-${itemIdx}`}
+                        className={`text-[10px] px-1.5 py-1 rounded border shadow-sm cursor-pointer transition-all duration-200 hover:scale-105 hover:shadow-md ${getItemColor(item)} text-white`}
+                        title={tooltipParts.join('\n')}
+                        onClick={() => {
+                          if (item.eventType === 'event') {
+                            if (onEventClick) {
+                              // For recurring events, pass the occurrence date
+                              const event = item as CalendarEvent;
+                              const occurrenceDate = event.recurrenceRule ? item.date : undefined;
+                              onEventClick(item.id, occurrenceDate);
+                            }
+                          } else if (item.eventType === 'special') {
+                            if (onSpecialClick) {
+                              onSpecialClick(item.id);
+                            }
+                          } else if (item.eventType === 'announcement') {
+                            // Open announcement in new tab or navigate
+                            window.open(`/admin/announcements?id=${item.id}`, '_blank');
+                          }
+                        }}
+                      >
+                        <div className="flex items-center gap-1 mb-0.5">
+                          <span className="text-[10px]">{getItemIcon(item)}</span>
+                          <span className="flex-1 truncate font-medium">
+                            {item.title}
+                            {isRecurring && <span className="ml-0.5 opacity-75">🔄</span>}
+                          </span>
+                        </div>
+                        {event && !event.isAllDay && (
+                          <div className="text-[9px] opacity-85 truncate pl-3">
+                            {format(new Date(event.startDateTime), 'h:mm a')}
+                            {event.endDateTime && ` - ${format(new Date(event.endDateTime), 'h:mm a')}`}
+                          </div>
+                        )}
+                        {event && event.description && (
+                          <div className="text-[9px] opacity-75 line-clamp-1 truncate pl-3">
+                            {event.description}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {isCurrentMonth && onNewEvent && !hasAnyItems && (
+                  <div className={`absolute inset-0 flex items-center justify-center pointer-events-none transition-opacity duration-200 ${isHovered ? 'opacity-100' : 'opacity-0'}`}>
+                    <button
+                      onClick={() => onNewEvent(day)}
+                      className="w-8 h-8 flex items-center justify-center bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-full text-white text-lg font-bold transition-all duration-300 hover:scale-110 border border-blue-400 dark:border-blue-500 pointer-events-auto"
+                      title="Add new event"
+                    >
+                      +
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </>
+    );
+  };
+
+  const renderWeekView = () => {
+    const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
+    const availableHeight = calendarHeight > 0 ? calendarHeight - 120 : 500;
+    const hourHeight = Math.max(30, Math.floor(availableHeight / 24));
+
+    // Get items for each day with their time positions
+    const getItemsWithPosition = (day: Date) => {
+      const dayKey = format(day, 'yyyy-MM-dd');
+      const allItems = itemsByDate[dayKey] || [];
+      
+      return allItems.map((item) => {
+        let top = 0;
+        let height = hourHeight;
+        
+        if (item.eventType === 'event') {
+          const event = item as CalendarEvent;
+          if (!event.isAllDay) {
+            const eventDate = new Date(event.startDateTime);
+            const hours = getHours(eventDate);
+            const minutes = getMinutes(eventDate);
+            top = (hours * hourHeight) + (minutes / 60 * hourHeight);
+            
+            if (event.endDateTime) {
+              const endDate = new Date(event.endDateTime);
+              const endHours = getHours(endDate);
+              const endMinutes = getMinutes(endDate);
+              const endTop = (endHours * hourHeight) + (endMinutes / 60 * hourHeight);
+              height = Math.max(hourHeight * 0.5, endTop - top);
+            }
+          } else {
+            // All-day events span the entire day
+            top = 0;
+            height = hourHeight * 24;
+          }
+        } else {
+          // Specials and announcements go at the top
+          top = 0;
+          height = hourHeight * 1.5;
+        }
+        
+        return { item, top, height };
+      }).sort((a, b) => a.top - b.top);
+    };
+
+    return (
+      <>
+        <div className="flex mb-0 border-b border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800">
+          <div className="w-14 flex-shrink-0 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-widest px-3 py-3 border-r border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900"></div>
+          <div className="grid grid-cols-7 flex-1">
+            {weekDays.map((day, dayIndex) => {
+              const isToday = isSameDay(day, new Date());
+              return (
+                <div 
+                  key={format(day, 'EEE')} 
+                  className={`text-center py-3 transition-all duration-200 border-r border-gray-300 dark:border-gray-700 last:border-r-0 ${
+                    isToday 
+                      ? 'bg-blue-50 dark:bg-blue-900/30 border-x border-blue-400 dark:border-blue-500' 
+                      : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  <div className={`text-xs font-semibold uppercase tracking-wider mb-1 ${
+                    isToday ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400'
+                  }`}>{format(day, 'EEE')}</div>
+                  <div className={`text-lg font-bold transition-all duration-200 ${
+                    isToday 
+                      ? 'text-blue-600 dark:text-blue-400' 
+                      : 'text-gray-900 dark:text-white'
+                  }`}>
+                    {format(day, 'd')}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-auto bg-gray-50 dark:bg-gray-900">
+          <div className="flex bg-white dark:bg-gray-800" style={{ minHeight: `${hourHeight * 24}px` }}>
+            {/* Time column */}
+            <div className="flex flex-col sticky left-0 bg-white dark:bg-gray-800 border-r border-gray-300 dark:border-gray-700 pr-1.5 pl-1.5 z-10 shadow-sm w-14 flex-shrink-0">
+              {Array.from({ length: 24 }).map((_, hour) => (
+                <div 
+                  key={hour} 
+                  className="text-xs text-gray-600 dark:text-gray-400 font-medium py-1 flex items-center justify-end border-b border-gray-200 dark:border-gray-700"
+                  style={{ minHeight: `${hourHeight}px` }}
+                >
+                  <span className="leading-none tabular-nums">{hour === 0 ? '12 AM' : hour < 12 ? `${hour} AM` : hour === 12 ? '12 PM' : `${hour - 12} PM`}</span>
+                </div>
+              ))}
+            </div>
+            
+            {/* Day columns */}
+            <div className="grid grid-cols-7 flex-1">
+              {weekDays.map((day, dayIndex) => {
+                const itemsWithPosition = getItemsWithPosition(day);
+                const isToday = isSameDay(day, new Date());
+                
+                return (
+                  <div
+                    key={format(day, 'yyyy-MM-dd')}
+                    className={`relative border-r border-gray-300 dark:border-gray-700 last:border-r-0 ${
+                      isToday 
+                        ? 'bg-blue-50/30 dark:bg-blue-900/20 border-x border-blue-400 dark:border-blue-500' 
+                        : 'bg-white dark:bg-gray-800'
+                    } ${isDragging ? 'bg-blue-50/50 dark:bg-blue-900/30' : ''}`}
+                    style={{ minHeight: `${hourHeight * 24}px` }}
+                    onDragOver={(e) => handleDragOver(e, day, hourHeight)}
+                    onDrop={(e) => handleDrop(e, day, hourHeight)}
+                  >
+                  {/* Hour dividers with clickable time slots */}
+                  {Array.from({ length: 24 }).map((_, hour) => {
+                    const isHovered = hoveredTimeSlot?.day && isSameDay(day, hoveredTimeSlot.day) && hoveredTimeSlot.hour === hour;
+                    const hourStart = new Date(day);
+                    hourStart.setHours(hour, 0, 0, 0);
+                    
+                    return (
+                      <div
+                        key={hour}
+                        className={`absolute left-0 right-0 transition-all duration-150 cursor-pointer border-b border-gray-200 dark:border-gray-700 ${
+                          isHovered ? 'bg-blue-50/80 dark:bg-blue-900/40' : 'hover:bg-gray-50/70 dark:hover:bg-gray-700/50'
+                        }`}
+                        style={{ 
+                          top: `${hour * hourHeight}px`,
+                          height: `${hourHeight}px`
+                        }}
+                        onMouseEnter={() => setHoveredTimeSlot({ day, hour })}
+                        onMouseLeave={() => setHoveredTimeSlot(null)}
+                        onClick={() => {
+                          if (onNewEvent) {
+                            onNewEvent(hourStart);
+                          }
+                        }}
+                      >
+                        {/* Add button on hover */}
+                        <div className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-200 ${
+                          isHovered ? 'opacity-100 scale-100' : 'opacity-0 scale-75'
+                        }`}>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (onNewEvent) {
+                                onNewEvent(hourStart);
+                              }
+                            }}
+                            className="w-7 h-7 flex items-center justify-center bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-full text-white text-sm font-semibold border border-blue-400 dark:border-blue-500 hover:scale-110 transition-all duration-200 z-20"
+                            title={`Add event at ${hour === 0 ? '12 AM' : hour < 12 ? `${hour} AM` : hour === 12 ? '12 PM' : `${hour - 12} PM`}`}
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  
+                  {/* Drag preview */}
+                  {dragPreview && isDragging && draggedEvent && isSameDay(dragPreview.day, day) && (
+                    <div
+                      className="absolute left-2 right-2 px-2.5 py-1.5 rounded-md border-2 border-dashed border-blue-500 dark:border-blue-400 bg-blue-100/40 dark:bg-blue-900/40 z-20 pointer-events-none"
+                      style={{
+                        top: `${dragPreview.top}px`,
+                        height: `${draggedEvent.endDateTime ? (new Date(draggedEvent.endDateTime).getTime() - new Date(draggedEvent.startDateTime).getTime()) / (1000 * 60 * 60) * hourHeight : hourHeight}px`,
+                        minHeight: `${hourHeight * 0.6}px`,
+                      }}
+                    >
+                      <div className="flex items-center gap-1.5 h-full opacity-70">
+                        <span className="text-xs flex-shrink-0">{getItemIcon(draggedEvent as CalendarItem)}</span>
+                        <span className="text-xs font-medium truncate flex-1 leading-tight text-gray-800 dark:text-gray-200">
+                          {draggedEvent.title}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Events positioned by time */}
+                  {itemsWithPosition.map(({ item, top, height }, itemIdx) => {
+                    const isAllDay = item.eventType === 'event' && (item as CalendarEvent).isAllDay;
+                    const isBeingDragged = draggedEvent && item.eventType === 'event' && (item as CalendarEvent).id === draggedEvent.id;
+                    const isNewEvent = item.eventType === 'event' && newEventIds.has((item as CalendarEvent).id);
+                    const isRecurring = item.eventType === 'event' && !!(item as CalendarEvent).recurrenceRule;
+                    
+                    // Build tooltip with event details
+                    const event = item.eventType === 'event' ? item as CalendarEvent : null;
+                    const announcement = item.eventType === 'announcement' ? item as CalendarAnnouncement : null;
+                    const tooltipParts: string[] = [item.title];
+                    if (announcement) {
+                      if (announcement.publishAt) {
+                        const publishDate = format(new Date(announcement.publishAt), 'MMM d, yyyy h:mm a');
+                        tooltipParts.push(`Publish: ${publishDate}`);
+                      }
+                      if (announcement.expiresAt) {
+                        const expireDate = format(new Date(announcement.expiresAt), 'MMM d, yyyy h:mm a');
+                        tooltipParts.push(`Expires: ${expireDate}`);
+                      }
+                      tooltipParts.push(`Status: ${announcement.isPublished ? 'Published' : 'Draft'}`);
+                    }
+                    if (event) {
+                      if (!event.isAllDay) {
+                        const startTime = format(new Date(event.startDateTime), 'h:mm a');
+                        const endTime = event.endDateTime ? format(new Date(event.endDateTime), 'h:mm a') : null;
+                        tooltipParts.push(`Time: ${startTime}${endTime ? ` - ${endTime}` : ''}`);
+                      }
+                      if (event.description) {
+                        tooltipParts.push(`Description: ${event.description}`);
+                      }
+                      if (event.venueArea && event.venueArea !== 'bar') {
+                        tooltipParts.push(`Venue: ${event.venueArea.charAt(0).toUpperCase() + event.venueArea.slice(1)}`);
+                      }
+                      if (event.tags && event.tags.length > 0) {
+                        tooltipParts.push(`Tags: ${event.tags.join(', ')}`);
+                      }
+                      if (isRecurring) {
+                        tooltipParts.push('🔄 Recurring Event');
+                      }
+                    }
+                    
+                    return (
+                      <div
+                        key={`${item.id}-${format(item.date, 'yyyy-MM-dd')}-${itemIdx}`}
+                        draggable={!isAllDay && item.eventType === 'event'}
+                        onDragStart={(e) => {
+                          if (item.eventType === 'event' && !isAllDay) {
+                            handleDragStart(e, item as CalendarEvent);
+                          }
+                        }}
+                        onDragEnd={handleDragEnd}
+                        className={`absolute left-2 right-2 px-2.5 py-1.5 rounded-md cursor-move transition-all duration-300 hover:scale-[1.02] hover:shadow-lg ${getItemColor(item)} text-white z-10 shadow-md border ${
+                          isBeingDragged ? 'opacity-30 scale-95' : 'opacity-100'
+                        } ${isNewEvent ? 'animate-in fade-in slide-in-from-top-2 duration-500' : ''}`}
+                        style={{
+                          top: `${top}px`,
+                          height: `${height}px`,
+                          minHeight: `${isAllDay ? hourHeight * 24 : hourHeight * 0.6}px`,
+                          transition: isBeingDragged ? 'all 0.2s ease-out' : isNewEvent ? 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)' : 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                          animation: isNewEvent ? 'slideInScale 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)' : undefined,
+                        }}
+                        title={tooltipParts.join('\n')}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // Don't open modal if user was dragging
+                          if (hasDragged) return;
+                          if (item.eventType === 'event') {
+                            if (onEventClick) {
+                              // For recurring events, pass the occurrence date
+                              const event = item as CalendarEvent;
+                              const occurrenceDate = event.recurrenceRule ? item.date : undefined;
+                              onEventClick(item.id, occurrenceDate);
+                            }
+                          } else if (item.eventType === 'special') {
+                            if (onSpecialClick) {
+                              onSpecialClick(item.id);
+                            }
+                          } else if (item.eventType === 'announcement') {
+                            // Open announcement in new tab or navigate
+                            window.open(`/admin/announcements?id=${item.id}`, '_blank');
+                          }
+                        }}
+                      >
+                        <div className="flex flex-col gap-0.5 h-full justify-center">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs flex-shrink-0">{getItemIcon(item)}</span>
+                            <span className="text-xs font-medium truncate flex-1 leading-tight">
+                              {item.title}
+                              {isRecurring && <span className="ml-1 opacity-75">🔄</span>}
+                            </span>
+                          </div>
+                          {event && !event.isAllDay && (
+                            <div className="flex items-center gap-1 text-[10px] opacity-90">
+                              <span>{format(new Date(event.startDateTime), 'h:mm a')}</span>
+                              {event.endDateTime && (
+                                <>
+                                  <span>-</span>
+                                  <span>{format(new Date(event.endDateTime), 'h:mm a')}</span>
+                                </>
+                              )}
+                              {event.venueArea && event.venueArea !== 'bar' && (
+                                <>
+                                  <span>•</span>
+                                  <span className="capitalize truncate">{event.venueArea}</span>
+                                </>
+                              )}
+                            </div>
+                          )}
+                          {event && event.description && height > hourHeight * 0.8 && (
+                            <div className="text-[10px] opacity-80 line-clamp-1 truncate">
+                              {event.description}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  };
+
+
+  return (
+    <div className="flex flex-col h-full min-h-0" ref={calendarRef}>
+        {/* Calendar Header */}
+      <div className="flex justify-between items-center mb-3 flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigateDate('prev')}
+            className="w-9 h-9 flex items-center justify-center bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 transition-all duration-200 hover:shadow-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white flex-shrink-0 cursor-pointer active:scale-95 z-10 relative"
+            aria-label="Previous"
+          >
+            <HiChevronLeft className="w-5 h-5 pointer-events-none" />
+          </button>
+          <div className="relative px-4 min-w-[240px] flex items-center justify-center">
+            {viewMode === 'month' ? (
+              <div className="flex items-center gap-2">
+                <button
+                  data-month-trigger
+                  onClick={() => {
+                    setShowMonthPicker(!showMonthPicker);
+                    setShowYearPicker(false);
+                  }}
+                  className="text-xl font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer active:scale-95 z-10 relative"
+                >
+                  {format(currentDate, 'MMMM')}
+                </button>
+                <button
+                  data-year-trigger
+                  onClick={() => {
+                    setShowYearPicker(!showYearPicker);
+                    setShowMonthPicker(false);
+                  }}
+                  className="text-xl font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer active:scale-95 z-10 relative"
+                >
+                  {format(currentDate, 'yyyy')}
+                </button>
+              </div>
+            ) : viewMode === 'week' ? (
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white whitespace-nowrap">
+                {`${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d, yyyy')}`}
+              </h2>
+            ) : (
+              <button
+                data-year-trigger
+                onClick={() => {
+                  setShowYearPicker(!showYearPicker);
+                  setShowMonthPicker(false);
+                }}
+                className="text-2xl font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer active:scale-95 z-10 relative"
+              >
+                {format(currentDate, 'yyyy')}
+              </button>
+            )}
+
+            {/* Month Picker */}
+            {showMonthPicker && viewMode === 'month' && (
+              <div
+                ref={monthPickerRef}
+                className="absolute top-full left-0 mt-2 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl p-2"
+              >
+                <div className="grid grid-cols-3 gap-2">
+                  {months.map((month, index) => (
+                    <button
+                      key={month}
+                      onClick={() => handleMonthSelect(index)}
+                      className={`px-3 py-2 rounded-lg transition-all duration-200 text-sm font-medium cursor-pointer active:scale-95 z-10 relative ${
+                        index === getCurrentMonth()
+                          ? 'bg-blue-500/90 dark:bg-blue-600/90 text-white'
+                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      {month.slice(0, 3)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Year Picker */}
+            {showYearPicker && (
+              <div
+                ref={yearPickerRef}
+                className="absolute top-full left-0 mt-2 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl p-2"
+              >
+                <div className="grid grid-cols-4 gap-2">
+                  {getYearRange().map((year) => (
+                    <button
+                      key={year}
+                      onClick={() => handleYearSelect(year)}
+                      className={`px-3 py-2 rounded-lg transition-all duration-200 text-sm font-medium cursor-pointer active:scale-95 ${
+                        year === getCurrentYear()
+                          ? 'bg-blue-500/90 dark:bg-blue-600/90 text-white'
+                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      {year}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <button
+            onClick={() => navigateDate('next')}
+            className="w-9 h-9 flex items-center justify-center bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 transition-all duration-200 hover:shadow-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white flex-shrink-0 cursor-pointer active:scale-95 z-10 relative"
+            aria-label="Next"
+          >
+            <HiChevronRight className="w-5 h-5 pointer-events-none" />
+          </button>
+          <button
+            onClick={() => setCurrentDate(new Date())}
+            className="px-4 py-1.5 text-xs bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg transition-all duration-200 hover:scale-105 text-white font-semibold ml-2 flex-shrink-0 cursor-pointer active:scale-95 z-10 relative border border-blue-400 dark:border-blue-500"
+          >
+            Today
+          </button>
+        </div>
+
+        {/* View Mode Switcher */}
+        <div className="flex gap-0.5 bg-gray-100 dark:bg-gray-800 rounded-lg p-1 border border-gray-200 dark:border-gray-700">
+          <button
+            onClick={() => setViewMode('month')}
+            className={`px-4 py-2 rounded-md transition-all duration-200 flex items-center gap-1.5 text-xs font-medium cursor-pointer active:scale-95 z-10 relative ${
+              viewMode === 'month'
+                ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-gray-700/50'
+            }`}
+          >
+            <FaTable className="w-3.5 h-3.5 pointer-events-none" />
+            <span className="pointer-events-none">Month</span>
+          </button>
+          <button
+            onClick={() => setViewMode('week')}
+            className={`px-4 py-2 rounded-md transition-all duration-200 flex items-center gap-1.5 text-xs font-medium cursor-pointer active:scale-95 z-10 relative ${
+              viewMode === 'week'
+                ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-gray-700/50'
+            }`}
+          >
+            <FaCalendarWeek className="w-3.5 h-3.5 pointer-events-none" />
+            <span className="pointer-events-none">Week</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Calendar Content */}
+      <div className="flex-1 overflow-auto flex flex-col min-h-0 bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm">
+        {viewMode === 'month' && renderMonthView()}
+        {viewMode === 'week' && renderWeekView()}
+      </div>
+    </div>
+  );
+}

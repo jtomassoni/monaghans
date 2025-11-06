@@ -1,13 +1,26 @@
 @import "tailwindcss";
 
+/* Tailwind v4 dark mode variant declaration */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-background: #0a0a0a;
   --color-foreground: #f5f5f5;
+  --color-accent: #dc2626;
+  --color-accent-dark: #991b1b;
+  --color-gold: #d4af37;
 }
 
 :root {
   --background: var(--color-background);
   --foreground: var(--color-foreground);
+  --accent: var(--color-accent);
+}
+
+html {
+  scroll-behavior: smooth;
+  /* Smooth theme transitions */
+  transition: background-color 0.3s ease-in-out, color 0.3s ease-in-out;
 }
 
 body {
@@ -15,11 +28,125 @@ body {
   background: var(--background);
   font-size: 18px;
   line-height: 1.6;
+  overflow-x: hidden;
+  /* Smooth theme transitions */
+  transition: background-color 0.3s ease-in-out, color 0.3s ease-in-out;
+}
+
+@layer base {
+  /* Ensure all links show pointer cursor */
+  a,
+  a[href],
+  a[href]:hover,
+  a[href]:active,
+  a[href]:focus,
+  a[href]:visited,
+  *[role="link"] {
+    cursor: pointer !important;
+  }
+
+  /* Smooth theme transitions - applies to elements that change colors during theme switch */
+  /* Only apply if element doesn't already have a transition class */
+  div:not([class*="transition-"]), 
+  section:not([class*="transition-"]), 
+  article:not([class*="transition-"]), 
+  nav:not([class*="transition-"]), 
+  header:not([class*="transition-"]), 
+  footer:not([class*="transition-"]), 
+  main:not([class*="transition-"]), 
+  aside:not([class*="transition-"]),
+  p:not([class*="transition-"]), 
+  h1:not([class*="transition-"]), 
+  h2:not([class*="transition-"]), 
+  h3:not([class*="transition-"]), 
+  h4:not([class*="transition-"]), 
+  h5:not([class*="transition-"]), 
+  h6:not([class*="transition-"]), 
+  span:not([class*="transition-"]), 
+  a:not([class*="transition-"]),
+  li:not([class*="transition-"]) {
+    transition-property: background-color, border-color, color, fill, stroke;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 0.3s;
+  }
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
   }
+  
+  .scroll-smooth {
+    scroll-behavior: smooth;
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.3s ease-out;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.6s ease-out;
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-scale-in {
+  animation: scale-in 0.2s ease-out;
+}
+
+/* Custom Scrollbar Styles */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: rgba(75, 85, 99, 0.5);
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(75, 85, 99, 0.8);
+}
+
+/* Firefox scrollbar */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(75, 85, 99, 0.5) transparent;
 }
 

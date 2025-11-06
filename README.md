@@ -67,6 +67,31 @@ See `.env.example` for all required environment variables. Key ones:
 - `DATABASE_URL` - Database connection string (SQLite for dev, Postgres for production)
 - `NEXTAUTH_SECRET` - Secret for NextAuth.js (generate with `openssl rand -base64 32`)
 - `NEXTAUTH_URL` - Your app URL (http://localhost:3000 for dev)
+- `ADMIN_USERNAME` or `ADMIN_EMAIL` - **REQUIRED in production** - Username for admin login (can be simple like "jt" or email format)
+- `ADMIN_PASSWORD` - **REQUIRED in production** - Password for admin login (use a strong password!)
+
+### Admin Credentials
+
+The admin panel is accessible at `/admin/login`. To set up admin access:
+
+1. **Development:** Uses defaults (`admin` / `changeme`) if not set
+2. **Production:** **MUST** set `ADMIN_USERNAME` (or `ADMIN_EMAIL`) and `ADMIN_PASSWORD` environment variables
+   - The system will throw an error if these aren't set in production
+   - A warning will be shown if the password is weak or still using defaults
+   - Use a strong password (at least 8 characters recommended)
+   - Username can be any text - no email format required (e.g., "jt", "admin", "owner")
+
+Example production setup:
+```bash
+ADMIN_USERNAME="jt"
+ADMIN_PASSWORD="your-strong-secure-password-here"
+```
+
+Or use `ADMIN_EMAIL` for backwards compatibility:
+```bash
+ADMIN_EMAIL="admin@monaghans.com"
+ADMIN_PASSWORD="your-strong-secure-password-here"
+```
 
 ## Deployment
 
@@ -80,6 +105,8 @@ See `.env.example` for all required environment variables. Key ones:
      - Option 2: Use external Postgres (e.g., Neon, Supabase, Railway)
    - `NEXTAUTH_SECRET` - Generate with `openssl rand -base64 32`
    - `NEXTAUTH_URL` - Your production URL (e.g., `https://your-domain.vercel.app`)
+   - `ADMIN_USERNAME` or `ADMIN_EMAIL` - **REQUIRED** - Your admin username/login (can be simple like "jt")
+   - `ADMIN_PASSWORD` - **REQUIRED** - Strong password for admin login (change from default!)
 4. After first deploy, run migrations:
    ```bash
    npx vercel env pull .env.local

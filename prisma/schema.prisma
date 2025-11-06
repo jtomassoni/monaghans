@@ -11,77 +11,128 @@ datasource db {
 }
 
 model Special {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   title       String
   description String?
-  priceNotes  String?  // e.g., "$3 drafts", "Happy hour prices"
-  appliesOn   String   // JSON array of weekdays: ["Monday", "Tuesday", ...]
-  timeWindow  String?  // e.g., "11am-3pm", "Happy Hour"
+  priceNotes  String? // e.g., "$3 drafts", "Happy hour prices"
+  type        String    @default("food") // "food" or "drink"
+  appliesOn   String? // JSON array of weekdays: ["Monday", "Tuesday", ...] (optional for date-specific)
+  timeWindow  String? // e.g., "11am-3pm", "Happy Hour"
   startDate   DateTime? // Optional start date
   endDate     DateTime? // Optional end date
-  image       String?  // Path to image in /public/uploads
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  image       String? // Path to image in /public/uploads
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
 model Event {
-  id            String   @id @default(cuid())
-  title         String
-  description   String?
-  startDateTime DateTime
-  endDateTime   DateTime?
-  venueArea     String   @default("bar") // "bar", "stage", "other"
+  id             String    @id @default(cuid())
+  title          String
+  description    String?
+  startDateTime  DateTime
+  endDateTime    DateTime?
+  venueArea      String    @default("bar") // "bar", "stage", "other"
   recurrenceRule String? // RRULE string (RFC 5545)
-  exceptions    String?  // JSON array of exception dates: ["2024-01-15", ...]
-  isAllDay      Boolean  @default(false)
-  tags          String?  // JSON array of tags: ["live-music", "trivia", ...]
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  exceptions     String? // JSON array of exception dates: ["2024-01-15", ...]
+  isAllDay       Boolean   @default(false)
+  tags           String? // JSON array of tags: ["live-music", "trivia", ...]
+  image          String? // Path to image in /public/uploads
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 }
 
 model Announcement {
-  id            String    @id @default(cuid())
-  title         String
-  body          String    // Rich text content (markdown or HTML)
-  heroImage     String?   // Path to image
-  publishAt     DateTime?
-  isPublished   Boolean   @default(false)
-  crossPostFacebook Boolean @default(false)
-  crossPostInstagram Boolean @default(false)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-}
-
-model Page {
-  id        String   @id @default(cuid())
-  slug      String   @unique // e.g., "about", "menu", "contact"
-  title     String
-  content   String   // Rich text content (markdown or HTML)
-  images    String?  // JSON array of image paths
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                 String    @id @default(cuid())
+  title              String
+  body               String // Rich text content (markdown or HTML)
+  heroImage          String? // Path to image
+  publishAt          DateTime? // When to start showing the announcement
+  expiresAt          DateTime? // When to stop showing the announcement
+  isPublished        Boolean   @default(false)
+  crossPostFacebook  Boolean   @default(false)
+  crossPostInstagram Boolean   @default(false)
+  ctaText            String? // Call-to-action button text
+  ctaUrl             String? // Call-to-action button URL
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 }
 
 model Setting {
-  id              String   @id @default(cuid())
-  key             String   @unique
-  value           String   // JSON value for complex data
-  description     String?
-  updatedAt       DateTime @updatedAt
-}
-
-model PostQueue {
   id          String   @id @default(cuid())
-  channel     String   // "facebook", "instagram"
-  payload     String   // JSON payload with caption, link, image, etc.
-  status      String   @default("staged") // "staged", "sent", "failed"
-  scheduledAt DateTime?
-  sentAt      DateTime?
-  error       String?
-  createdAt   DateTime @default(now())
+  key         String   @unique
+  value       String // JSON value for complex data
+  description String?
   updatedAt   DateTime @updatedAt
 }
 
+model PostQueue {
+  id          String    @id @default(cuid())
+  channel     String // "facebook", "instagram"
+  payload     String // JSON payload with caption, link, image, etc.
+  status      String    @default("staged") // "staged", "sent", "failed"
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  error       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model MenuSection {
+  id           String     @id @default(cuid())
+  name         String // e.g., "Starters", "Burgers", "Mexican"
+  description  String? // Optional section description
+  displayOrder Int        @default(0) // For ordering sections
+  menuType     String     @default("dinner") // "breakfast", "dinner", "both"
+  isActive     Boolean    @default(true)
+  items        MenuItem[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model MenuItem {
+  id           String      @id @default(cuid())
+  sectionId    String
+  section      MenuSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  name         String
+  description  String? // Optional item description
+  price        String? // Price as string (e.g., "$14", "$8-12", "Market Price")
+  priceNotes   String? // Additional pricing info (e.g., "Full: $14, Half: $8")
+  modifiers    String? // JSON array of modifier options
+  isAvailable  Boolean     @default(true)
+  displayOrder Int         @default(0) // For ordering within section
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([sectionId])
+}
+
+model User {
+  id         String        @id @default(cuid())
+  email      String        @unique
+  name       String?
+  image      String? // Profile image from Google
+  role       String        @default("admin") // "superadmin" or "admin"
+  isActive   Boolean       @default(true)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  activities ActivityLog[]
+}
+
+model ActivityLog {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action      String // "create", "update", "delete"
+  entityType  String // "menuItem", "menuSection", "event", "special", "announcement", "user", "setting"
+  entityId    String
+  entityName  String? // Display name of the entity (e.g., "Cheeseburger")
+  changes     String? // JSON object with before/after values for updates
+  description String // Human-readable description (e.g., "Changed name from 'A' to 'B'")
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
