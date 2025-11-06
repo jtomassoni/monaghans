@@ -310,10 +310,16 @@ export default async function HomePage() {
           {/* Today's Specials */}
           {(todaysFoodSpecial || todaysDrinkSpecial) && (
             <div className="mb-4 sm:mb-6 md:mb-8 max-w-3xl mx-auto animate-fade-in">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+              <div className={`grid gap-3 sm:gap-4 ${
+                todaysFoodSpecial && todaysDrinkSpecial
+                  ? 'grid-cols-1 md:grid-cols-2'
+                  : 'grid-cols-1'
+              }`}>
                 {/* Food Special */}
                 {todaysFoodSpecial && (
-                  <div className="relative bg-gradient-to-r from-orange-950/90 via-red-950/90 to-orange-950/90 backdrop-blur-md rounded-lg sm:rounded-xl p-4 sm:p-6 md:p-8 shadow-xl overflow-hidden">
+                  <div className={`relative bg-gradient-to-r from-orange-950/90 via-red-950/90 to-orange-950/90 backdrop-blur-md rounded-lg sm:rounded-xl p-4 sm:p-6 md:p-8 shadow-xl overflow-hidden ${
+                    !todaysDrinkSpecial ? 'max-w-2xl mx-auto' : ''
+                  }`}>
                     <div className="absolute inset-0 opacity-10">
                       <div className="absolute top-0 right-0 w-24 h-24 sm:w-32 sm:h-32 bg-orange-400 rounded-full -mr-12 -mt-12 sm:-mr-16 sm:-mt-16"></div>
                       <div className="absolute bottom-0 left-0 w-16 h-16 sm:w-24 sm:h-24 bg-red-400 rounded-full -ml-8 -mb-8 sm:-ml-12 sm:-mb-12"></div>
@@ -353,7 +359,9 @@ export default async function HomePage() {
 
                 {/* Drink Special */}
                 {todaysDrinkSpecial && (
-                  <div className="relative bg-gradient-to-r from-blue-950/90 via-indigo-950/90 to-blue-950/90 backdrop-blur-md rounded-lg sm:rounded-xl p-4 sm:p-6 md:p-8 shadow-xl overflow-hidden">
+                  <div className={`relative bg-gradient-to-r from-blue-950/90 via-indigo-950/90 to-blue-950/90 backdrop-blur-md rounded-lg sm:rounded-xl p-4 sm:p-6 md:p-8 shadow-xl overflow-hidden ${
+                    !todaysFoodSpecial ? 'max-w-2xl mx-auto' : ''
+                  }`}>
                     <div className="absolute inset-0 opacity-10">
                       <div className="absolute top-0 right-0 w-24 h-24 sm:w-32 sm:h-32 bg-blue-400 rounded-full -mr-12 -mt-12 sm:-mr-16 sm:-mt-16"></div>
                       <div className="absolute bottom-0 left-0 w-16 h-16 sm:w-24 sm:h-24 bg-indigo-400 rounded-full -ml-8 -mb-8 sm:-ml-12 sm:-mb-12"></div>
