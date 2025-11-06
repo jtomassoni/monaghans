@@ -298,26 +298,33 @@ export default function CalendarView({ events, specials, announcements = [], onE
               ? new Date(eventStart.getTime() + (endDate.getTime() - startDate.getTime()))
               : null;
 
+            // Normalize to start of day to ensure correct day assignment
+            const eventDay = startOfDay(eventStart);
+
             items.push({
               ...event,
-              date: eventStart,
+              date: eventDay,
               startDateTime: eventStart.toISOString(),
               endDateTime: eventEnd?.toISOString() || null,
             });
           });
         } catch (e) {
           if (isWithinInterval(startDate, { start: rangeStart, end: rangeEnd })) {
+            // Normalize to start of day to ensure correct day assignment
+            const eventDay = startOfDay(startDate);
             items.push({
               ...event,
-              date: startDate,
+              date: eventDay,
             });
           }
         }
       } else {
         if (isWithinInterval(startDate, { start: rangeStart, end: rangeEnd })) {
+          // Normalize to start of day to ensure correct day assignment
+          const eventDay = startOfDay(startDate);
           items.push({
             ...event,
-            date: startDate,
+            date: eventDay,
           });
         }
       }
@@ -343,7 +350,7 @@ export default function CalendarView({ events, specials, announcements = [], onE
             if (isWithinInterval(date, { start: rangeStart, end: rangeEnd })) {
               items.push({
                 ...special,
-                date: new Date(date),
+                date: startOfDay(new Date(date)),
               });
             }
             date = addDays(date, 1);
@@ -378,7 +385,7 @@ export default function CalendarView({ events, specials, announcements = [], onE
             if (appliesOn.includes(dayName) && isWithinInterval(date, { start: rangeStart, end: rangeEnd })) {
               items.push({
                 ...special,
-                date: new Date(date),
+                date: startOfDay(new Date(date)),
               });
             }
             date = addDays(date, 1);
@@ -394,7 +401,7 @@ export default function CalendarView({ events, specials, announcements = [], onE
             if (isWithinInterval(date, { start: rangeStart, end: rangeEnd })) {
               items.push({
                 ...special,
-                date: new Date(date),
+                date: startOfDay(new Date(date)),
               });
             }
             date = addDays(date, 1);
