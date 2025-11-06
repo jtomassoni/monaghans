@@ -96,23 +96,80 @@ export default async function HomePage() {
   const todayStart = new Date(today);
   todayStart.setHours(0, 0, 0, 0);
 
-  // Get today's food special (date-based)
-  // Only show specials that have both startDate and endDate set
-  const todaysFoodSpecial = await prisma.special.findFirst({
+  // Get today's food special (date-based or weekly recurring)
+  const allFoodSpecials = await prisma.special.findMany({
     where: {
       isActive: true,
       type: 'food',
-      startDate: {
-        not: null,
-        lte: tomorrowStart,
-      },
-      endDate: {
-        not: null,
-        gte: todayStart,
-      },
     },
-    orderBy: { createdAt: 'desc' },
   });
+
+  let todaysFoodSpecial = null;
+  for (const special of allFoodSpecials) {
+    // Parse appliesOn if it exists
+    let appliesOn: string[] = [];
+    try {
+      if (special.appliesOn) {
+        appliesOn = typeof special.appliesOn === 'string' 
+          ? JSON.parse(special.appliesOn) 
+          : special.appliesOn;
+        if (!Array.isArray(appliesOn)) {
+          appliesOn = [];
+        }
+        // Normalize day names (trim whitespace, ensure proper case)
+        appliesOn = appliesOn.map(day => day.trim()).filter(day => day.length > 0);
+      }
+    } catch {
+      // Invalid JSON, skip
+      appliesOn = [];
+    }
+
+    const startDate = special.startDate ? new Date(special.startDate) : null;
+    const endDate = special.endDate ? new Date(special.endDate) : null;
+
+    // If weekly recurring days are set
+    if (appliesOn.length > 0) {
+      // Check if today matches a recurring day (case-insensitive comparison)
+      const matchesDay = appliesOn.some(day => 
+        day.toLowerCase() === todayName.toLowerCase()
+      );
+      
+      if (matchesDay) {
+        // Weekly recurring specials: prioritize day match over date ranges
+        // Only check startDate to see if special has started yet
+        // Ignore endDate for weekly recurring patterns (they recur indefinitely)
+        if (startDate) {
+          const start = new Date(startDate);
+          start.setHours(0, 0, 0, 0);
+          
+          // Only check if we're past the start date
+          if (todayStart >= start) {
+            todaysFoodSpecial = special;
+            break;
+          }
+          // If not started yet, skip this special
+        } else {
+          // No start date restriction, show based on day match
+          todaysFoodSpecial = special;
+          break;
+        }
+      }
+    } else if (startDate) {
+      // Date-based special (no weekly recurring)
+      // Only show specials that have both startDate and endDate set
+      if (endDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        
+        if (todayStart >= start && todayStart <= end) {
+          todaysFoodSpecial = special;
+          break;
+        }
+      }
+    }
+  }
 
   // Get today's drink special (weekly recurring or date-based)
   const allDrinkSpecials = await prisma.special.findMany({

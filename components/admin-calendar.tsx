@@ -340,10 +340,14 @@ export default function CalendarView({ events, specials, announcements = [], onE
         const endDate = special.endDate ? new Date(special.endDate) : null;
 
         if (startDate) {
-          // If only startDate is provided, treat it as a single-day special
-          const effectiveEndDate = endDate || startDate;
+          // Normalize to start of day in local time to prevent timezone issues
+          const normalizedStartDate = startOfDay(startDate);
+          const normalizedEndDate = endDate ? startOfDay(endDate) : normalizedStartDate;
           
-          let date = new Date(Math.max(startDate.getTime(), rangeStart.getTime()));
+          // If only startDate is provided, treat it as a single-day special
+          const effectiveEndDate = normalizedEndDate;
+          
+          let date = new Date(Math.max(normalizedStartDate.getTime(), rangeStart.getTime()));
           const rangeEndDate = new Date(Math.min(effectiveEndDate.getTime(), rangeEnd.getTime()));
           
           while (date <= rangeEndDate) {
@@ -392,10 +396,12 @@ export default function CalendarView({ events, specials, announcements = [], onE
           }
         } else if (startDate) {
           // If date range is set (no weekly recurring)
-          const effectiveEndDate = endDate || startDate;
+          // Normalize to start of day in local time to prevent timezone issues
+          const normalizedStartDate = startOfDay(startDate);
+          const normalizedEndDate = endDate ? startOfDay(endDate) : normalizedStartDate;
           
-          let date = new Date(Math.max(startDate.getTime(), rangeStart.getTime()));
-          const rangeEndDate = new Date(Math.min(effectiveEndDate.getTime(), rangeEnd.getTime()));
+          let date = new Date(Math.max(normalizedStartDate.getTime(), rangeStart.getTime()));
+          const rangeEndDate = new Date(Math.min(normalizedEndDate.getTime(), rangeEnd.getTime()));
           
           while (date <= rangeEndDate) {
             if (isWithinInterval(date, { start: rangeStart, end: rangeEnd })) {
