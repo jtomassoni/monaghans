@@ -267,7 +267,7 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
       onClose={onClose}
       title={special ? 'Edit Special' : 'New Special'}
     >
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-4">
         <StatusToggle
           type="active"
           value={formData.isActive}
@@ -276,7 +276,7 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
         />
 
         <div>
-          <label htmlFor="title" className="block mb-2">
+          <label htmlFor="title" className="block mb-1.5 text-sm font-medium">
             Title *
           </label>
           <input
@@ -285,25 +285,25 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
             value={formData.title}
             onChange={(e) => setFormData({ ...formData, title: e.target.value })}
             required
-            className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded text-white"
+            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm"
           />
         </div>
 
         <div>
-          <label htmlFor="description" className="block mb-2">
+          <label htmlFor="description" className="block mb-1.5 text-sm font-medium">
             Description
           </label>
           <textarea
             id="description"
             value={formData.description}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            rows={3}
-            className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded text-white"
+            rows={2}
+            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm"
           />
         </div>
 
         <div>
-          <label htmlFor="priceNotes" className="block mb-2">
+          <label htmlFor="priceNotes" className="block mb-1.5 text-sm font-medium">
             Price Notes
           </label>
           <input
@@ -312,19 +312,19 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
             value={formData.priceNotes}
             onChange={(e) => setFormData({ ...formData, priceNotes: e.target.value })}
             placeholder="e.g., $3 drafts, Happy hour prices"
-            className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded text-white"
+            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm"
           />
         </div>
 
         <div>
-          <label htmlFor="type" className="block mb-2">
+          <label htmlFor="type" className="block mb-1.5 text-sm font-medium">
             Type *
           </label>
           <select
             id="type"
             value={formData.type}
             onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-            className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded text-white"
+            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm"
             required
           >
             {SPECIAL_TYPES.map((type) => (
@@ -333,15 +333,15 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
               </option>
             ))}
           </select>
-          <p className="text-sm text-gray-400 mt-2">Select whether this is a food or drink special</p>
+          <p className="text-xs text-gray-400 mt-1">Select whether this is a food or drink special</p>
         </div>
 
         {formData.type === 'drink' && (
           <div>
-            <label className="block mb-2">Applies On (optional for date-specific specials)</label>
+            <label className="block mb-1.5 text-sm font-medium">Applies On (optional for date-specific specials)</label>
             <div className="grid grid-cols-2 gap-2">
               {WEEKDAYS.map((day) => (
-                <label key={day} className="flex items-center gap-2 cursor-pointer">
+                <label key={day} className="flex items-center gap-2 cursor-pointer text-sm">
                   <input
                     type="checkbox"
                     checked={formData.appliesOn.includes(day)}
@@ -352,14 +352,14 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
                 </label>
               ))}
             </div>
-            <p className="text-sm text-gray-400 mt-2">
+            <p className="text-xs text-gray-400 mt-1">
               Select which days this special applies. Leave empty if using start/end dates.
             </p>
           </div>
         )}
 
         <div>
-          <label htmlFor="timeWindow" className="block mb-2">
+          <label htmlFor="timeWindow" className="block mb-1.5 text-sm font-medium">
             Time Window
           </label>
           <input
@@ -368,7 +368,7 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
             value={formData.timeWindow}
             onChange={(e) => setFormData({ ...formData, timeWindow: e.target.value })}
             placeholder="e.g., 11am-3pm, Happy Hour"
-            className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded text-white"
+            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm"
           />
         </div>
 
@@ -381,10 +381,10 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
               required
               dateOnly={true}
             />
-            <p className="text-sm text-gray-400 mt-2">Select the date this daily special applies</p>
+            <p className="text-xs text-gray-400 mt-1">Select the date this daily special applies</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <DatePicker
                 label="Start Date (optional)"
@@ -405,13 +405,13 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
           </div>
         )}
 
-        <div className="flex gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
           {special?.id && onDelete && (
             <button
               type="button"
               onClick={() => setShowDeleteConfirm(true)}
               disabled={loading}
-              className="px-4 py-2 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 mr-auto"
+              className="px-3 py-1.5 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 mr-auto"
             >
               Delete
             </button>
@@ -420,7 +420,7 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
             type="button"
             onClick={handleCancel}
             disabled={loading}
-            className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             Cancel
           </button>
@@ -432,7 +432,7 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
               (formData.type === 'food' && !formData.date) ||
               (formData.type === 'drink' && formData.appliesOn.length === 0 && !formData.startDate && !formData.endDate)
             }
-            className="px-4 py-2 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-blue-500/20"
+            className="px-3 py-1.5 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-blue-500/20"
           >
             {loading ? (special?.id ? 'Saving...' : 'Creating...') : (special?.id ? 'Save' : 'Create')}
           </button>

@@ -16,15 +16,24 @@ interface DatePickerProps {
 
 export default function DatePicker({ value, onChange, min, max, label, required, dateOnly = true }: DatePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
+  
+  // Helper function to parse YYYY-MM-DD as local date (not UTC)
+  const parseLocalDate = (dateStr: string): Date => {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  };
+
   const [currentMonth, setCurrentMonth] = useState(() => {
     if (value) {
       const dateStr = value.includes('T') ? value.split('T')[0] : value;
-      return new Date(dateStr);
+      return parseLocalDate(dateStr);
     }
     return new Date();
   });
 
   const pickerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [positionAbove, setPositionAbove] = useState(false);
 
   // Close picker when clicking outside
   useEffect(() => {
@@ -40,17 +49,46 @@ export default function DatePicker({ value, onChange, min, max, label, required,
     }
   }, [isOpen]);
 
+  // Position picker above if not enough space below or if input is in lower portion of viewport
+  useEffect(() => {
+    if (isOpen && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      const pickerHeight = 320; // Approximate height of the picker
+      const viewportThreshold = window.innerHeight * 0.6; // 60% down the viewport
+      
+      // Position above if:
+      // 1. Not enough space below (less than picker height + buffer)
+      // 2. Input is past 60% down the viewport AND there's enough space above
+      // 3. There's significantly more space above than below
+      const shouldPositionAbove = 
+        (spaceBelow < pickerHeight + 20 && spaceAbove > pickerHeight) ||
+        (rect.bottom > viewportThreshold && spaceAbove > pickerHeight) ||
+        (spaceAbove > spaceBelow + 50 && spaceAbove > pickerHeight);
+      
+      setPositionAbove(shouldPositionAbove);
+      
+      // If positioning above, scroll the input into view to ensure it's visible
+      if (shouldPositionAbove) {
+        containerRef.current.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+      }
+    } else {
+      setPositionAbove(false);
+    }
+  }, [isOpen]);
+
   const selectedDate = value ? (() => {
     const dateStr = value.includes('T') ? value.split('T')[0] : value;
-    return new Date(dateStr);
+    return parseLocalDate(dateStr);
   })() : null;
   const minDate = min ? (() => {
     const dateStr = min.includes('T') ? min.split('T')[0] : min;
-    return new Date(dateStr);
+    return parseLocalDate(dateStr);
   })() : null;
   const maxDate = max ? (() => {
     const dateStr = max.includes('T') ? max.split('T')[0] : max;
-    return new Date(dateStr);
+    return parseLocalDate(dateStr);
   })() : null;
 
   const monthStart = startOfMonth(currentMonth);
@@ -94,7 +132,7 @@ export default function DatePicker({ value, onChange, min, max, label, required,
   const displayValue = value 
     ? (() => {
         const dateStr = value.includes('T') ? value.split('T')[0] : value;
-        const date = new Date(dateStr);
+        const date = parseLocalDate(dateStr);
         return format(date, "MMM d, yyyy");
       })()
     : '';
@@ -106,11 +144,11 @@ export default function DatePicker({ value, onChange, min, max, label, required,
           {label} {required && '*'}
         </label>
       )}
-      <div className="relative">
+      <div className="relative" ref={containerRef}>
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white text-sm cursor-pointer hover:border-blue-500 dark:hover:border-blue-500 focus:border-blue-500 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-colors text-left flex items-center justify-between"
+          className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white text-sm cursor-pointer hover:border-blue-500 dark:hover:border-blue-500 focus:border-blue-500 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-colors text-left flex items-center justify-between"
         >
           <span className={displayValue ? '' : 'text-gray-400 dark:text-gray-500'}>
             {displayValue || 'Select date'}
@@ -123,9 +161,9 @@ export default function DatePicker({ value, onChange, min, max, label, required,
         {isOpen && (
           <div
             ref={pickerRef}
-            className="absolute z-50 mt-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-xl p-4 w-[350px] max-w-[calc(100vw-2rem)]"
+            className={`absolute z-50 ${positionAbove ? 'bottom-full mb-2' : 'top-full mt-2'} bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-xl p-3 w-[350px] max-w-[calc(100vw-2rem)]`}
           >
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-3">
               <button
                 type="button"
                 onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
@@ -145,7 +183,7 @@ export default function DatePicker({ value, onChange, min, max, label, required,
               </button>
             </div>
 
-            <div className="grid grid-cols-7 gap-1 mb-2">
+            <div className="grid grid-cols-7 gap-1 mb-1.5">
               {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
                 <div key={day} className="text-xs font-medium text-gray-500 dark:text-gray-400 text-center py-1">
                   {day}
@@ -184,7 +222,7 @@ export default function DatePicker({ value, onChange, min, max, label, required,
               })}
             </div>
 
-            <div className="flex gap-2 mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex gap-2 mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
               <button
                 type="button"
                 onClick={() => handleQuickSelect('today')}
