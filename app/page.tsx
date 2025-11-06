@@ -153,24 +153,21 @@ export default async function HomePage() {
       );
       
       if (matchesDay) {
-        // Weekly recurring specials should show based on day match only
-        // Date ranges are optional and only used if both dates are set AND valid
-        // This prioritizes the weekly recurring pattern over date restrictions
-        if (startDate && endDate) {
+        // Weekly recurring specials: prioritize day match over date ranges
+        // Only check startDate to see if special has started yet
+        // Ignore endDate for weekly recurring patterns (they recur indefinitely)
+        if (startDate) {
           const start = new Date(startDate);
           start.setHours(0, 0, 0, 0);
-          const end = new Date(endDate);
-          end.setHours(23, 59, 59, 999);
           
-          // Check if we're within the date range
-          if (todayStart >= start && todayStart <= end) {
+          // Only check if we're past the start date
+          if (todayStart >= start) {
             todaysDrinkSpecial = special;
             break;
           }
-          // If dates are set but outside range, skip this special
-          // (this allows date-limited recurring specials)
+          // If not started yet, skip this special
         } else {
-          // No date range restriction, show based on day match
+          // No start date restriction, show based on day match
           todaysDrinkSpecial = special;
           break;
         }
