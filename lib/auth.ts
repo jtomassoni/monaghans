@@ -137,61 +137,67 @@ export const authOptions: NextAuthOptions = {
       // Refresh user data from DB on every request (for both credentials and Google OAuth)
       // This ensures the session stays in sync with the database
       if (token.email) {
-        let dbUser = await prisma.user.findUnique({
-          where: { email: token.email as string },
-        });
+        try {
+          let dbUser = await prisma.user.findUnique({
+            where: { email: token.email as string },
+          });
 
-        // If user doesn't exist but we have a valid token, recreate them
-        // This handles cases where the database was reset or user was deleted
-        if (!dbUser) {
-          // Determine role based on email matching patterns
-          const superadminEmail = process.env.SUPERADMIN_EMAIL?.toLowerCase().trim();
-          const isSuperadmin = superadminEmail && token.email.toLowerCase() === superadminEmail;
-          
-          // Check if email matches admin username pattern (credentials auth)
-          const adminUsername = process.env.ADMIN_USERNAME || process.env.ADMIN_EMAIL;
-          const isCredentialsAdmin = adminUsername && (
-            token.email.toLowerCase() === adminUsername.toLowerCase() ||
-            token.email.toLowerCase() === `${adminUsername.toLowerCase()}@monaghans.local`
-          );
-          
-          let role = token.role as string || 'admin';
-          if (isSuperadmin) {
-            role = 'superadmin';
-          } else if (isCredentialsAdmin) {
-            role = 'superadmin'; // Credentials auth users are superadmins
+          // If user doesn't exist but we have a valid token, recreate them
+          // This handles cases where the database was reset or user was deleted
+          if (!dbUser) {
+            // Determine role based on email matching patterns
+            const superadminEmail = process.env.SUPERADMIN_EMAIL?.toLowerCase().trim();
+            const isSuperadmin = superadminEmail && token.email.toLowerCase() === superadminEmail;
+            
+            // Check if email matches admin username pattern (credentials auth)
+            const adminUsername = process.env.ADMIN_USERNAME || process.env.ADMIN_EMAIL;
+            const isCredentialsAdmin = adminUsername && (
+              token.email.toLowerCase() === adminUsername.toLowerCase() ||
+              token.email.toLowerCase() === `${adminUsername.toLowerCase()}@monaghans.local`
+            );
+            
+            let role = token.role as string || 'admin';
+            if (isSuperadmin) {
+              role = 'superadmin';
+            } else if (isCredentialsAdmin) {
+              role = 'superadmin'; // Credentials auth users are superadmins
+            }
+
+            try {
+              dbUser = await prisma.user.create({
+                data: {
+                  email: token.email as string,
+                  name: token.name || 'Admin User',
+                  role: role,
+                  isActive: true,
+                },
+              });
+            } catch (error) {
+              // If creation fails, try to fetch again (might have been created concurrently)
+              dbUser = await prisma.user.findUnique({
+                where: { email: token.email as string },
+              });
+            }
           }
 
-          try {
-            dbUser = await prisma.user.create({
-              data: {
-                email: token.email as string,
-                name: token.name || 'Admin User',
-                role: role,
-                isActive: true,
-              },
-            });
-          } catch (error) {
-            // If creation fails, try to fetch again (might have been created concurrently)
-            dbUser = await prisma.user.findUnique({
-              where: { email: token.email as string },
-            });
+          if (dbUser) {
+            // Verify user is still active
+            if (!dbUser.isActive) {
+              // User is inactive - invalidate the token by not setting ID
+              // This will cause getCurrentUser to return null
+              token.id = '';
+              return token;
+            }
+            
+            token.id = dbUser.id;
+            token.role = dbUser.role;
+            token.name = dbUser.name;
+            token.image = dbUser.image;
           }
-        }
-
-        if (dbUser) {
-          // Verify user is still active
-          if (!dbUser.isActive) {
-            // User is inactive - invalidate the token by not setting ID
-            // This will cause getCurrentUser to return null
-            token.id = '';
-            return token;
-          }
-          
-          token.id = dbUser.id;
-          token.role = dbUser.role;
-          token.name = dbUser.name;
-          token.image = dbUser.image;
+        } catch (error) {
+          // If database query fails, log error but don't break the auth flow
+          // Return the token as-is (it might still be valid)
+          console.error('Error refreshing user data in JWT callback:', error);
         }
       }
 

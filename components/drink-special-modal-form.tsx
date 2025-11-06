@@ -8,12 +8,12 @@ import ConfirmationDialog from '@/components/confirmation-dialog';
 import StatusToggle from '@/components/status-toggle';
 import DatePicker from '@/components/date-picker';
 
-interface Special {
+interface DrinkSpecial {
   id?: string;
   title: string;
   description: string;
   priceNotes: string;
-  type: string;
+  type: 'drink';
   appliesOn: string[];
   timeWindow: string;
   startDate: string;
@@ -22,57 +22,27 @@ interface Special {
 }
 
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-const SPECIAL_TYPES = ['food', 'drink'];
 
-interface SpecialModalFormProps {
+interface DrinkSpecialModalFormProps {
   isOpen: boolean;
   onClose: () => void;
-  special?: Special;
-  defaultType?: 'food' | 'drink';
+  special?: DrinkSpecial;
   onSuccess?: () => void;
   onDelete?: (specialId: string) => void;
 }
 
-export default function SpecialModalForm({ isOpen, onClose, special, defaultType, onSuccess, onDelete }: SpecialModalFormProps) {
+export default function DrinkSpecialModalForm({ isOpen, onClose, special, onSuccess, onDelete }: DrinkSpecialModalFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  // Helper function to format date to YYYY-MM-DD format
-  const formatDateForInput = (date: any): string => {
-    if (!date) return '';
-    if (typeof date === 'string') {
-      // If it's already a string, check if it's ISO format and extract date part
-      if (date.includes('T')) {
-        return date.split('T')[0];
-      }
-      // If it's already in YYYY-MM-DD format, return as is
-      if (date.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        return date;
-      }
-      // Try to parse it
-      const parsed = new Date(date);
-      if (!isNaN(parsed.getTime())) {
-        return parsed.toISOString().split('T')[0];
-      }
-      return date;
-    }
-    // If it's a Date object
-    if (date instanceof Date) {
-      return date.toISOString().split('T')[0];
-    }
-    return '';
-  };
-
   const [formData, setFormData] = useState({
     title: special?.title || '',
     description: special?.description || '',
     priceNotes: special?.priceNotes || '',
-    type: special?.type || defaultType || 'food',
     appliesOn: special?.appliesOn || [],
     timeWindow: special?.timeWindow || '',
-    date: formatDateForInput(special?.startDate) || '', // For food type, use single date field
-    startDate: formatDateForInput(special?.startDate) || '', // For drink type
-    endDate: formatDateForInput(special?.endDate) || '',
+    startDate: special?.startDate || '',
+    endDate: special?.endDate || '',
     isActive: special?.isActive ?? true,
   });
 
@@ -80,19 +50,14 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
 
   useEffect(() => {
     if (special) {
-      const formattedStartDate = formatDateForInput(special.startDate);
-      const formattedEndDate = formatDateForInput(special.endDate);
-      
       const newFormData = {
         title: special.title || '',
         description: special.description || '',
         priceNotes: special.priceNotes || '',
-        type: special.type || 'food',
         appliesOn: special.appliesOn || [],
         timeWindow: special.timeWindow || '',
-        date: formattedStartDate, // For food type, use single date
-        startDate: formattedStartDate, // For drink type
-        endDate: formattedEndDate,
+        startDate: special.startDate || '',
+        endDate: special.endDate || '',
         isActive: special.isActive ?? true,
       };
       setFormData(newFormData);
@@ -102,10 +67,8 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
         title: '',
         description: '',
         priceNotes: '',
-        type: defaultType || 'food',
         appliesOn: [],
         timeWindow: '',
-        date: '',
         startDate: '',
         endDate: '',
         isActive: true,
@@ -113,7 +76,7 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
       setFormData(newFormData);
       setInitialFormData(newFormData);
     }
-  }, [special, defaultType, isOpen]);
+  }, [special, isOpen]);
 
   // Check if form is dirty
   const isDirty = JSON.stringify(formData) !== JSON.stringify(initialFormData);
@@ -122,19 +85,14 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
     if (isDirty) {
       // Reset form to initial state
       if (special) {
-        const formattedStartDate = formatDateForInput(special.startDate);
-        const formattedEndDate = formatDateForInput(special.endDate);
-        
         const newFormData = {
           title: special.title || '',
           description: special.description || '',
           priceNotes: special.priceNotes || '',
-          type: special.type || 'food',
           appliesOn: special.appliesOn || [],
           timeWindow: special.timeWindow || '',
-          date: formattedStartDate,
-          startDate: formattedStartDate,
-          endDate: formattedEndDate,
+          startDate: special.startDate || '',
+          endDate: special.endDate || '',
           isActive: special.isActive ?? true,
         };
         setFormData(newFormData);
@@ -144,10 +102,8 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
           title: '',
           description: '',
           priceNotes: '',
-          type: defaultType || 'food',
           appliesOn: [],
           timeWindow: '',
-          date: '',
           startDate: '',
           endDate: '',
           isActive: true,
@@ -161,24 +117,6 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
     }
   }
 
-  // Clear appliesOn when switching to food type (food specials aren't recurring)
-  useEffect(() => {
-    if (formData.type === 'food' && formData.appliesOn.length > 0) {
-      setFormData((prev) => ({ ...prev, appliesOn: [] }));
-    }
-  }, [formData.type, formData.appliesOn.length]);
-
-  // Sync date field with startDate/endDate when type changes
-  useEffect(() => {
-    if (formData.type === 'food') {
-      // When switching to food, use date or startDate
-      const dateValue = formData.date || formData.startDate;
-      if (dateValue) {
-        setFormData((prev) => ({ ...prev, date: dateValue, startDate: dateValue, endDate: dateValue }));
-      }
-    }
-  }, [formData.type]);
-
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -187,25 +125,25 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
       const url = special?.id ? `/api/specials/${special.id}` : '/api/specials';
       const method = special?.id ? 'PUT' : 'POST';
 
-      // For food type, set both startDate and endDate to the same date
+      // If weekly recurring is set, don't send dates (ongoing forever)
       const submitData = {
         ...formData,
-        startDate: formData.type === 'food' ? formData.date : formData.startDate,
-        endDate: formData.type === 'food' ? formData.date : formData.endDate,
+        type: 'drink',
+        appliesOn: JSON.stringify(formData.appliesOn),
+        startDate: formData.appliesOn.length > 0 ? null : (formData.startDate || null),
+        endDate: formData.appliesOn.length > 0 ? null : (formData.endDate || null),
       };
-      // Remove the date field before submitting
-      const { date, ...dataToSubmit } = submitData;
 
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(dataToSubmit),
+        body: JSON.stringify(submitData),
       });
 
       if (res.ok) {
         router.refresh();
         showToast(
-          special?.id ? 'Special updated successfully' : 'Special created successfully',
+          special?.id ? 'Drink special updated successfully' : 'Drink special created successfully',
           'success'
         );
         onSuccess?.();
@@ -213,7 +151,7 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
       } else {
         const error = await res.json();
         showToast(
-          special?.id ? 'Failed to update special' : 'Failed to create special',
+          special?.id ? 'Failed to update drink special' : 'Failed to create drink special',
           'error',
           error.error || error.details || 'Please check your input and try again.'
         );
@@ -222,20 +160,11 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
       showToast(
         'Request failed',
         'error',
-        error instanceof Error ? error.message : 'An error occurred while saving the special.'
+        error instanceof Error ? error.message : 'An error occurred while saving the drink special.'
       );
     } finally {
       setLoading(false);
     }
-  }
-
-  function toggleDay(day: string) {
-    setFormData({
-      ...formData,
-      appliesOn: formData.appliesOn.includes(day)
-        ? formData.appliesOn.filter((d) => d !== day)
-        : [...formData.appliesOn, day],
-    });
   }
 
   async function handleDelete() {
@@ -245,13 +174,13 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
     try {
       const res = await fetch(`/api/specials/${special.id}`, { method: 'DELETE' });
       if (res.ok) {
-        showToast('Special deleted successfully', 'success');
+        showToast('Drink special deleted successfully', 'success');
         onDelete?.(special.id);
         onSuccess?.();
         onClose();
       } else {
         const error = await res.json();
-        showToast('Failed to delete special', 'error', error.error || error.details || 'Please try again.');
+        showToast('Failed to delete drink special', 'error', error.error || error.details || 'Please try again.');
       }
     } catch (error) {
       showToast('Delete failed', 'error', error instanceof Error ? error.message : 'An error occurred.');
@@ -261,11 +190,28 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
     }
   }
 
+  function toggleDay(day: string) {
+    const newAppliesOn = formData.appliesOn.includes(day)
+      ? formData.appliesOn.filter((d) => d !== day)
+      : [...formData.appliesOn, day];
+    
+    // If selecting weekly days, clear date range (ongoing forever)
+    setFormData({
+      ...formData,
+      appliesOn: newAppliesOn,
+      startDate: newAppliesOn.length > 0 ? '' : formData.startDate,
+      endDate: newAppliesOn.length > 0 ? '' : formData.endDate,
+    });
+  }
+
+  const hasWeeklyRecurring = formData.appliesOn.length > 0;
+  const hasDateRange = formData.startDate && formData.endDate;
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={special ? 'Edit Special' : 'New Special'}
+      title={special ? 'Edit Drink Special' : 'New Drink Special'}
     >
       <form onSubmit={handleSubmit} className="space-y-6">
         <StatusToggle
@@ -286,6 +232,7 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
             onChange={(e) => setFormData({ ...formData, title: e.target.value })}
             required
             className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded text-white"
+            placeholder="e.g., $3 Drafts, Happy Hour"
           />
         </div>
 
@@ -299,6 +246,7 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             rows={3}
             className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded text-white"
+            placeholder="Describe the drink special..."
           />
         </div>
 
@@ -317,48 +265,6 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
         </div>
 
         <div>
-          <label htmlFor="type" className="block mb-2">
-            Type *
-          </label>
-          <select
-            id="type"
-            value={formData.type}
-            onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-            className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded text-white"
-            required
-          >
-            {SPECIAL_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {type.charAt(0).toUpperCase() + type.slice(1)}
-              </option>
-            ))}
-          </select>
-          <p className="text-sm text-gray-400 mt-2">Select whether this is a food or drink special</p>
-        </div>
-
-        {formData.type === 'drink' && (
-          <div>
-            <label className="block mb-2">Applies On (optional for date-specific specials)</label>
-            <div className="grid grid-cols-2 gap-2">
-              {WEEKDAYS.map((day) => (
-                <label key={day} className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.appliesOn.includes(day)}
-                    onChange={() => toggleDay(day)}
-                    className="w-4 h-4"
-                  />
-                  <span>{day}</span>
-                </label>
-              ))}
-            </div>
-            <p className="text-sm text-gray-400 mt-2">
-              Select which days this special applies. Leave empty if using start/end dates.
-            </p>
-          </div>
-        )}
-
-        <div>
           <label htmlFor="timeWindow" className="block mb-2">
             Time Window
           </label>
@@ -367,41 +273,60 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
             type="text"
             value={formData.timeWindow}
             onChange={(e) => setFormData({ ...formData, timeWindow: e.target.value })}
-            placeholder="e.g., 11am-3pm, Happy Hour"
+            placeholder="e.g., 4pm-9pm, All Day, Happy Hour"
             className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded text-white"
           />
         </div>
 
-        {formData.type === 'food' ? (
-          <div>
-            <DatePicker
-              label="Date"
-              value={formData.date}
-              onChange={(value) => setFormData({ ...formData, date: value, startDate: value, endDate: value })}
-              required
-              dateOnly={true}
-            />
-            <p className="text-sm text-gray-400 mt-2">Select the date this daily special applies</p>
+        {/* Weekly Recurring Pattern */}
+        <div>
+          <label className="block mb-2">Weekly Recurring Days</label>
+          <div className="grid grid-cols-2 gap-2 mb-2">
+            {WEEKDAYS.map((day) => (
+              <label key={day} className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-gray-700/50 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={formData.appliesOn.includes(day)}
+                  onChange={() => toggleDay(day)}
+                  className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
+                />
+                <span>{day}</span>
+              </label>
+            ))}
           </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <DatePicker
-                label="Start Date (optional)"
-                value={formData.startDate}
-                onChange={(value) => setFormData({ ...formData, startDate: value })}
-                dateOnly={true}
-              />
+          <p className="text-sm text-gray-400 mt-2">
+            {hasWeeklyRecurring 
+              ? 'This special will run every selected day, ongoing forever.'
+              : 'Select which days this special applies each week. Leave empty to use date range instead.'}
+          </p>
+        </div>
+
+        {/* Date Range (alternative to weekly recurring) */}
+        {!hasWeeklyRecurring && (
+          <div>
+            <label className="block mb-2">Date Range (optional, alternative to weekly recurring)</label>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <DatePicker
+                  label="Start Date"
+                  value={formData.startDate}
+                  onChange={(value) => setFormData({ ...formData, startDate: value })}
+                  dateOnly={true}
+                />
+              </div>
+              <div>
+                <DatePicker
+                  label="End Date"
+                  value={formData.endDate}
+                  onChange={(value) => setFormData({ ...formData, endDate: value })}
+                  min={formData.startDate || undefined}
+                  dateOnly={true}
+                />
+              </div>
             </div>
-            <div>
-              <DatePicker
-                label="End Date (optional)"
-                value={formData.endDate}
-                onChange={(value) => setFormData({ ...formData, endDate: value })}
-                min={formData.startDate || undefined}
-                dateOnly={true}
-              />
-            </div>
+            <p className="text-sm text-gray-400 mt-2">
+              Use this for one-time or date-specific specials. Leave empty if using weekly recurring days.
+            </p>
           </div>
         )}
 
@@ -429,9 +354,9 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
             disabled={
               loading ||
               (special?.id && !isDirty) ||
-              (formData.type === 'food' && !formData.date) ||
-              (formData.type === 'drink' && formData.appliesOn.length === 0 && !formData.startDate && !formData.endDate)
+              (!hasWeeklyRecurring && !hasDateRange)
             }
+            title={!hasWeeklyRecurring && !hasDateRange ? 'Please select weekly days or a date range' : ''}
             className="px-4 py-2 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-blue-500/20"
           >
             {loading ? (special?.id ? 'Saving...' : 'Creating...') : (special?.id ? 'Save' : 'Create')}
@@ -443,7 +368,7 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
         isOpen={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}
         onConfirm={handleDelete}
-        title="Delete Special"
+        title="Delete Drink Special"
         message={`Are you sure you want to delete "${special?.title}"? This action cannot be undone.`}
         confirmText="Delete"
         cancelText="Cancel"

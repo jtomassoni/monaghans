@@ -121,6 +121,13 @@ export default function MenuItemsList({ initialItems, sections }: MenuItemsListP
     router.refresh();
   }
 
+  function handleItemDeleted(itemId: string) {
+    const updatedItems = items.filter((i) => i.id !== itemId);
+    setItems(updatedItems);
+    setItemModalOpen(false);
+    setEditingItem(null);
+  }
+
   return (
     <div className="flex flex-col h-full overflow-hidden min-h-0">
       {/* Fixed Header Section */}
@@ -163,10 +170,10 @@ export default function MenuItemsList({ initialItems, sections }: MenuItemsListP
             {filteredItems.map((item) => (
               <div
                 key={item.id}
-                className="group/item relative bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all duration-200 p-5 max-w-2xl flex justify-between items-start gap-4 cursor-pointer"
+                className="group/item relative bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all duration-200 p-5 max-w-2xl flex justify-between items-start gap-4"
               >
                 <div
-                  className="flex-1 min-w-0"
+                  className="flex-1 min-w-0 cursor-pointer"
                   onClick={() => handleItemClick(item)}
                 >
                   <div className="flex items-center gap-2 mb-3 flex-wrap">
@@ -191,28 +198,27 @@ export default function MenuItemsList({ initialItems, sections }: MenuItemsListP
                   </div>
                 </div>
                 
-                {/* Edit button - appears centered on hover */}
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 group-hover/item:opacity-100 transition-opacity duration-200">
+                {/* Action buttons */}
+                <div className="flex items-center gap-2 flex-shrink-0 z-30 relative">
+                  {/* Edit button - appears on hover */}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       handleItemClick(item);
                     }}
-                    className="pointer-events-auto px-4 py-2 text-sm bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-medium transition-all duration-200 hover:scale-105 z-10 border border-blue-400 dark:border-blue-500"
-                    title="Click anywhere to edit"
+                    className="opacity-0 group-hover/item:opacity-100 px-4 py-2 text-sm bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-medium transition-all duration-200 hover:scale-105 border border-blue-400 dark:border-blue-500 cursor-pointer"
+                    title="Edit menu item"
                   >
                     Edit
                   </button>
-                </div>
-                
-                {/* Delete button - always visible */}
-                <div className="flex-shrink-0 z-20 relative">
+                  
+                  {/* Delete button - always visible */}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       handleDelete(item);
                     }}
-                    className="px-3 py-1.5 text-xs bg-red-500/90 dark:bg-red-600/90 hover:bg-red-600 dark:hover:bg-red-700 rounded-lg text-white font-medium transition-all duration-200 hover:scale-105 border border-red-400 dark:border-red-500"
+                    className="px-3 py-1.5 text-xs bg-red-500/90 dark:bg-red-600/90 hover:bg-red-600 dark:hover:bg-red-700 rounded-lg text-white font-medium transition-all duration-200 hover:scale-105 border border-red-400 dark:border-red-500 cursor-pointer"
                     title="Delete menu item"
                   >
                     Delete
@@ -246,6 +252,7 @@ export default function MenuItemsList({ initialItems, sections }: MenuItemsListP
         item={editingItem}
         sections={sections}
         onSuccess={handleModalSuccess}
+        onDelete={handleItemDeleted}
       />
     </div>
   );

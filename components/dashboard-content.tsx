@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import CalendarView from '@/components/admin-calendar';
 import EventModalForm from '@/components/event-modal-form';
 import SpecialModalForm from '@/components/special-modal-form';
+import DrinkSpecialModalForm from '@/components/drink-special-modal-form';
 
 interface CalendarEvent {
   id: string;
@@ -13,6 +15,7 @@ interface CalendarEvent {
   endDateTime: string | null;
   venueArea: string;
   recurrenceRule: string | null;
+  exceptions: string | null;
   isAllDay: boolean;
   tags: string[] | null;
   image: string | null;
@@ -67,6 +70,7 @@ interface DashboardContentProps {
 }
 
 export default function DashboardContent({ events: initialEvents, specials, announcements = [], isSuperadmin }: DashboardContentProps) {
+  const router = useRouter();
   const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
   const [eventModalOpen, setEventModalOpen] = useState(false);
   const [specialModalOpen, setSpecialModalOpen] = useState(false);
@@ -74,10 +78,20 @@ export default function DashboardContent({ events: initialEvents, specials, anno
   const [eventOccurrenceDate, setEventOccurrenceDate] = useState<Date | undefined>(undefined);
   const [editingSpecial, setEditingSpecial] = useState<Special | null>(null);
   const [specialType, setSpecialType] = useState<'food' | 'drink'>('food');
+  
+  // Track the last initialEvents IDs to prevent unnecessary updates
+  const lastInitialEventsIdsRef = useRef<string>(JSON.stringify(initialEvents.map(e => e.id).sort()));
 
   // Update events when initialEvents changes (e.g., from server)
+  // Only update if the actual IDs have changed, not just the array reference
   useEffect(() => {
-    setEvents(initialEvents);
+    const currentInitialIds = JSON.stringify(initialEvents.map(e => e.id).sort());
+    
+    // Only update if the IDs are different (meaning actual data changed)
+    if (currentInitialIds !== lastInitialEventsIdsRef.current) {
+      lastInitialEventsIdsRef.current = currentInitialIds;
+      setEvents(initialEvents);
+    }
   }, [initialEvents]);
 
   const handleEventClick = async (eventId: string, occurrenceDate?: Date) => {
@@ -136,6 +150,7 @@ export default function DashboardContent({ events: initialEvents, specials, anno
         ...special,
         appliesOn: Array.isArray(appliesOn) ? appliesOn : [],
       } as any);
+      setSpecialType(special.type); // Set the type so we know which modal to show
       setSpecialModalOpen(true);
     }
   };
@@ -199,6 +214,7 @@ export default function DashboardContent({ events: initialEvents, specials, anno
       exceptions: newEvent.exceptions || null,
       isAllDay: newEvent.isAllDay,
       tags: newEvent.tags ? (typeof newEvent.tags === 'string' ? JSON.parse(newEvent.tags) : newEvent.tags) : null,
+      image: newEvent.image || null,
       isActive: newEvent.isActive,
       eventType: 'event' as const,
     } as CalendarEvent]);
@@ -218,9 +234,15 @@ export default function DashboardContent({ events: initialEvents, specials, anno
         exceptions: updatedEvent.exceptions || null,
         isAllDay: updatedEvent.isAllDay,
         tags: updatedEvent.tags ? (typeof updatedEvent.tags === 'string' ? JSON.parse(updatedEvent.tags) : updatedEvent.tags) : null,
+        image: updatedEvent.image || null,
         isActive: updatedEvent.isActive,
       } : e
     ));
+  };
+
+  const handleModalSuccess = () => {
+    // Refresh from server to get latest data
+    router.refresh();
   };
 
   const handleEventDeleted = (eventId: string) => {
@@ -238,8 +260,9 @@ export default function DashboardContent({ events: initialEvents, specials, anno
     ));
   };
 
-  const handleModalSuccess = () => {
-    // No longer need to reload - state is managed locally
+  const handleSpecialDeleted = (specialId: string) => {
+    // Refresh from server since we don't maintain local specials state
+    router.refresh();
   };
 
   return (
@@ -300,24 +323,48 @@ export default function DashboardContent({ events: initialEvents, specials, anno
         onExceptionAdded={handleExceptionAdded}
       />
 
-      <SpecialModalForm
-        isOpen={specialModalOpen}
-        onClose={() => {
-          setSpecialModalOpen(false);
-          setEditingSpecial(null);
-        }}
-        special={editingSpecial ? {
-          ...editingSpecial,
-          description: editingSpecial.description || '',
-          priceNotes: editingSpecial.priceNotes || '',
-          timeWindow: editingSpecial.timeWindow || '',
-          startDate: editingSpecial.startDate || '',
-          endDate: editingSpecial.endDate || '',
-          image: editingSpecial.image || '',
-        } as any : undefined}
-        defaultType={specialType}
-        onSuccess={handleModalSuccess}
-      />
+      {specialType === 'drink' ? (
+        <DrinkSpecialModalForm
+          isOpen={specialModalOpen}
+          onClose={() => {
+            setSpecialModalOpen(false);
+            setEditingSpecial(null);
+          }}
+          special={editingSpecial ? {
+            id: editingSpecial.id,
+            title: editingSpecial.title,
+            description: editingSpecial.description || '',
+            priceNotes: editingSpecial.priceNotes || '',
+            type: 'drink' as const,
+            appliesOn: (editingSpecial.appliesOn ? (typeof editingSpecial.appliesOn === 'string' ? JSON.parse(editingSpecial.appliesOn) : editingSpecial.appliesOn) : []) as string[],
+            timeWindow: editingSpecial.timeWindow || '',
+            startDate: editingSpecial.startDate || '',
+            endDate: editingSpecial.endDate || '',
+            isActive: editingSpecial.isActive,
+          } : undefined}
+          onSuccess={handleModalSuccess}
+          onDelete={handleSpecialDeleted}
+        />
+      ) : (
+        <SpecialModalForm
+          isOpen={specialModalOpen}
+          onClose={() => {
+            setSpecialModalOpen(false);
+            setEditingSpecial(null);
+          }}
+          special={editingSpecial ? {
+            ...editingSpecial,
+            description: editingSpecial.description || '',
+            priceNotes: editingSpecial.priceNotes || '',
+            timeWindow: editingSpecial.timeWindow || '',
+            startDate: editingSpecial.startDate || '',
+            endDate: editingSpecial.endDate || '',
+          } as any : undefined}
+          defaultType={specialType}
+          onSuccess={handleModalSuccess}
+          onDelete={handleSpecialDeleted}
+        />
+      )}
     </>
   );
 }

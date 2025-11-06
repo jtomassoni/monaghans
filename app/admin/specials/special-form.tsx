@@ -4,6 +4,9 @@ import { useState, FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import StatusToggle from '@/components/status-toggle';
+import { showToast } from '@/components/toast';
+import ConfirmationDialog from '@/components/confirmation-dialog';
+import DatePicker from '@/components/date-picker';
 
 interface Special {
   id?: string;
@@ -25,6 +28,7 @@ const SPECIAL_TYPES = ['food', 'drink'];
 export default function SpecialForm({ special }: { special?: Special }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [formData, setFormData] = useState({
     title: special?.title || '',
     description: special?.description || '',
@@ -37,6 +41,84 @@ export default function SpecialForm({ special }: { special?: Special }) {
     image: special?.image || '',
     isActive: special?.isActive ?? true,
   });
+
+  const [initialFormData, setInitialFormData] = useState(formData);
+
+  useEffect(() => {
+    if (special) {
+      const newFormData = {
+        title: special.title || '',
+        description: special.description || '',
+        priceNotes: special.priceNotes || '',
+        type: special.type || 'food',
+        appliesOn: special.appliesOn || [],
+        timeWindow: special.timeWindow || '',
+        startDate: special.startDate || '',
+        endDate: special.endDate || '',
+        image: special.image || '',
+        isActive: special.isActive ?? true,
+      };
+      setFormData(newFormData);
+      setInitialFormData(newFormData);
+    } else {
+      const newFormData = {
+        title: '',
+        description: '',
+        priceNotes: '',
+        type: 'food',
+        appliesOn: [],
+        timeWindow: '',
+        startDate: '',
+        endDate: '',
+        image: '',
+        isActive: true,
+      };
+      setFormData(newFormData);
+      setInitialFormData(newFormData);
+    }
+  }, [special]);
+
+  // Check if form is dirty
+  const isDirty = JSON.stringify(formData) !== JSON.stringify(initialFormData);
+
+  function handleCancel(e: React.MouseEvent) {
+    if (isDirty) {
+      e.preventDefault();
+      // Reset form to initial state
+      if (special) {
+        const newFormData = {
+          title: special.title || '',
+          description: special.description || '',
+          priceNotes: special.priceNotes || '',
+          type: special.type || 'food',
+          appliesOn: special.appliesOn || [],
+          timeWindow: special.timeWindow || '',
+          startDate: special.startDate || '',
+          endDate: special.endDate || '',
+          image: special.image || '',
+          isActive: special.isActive ?? true,
+        };
+        setFormData(newFormData);
+        setInitialFormData(newFormData);
+      } else {
+        const newFormData = {
+          title: '',
+          description: '',
+          priceNotes: '',
+          type: 'food',
+          appliesOn: [],
+          timeWindow: '',
+          startDate: '',
+          endDate: '',
+          image: '',
+          isActive: true,
+        };
+        setFormData(newFormData);
+        setInitialFormData(newFormData);
+      }
+    }
+    // If clean, let Link navigate normally
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -53,15 +135,39 @@ export default function SpecialForm({ special }: { special?: Special }) {
       });
 
       if (res.ok) {
+        showToast(special?.id ? 'Special updated successfully' : 'Special created successfully', 'success');
         router.push('/admin/specials-events');
         router.refresh();
       } else {
-        alert('Failed to save special');
+        const error = await res.json();
+        showToast('Failed to save special', 'error', error.error || error.details || 'Please check your input and try again.');
       }
     } catch (error) {
-      alert('An error occurred');
+      showToast('Request failed', 'error', error instanceof Error ? error.message : 'An error occurred.');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!special?.id) return;
+    
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/specials/${special.id}`, { method: 'DELETE' });
+      if (res.ok) {
+        showToast('Special deleted successfully', 'success');
+        router.push('/admin/specials-events');
+        router.refresh();
+      } else {
+        const error = await res.json();
+        showToast('Failed to delete special', 'error', error.error || error.details || 'Please try again.');
+      }
+    } catch (error) {
+      showToast('Delete failed', 'error', error instanceof Error ? error.message : 'An error occurred.');
+    } finally {
+      setLoading(false);
+      setShowDeleteConfirm(false);
     }
   }
 
@@ -95,6 +201,13 @@ export default function SpecialForm({ special }: { special?: Special }) {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6 bg-gray-900 p-6 rounded-lg">
+          <StatusToggle
+            type="active"
+            value={formData.isActive}
+            onChange={(value) => setFormData({ ...formData, isActive: value })}
+            label="Status"
+          />
+
           <div>
             <label htmlFor="title" className="block mb-2">
               Title *
@@ -192,32 +305,38 @@ export default function SpecialForm({ special }: { special?: Special }) {
             />
           </div>
 
+        {formData.type === 'food' ? (
+          <div>
+            <DatePicker
+              label="Date"
+              value={formData.startDate}
+              onChange={(value) => setFormData({ ...formData, startDate: value, endDate: value })}
+              required
+              dateOnly={true}
+            />
+            <p className="text-sm text-gray-400 mt-2">Select the date this daily special applies</p>
+          </div>
+        ) : (
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label htmlFor="startDate" className="block mb-2">
-                Start Date (optional)
-              </label>
-              <input
-                id="startDate"
-                type="date"
+              <DatePicker
+                label="Start Date (optional)"
                 value={formData.startDate}
-                onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded text-white"
+                onChange={(value) => setFormData({ ...formData, startDate: value })}
+                dateOnly={true}
               />
             </div>
             <div>
-              <label htmlFor="endDate" className="block mb-2">
-                End Date (optional)
-              </label>
-              <input
-                id="endDate"
-                type="date"
+              <DatePicker
+                label="End Date (optional)"
                 value={formData.endDate}
-                onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded text-white"
+                onChange={(value) => setFormData({ ...formData, endDate: value })}
+                min={formData.startDate || undefined}
+                dateOnly={true}
               />
             </div>
           </div>
+        )}
 
           <div>
             <label htmlFor="image" className="block mb-2">
@@ -233,17 +352,21 @@ export default function SpecialForm({ special }: { special?: Special }) {
             />
           </div>
 
-          <StatusToggle
-            type="active"
-            value={formData.isActive}
-            onChange={(value) => setFormData({ ...formData, isActive: value })}
-            label="Status"
-          />
-
           <div className="flex gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+            {special?.id && (
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(true)}
+                disabled={loading}
+                className="px-4 py-2 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 mr-auto"
+              >
+                Delete
+              </button>
+            )}
             <Link
               href="/admin/specials-events"
-              className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold transition-colors"
+              onClick={handleCancel}
+              className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
             >
               Cancel
             </Link>
@@ -251,7 +374,8 @@ export default function SpecialForm({ special }: { special?: Special }) {
               type="submit"
               disabled={
                 loading ||
-                (formData.type === 'food' && !formData.startDate && !formData.endDate) ||
+                (special?.id && !isDirty) ||
+                (formData.type === 'food' && !formData.startDate) ||
                 (formData.type === 'drink' && formData.appliesOn.length === 0 && !formData.startDate && !formData.endDate)
               }
               className="px-4 py-2 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-blue-500/20"
@@ -260,6 +384,18 @@ export default function SpecialForm({ special }: { special?: Special }) {
             </button>
           </div>
         </form>
+        {special?.id && (
+          <ConfirmationDialog
+            isOpen={showDeleteConfirm}
+            onClose={() => setShowDeleteConfirm(false)}
+            onConfirm={handleDelete}
+            title="Delete Special"
+            message={`Are you sure you want to delete "${special?.title}"? This action cannot be undone.`}
+            confirmText="Delete"
+            cancelText="Cancel"
+            variant="danger"
+          />
+        )}
       </div>
     </div>
   );

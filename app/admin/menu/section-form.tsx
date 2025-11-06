@@ -1,8 +1,11 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import StatusToggle from '@/components/status-toggle';
+import { showToast } from '@/components/toast';
+import ConfirmationDialog from '@/components/confirmation-dialog';
 
 interface MenuSection {
   id?: string;
@@ -16,6 +19,7 @@ interface MenuSection {
 export default function MenuSectionForm({ section }: { section?: MenuSection }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [formData, setFormData] = useState({
     name: section?.name || '',
     description: section?.description || '',
@@ -23,6 +27,64 @@ export default function MenuSectionForm({ section }: { section?: MenuSection }) 
     displayOrder: section?.displayOrder ?? 0,
     isActive: section?.isActive ?? true,
   });
+
+  const [initialFormData, setInitialFormData] = useState(formData);
+
+  useEffect(() => {
+    if (section) {
+      const newFormData = {
+        name: section.name || '',
+        description: section.description || '',
+        menuType: section.menuType || 'dinner',
+        displayOrder: section.displayOrder ?? 0,
+        isActive: section.isActive ?? true,
+      };
+      setFormData(newFormData);
+      setInitialFormData(newFormData);
+    } else {
+      const newFormData = {
+        name: '',
+        description: '',
+        menuType: 'dinner',
+        displayOrder: 0,
+        isActive: true,
+      };
+      setFormData(newFormData);
+      setInitialFormData(newFormData);
+    }
+  }, [section]);
+
+  // Check if form is dirty
+  const isDirty = JSON.stringify(formData) !== JSON.stringify(initialFormData);
+
+  function handleCancel(e: React.MouseEvent) {
+    if (isDirty) {
+      e.preventDefault();
+      // Reset form to initial state
+      if (section) {
+        const newFormData = {
+          name: section.name || '',
+          description: section.description || '',
+          menuType: section.menuType || 'dinner',
+          displayOrder: section.displayOrder ?? 0,
+          isActive: section.isActive ?? true,
+        };
+        setFormData(newFormData);
+        setInitialFormData(newFormData);
+      } else {
+        const newFormData = {
+          name: '',
+          description: '',
+          menuType: 'dinner',
+          displayOrder: 0,
+          isActive: true,
+        };
+        setFormData(newFormData);
+        setInitialFormData(newFormData);
+      }
+    }
+    // If clean, let Link navigate normally
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -39,15 +101,39 @@ export default function MenuSectionForm({ section }: { section?: MenuSection }) 
       });
 
       if (res.ok) {
+        showToast('Menu section saved successfully', 'success');
         router.push('/admin/menu');
         router.refresh();
       } else {
-        alert('Failed to save menu section');
+        const error = await res.json();
+        showToast('Failed to save menu section', 'error', error.error || error.details || 'Please check your input and try again.');
       }
     } catch (error) {
-      alert('An error occurred');
+      showToast('Request failed', 'error', error instanceof Error ? error.message : 'An error occurred.');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!section?.id) return;
+    
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/menu-sections/${section.id}`, { method: 'DELETE' });
+      if (res.ok) {
+        showToast('Menu section deleted successfully', 'success');
+        router.push('/admin/menu');
+        router.refresh();
+      } else {
+        const error = await res.json();
+        showToast('Failed to delete menu section', 'error', error.error || error.details || 'Please try again.');
+      }
+    } catch (error) {
+      showToast('Delete failed', 'error', error instanceof Error ? error.message : 'An error occurred.');
+    } finally {
+      setLoading(false);
+      setShowDeleteConfirm(false);
     }
   }
 
@@ -65,6 +151,13 @@ export default function MenuSectionForm({ section }: { section?: MenuSection }) 
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6 bg-gray-900 p-6 rounded-lg">
+          <StatusToggle
+            type="active"
+            value={formData.isActive}
+            onChange={(value) => setFormData({ ...formData, isActive: value })}
+            label="Status"
+          />
+
           <div>
             <label htmlFor="name" className="block mb-2">
               Section Name *
@@ -122,34 +215,45 @@ export default function MenuSectionForm({ section }: { section?: MenuSection }) 
             <p className="text-sm text-gray-400 mt-1">Lower numbers appear first</p>
           </div>
 
-          <div>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formData.isActive}
-                onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                className="w-4 h-4"
-              />
-              <span>Active</span>
-            </label>
-          </div>
-
           <div className="flex gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+            {section?.id && (
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(true)}
+                disabled={loading}
+                className="px-4 py-2 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 mr-auto"
+              >
+                Delete
+              </button>
+            )}
             <Link
               href="/admin/menu"
-              className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold transition-colors"
+              onClick={handleCancel}
+              className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
             >
               Cancel
             </Link>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || (!!section?.id && !isDirty)}
               className="px-4 py-2 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-blue-500/20"
             >
               {loading ? (section?.id ? 'Saving...' : 'Creating...') : (section?.id ? 'Save' : 'Create')}
             </button>
           </div>
         </form>
+        {section?.id && (
+          <ConfirmationDialog
+            isOpen={showDeleteConfirm}
+            onClose={() => setShowDeleteConfirm(false)}
+            onConfirm={handleDelete}
+            title="Delete Menu Section"
+            message={`Are you sure you want to delete "${section?.name}"? This action cannot be undone.`}
+            confirmText="Delete"
+            cancelText="Cancel"
+            variant="danger"
+          />
+        )}
       </div>
     </div>
   );

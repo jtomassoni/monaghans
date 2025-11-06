@@ -475,20 +475,6 @@ export default function AdminMenuSections({ initialSections }: { initialSections
                             <span className="text-xs font-medium text-gray-900 dark:text-white whitespace-nowrap">Reorder Items</span>
                           </label>
                         )}
-                        
-                        {/* Delete button - always visible (disabled in reorder mode) */}
-                        {!reorderMode && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteSection(section.id);
-                            }}
-                            className="px-3 py-1.5 text-xs bg-red-500/90 dark:bg-red-600/90 hover:bg-red-600 dark:hover:bg-red-700 rounded-lg text-white font-medium transition-all duration-200 hover:scale-105 border border-red-400 dark:border-red-500"
-                            title="Delete section"
-                          >
-                            Delete
-                          </button>
-                        )}
                       </div>
                       
                       {/* Edit button - appears centered on hover (disabled in reorder mode) */}
@@ -499,7 +485,7 @@ export default function AdminMenuSections({ initialSections }: { initialSections
                               e.stopPropagation();
                               handleEditSection(section);
                             }}
-                            className="pointer-events-auto px-4 py-2 text-sm bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-medium transition-all duration-200 hover:scale-105 z-10 border border-blue-400 dark:border-blue-500"
+                            className="pointer-events-auto px-4 py-2 text-sm bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-medium transition-all duration-200 hover:scale-105 z-10 border border-blue-400 dark:border-blue-500 cursor-pointer"
                             title="Click anywhere to edit"
                           >
                             Edit
@@ -616,7 +602,7 @@ export default function AdminMenuSections({ initialSections }: { initialSections
                                         e.stopPropagation();
                                         handleItemClick(item);
                                       }}
-                                      className="pointer-events-auto px-4 py-2 text-sm bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-medium transition-all duration-200 hover:scale-105 z-10 border border-blue-400 dark:border-blue-500"
+                                      className="pointer-events-auto px-4 py-2 text-sm bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-medium transition-all duration-200 hover:scale-105 z-10 border border-blue-400 dark:border-blue-500 cursor-pointer"
                                       title="Click anywhere to edit"
                                     >
                                       Edit
@@ -656,13 +642,35 @@ export default function AdminMenuSections({ initialSections }: { initialSections
           description: editingItem.description || '',
           price: editingItem.price || '',
           priceNotes: editingItem.priceNotes || '',
-          modifiers: editingItem.modifiers ? (typeof editingItem.modifiers === 'string' ? JSON.parse(editingItem.modifiers) : []) : [],
+          modifiers: (() => {
+            if (!editingItem.modifiers) return [];
+            if (Array.isArray(editingItem.modifiers)) return editingItem.modifiers;
+            if (typeof editingItem.modifiers === 'string') {
+              // Try parsing as JSON first
+              try {
+                const parsed = JSON.parse(editingItem.modifiers);
+                return Array.isArray(parsed) ? parsed : [];
+              } catch {
+                // If not JSON, treat as comma-separated string
+                return editingItem.modifiers
+                  .split(',')
+                  .map(m => m.trim())
+                  .filter(m => m.length > 0);
+              }
+            }
+            return [];
+          })(),
           isAvailable: editingItem.isAvailable,
           displayOrder: editingItem.displayOrder,
         } : undefined}
         sections={sections.map(s => ({ id: s.id, name: s.name }))}
         defaultSectionId={defaultSectionId}
         onSuccess={handleModalSuccess}
+        onDelete={(itemId) => {
+          router.refresh();
+          setItemModalOpen(false);
+          setEditingItem(null);
+        }}
       />
 
       {/* Menu Section Modal */}
@@ -678,6 +686,11 @@ export default function AdminMenuSections({ initialSections }: { initialSections
           isActive: editingSection.isActive,
         } : undefined}
         onSuccess={handleSectionModalSuccess}
+        onDelete={(sectionId) => {
+          router.refresh();
+          handleSectionModalClose();
+        }}
+        itemCount={editingSection?.items?.length || 0}
       />
     </div>
   );

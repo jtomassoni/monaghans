@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import Modal from '@/components/modal';
 import { showToast } from '@/components/toast';
 import StatusToggle from '@/components/status-toggle';
+import DateTimePicker from '@/components/date-time-picker';
+import DatePicker from '@/components/date-picker';
 
 interface Event {
   id?: string;
@@ -546,48 +548,42 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label htmlFor="startDateTime" className="block mb-1 text-sm font-medium">
-                    {eventData.isAllDay ? 'Start Date *' : 'Start Date & Time *'}
-                  </label>
-                  <input
-                    id="startDateTime"
-                    type={eventData.isAllDay ? "date" : "datetime-local"}
-                    value={eventData.startDateTime ? (eventData.isAllDay ? eventData.startDateTime.split('T')[0] : eventData.startDateTime) : ''}
-                    onChange={(e) => {
-                      const value = eventData.isAllDay 
-                        ? (e.target.value ? `${e.target.value}T00:00` : '')
-                        : e.target.value;
-                      handleStartDateTimeChange(value);
-                    }}
-                    required
-                    max={eventData.isAllDay && eventData.endDateTime ? eventData.endDateTime.split('T')[0] : eventData.endDateTime || undefined}
-                    className={`w-full px-3 py-1.5 bg-gray-800 border rounded text-white text-sm ${
-                      dateError ? 'border-red-500' : 'border-gray-700'
-                    }`}
-                  />
+                  {eventData.isAllDay ? (
+                    <DatePicker
+                      label="Start Date"
+                      value={eventData.startDateTime ? eventData.startDateTime.split('T')[0] : ''}
+                      onChange={(value) => handleStartDateTimeChange(value ? `${value}T00:00` : '')}
+                      required
+                      dateOnly={true}
+                      max={eventData.endDateTime ? eventData.endDateTime.split('T')[0] : undefined}
+                    />
+                  ) : (
+                    <DateTimePicker
+                      label="Start Date & Time"
+                      value={eventData.startDateTime || ''}
+                      onChange={handleStartDateTimeChange}
+                      required
+                      max={eventData.endDateTime || undefined}
+                    />
+                  )}
                 </div>
                 <div>
-                  <label htmlFor="endDateTime" className="block mb-1 text-sm font-medium">
-                    {eventData.isAllDay ? 'End Date' : 'End Date & Time'}
-                  </label>
-                  <input
-                    id="endDateTime"
-                    type={eventData.isAllDay ? "date" : "datetime-local"}
-                    value={eventData.endDateTime ? (eventData.isAllDay ? eventData.endDateTime.split('T')[0] : eventData.endDateTime) : ''}
-                    onChange={(e) => {
-                      const value = eventData.isAllDay 
-                        ? (e.target.value ? `${e.target.value}T23:59` : '')
-                        : e.target.value;
-                      handleEndDateTimeChange(value);
-                    }}
-                    min={eventData.isAllDay 
-                      ? eventData.startDateTime ? eventData.startDateTime.split('T')[0] : undefined
-                      : eventData.startDateTime || undefined
-                    }
-                    className={`w-full px-3 py-1.5 bg-gray-800 border rounded text-white text-sm ${
-                      dateError ? 'border-red-500' : 'border-gray-700'
-                    }`}
-                  />
+                  {eventData.isAllDay ? (
+                    <DatePicker
+                      label="End Date"
+                      value={eventData.endDateTime ? eventData.endDateTime.split('T')[0] : ''}
+                      onChange={(value) => handleEndDateTimeChange(value ? `${value}T23:59` : '')}
+                      min={eventData.startDateTime ? eventData.startDateTime.split('T')[0] : undefined}
+                      dateOnly={true}
+                    />
+                  ) : (
+                    <DateTimePicker
+                      label="End Date & Time"
+                      value={eventData.endDateTime || ''}
+                      onChange={handleEndDateTimeChange}
+                      min={eventData.startDateTime || undefined}
+                    />
+                  )}
                 </div>
               </div>
               {dateError && (
@@ -761,24 +757,21 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
                 <label htmlFor="startDate" className="block mb-1 text-sm font-medium">
                   Start Date (optional)
                 </label>
-                <input
-                  id="startDate"
-                  type="date"
-                  value={specialData.startDate}
-                  onChange={(e) => setSpecialData({ ...specialData, startDate: e.target.value })}
-                  className="w-full px-3 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm"
+                <DatePicker
+                  value={specialData.startDate || ''}
+                  onChange={(value) => setSpecialData({ ...specialData, startDate: value })}
+                  dateOnly={true}
                 />
               </div>
               <div>
                 <label htmlFor="endDate" className="block mb-1 text-sm font-medium">
                   End Date (optional)
                 </label>
-                <input
-                  id="endDate"
-                  type="date"
-                  value={specialData.endDate}
-                  onChange={(e) => setSpecialData({ ...specialData, endDate: e.target.value })}
-                  className="w-full px-3 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm"
+                <DatePicker
+                  value={specialData.endDate || ''}
+                  onChange={(value) => setSpecialData({ ...specialData, endDate: value })}
+                  min={specialData.startDate || undefined}
+                  dateOnly={true}
                 />
               </div>
             </div>

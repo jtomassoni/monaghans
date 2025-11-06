@@ -1,9 +1,12 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import StatusToggle from '@/components/status-toggle';
+import { showToast } from '@/components/toast';
+import ConfirmationDialog from '@/components/confirmation-dialog';
+import DateTimePicker from '@/components/date-time-picker';
 
 interface Announcement {
   id?: string;
@@ -19,6 +22,7 @@ interface Announcement {
 export default function AnnouncementForm({ announcement }: { announcement?: Announcement }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [formData, setFormData] = useState({
     title: announcement?.title || '',
     body: announcement?.body || '',
@@ -30,6 +34,76 @@ export default function AnnouncementForm({ announcement }: { announcement?: Anno
     crossPostFacebook: announcement?.crossPostFacebook ?? false,
     crossPostInstagram: announcement?.crossPostInstagram ?? false,
   });
+
+  const [initialFormData, setInitialFormData] = useState(formData);
+
+  useEffect(() => {
+    if (announcement) {
+      const newFormData = {
+        title: announcement.title || '',
+        body: announcement.body || '',
+        heroImage: announcement.heroImage || '',
+        publishAt: announcement.publishAt
+          ? new Date(announcement.publishAt).toISOString().slice(0, 16)
+          : '',
+        isPublished: announcement.isPublished ?? false,
+        crossPostFacebook: announcement.crossPostFacebook ?? false,
+        crossPostInstagram: announcement.crossPostInstagram ?? false,
+      };
+      setFormData(newFormData);
+      setInitialFormData(newFormData);
+    } else {
+      const newFormData = {
+        title: '',
+        body: '',
+        heroImage: '',
+        publishAt: '',
+        isPublished: false,
+        crossPostFacebook: false,
+        crossPostInstagram: false,
+      };
+      setFormData(newFormData);
+      setInitialFormData(newFormData);
+    }
+  }, [announcement]);
+
+  // Check if form is dirty
+  const isDirty = JSON.stringify(formData) !== JSON.stringify(initialFormData);
+
+  function handleCancel(e: React.MouseEvent) {
+    if (isDirty) {
+      e.preventDefault();
+      // Reset form to initial state
+      if (announcement) {
+        const newFormData = {
+          title: announcement.title || '',
+          body: announcement.body || '',
+          heroImage: announcement.heroImage || '',
+          publishAt: announcement.publishAt
+            ? new Date(announcement.publishAt).toISOString().slice(0, 16)
+            : '',
+          isPublished: announcement.isPublished ?? false,
+          crossPostFacebook: announcement.crossPostFacebook ?? false,
+          crossPostInstagram: announcement.crossPostInstagram ?? false,
+        };
+        setFormData(newFormData);
+        setInitialFormData(newFormData);
+      } else {
+        const newFormData = {
+          title: '',
+          body: '',
+          heroImage: '',
+          publishAt: '',
+          isPublished: false,
+          crossPostFacebook: false,
+          crossPostInstagram: false,
+        };
+        setFormData(newFormData);
+        setInitialFormData(newFormData);
+      }
+    }
+    // If clean, let Link navigate normally
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -51,15 +125,39 @@ export default function AnnouncementForm({ announcement }: { announcement?: Anno
       });
 
       if (res.ok) {
+        showToast(announcement?.id ? 'Announcement updated successfully' : 'Announcement created successfully', 'success');
         router.push('/admin/announcements');
         router.refresh();
       } else {
-        alert('Failed to save announcement');
+        const error = await res.json();
+        showToast('Failed to save announcement', 'error', error.error || error.details || 'Please check your input and try again.');
       }
     } catch (error) {
-      alert('An error occurred');
+      showToast('Request failed', 'error', error instanceof Error ? error.message : 'An error occurred.');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!announcement?.id) return;
+    
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/announcements/${announcement.id}`, { method: 'DELETE' });
+      if (res.ok) {
+        showToast('Announcement deleted successfully', 'success');
+        router.push('/admin/announcements');
+        router.refresh();
+      } else {
+        const error = await res.json();
+        showToast('Failed to delete announcement', 'error', error.error || error.details || 'Please try again.');
+      }
+    } catch (error) {
+      showToast('Delete failed', 'error', error instanceof Error ? error.message : 'An error occurred.');
+    } finally {
+      setLoading(false);
+      setShowDeleteConfirm(false);
     }
   }
 
@@ -79,6 +177,13 @@ export default function AnnouncementForm({ announcement }: { announcement?: Anno
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6 bg-gray-900 p-6 rounded-lg">
+          <StatusToggle
+            type="published"
+            value={formData.isPublished}
+            onChange={(value) => setFormData({ ...formData, isPublished: value })}
+            label="Status"
+          />
+
           <div>
             <label htmlFor="title" className="block mb-2">
               Title *
@@ -123,41 +228,52 @@ export default function AnnouncementForm({ announcement }: { announcement?: Anno
           </div>
 
           <div>
-            <label htmlFor="publishAt" className="block mb-2">
-              Publish Date & Time (optional)
-            </label>
-            <input
-              id="publishAt"
-              type="datetime-local"
+            <DateTimePicker
+              label="Publish Date & Time (optional)"
               value={formData.publishAt}
-              onChange={(e) => setFormData({ ...formData, publishAt: e.target.value })}
-              className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded text-white"
+              onChange={(value) => setFormData({ ...formData, publishAt: value })}
             />
           </div>
 
-          <StatusToggle
-            type="published"
-            value={formData.isPublished}
-            onChange={(value) => setFormData({ ...formData, isPublished: value })}
-            label="Status"
-          />
-
           <div className="flex gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+            {announcement?.id && (
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(true)}
+                disabled={loading}
+                className="px-4 py-2 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 mr-auto"
+              >
+                Delete
+              </button>
+            )}
             <Link
               href="/admin/announcements"
-              className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold transition-colors"
+              onClick={handleCancel}
+              className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
             >
               Cancel
             </Link>
             <button
               type="submit"
-              disabled={loading}
+              disabled={!!(loading || (announcement?.id && !isDirty))}
               className="px-4 py-2 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-blue-500/20"
             >
               {loading ? (announcement?.id ? 'Saving...' : 'Creating...') : (announcement?.id ? 'Save' : 'Create')}
             </button>
           </div>
         </form>
+        {announcement?.id && (
+          <ConfirmationDialog
+            isOpen={showDeleteConfirm}
+            onClose={() => setShowDeleteConfirm(false)}
+            onConfirm={handleDelete}
+            title="Delete Announcement"
+            message={`Are you sure you want to delete "${announcement?.title}"? This action cannot be undone.`}
+            confirmText="Delete"
+            cancelText="Cancel"
+            variant="danger"
+          />
+        )}
       </div>
     </div>
   );

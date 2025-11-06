@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, handleError, getCurrentUser, logActivity } from '@/lib/api-helpers';
+import { postToFacebook, formatAnnouncementForFacebook } from '@/lib/facebook-helpers';
 
 export async function GET(
   req: NextRequest,
@@ -62,17 +63,6 @@ export async function PUT(
       return NextResponse.json({ error: 'Invalid expiration date' }, { status: 400 });
     }
 
-    // Validate that expired announcements cannot be published
-    if (body.isPublished && expiresAt) {
-      const now = new Date();
-      if (expiresAt < now) {
-        return NextResponse.json({ 
-          error: 'Cannot publish expired announcement',
-          details: 'The expiration date has already passed. Please update the expiration date or uncheck Published.'
-        }, { status: 400 });
-      }
-    }
-
     const announcement = await prisma.announcement.update({
       where: { id },
       data: {
@@ -81,7 +71,7 @@ export async function PUT(
         heroImage: body.heroImage,
         publishAt,
         expiresAt,
-        isPublished: body.isPublished,
+        isPublished: true, // Always published - scheduling handled by publishAt/expiresAt
         crossPostFacebook: body.crossPostFacebook,
         crossPostInstagram: body.crossPostInstagram,
         ctaText: body.ctaText || null,
@@ -91,7 +81,6 @@ export async function PUT(
 
     const changes: Record<string, { before: any; after: any }> = {};
     if (currentAnnouncement.title !== body.title) changes.title = { before: currentAnnouncement.title, after: body.title };
-    if (currentAnnouncement.isPublished !== body.isPublished) changes.isPublished = { before: currentAnnouncement.isPublished, after: body.isPublished };
 
     await logActivity(
       user.id,
@@ -102,6 +91,57 @@ export async function PUT(
       Object.keys(changes).length > 0 ? changes : undefined,
       `updated announcement "${announcement.title}"`
     );
+
+    // Post to Facebook if enabled (only if crossPostFacebook was just enabled or content changed)
+    if (body.crossPostFacebook && (
+      !currentAnnouncement.crossPostFacebook ||
+      currentAnnouncement.title !== body.title ||
+      currentAnnouncement.body !== body.body
+    )) {
+      try {
+        const facebookConnection = await prisma.setting.findUnique({
+          where: { key: 'facebook_connection' },
+        });
+
+        if (facebookConnection) {
+          const connectionData = JSON.parse(facebookConnection.value);
+          
+          if (connectionData.connected && connectionData.accessToken) {
+            // Check if token is expired
+            const isExpired = connectionData.expiresAt && new Date(connectionData.expiresAt) < new Date();
+            
+            if (!isExpired) {
+              const postOptions = formatAnnouncementForFacebook(
+                announcement.title,
+                announcement.body,
+                announcement.heroImage,
+                announcement.ctaUrl || undefined
+              );
+
+              await postToFacebook(
+                connectionData.accessToken,
+                connectionData.pageId,
+                postOptions
+              );
+
+              // Log activity for Facebook post
+              await logActivity(
+                user.id,
+                'update',
+                'announcement',
+                announcement.id,
+                announcement.title,
+                undefined,
+                `posted announcement "${announcement.title}" to Facebook`
+              );
+            }
+          }
+        }
+      } catch (error) {
+        // Log error but don't fail the announcement update
+        console.error('Failed to post announcement to Facebook:', error);
+      }
+    }
 
     return NextResponse.json(announcement);
   } catch (error) {
@@ -159,7 +199,7 @@ export async function DELETE(
           after: null,
         },
       },
-      `deleted announcement "${announcementTitle}"${announcement.isPublished ? ' (was published)' : ' (was draft)'}`
+      `deleted announcement "${announcementTitle}"`
     );
 
     return NextResponse.json({ success: true });

@@ -12,6 +12,8 @@ export async function GET(req: NextRequest) {
     const offset = parseInt(searchParams.get('offset') || '0');
     const entityType = searchParams.get('entityType');
     const action = searchParams.get('action');
+    const search = searchParams.get('search');
+    const sortOrder = searchParams.get('sortOrder') || 'desc';
 
     const where: any = {};
     if (entityType) {
@@ -19,6 +21,19 @@ export async function GET(req: NextRequest) {
     }
     if (action) {
       where.action = action;
+    }
+    if (search) {
+      where.OR = [
+        { description: { contains: search, mode: 'insensitive' } },
+        { entityName: { contains: search, mode: 'insensitive' } },
+        { entityType: { contains: search, mode: 'insensitive' } },
+        { user: { 
+          OR: [
+            { name: { contains: search, mode: 'insensitive' } },
+            { email: { contains: search, mode: 'insensitive' } },
+          ]
+        } },
+      ];
     }
 
     const [activities, total] = await Promise.all([
@@ -34,7 +49,7 @@ export async function GET(req: NextRequest) {
             },
           },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: sortOrder === 'asc' ? 'asc' : 'desc' },
         take: limit,
         skip: offset,
       }),

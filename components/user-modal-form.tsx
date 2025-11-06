@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import Modal from '@/components/modal';
 import { showToast } from '@/components/toast';
 import { FaExclamationTriangle } from 'react-icons/fa';
+import StatusToggle from '@/components/status-toggle';
+import ConfirmationDialog from '@/components/confirmation-dialog';
 
 interface User {
   id?: string;
@@ -20,32 +22,69 @@ interface UserModalFormProps {
   onClose: () => void;
   user?: User;
   onSuccess?: () => void;
+  onDelete?: (userId: string) => void;
 }
 
-export default function UserModalForm({ isOpen, onClose, user, onSuccess }: UserModalFormProps) {
+export default function UserModalForm({ isOpen, onClose, user, onSuccess, onDelete }: UserModalFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [formData, setFormData] = useState({
     name: user?.name || '',
     role: user?.role || 'admin',
     isActive: user?.isActive ?? true,
   });
 
+  const [initialFormData, setInitialFormData] = useState(formData);
+
   useEffect(() => {
     if (user) {
-      setFormData({
+      const newFormData = {
         name: user.name || '',
         role: user.role || 'admin',
         isActive: user.isActive ?? true,
-      });
+      };
+      setFormData(newFormData);
+      setInitialFormData(newFormData);
     } else {
-      setFormData({
+      const newFormData = {
         name: '',
         role: 'admin',
         isActive: true,
-      });
+      };
+      setFormData(newFormData);
+      setInitialFormData(newFormData);
     }
   }, [user, isOpen]);
+
+  // Check if form is dirty
+  const isDirty = JSON.stringify(formData) !== JSON.stringify(initialFormData);
+
+  function handleCancel() {
+    if (isDirty) {
+      // Reset form to initial state
+      if (user) {
+        const newFormData = {
+          name: user.name || '',
+          role: user.role || 'admin',
+          isActive: user.isActive ?? true,
+        };
+        setFormData(newFormData);
+        setInitialFormData(newFormData);
+      } else {
+        const newFormData = {
+          name: '',
+          role: 'admin',
+          isActive: true,
+        };
+        setFormData(newFormData);
+        setInitialFormData(newFormData);
+      }
+    } else {
+      // Close form if clean
+      onClose();
+    }
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -92,6 +131,29 @@ export default function UserModalForm({ isOpen, onClose, user, onSuccess }: User
     }
   }
 
+  async function handleDelete() {
+    if (!user?.id || user?.role === 'superadmin') return;
+    
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/users/${user.id}`, { method: 'DELETE' });
+      if (res.ok) {
+        showToast('User deleted successfully', 'success');
+        onDelete?.(user.id);
+        onSuccess?.();
+        onClose();
+      } else {
+        const error = await res.json();
+        showToast('Failed to delete user', 'error', error.error || error.details || 'Please try again.');
+      }
+    } catch (error) {
+      showToast('Delete failed', 'error', error instanceof Error ? error.message : 'An error occurred.');
+    } finally {
+      setLoading(false);
+      setShowDeleteConfirm(false);
+    }
+  }
+
   return (
     <Modal
       isOpen={isOpen}
@@ -121,7 +183,16 @@ export default function UserModalForm({ isOpen, onClose, user, onSuccess }: User
           )}
         </div>
       )}
-      <form onSubmit={handleSubmit} className="space-y-3">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {user && (
+          <StatusToggle
+            type="active"
+            value={formData.isActive}
+            onChange={(value) => setFormData({ ...formData, isActive: value })}
+            label="Status"
+          />
+        )}
+
         <div>
           <label htmlFor="name" className="block mb-1 text-sm font-medium">
             Name
@@ -156,41 +227,44 @@ export default function UserModalForm({ isOpen, onClose, user, onSuccess }: User
           </p>
         </div>
 
-        {user && (
-          <div>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formData.isActive}
-                onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                className="w-4 h-4"
-                disabled={user.role === 'superadmin'}
-              />
-              <span className="text-sm">Active</span>
-            </label>
-            <p className="text-xs text-gray-400 mt-1">
-              Inactive users cannot log in
-            </p>
-          </div>
-        )}
-
-        <div className="flex gap-3 pt-3 border-t border-gray-800">
+        <div className="flex gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+          {user?.id && onDelete && user?.role !== 'superadmin' && (
+            <button
+              type="button"
+              onClick={() => setShowDeleteConfirm(true)}
+              disabled={loading}
+              className="px-4 py-2 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 mr-auto"
+            >
+              Delete
+            </button>
+          )}
           <button
             type="button"
-            onClick={onClose}
-            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm font-semibold"
+            onClick={handleCancel}
+            disabled={loading}
+            className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             Cancel
           </button>
           <button
             type="submit"
-            disabled={loading || user?.role === 'superadmin'}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-sm font-semibold disabled:opacity-50"
+            disabled={!!(loading || user?.role === 'superadmin' || (user?.id && !isDirty))}
+            className="px-4 py-2 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-blue-500/20"
           >
             {loading ? 'Saving...' : 'Save User'}
           </button>
         </div>
       </form>
+      <ConfirmationDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleDelete}
+        title="Delete User"
+        message={`Are you sure you want to delete "${user?.name || user?.email}"? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
+      />
     </Modal>
   );
 }

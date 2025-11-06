@@ -323,29 +323,82 @@ export default function CalendarView({ events, specials, announcements = [], onE
       }
     });
 
-    // Process specials (daily specials - food type with dates)
+    // Process specials (daily specials - food type with dates, and drink specials)
     specials.forEach((special) => {
       if (!special.isActive) return;
-      if (special.type !== 'food') return;
 
-      const startDate = special.startDate ? new Date(special.startDate) : null;
-      const endDate = special.endDate ? new Date(special.endDate) : null;
+      // Handle food specials (with dates)
+      if (special.type === 'food') {
+        const startDate = special.startDate ? new Date(special.startDate) : null;
+        const endDate = special.endDate ? new Date(special.endDate) : null;
 
-      if (startDate) {
-        // If only startDate is provided, treat it as a single-day special
-        const effectiveEndDate = endDate || startDate;
-        
-        let date = new Date(Math.max(startDate.getTime(), rangeStart.getTime()));
-        const rangeEndDate = new Date(Math.min(effectiveEndDate.getTime(), rangeEnd.getTime()));
-        
-        while (date <= rangeEndDate) {
-          if (isWithinInterval(date, { start: rangeStart, end: rangeEnd })) {
-            items.push({
-              ...special,
-              date: new Date(date),
-            });
+        if (startDate) {
+          // If only startDate is provided, treat it as a single-day special
+          const effectiveEndDate = endDate || startDate;
+          
+          let date = new Date(Math.max(startDate.getTime(), rangeStart.getTime()));
+          const rangeEndDate = new Date(Math.min(effectiveEndDate.getTime(), rangeEnd.getTime()));
+          
+          while (date <= rangeEndDate) {
+            if (isWithinInterval(date, { start: rangeStart, end: rangeEnd })) {
+              items.push({
+                ...special,
+                date: new Date(date),
+              });
+            }
+            date = addDays(date, 1);
           }
-          date = addDays(date, 1);
+        }
+      }
+      
+      // Handle drink specials (with weekly recurring days or date ranges)
+      if (special.type === 'drink') {
+        const appliesOn = special.appliesOn ? (typeof special.appliesOn === 'string' ? JSON.parse(special.appliesOn) : special.appliesOn) : [];
+        const startDate = special.startDate ? new Date(special.startDate) : null;
+        const endDate = special.endDate ? new Date(special.endDate) : null;
+        
+        // If weekly recurring days are set
+        if (appliesOn.length > 0) {
+          // Show on matching days of the week within the visible range
+          let date = new Date(rangeStart);
+          const weekdayMap: Record<string, number> = {
+            'Monday': 1,
+            'Tuesday': 2,
+            'Wednesday': 3,
+            'Thursday': 4,
+            'Friday': 5,
+            'Saturday': 6,
+            'Sunday': 0,
+          };
+          
+          while (date <= rangeEnd) {
+            const dayOfWeek = date.getDay();
+            const dayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dayOfWeek];
+            
+            if (appliesOn.includes(dayName) && isWithinInterval(date, { start: rangeStart, end: rangeEnd })) {
+              items.push({
+                ...special,
+                date: new Date(date),
+              });
+            }
+            date = addDays(date, 1);
+          }
+        } else if (startDate) {
+          // If date range is set (no weekly recurring)
+          const effectiveEndDate = endDate || startDate;
+          
+          let date = new Date(Math.max(startDate.getTime(), rangeStart.getTime()));
+          const rangeEndDate = new Date(Math.min(effectiveEndDate.getTime(), rangeEnd.getTime()));
+          
+          while (date <= rangeEndDate) {
+            if (isWithinInterval(date, { start: rangeStart, end: rangeEnd })) {
+              items.push({
+                ...special,
+                date: new Date(date),
+              });
+            }
+            date = addDays(date, 1);
+          }
         }
       }
     });
@@ -844,39 +897,55 @@ export default function CalendarView({ events, specials, announcements = [], onE
     const availableHeight = calendarHeight > 0 ? calendarHeight - 120 : 500;
     const hourHeight = Math.max(30, Math.floor(availableHeight / 24));
 
-    // Get items for each day with their time positions
+    // Get all-day items for a day (specials, announcements, and all-day events)
+    const getAllDayItems = (day: Date): CalendarItem[] => {
+      const dayKey = format(day, 'yyyy-MM-dd');
+      const allItems = itemsByDate[dayKey] || [];
+      
+      return allItems.filter((item) => {
+        if (item.eventType === 'special' || item.eventType === 'announcement') {
+          return true;
+        }
+        if (item.eventType === 'event') {
+          const event = item as CalendarEvent;
+          return event.isAllDay;
+        }
+        return false;
+      });
+    };
+
+    // Get items for each day with their time positions (excluding all-day items)
     const getItemsWithPosition = (day: Date) => {
       const dayKey = format(day, 'yyyy-MM-dd');
       const allItems = itemsByDate[dayKey] || [];
       
-      return allItems.map((item) => {
-        let top = 0;
-        let height = hourHeight;
-        
+      // Filter out all-day items
+      const timedItems = allItems.filter((item) => {
+        if (item.eventType === 'special' || item.eventType === 'announcement') {
+          return false; // These are all-day, exclude from timed view
+        }
         if (item.eventType === 'event') {
           const event = item as CalendarEvent;
-          if (!event.isAllDay) {
-            const eventDate = new Date(event.startDateTime);
-            const hours = getHours(eventDate);
-            const minutes = getMinutes(eventDate);
-            top = (hours * hourHeight) + (minutes / 60 * hourHeight);
-            
-            if (event.endDateTime) {
-              const endDate = new Date(event.endDateTime);
-              const endHours = getHours(endDate);
-              const endMinutes = getMinutes(endDate);
-              const endTop = (endHours * hourHeight) + (endMinutes / 60 * hourHeight);
-              height = Math.max(hourHeight * 0.5, endTop - top);
-            }
-          } else {
-            // All-day events span the entire day
-            top = 0;
-            height = hourHeight * 24;
-          }
-        } else {
-          // Specials and announcements go at the top
-          top = 0;
-          height = hourHeight * 1.5;
+          return !event.isAllDay; // Only include timed events
+        }
+        return true;
+      });
+      
+      return timedItems.map((item) => {
+        // Only events should be in timedItems after filtering
+        const event = item as CalendarEvent;
+        const eventDate = new Date(event.startDateTime);
+        const hours = getHours(eventDate);
+        const minutes = getMinutes(eventDate);
+        const top = (hours * hourHeight) + (minutes / 60 * hourHeight);
+        
+        let height = hourHeight;
+        if (event.endDateTime) {
+          const endDate = new Date(event.endDateTime);
+          const endHours = getHours(endDate);
+          const endMinutes = getMinutes(endDate);
+          const endTop = (endHours * hourHeight) + (endMinutes / 60 * hourHeight);
+          height = Math.max(hourHeight * 0.5, endTop - top);
         }
         
         return { item, top, height };
@@ -909,6 +978,102 @@ export default function CalendarView({ events, specials, announcements = [], onE
                   }`}>
                     {format(day, 'd')}
                   </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* All-day events bar */}
+        <div className="flex border-b border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+          <div className="w-14 flex-shrink-0 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-widest px-3 py-2 border-r border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex items-center">
+            All Day
+          </div>
+          <div className="grid grid-cols-7 flex-1">
+            {weekDays.map((day, dayIndex) => {
+              const allDayItems = getAllDayItems(day);
+              const isToday = isSameDay(day, new Date());
+              
+              return (
+                <div
+                  key={format(day, 'yyyy-MM-dd')}
+                  className={`min-h-[60px] p-1.5 border-r border-gray-300 dark:border-gray-700 last:border-r-0 flex flex-col gap-1 ${
+                    isToday 
+                      ? 'bg-blue-50/30 dark:bg-blue-900/20 border-x border-blue-400 dark:border-blue-500' 
+                      : 'bg-white dark:bg-gray-800'
+                  }`}
+                >
+                  {allDayItems.length === 0 ? (
+                    <div className="text-xs text-gray-400 dark:text-gray-600 text-center py-1">
+                      —
+                    </div>
+                  ) : (
+                    allDayItems.map((item, itemIdx) => {
+                      const event = item.eventType === 'event' ? item as CalendarEvent : null;
+                      const announcement = item.eventType === 'announcement' ? item as CalendarAnnouncement : null;
+                      const isRecurring = event && !!event.recurrenceRule;
+                      
+                      // Build tooltip
+                      const tooltipParts: string[] = [item.title];
+                      if (announcement) {
+                        if (announcement.publishAt) {
+                          const publishDate = format(new Date(announcement.publishAt), 'MMM d, yyyy h:mm a');
+                          tooltipParts.push(`Publish: ${publishDate}`);
+                        }
+                        if (announcement.expiresAt) {
+                          const expireDate = format(new Date(announcement.expiresAt), 'MMM d, yyyy h:mm a');
+                          tooltipParts.push(`Expires: ${expireDate}`);
+                        }
+                        tooltipParts.push(`Status: ${announcement.isPublished ? 'Published' : 'Draft'}`);
+                      }
+                      if (event) {
+                        if (event.description) {
+                          tooltipParts.push(`Description: ${event.description}`);
+                        }
+                        if (event.venueArea && event.venueArea !== 'bar') {
+                          tooltipParts.push(`Venue: ${event.venueArea.charAt(0).toUpperCase() + event.venueArea.slice(1)}`);
+                        }
+                        if (event.tags && event.tags.length > 0) {
+                          tooltipParts.push(`Tags: ${event.tags.join(', ')}`);
+                        }
+                        if (isRecurring) {
+                          tooltipParts.push('🔄 Recurring Event');
+                        }
+                      }
+                      
+                      return (
+                        <div
+                          key={`${item.id}-${format(item.date, 'yyyy-MM-dd')}-${itemIdx}`}
+                          className={`text-[10px] px-2 py-1 rounded border shadow-sm cursor-pointer transition-all duration-200 hover:scale-[1.02] hover:shadow-md ${getItemColor(item)} text-white`}
+                          title={tooltipParts.join('\n')}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (item.eventType === 'event') {
+                              if (onEventClick) {
+                                const event = item as CalendarEvent;
+                                const occurrenceDate = event.recurrenceRule ? item.date : undefined;
+                                onEventClick(item.id, occurrenceDate);
+                              }
+                            } else if (item.eventType === 'special') {
+                              if (onSpecialClick) {
+                                onSpecialClick(item.id);
+                              }
+                            } else if (item.eventType === 'announcement') {
+                              window.open(`/admin/announcements?id=${item.id}`, '_blank');
+                            }
+                          }}
+                        >
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] flex-shrink-0">{getItemIcon(item)}</span>
+                            <span className="flex-1 truncate font-medium">
+                              {item.title}
+                              {isRecurring && <span className="ml-0.5 opacity-75">🔄</span>}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               );
             })}
@@ -1014,55 +1179,35 @@ export default function CalendarView({ events, specials, announcements = [], onE
                   
                   {/* Events positioned by time */}
                   {itemsWithPosition.map(({ item, top, height }, itemIdx) => {
-                    const isAllDay = item.eventType === 'event' && (item as CalendarEvent).isAllDay;
-                    const isBeingDragged = draggedEvent && item.eventType === 'event' && (item as CalendarEvent).id === draggedEvent.id;
-                    const isNewEvent = item.eventType === 'event' && newEventIds.has((item as CalendarEvent).id);
-                    const isRecurring = item.eventType === 'event' && !!(item as CalendarEvent).recurrenceRule;
+                    // Only timed events are in itemsWithPosition
+                    const event = item as CalendarEvent;
+                    const isBeingDragged = draggedEvent && event.id === draggedEvent.id;
+                    const isNewEvent = newEventIds.has(event.id);
+                    const isRecurring = !!event.recurrenceRule;
                     
                     // Build tooltip with event details
-                    const event = item.eventType === 'event' ? item as CalendarEvent : null;
-                    const announcement = item.eventType === 'announcement' ? item as CalendarAnnouncement : null;
                     const tooltipParts: string[] = [item.title];
-                    if (announcement) {
-                      if (announcement.publishAt) {
-                        const publishDate = format(new Date(announcement.publishAt), 'MMM d, yyyy h:mm a');
-                        tooltipParts.push(`Publish: ${publishDate}`);
-                      }
-                      if (announcement.expiresAt) {
-                        const expireDate = format(new Date(announcement.expiresAt), 'MMM d, yyyy h:mm a');
-                        tooltipParts.push(`Expires: ${expireDate}`);
-                      }
-                      tooltipParts.push(`Status: ${announcement.isPublished ? 'Published' : 'Draft'}`);
+                    const startTime = format(new Date(event.startDateTime), 'h:mm a');
+                    const endTime = event.endDateTime ? format(new Date(event.endDateTime), 'h:mm a') : null;
+                    tooltipParts.push(`Time: ${startTime}${endTime ? ` - ${endTime}` : ''}`);
+                    if (event.description) {
+                      tooltipParts.push(`Description: ${event.description}`);
                     }
-                    if (event) {
-                      if (!event.isAllDay) {
-                        const startTime = format(new Date(event.startDateTime), 'h:mm a');
-                        const endTime = event.endDateTime ? format(new Date(event.endDateTime), 'h:mm a') : null;
-                        tooltipParts.push(`Time: ${startTime}${endTime ? ` - ${endTime}` : ''}`);
-                      }
-                      if (event.description) {
-                        tooltipParts.push(`Description: ${event.description}`);
-                      }
-                      if (event.venueArea && event.venueArea !== 'bar') {
-                        tooltipParts.push(`Venue: ${event.venueArea.charAt(0).toUpperCase() + event.venueArea.slice(1)}`);
-                      }
-                      if (event.tags && event.tags.length > 0) {
-                        tooltipParts.push(`Tags: ${event.tags.join(', ')}`);
-                      }
-                      if (isRecurring) {
-                        tooltipParts.push('🔄 Recurring Event');
-                      }
+                    if (event.venueArea && event.venueArea !== 'bar') {
+                      tooltipParts.push(`Venue: ${event.venueArea.charAt(0).toUpperCase() + event.venueArea.slice(1)}`);
+                    }
+                    if (event.tags && event.tags.length > 0) {
+                      tooltipParts.push(`Tags: ${event.tags.join(', ')}`);
+                    }
+                    if (isRecurring) {
+                      tooltipParts.push('🔄 Recurring Event');
                     }
                     
                     return (
                       <div
                         key={`${item.id}-${format(item.date, 'yyyy-MM-dd')}-${itemIdx}`}
-                        draggable={!isAllDay && item.eventType === 'event'}
-                        onDragStart={(e) => {
-                          if (item.eventType === 'event' && !isAllDay) {
-                            handleDragStart(e, item as CalendarEvent);
-                          }
-                        }}
+                        draggable={true}
+                        onDragStart={(e) => handleDragStart(e, event)}
                         onDragEnd={handleDragEnd}
                         className={`absolute left-2 right-2 px-2.5 py-1.5 rounded-md cursor-move transition-all duration-300 hover:scale-[1.02] hover:shadow-lg ${getItemColor(item)} text-white z-10 shadow-md border ${
                           isBeingDragged ? 'opacity-30 scale-95' : 'opacity-100'
@@ -1070,7 +1215,7 @@ export default function CalendarView({ events, specials, announcements = [], onE
                         style={{
                           top: `${top}px`,
                           height: `${height}px`,
-                          minHeight: `${isAllDay ? hourHeight * 24 : hourHeight * 0.6}px`,
+                          minHeight: `${hourHeight * 0.6}px`,
                           transition: isBeingDragged ? 'all 0.2s ease-out' : isNewEvent ? 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)' : 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                           animation: isNewEvent ? 'slideInScale 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)' : undefined,
                         }}
@@ -1079,20 +1224,9 @@ export default function CalendarView({ events, specials, announcements = [], onE
                           e.stopPropagation();
                           // Don't open modal if user was dragging
                           if (hasDragged) return;
-                          if (item.eventType === 'event') {
-                            if (onEventClick) {
-                              // For recurring events, pass the occurrence date
-                              const event = item as CalendarEvent;
-                              const occurrenceDate = event.recurrenceRule ? item.date : undefined;
-                              onEventClick(item.id, occurrenceDate);
-                            }
-                          } else if (item.eventType === 'special') {
-                            if (onSpecialClick) {
-                              onSpecialClick(item.id);
-                            }
-                          } else if (item.eventType === 'announcement') {
-                            // Open announcement in new tab or navigate
-                            window.open(`/admin/announcements?id=${item.id}`, '_blank');
+                          if (onEventClick) {
+                            const occurrenceDate = event.recurrenceRule ? item.date : undefined;
+                            onEventClick(item.id, occurrenceDate);
                           }
                         }}
                       >
@@ -1104,24 +1238,22 @@ export default function CalendarView({ events, specials, announcements = [], onE
                               {isRecurring && <span className="ml-1 opacity-75">🔄</span>}
                             </span>
                           </div>
-                          {event && !event.isAllDay && (
-                            <div className="flex items-center gap-1 text-[10px] opacity-90">
-                              <span>{format(new Date(event.startDateTime), 'h:mm a')}</span>
-                              {event.endDateTime && (
-                                <>
-                                  <span>-</span>
-                                  <span>{format(new Date(event.endDateTime), 'h:mm a')}</span>
-                                </>
-                              )}
-                              {event.venueArea && event.venueArea !== 'bar' && (
-                                <>
-                                  <span>•</span>
-                                  <span className="capitalize truncate">{event.venueArea}</span>
-                                </>
-                              )}
-                            </div>
-                          )}
-                          {event && event.description && height > hourHeight * 0.8 && (
+                          <div className="flex items-center gap-1 text-[10px] opacity-90">
+                            <span>{format(new Date(event.startDateTime), 'h:mm a')}</span>
+                            {event.endDateTime && (
+                              <>
+                                <span>-</span>
+                                <span>{format(new Date(event.endDateTime), 'h:mm a')}</span>
+                              </>
+                            )}
+                            {event.venueArea && event.venueArea !== 'bar' && (
+                              <>
+                                <span>•</span>
+                                <span className="capitalize truncate">{event.venueArea}</span>
+                              </>
+                            )}
+                          </div>
+                          {event.description && height > hourHeight * 0.8 && (
                             <div className="text-[10px] opacity-80 line-clamp-1 truncate">
                               {event.description}
                             </div>
@@ -1144,7 +1276,7 @@ export default function CalendarView({ events, specials, announcements = [], onE
   return (
     <div className="flex flex-col h-full min-h-0" ref={calendarRef}>
         {/* Calendar Header */}
-      <div className="flex justify-between items-center mb-3 flex-shrink-0">
+      <div className="flex justify-center items-center mb-3 flex-shrink-0 gap-4">
         <div className="flex items-center gap-2">
           <button
             onClick={() => navigateDate('prev')}
@@ -1292,3 +1424,4 @@ export default function CalendarView({ events, specials, announcements = [], onE
     </div>
   );
 }
+

@@ -107,6 +107,11 @@ export default function DailySpecialsList({ initialSpecials }: DailySpecialsList
     router.refresh();
   };
 
+  const handleSpecialDeleted = (specialId: string) => {
+    setSpecials(specials.filter((s) => s.id !== specialId));
+    router.refresh();
+  };
+
   function handleDelete(item: DailySpecial) {
     setDeleteConfirmation({ id: item.id, title: item.title });
   }
@@ -328,6 +333,7 @@ export default function DailySpecialsList({ initialSpecials }: DailySpecialsList
         } : undefined}
         defaultType="food"
         onSuccess={handleModalSuccess}
+        onDelete={handleSpecialDeleted}
       />
     </div>
   );

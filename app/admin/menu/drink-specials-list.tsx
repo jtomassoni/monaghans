@@ -49,8 +49,16 @@ export default function DrinkSpecialsList({ initialSpecials }: DrinkSpecialsList
   ];
 
   const filterOptions: FilterOption<DrinkSpecial>[] = [
-    { label: 'Active Only', value: 'active', filterFn: (item) => item.isActive },
-    { label: 'Weekly Recurring', value: 'weekly', filterFn: (item) => item.appliesOn && item.appliesOn.length > 0 },
+    { label: 'Active Only', value: 'active', filterFn: (item) => item.isActive === true },
+    { label: 'Weekly Recurring', value: 'weekly', filterFn: (item) => {
+      if (!item.appliesOn) return false;
+      try {
+        const appliesOn = typeof item.appliesOn === 'string' ? JSON.parse(item.appliesOn) : item.appliesOn;
+        return Array.isArray(appliesOn) && appliesOn.length > 0;
+      } catch {
+        return false;
+      }
+    }},
     { label: 'Date Specific', value: 'date', filterFn: (item) => item.startDate !== null },
   ];
 
@@ -93,6 +101,11 @@ export default function DrinkSpecialsList({ initialSpecials }: DrinkSpecialsList
   };
 
   const handleModalSuccess = () => {
+    router.refresh();
+  };
+
+  const handleSpecialDeleted = (specialId: string) => {
+    setSpecials(specials.filter((s) => s.id !== specialId));
     router.refresh();
   };
 
@@ -341,15 +354,15 @@ export default function DrinkSpecialsList({ initialSpecials }: DrinkSpecialsList
           title: editingSpecial.title,
           description: editingSpecial.description || '',
           priceNotes: editingSpecial.priceNotes || '',
-          type: editingSpecial.type as 'drink',
+          type: 'drink' as const,
           appliesOn: editingSpecial.appliesOn ? JSON.parse(editingSpecial.appliesOn) : [],
           timeWindow: editingSpecial.timeWindow || '',
           startDate: editingSpecial.startDate || '',
           endDate: editingSpecial.endDate || '',
-          image: '',
           isActive: editingSpecial.isActive,
         } : undefined}
         onSuccess={handleModalSuccess}
+        onDelete={handleSpecialDeleted}
       />
     </div>
   );

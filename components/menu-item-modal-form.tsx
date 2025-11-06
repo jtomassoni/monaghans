@@ -4,6 +4,8 @@ import { useState, FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Modal from '@/components/modal';
 import { showToast } from '@/components/toast';
+import StatusToggle from '@/components/status-toggle';
+import ConfirmationDialog from '@/components/confirmation-dialog';
 
 interface MenuItem {
   id?: string;
@@ -29,6 +31,7 @@ interface MenuItemModalFormProps {
   sections: MenuSection[];
   defaultSectionId?: string;
   onSuccess?: () => void;
+  onDelete?: (itemId: string) => void;
 }
 
 export default function MenuItemModalForm({ 
@@ -37,10 +40,12 @@ export default function MenuItemModalForm({
   item, 
   sections,
   defaultSectionId,
-  onSuccess 
+  onSuccess,
+  onDelete
 }: MenuItemModalFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   
   const [formData, setFormData] = useState({
     sectionId: item?.sectionId || defaultSectionId || '',
@@ -53,13 +58,15 @@ export default function MenuItemModalForm({
     displayOrder: item?.displayOrder ?? 0,
   });
 
+  const [initialFormData, setInitialFormData] = useState(formData);
   const [modifierText, setModifierText] = useState(
     item?.modifiers ? item.modifiers.join(', ') : ''
   );
+  const [initialModifierText, setInitialModifierText] = useState(modifierText);
 
   useEffect(() => {
     if (item) {
-      setFormData({
+      const newFormData = {
         sectionId: item.sectionId,
         name: item.name,
         description: item.description || '',
@@ -68,10 +75,14 @@ export default function MenuItemModalForm({
         modifiers: item.modifiers || [],
         isAvailable: item.isAvailable ?? true,
         displayOrder: item.displayOrder ?? 0,
-      });
-      setModifierText(item.modifiers ? item.modifiers.join(', ') : '');
+      };
+      const newModifierText = item.modifiers ? item.modifiers.join(', ') : '';
+      setFormData(newFormData);
+      setInitialFormData(newFormData);
+      setModifierText(newModifierText);
+      setInitialModifierText(newModifierText);
     } else {
-      setFormData({
+      const newFormData = {
         sectionId: defaultSectionId || '',
         name: '',
         description: '',
@@ -80,10 +91,58 @@ export default function MenuItemModalForm({
         modifiers: [],
         isAvailable: true,
         displayOrder: 0,
-      });
+      };
+      setFormData(newFormData);
+      setInitialFormData(newFormData);
       setModifierText('');
+      setInitialModifierText('');
     }
   }, [item, defaultSectionId, isOpen]);
+
+  // Check if form is dirty
+  const isDirty = JSON.stringify(formData) !== JSON.stringify(initialFormData) || 
+                  modifierText !== initialModifierText;
+
+  function handleCancel() {
+    if (isDirty) {
+      // Reset form to initial state
+      if (item) {
+        const newFormData = {
+          sectionId: item.sectionId,
+          name: item.name,
+          description: item.description || '',
+          price: item.price || '',
+          priceNotes: item.priceNotes || '',
+          modifiers: item.modifiers || [],
+          isAvailable: item.isAvailable ?? true,
+          displayOrder: item.displayOrder ?? 0,
+        };
+        const newModifierText = item.modifiers ? item.modifiers.join(', ') : '';
+        setFormData(newFormData);
+        setInitialFormData(newFormData);
+        setModifierText(newModifierText);
+        setInitialModifierText(newModifierText);
+      } else {
+        const newFormData = {
+          sectionId: defaultSectionId || '',
+          name: '',
+          description: '',
+          price: '',
+          priceNotes: '',
+          modifiers: [],
+          isAvailable: true,
+          displayOrder: 0,
+        };
+        setFormData(newFormData);
+        setInitialFormData(newFormData);
+        setModifierText('');
+        setInitialModifierText('');
+      }
+    } else {
+      // Close form if clean
+      onClose();
+    }
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -134,13 +193,43 @@ export default function MenuItemModalForm({
     }
   }
 
+  async function handleDelete() {
+    if (!item?.id) return;
+    
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/menu-items/${item.id}`, { method: 'DELETE' });
+      if (res.ok) {
+        showToast('Menu item deleted successfully', 'success');
+        onDelete?.(item.id);
+        onSuccess?.();
+        onClose();
+      } else {
+        const error = await res.json();
+        showToast('Failed to delete menu item', 'error', error.error || error.details || 'Please try again.');
+      }
+    } catch (error) {
+      showToast('Delete failed', 'error', error instanceof Error ? error.message : 'An error occurred.');
+    } finally {
+      setLoading(false);
+      setShowDeleteConfirm(false);
+    }
+  }
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
       title={item ? 'Edit Menu Item' : 'New Menu Item'}
     >
-      <form onSubmit={handleSubmit} className="space-y-3">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <StatusToggle
+          type="available"
+          value={formData.isAvailable}
+          onChange={(value) => setFormData({ ...formData, isAvailable: value })}
+          label="Status"
+        />
+
         <div>
           <label htmlFor="sectionId" className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
             Section *
@@ -245,35 +334,44 @@ export default function MenuItemModalForm({
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Optional: list modifier options separated by commas</p>
         </div>
 
-        <div>
-          <label className="flex items-center gap-2 cursor-pointer text-gray-900 dark:text-white">
-            <input
-              type="checkbox"
-              checked={formData.isAvailable}
-              onChange={(e) => setFormData({ ...formData, isAvailable: e.target.checked })}
-              className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-            />
-            <span className="text-sm">Available</span>
-          </label>
-        </div>
-
         <div className="flex gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+          {item?.id && onDelete && (
+            <button
+              type="button"
+              onClick={() => setShowDeleteConfirm(true)}
+              disabled={loading}
+              className="px-4 py-2 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 mr-auto"
+            >
+              Delete
+            </button>
+          )}
           <button
             type="button"
-            onClick={onClose}
-            className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold transition-colors"
+            onClick={handleCancel}
+            disabled={loading}
+            className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             Cancel
           </button>
           <button
             type="submit"
-            disabled={loading}
+            disabled={!!(loading || (item?.id && !isDirty))}
             className="px-4 py-2 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-blue-500/20"
           >
             {loading ? (item?.id ? 'Saving...' : 'Creating...') : (item?.id ? 'Save' : 'Create')}
           </button>
         </div>
       </form>
+      <ConfirmationDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleDelete}
+        title="Delete Menu Item"
+        message={`Are you sure you want to delete "${item?.name}"? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
+      />
     </Modal>
   );
 }

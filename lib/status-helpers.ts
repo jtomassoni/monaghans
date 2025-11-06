@@ -1,6 +1,6 @@
 'use client';
 
-import { StatusType } from './status-badge';
+import { StatusType } from '../components/status-badge';
 
 /**
  * Helper function to determine status based on item properties

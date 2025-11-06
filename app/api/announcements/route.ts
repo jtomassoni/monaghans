@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, handleError, getCurrentUser, logActivity } from '@/lib/api-helpers';
+import { postToFacebook, formatAnnouncementForFacebook } from '@/lib/facebook-helpers';
 
 export async function GET(req: NextRequest) {
   try {
@@ -66,17 +67,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid expiration date' }, { status: 400 });
     }
 
-    // Validate that expired announcements cannot be published
-    if (body.isPublished && expiresAt) {
-      const now = new Date();
-      if (expiresAt < now) {
-        return NextResponse.json({ 
-          error: 'Cannot publish expired announcement',
-          details: 'The expiration date has already passed. Please update the expiration date or uncheck Published.'
-        }, { status: 400 });
-      }
-    }
-
     const announcement = await prisma.announcement.create({
       data: {
         title: body.title,
@@ -84,7 +74,7 @@ export async function POST(req: NextRequest) {
         heroImage: body.heroImage,
         publishAt,
         expiresAt,
-        isPublished: body.isPublished ?? false,
+        isPublished: true, // Always published - scheduling handled by publishAt/expiresAt
         crossPostFacebook: body.crossPostFacebook ?? false,
         crossPostInstagram: body.crossPostInstagram ?? false,
         ctaText: body.ctaText || null,
@@ -101,6 +91,53 @@ export async function POST(req: NextRequest) {
       undefined,
       `created announcement "${announcement.title}"`
     );
+
+    // Post to Facebook if enabled
+    if (body.crossPostFacebook) {
+      try {
+        const facebookConnection = await prisma.setting.findUnique({
+          where: { key: 'facebook_connection' },
+        });
+
+        if (facebookConnection) {
+          const connectionData = JSON.parse(facebookConnection.value);
+          
+          if (connectionData.connected && connectionData.accessToken) {
+            // Check if token is expired
+            const isExpired = connectionData.expiresAt && new Date(connectionData.expiresAt) < new Date();
+            
+            if (!isExpired) {
+              const postOptions = formatAnnouncementForFacebook(
+                announcement.title,
+                announcement.body,
+                announcement.heroImage,
+                announcement.ctaUrl || undefined
+              );
+
+              await postToFacebook(
+                connectionData.accessToken,
+                connectionData.pageId,
+                postOptions
+              );
+
+              // Log activity for Facebook post
+              await logActivity(
+                user.id,
+                'create',
+                'announcement',
+                announcement.id,
+                announcement.title,
+                undefined,
+                `posted announcement "${announcement.title}" to Facebook`
+              );
+            }
+          }
+        }
+      } catch (error) {
+        // Log error but don't fail the announcement creation
+        console.error('Failed to post announcement to Facebook:', error);
+      }
+    }
 
     return NextResponse.json(announcement, { status: 201 });
   } catch (error) {

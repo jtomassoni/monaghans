@@ -20,7 +20,9 @@ import {
   FaMoon,
   FaSun,
   FaBullhorn,
-  FaHistory
+  FaHistory,
+  FaFacebook,
+  FaShareAlt
 } from 'react-icons/fa';
 import { useTheme } from './theme-provider';
 
@@ -42,8 +44,7 @@ export default function AdminNav({ isSuperadmin, userName, userEmail }: AdminNav
     { href: '/admin/announcements', label: 'Announcements', icon: FaBullhorn },
     { href: '/admin/menu', label: 'Menu', icon: FaUtensils },
     { href: '/admin/homepage', label: 'Homepage', icon: FaEdit },
-    { href: '/admin/activity', label: 'Activity', icon: FaHistory },
-    { href: '/admin/settings', label: 'Settings', icon: FaCog },
+    { href: '/admin/social', label: 'Social Media', icon: FaShareAlt },
   ];
 
   const isActive = (href: string) => {
@@ -61,6 +62,9 @@ export default function AdminNav({ isSuperadmin, userName, userEmail }: AdminNav
     }
     if (href === '/admin/activity') {
       return pathname === '/admin/activity';
+    }
+    if (href === '/admin/social') {
+      return pathname?.startsWith('/admin/social');
     }
     return pathname?.startsWith(href);
   };
@@ -114,6 +118,30 @@ export default function AdminNav({ isSuperadmin, userName, userEmail }: AdminNav
 
       {/* Bottom Actions */}
       <div className="p-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
+        <Link
+          href="/admin/activity"
+          className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group cursor-pointer ${
+            isActive('/admin/activity')
+              ? 'bg-blue-500/90 dark:bg-blue-600/90 text-white border border-blue-400 dark:border-blue-500'
+              : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+          }`}
+        >
+          <FaHistory className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" />
+          <span className="font-medium">Activity</span>
+        </Link>
+
+        <Link
+          href="/admin/settings"
+          className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group cursor-pointer ${
+            isActive('/admin/settings')
+              ? 'bg-blue-500/90 dark:bg-blue-600/90 text-white border border-blue-400 dark:border-blue-500'
+              : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+          }`}
+        >
+          <FaCog className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" />
+          <span className="font-medium">Settings</span>
+        </Link>
+
         <Link
           href="/"
           target="_blank"

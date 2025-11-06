@@ -6,6 +6,8 @@ import Modal from '@/components/modal';
 import { showToast } from '@/components/toast';
 import StatusToggle from '@/components/status-toggle';
 import ConfirmationDialog from '@/components/confirmation-dialog';
+import DateTimePicker from '@/components/date-time-picker';
+import DatePicker from '@/components/date-picker';
 
 interface Event {
   id?: string;
@@ -469,47 +471,40 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label htmlFor="startDateTime" className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
-                {formData.isAllDay ? 'Start Date *' : 'Start Date & Time *'}
-              </label>
-              <input
-                id="startDateTime"
-                type={formData.isAllDay ? "date" : "datetime-local"}
-                value={formData.startDateTime ? (formData.isAllDay ? formData.startDateTime.split('T')[0] : formData.startDateTime) : ''}
-                onChange={(e) => {
-                  const value = formData.isAllDay 
-                    ? (e.target.value ? `${e.target.value}T00:00` : '')
-                    : e.target.value;
-                  handleStartDateTimeChange(value);
-                }}
-                required
-                className={`w-full px-3 py-1.5 bg-white dark:bg-gray-800 border rounded text-gray-900 dark:text-white text-sm ${
-                  dateError ? 'border-red-500' : 'border-gray-300 dark:border-gray-700'
-                }`}
-              />
+              {formData.isAllDay ? (
+                <DatePicker
+                  label="Start Date"
+                  value={formData.startDateTime ? formData.startDateTime.split('T')[0] : ''}
+                  onChange={(value) => handleStartDateTimeChange(value ? `${value}T00:00` : '')}
+                  required
+                  dateOnly={true}
+                />
+              ) : (
+                <DateTimePicker
+                  label="Start Date & Time"
+                  value={formData.startDateTime || ''}
+                  onChange={handleStartDateTimeChange}
+                  required
+                />
+              )}
             </div>
             <div>
-              <label htmlFor="endDateTime" className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
-                {formData.isAllDay ? 'End Date' : 'End Date & Time'}
-              </label>
-              <input
-                id="endDateTime"
-                type={formData.isAllDay ? "date" : "datetime-local"}
-                value={formData.endDateTime ? (formData.isAllDay ? formData.endDateTime.split('T')[0] : formData.endDateTime) : ''}
-                onChange={(e) => {
-                  const value = formData.isAllDay 
-                    ? (e.target.value ? `${e.target.value}T23:59` : '')
-                    : e.target.value;
-                  handleEndDateTimeChange(value);
-                }}
-                min={formData.isAllDay 
-                  ? formData.startDateTime ? formData.startDateTime.split('T')[0] : undefined
-                  : formData.startDateTime || undefined
-                }
-                className={`w-full px-3 py-1.5 bg-white dark:bg-gray-800 border rounded text-gray-900 dark:text-white text-sm ${
-                  dateError ? 'border-red-500' : 'border-gray-300 dark:border-gray-700'
-                }`}
-              />
+              {formData.isAllDay ? (
+                <DatePicker
+                  label="End Date"
+                  value={formData.endDateTime ? formData.endDateTime.split('T')[0] : ''}
+                  onChange={(value) => handleEndDateTimeChange(value ? `${value}T23:59` : '')}
+                  min={formData.startDateTime ? formData.startDateTime.split('T')[0] : undefined}
+                  dateOnly={true}
+                />
+              ) : (
+                <DateTimePicker
+                  label="End Date & Time"
+                  value={formData.endDateTime || ''}
+                  onChange={handleEndDateTimeChange}
+                  min={formData.startDateTime || undefined}
+                />
+              )}
             </div>
           </div>
           {dateError && (

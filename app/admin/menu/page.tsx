@@ -10,7 +10,7 @@ export default async function AdminMenu() {
     redirect('/admin/login');
   }
 
-  const [sections, specials, allItems] = await Promise.all([
+  const [sections, specials, drinkSpecials, allItems] = await Promise.all([
     prisma.menuSection.findMany({
       include: {
         items: {
@@ -22,6 +22,12 @@ export default async function AdminMenu() {
     prisma.special.findMany({
       where: {
         type: 'food',
+      },
+      orderBy: { createdAt: 'desc' },
+    }),
+    prisma.special.findMany({
+      where: {
+        type: 'drink',
       },
       orderBy: { createdAt: 'desc' },
     }),
@@ -46,6 +52,20 @@ export default async function AdminMenu() {
     description: special.description || null,
     priceNotes: special.priceNotes || null,
     type: special.type,
+    timeWindow: special.timeWindow || null,
+    startDate: special.startDate?.toISOString() || null,
+    endDate: special.endDate?.toISOString() || null,
+    isActive: special.isActive,
+  }));
+
+  // Transform drink specials for the component
+  const transformedDrinkSpecials = drinkSpecials.map((special) => ({
+    id: special.id,
+    title: special.title,
+    description: special.description || null,
+    priceNotes: special.priceNotes || null,
+    type: special.type,
+    appliesOn: special.appliesOn || null,
     timeWindow: special.timeWindow || null,
     startDate: special.startDate?.toISOString() || null,
     endDate: special.endDate?.toISOString() || null,
@@ -103,6 +123,7 @@ export default async function AdminMenu() {
           <MenuTabs 
             sections={sections} 
             specials={transformedSpecials}
+            drinkSpecials={transformedDrinkSpecials}
             items={transformedItems}
             sectionsForItems={sectionsForItems}
           />

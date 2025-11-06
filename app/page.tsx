@@ -91,6 +91,66 @@ export default async function HomePage() {
     where: { key: 'homepageGallery' },
   });
 
+  // Fetch today's specials
+  const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+  const todayStart = new Date(today);
+  todayStart.setHours(0, 0, 0, 0);
+
+  // Get today's food special (date-based)
+  // Only show specials that have both startDate and endDate set
+  const todaysFoodSpecial = await prisma.special.findFirst({
+    where: {
+      isActive: true,
+      type: 'food',
+      startDate: {
+        not: null,
+        lte: tomorrowStart,
+      },
+      endDate: {
+        not: null,
+        gte: todayStart,
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  // Get today's drink special (weekly recurring or date-based)
+  const allDrinkSpecials = await prisma.special.findMany({
+    where: {
+      isActive: true,
+      type: 'drink',
+    },
+  });
+
+  let todaysDrinkSpecial = null;
+  for (const special of allDrinkSpecials) {
+    if (special.appliesOn) {
+      // Weekly recurring special
+      try {
+        const appliesOn = typeof special.appliesOn === 'string' 
+          ? JSON.parse(special.appliesOn) 
+          : special.appliesOn;
+        if (Array.isArray(appliesOn) && appliesOn.includes(todayName)) {
+          todaysDrinkSpecial = special;
+          break;
+        }
+      } catch {
+        // Invalid JSON, skip
+      }
+    } else if (special.startDate) {
+      // Date-based special
+      const startDate = new Date(special.startDate);
+      startDate.setHours(0, 0, 0, 0);
+      const endDate = special.endDate ? new Date(special.endDate) : startDate;
+      endDate.setHours(23, 59, 59, 999);
+      
+      if (todayStart >= startDate && todayStart <= endDate) {
+        todaysDrinkSpecial = special;
+        break;
+      }
+    }
+  }
+
   let hours: any = {};
   let contact: any = {};
   let happyHour: any = {};
@@ -190,6 +250,8 @@ export default async function HomePage() {
                           <div className="mt-6 flex justify-center">
                             <a
                               href={announcement.ctaUrl || '#'}
+                              target="_blank"
+                              rel="noopener noreferrer"
                               className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-400 hover:to-red-400 text-white font-bold text-sm md:text-base rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
                             >
                               <span>{announcement.ctaText}</span>
@@ -207,6 +269,93 @@ export default async function HomePage() {
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {/* Today's Specials */}
+          {(todaysFoodSpecial || todaysDrinkSpecial) && (
+            <div className="mb-8 max-w-3xl mx-auto animate-fade-in">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Food Special */}
+                {todaysFoodSpecial && (
+                  <div className="relative bg-gradient-to-r from-orange-950/90 via-red-950/90 to-orange-950/90 backdrop-blur-md rounded-xl p-6 md:p-8 shadow-xl overflow-hidden">
+                    <div className="absolute inset-0 opacity-10">
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-orange-400 rounded-full -mr-16 -mt-16"></div>
+                      <div className="absolute bottom-0 left-0 w-24 h-24 bg-red-400 rounded-full -ml-12 -mb-12"></div>
+                    </div>
+                    <div className="relative z-10">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2 bg-orange-500/30 rounded-lg">
+                          <svg className="w-6 h-6 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                          </svg>
+                        </div>
+                        <span className="text-orange-400 text-xs md:text-sm font-bold uppercase tracking-wider">
+                          Today&apos;s Food Special
+                        </span>
+                      </div>
+                      <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">
+                        {todaysFoodSpecial.title}
+                      </h2>
+                      {todaysFoodSpecial.description && (
+                        <p className="text-base text-white/90 mb-2">
+                          {todaysFoodSpecial.description}
+                        </p>
+                      )}
+                      {todaysFoodSpecial.priceNotes && (
+                        <p className="text-orange-400 font-semibold text-sm md:text-base">
+                          {todaysFoodSpecial.priceNotes}
+                        </p>
+                      )}
+                      {todaysFoodSpecial.timeWindow && (
+                        <p className="text-white/70 text-xs mt-2">
+                          {todaysFoodSpecial.timeWindow}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Drink Special */}
+                {todaysDrinkSpecial && (
+                  <div className="relative bg-gradient-to-r from-blue-950/90 via-indigo-950/90 to-blue-950/90 backdrop-blur-md rounded-xl p-6 md:p-8 shadow-xl overflow-hidden">
+                    <div className="absolute inset-0 opacity-10">
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-blue-400 rounded-full -mr-16 -mt-16"></div>
+                      <div className="absolute bottom-0 left-0 w-24 h-24 bg-indigo-400 rounded-full -ml-12 -mb-12"></div>
+                    </div>
+                    <div className="relative z-10">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2 bg-blue-500/30 rounded-lg">
+                          <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                          </svg>
+                        </div>
+                        <span className="text-blue-400 text-xs md:text-sm font-bold uppercase tracking-wider">
+                          Today&apos;s Drink Special
+                        </span>
+                      </div>
+                      <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">
+                        {todaysDrinkSpecial.title}
+                      </h2>
+                      {todaysDrinkSpecial.description && (
+                        <p className="text-base text-white/90 mb-2">
+                          {todaysDrinkSpecial.description}
+                        </p>
+                      )}
+                      {todaysDrinkSpecial.priceNotes && (
+                        <p className="text-blue-400 font-semibold text-sm md:text-base">
+                          {todaysDrinkSpecial.priceNotes}
+                        </p>
+                      )}
+                      {todaysDrinkSpecial.timeWindow && (
+                        <p className="text-white/70 text-xs mt-2">
+                          {todaysDrinkSpecial.timeWindow}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

@@ -4,6 +4,8 @@ import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import StatusToggle from '@/components/status-toggle';
+import DateTimePicker from '@/components/date-time-picker';
+import DatePicker from '@/components/date-picker';
 
 interface Event {
   id?: string;
@@ -205,39 +207,40 @@ export default function EventForm({ event }: { event?: Event }) {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label htmlFor="startDateTime" className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
-                Start Date & Time *
-              </label>
-              <input
-                id="startDateTime"
-                type={formData.isAllDay ? "date" : "datetime-local"}
-                value={formData.isAllDay ? formData.startDateTime.split('T')[0] : formData.startDateTime}
-                onChange={(e) => {
-                  const value = formData.isAllDay 
-                    ? (e.target.value ? `${e.target.value}T00:00` : '')
-                    : e.target.value;
-                  setFormData({ ...formData, startDateTime: value });
-                }}
-                required
-                className="w-full px-4 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-              />
+              {formData.isAllDay ? (
+                <DatePicker
+                  label="Start Date"
+                  value={formData.startDateTime ? formData.startDateTime.split('T')[0] : ''}
+                  onChange={(value) => setFormData({ ...formData, startDateTime: value ? `${value}T00:00` : '' })}
+                  required
+                  dateOnly={true}
+                />
+              ) : (
+                <DateTimePicker
+                  label="Start Date & Time"
+                  value={formData.startDateTime}
+                  onChange={(value) => setFormData({ ...formData, startDateTime: value })}
+                  required
+                />
+              )}
             </div>
             <div>
-              <label htmlFor="endDateTime" className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
-                End Date & Time
-              </label>
-              <input
-                id="endDateTime"
-                type={formData.isAllDay ? "date" : "datetime-local"}
-                value={formData.isAllDay && formData.endDateTime ? formData.endDateTime.split('T')[0] : formData.endDateTime}
-                onChange={(e) => {
-                  const value = formData.isAllDay 
-                    ? (e.target.value ? `${e.target.value}T00:00` : '')
-                    : e.target.value;
-                  setFormData({ ...formData, endDateTime: value });
-                }}
-                className="w-full px-4 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-              />
+              {formData.isAllDay ? (
+                <DatePicker
+                  label="End Date"
+                  value={formData.endDateTime ? formData.endDateTime.split('T')[0] : ''}
+                  onChange={(value) => setFormData({ ...formData, endDateTime: value ? `${value}T00:00` : '' })}
+                  min={formData.startDateTime ? formData.startDateTime.split('T')[0] : undefined}
+                  dateOnly={true}
+                />
+              ) : (
+                <DateTimePicker
+                  label="End Date & Time"
+                  value={formData.endDateTime || ''}
+                  onChange={(value) => setFormData({ ...formData, endDateTime: value })}
+                  min={formData.startDateTime || undefined}
+                />
+              )}
             </div>
           </div>
 

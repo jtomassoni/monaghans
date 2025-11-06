@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { FaPlus } from 'react-icons/fa';
 import AdminMenuSections from './menu-sections-list';
 import DailySpecialsList from './daily-specials-list';
+import DrinkSpecialsList from './drink-specials-list';
 import MenuItemsList from './menu-items-list';
 
 interface MenuItem {
@@ -57,15 +58,29 @@ interface MenuItemWithSection {
   };
 }
 
+interface DrinkSpecial {
+  id: string;
+  title: string;
+  description: string | null;
+  priceNotes: string | null;
+  type: string;
+  appliesOn: string | null;
+  timeWindow: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  isActive: boolean;
+}
+
 interface MenuTabsProps {
   sections: MenuSection[];
   specials: DailySpecial[];
+  drinkSpecials: DrinkSpecial[];
   items: MenuItemWithSection[];
   sectionsForItems: Array<{ id: string; name: string }>;
 }
 
-export default function MenuTabs({ sections, specials, items, sectionsForItems }: MenuTabsProps) {
-  const [activeTab, setActiveTab] = useState<'sections' | 'specials'>('sections');
+export default function MenuTabs({ sections, specials, drinkSpecials, items, sectionsForItems }: MenuTabsProps) {
+  const [activeTab, setActiveTab] = useState<'sections' | 'specials' | 'drinkSpecials'>('sections');
   const [sectionsViewMode, setSectionsViewMode] = useState<'sections' | 'items'>('sections');
   const [reorderSectionsActive, setReorderSectionsActive] = useState(false);
 
@@ -113,6 +128,19 @@ export default function MenuTabs({ sections, specials, items, sectionsForItems }
                 <span className="relative z-10">Daily Specials</span>
                 {activeTab === 'specials' && (
                   <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-orange-500/80 dark:bg-orange-600/80 rounded-full"></span>
+                )}
+              </button>
+              <button
+                onClick={() => setActiveTab('drinkSpecials')}
+                className={`relative px-4 py-2 text-sm font-medium transition-all duration-200 cursor-pointer group ${
+                  activeTab === 'drinkSpecials'
+                    ? 'text-blue-600 dark:text-blue-400'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                }`}
+              >
+                <span className="relative z-10">Drink Specials</span>
+                {activeTab === 'drinkSpecials' && (
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500/80 dark:bg-blue-600/80 rounded-full"></span>
                 )}
               </button>
             </div>
@@ -188,10 +216,9 @@ export default function MenuTabs({ sections, specials, items, sectionsForItems }
                 <span className="pointer-events-none">New Section</span>
                 </button>
               </>
-            ) : (
+            ) : activeTab === 'specials' ? (
               <button
                 onClick={() => {
-                  // This will be handled by DailySpecialsList component
                   const event = new CustomEvent('openNewSpecial');
                   window.dispatchEvent(event);
                 }}
@@ -199,6 +226,17 @@ export default function MenuTabs({ sections, specials, items, sectionsForItems }
               >
                 <FaPlus className="w-3.5 h-3.5 pointer-events-none" />
                 <span className="pointer-events-none">New Special</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  const event = new CustomEvent('openNewDrinkSpecial');
+                  window.dispatchEvent(event);
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-xl text-white font-medium text-sm transition-all duration-200 hover:scale-105 cursor-pointer active:scale-95 border border-blue-400 dark:border-blue-500"
+              >
+                <FaPlus className="w-3.5 h-3.5 pointer-events-none" />
+                <span className="pointer-events-none">New Drink Special</span>
               </button>
             )}
           </div>
@@ -213,8 +251,10 @@ export default function MenuTabs({ sections, specials, items, sectionsForItems }
           ) : (
             <MenuItemsList initialItems={items} sections={sectionsForItems} />
           )
-        ) : (
+        ) : activeTab === 'specials' ? (
           <DailySpecialsList initialSpecials={specials} />
+        ) : (
+          <DrinkSpecialsList initialSpecials={drinkSpecials} />
         )}
       </div>
     </div>

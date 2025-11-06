@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import Modal from '@/components/modal';
 import ConfirmationDialog from '@/components/confirmation-dialog';
 import { showToast } from '@/components/toast';
+import StatusToggle from '@/components/status-toggle';
+import DateTimePicker from '@/components/date-time-picker';
 
 interface Announcement {
   id?: string;
@@ -12,7 +14,7 @@ interface Announcement {
   body: string;
   publishAt: string | null;
   expiresAt?: string | null;
-  isPublished: boolean;
+  isPublished?: boolean; // Optional for backward compatibility, but always set to true now
   crossPostFacebook: boolean;
   crossPostInstagram: boolean;
   ctaText?: string;
@@ -33,6 +35,7 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showCTA, setShowCTA] = useState(false);
+  const [facebookConnected, setFacebookConnected] = useState(false);
   
   const [formData, setFormData] = useState({
     title: announcement?.title || '',
@@ -43,25 +46,21 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
     expiresAt: announcement?.expiresAt
       ? new Date(announcement.expiresAt).toISOString().slice(0, 16)
       : '',
-    isPublished: announcement?.isPublished ?? false,
     crossPostFacebook: announcement?.crossPostFacebook ?? false,
     crossPostInstagram: announcement?.crossPostInstagram ?? false,
     ctaText: announcement?.ctaText || '',
     ctaUrl: announcement?.ctaUrl || '',
   });
 
+  const [initialFormData, setInitialFormData] = useState(formData);
+
   useEffect(() => {
+    let newFormData;
     if (announcement) {
       const hasCTA = !!(announcement.ctaText && announcement.ctaUrl);
       setShowCTA(hasCTA);
       
-      // Check if expired and auto-unpublish if needed
-      const expiresAt = announcement.expiresAt ? new Date(announcement.expiresAt) : null;
-      const now = new Date();
-      const isExpired = expiresAt ? expiresAt < now : false;
-      const shouldBePublished = announcement.isPublished && !isExpired;
-      
-      setFormData({
+      newFormData = {
         title: announcement.title || '',
         body: announcement.body || '',
         publishAt: announcement.publishAt
@@ -70,33 +69,111 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
         expiresAt: announcement.expiresAt
           ? new Date(announcement.expiresAt).toISOString().slice(0, 16)
           : '',
-        isPublished: shouldBePublished,
         crossPostFacebook: announcement.crossPostFacebook ?? false,
         crossPostInstagram: announcement.crossPostInstagram ?? false,
         ctaText: announcement.ctaText || '',
         ctaUrl: announcement.ctaUrl || '',
-      });
+      };
     } else {
       setShowCTA(false);
-      // Set default dates: today for publishAt, tomorrow for expiresAt
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
+      // Set default dates: top of current hour for publishAt, 24 hours from that for expiresAt
+      const now = new Date();
+      const publishAt = new Date(now);
+      publishAt.setMinutes(0, 0, 0); // Round to top of current hour
+      const expiresAt = new Date(publishAt);
+      expiresAt.setHours(expiresAt.getHours() + 24);
       
-      setFormData({
+      newFormData = {
         title: '',
         body: '',
-        publishAt: today.toISOString().slice(0, 16),
-        expiresAt: tomorrow.toISOString().slice(0, 16),
-        isPublished: false,
+        publishAt: publishAt.toISOString().slice(0, 16),
+        expiresAt: expiresAt.toISOString().slice(0, 16),
         crossPostFacebook: false,
         crossPostInstagram: false,
         ctaText: '',
         ctaUrl: '',
-      });
+      };
+    }
+    setFormData(newFormData);
+    setInitialFormData(newFormData);
+    
+    // Check Facebook connection status when modal opens
+    if (isOpen) {
+      fetch('/api/social/facebook/status')
+        .then(res => res.json())
+        .then(data => {
+          const connected = data.connected === true && !data.expired;
+          setFacebookConnected(connected);
+          // Uncheck Facebook if not connected
+          if (!connected && newFormData.crossPostFacebook) {
+            setFormData(prev => ({ ...prev, crossPostFacebook: false }));
+            setInitialFormData(prev => ({ ...prev, crossPostFacebook: false }));
+          }
+        })
+        .catch(() => {
+          setFacebookConnected(false);
+          // Uncheck Facebook if error checking status
+          if (newFormData.crossPostFacebook) {
+            setFormData(prev => ({ ...prev, crossPostFacebook: false }));
+            setInitialFormData(prev => ({ ...prev, crossPostFacebook: false }));
+          }
+        });
     }
   }, [announcement, isOpen]);
+
+  // Check if form is dirty
+  const isDirty = JSON.stringify(formData) !== JSON.stringify(initialFormData) ||
+                  showCTA !== !!(announcement?.ctaText && announcement?.ctaUrl);
+
+  function handleCancel() {
+    if (isDirty) {
+      // Reset form to initial state
+      if (announcement) {
+        const hasCTA = !!(announcement.ctaText && announcement.ctaUrl);
+        setShowCTA(hasCTA);
+        
+        const newFormData = {
+          title: announcement.title || '',
+          body: announcement.body || '',
+          publishAt: announcement.publishAt
+            ? new Date(announcement.publishAt).toISOString().slice(0, 16)
+            : '',
+          expiresAt: announcement.expiresAt
+            ? new Date(announcement.expiresAt).toISOString().slice(0, 16)
+            : '',
+          crossPostFacebook: announcement.crossPostFacebook ?? false,
+          crossPostInstagram: announcement.crossPostInstagram ?? false,
+          ctaText: announcement.ctaText || '',
+          ctaUrl: announcement.ctaUrl || '',
+        };
+        setFormData(newFormData);
+        setInitialFormData(newFormData);
+      } else {
+        setShowCTA(false);
+        const now = new Date();
+        const publishAt = new Date(now);
+        publishAt.setMinutes(0, 0, 0); // Round to top of current hour
+        const expiresAt = new Date(publishAt);
+        expiresAt.setHours(expiresAt.getHours() + 24);
+        
+        const newFormData = {
+          title: '',
+          body: '',
+          publishAt: publishAt.toISOString().slice(0, 16),
+          expiresAt: expiresAt.toISOString().slice(0, 16),
+          crossPostFacebook: false,
+          crossPostInstagram: false,
+          ctaText: '',
+          ctaUrl: '',
+        };
+        setFormData(newFormData);
+        setInitialFormData(newFormData);
+      }
+    } else {
+      // Close form if clean
+      onClose();
+    }
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -120,21 +197,6 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
       }
     }
 
-    // Validate that expired announcements cannot be published
-    if (formData.isPublished && formData.expiresAt) {
-      const expireDate = new Date(formData.expiresAt);
-      const now = new Date();
-      
-      if (expireDate < now) {
-        showToast(
-          'Cannot publish expired announcement',
-          'error',
-          `The expiration date (${expireDate.toLocaleDateString()} ${expireDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}) has already passed. Please update the expiration date or uncheck Published.`
-        );
-        setLoading(false);
-        return;
-      }
-    }
 
     try {
       const url = announcement?.id
@@ -170,6 +232,7 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
           ...formData,
           publishAt: publishAtISO,
           expiresAt: expiresAtISO,
+          isPublished: true, // Always published since scheduling is handled by publishAt/expiresAt
         }),
       });
 
@@ -260,81 +323,83 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
         </div>
 
         <div>
-          <label htmlFor="publishAt" className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
-            Publish Date & Time *
-          </label>
-          <input
-            id="publishAt"
-            type="datetime-local"
+          <DateTimePicker
+            label="Publish Date & Time"
             value={formData.publishAt}
-            onChange={(e) => setFormData({ ...formData, publishAt: e.target.value })}
+            onChange={(value) => setFormData({ ...formData, publishAt: value })}
             required
-            className="w-full px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-white text-sm"
           />
         </div>
 
         <div>
-          <label htmlFor="expiresAt" className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
-            Expiration Date & Time *
-          </label>
-          <input
-            id="expiresAt"
-            type="datetime-local"
+          <DateTimePicker
+            label="Expiration Date & Time"
             value={formData.expiresAt}
-            onChange={(e) => {
-              const expiresAt = e.target.value;
-              
+            onChange={(value) => {
               // Validate expiration date is not more than 1 month after publish date
-              if (formData.publishAt && expiresAt) {
+              if (formData.publishAt && value) {
                 const publishDate = new Date(formData.publishAt);
-                const expireDate = new Date(expiresAt);
+                const expireDate = new Date(value);
                 const maxExpireDate = new Date(publishDate);
                 maxExpireDate.setMonth(maxExpireDate.getMonth() + 1);
                 
                 if (expireDate > maxExpireDate) {
-                  setTimeout(() => {
-                    showToast(
-                      'Expiration date cannot be more than 1 month after publish date',
-                      'error',
-                      `Maximum expiration date: ${maxExpireDate.toLocaleDateString()} ${maxExpireDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-                    );
-                    setFormData({ ...formData, expiresAt: maxExpireDate.toISOString().slice(0, 16) });
-                  }, 0);
+                  showToast(
+                    'Expiration date cannot be more than 1 month after publish date',
+                    'error',
+                    `Maximum expiration date: ${maxExpireDate.toLocaleDateString()} ${maxExpireDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                  );
+                  const maxValue = maxExpireDate.toISOString().slice(0, 16);
+                  setFormData({ ...formData, expiresAt: maxValue });
                   return;
                 }
               }
               
-              // If expired, uncheck published
-              const newExpireDate = expiresAt ? new Date(expiresAt) : null;
-              const now = new Date();
-              const isExpired = newExpireDate ? newExpireDate < now : false;
-              const newIsPublished = isExpired ? false : formData.isPublished;
-              
-              setFormData({ ...formData, expiresAt, isPublished: newIsPublished });
-              
-              if (isExpired && formData.isPublished) {
-                setTimeout(() => {
-                  showToast(
-                    'Announcement expired',
-                    'info',
-                    'The published status has been unchecked because the expiration date is in the past.'
-                  );
-                }, 0);
-              }
+              setFormData({ ...formData, expiresAt: value });
             }}
-            required
+            min={formData.publishAt || undefined}
             max={formData.publishAt ? (() => {
               const maxDate = new Date(formData.publishAt);
               maxDate.setMonth(maxDate.getMonth() + 1);
               return maxDate.toISOString().slice(0, 16);
             })() : undefined}
-            min={formData.publishAt || undefined}
-            className="w-full px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-white text-sm"
+            required
           />
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Must be within 1 month of publish date</p>
         </div>
 
         <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
+          <div className="space-y-2 mb-4">
+            <label className={`flex items-center gap-2 ${facebookConnected ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}>
+              <input
+                type="checkbox"
+                checked={formData.crossPostFacebook}
+                onChange={(e) => setFormData({ ...formData, crossPostFacebook: e.target.checked })}
+                disabled={!facebookConnected}
+                className="w-4 h-4 text-blue-600 dark:text-blue-400 focus:ring-blue-500 dark:focus:ring-blue-400 disabled:cursor-not-allowed"
+              />
+              <span className={`text-sm font-medium ${facebookConnected ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
+                Cross-post to Facebook
+                {!facebookConnected && ' (Connect Facebook in Settings)'}
+              </span>
+            </label>
+            <label className="flex items-center gap-2 cursor-not-allowed opacity-50">
+              <input
+                type="checkbox"
+                checked={formData.crossPostInstagram}
+                onChange={(e) => setFormData({ ...formData, crossPostInstagram: e.target.checked })}
+                className="w-4 h-4 text-blue-600 dark:text-blue-400 focus:ring-blue-500 dark:focus:ring-blue-400"
+                disabled
+              />
+              <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                Cross-post to Instagram (coming soon)
+              </span>
+            </label>
+            <p className="text-xs text-gray-500 dark:text-gray-400 ml-6">
+              Automatically share this announcement to your connected social media accounts
+            </p>
+          </div>
+
           <label className="flex items-center gap-2 cursor-pointer mb-3">
             <input
               type="checkbox"
@@ -382,43 +447,6 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
           )}
         </div>
 
-        <div>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={formData.isPublished}
-              onChange={(e) => {
-                const newIsPublished = e.target.checked;
-                
-                // If trying to publish, check if expired
-                if (newIsPublished && formData.expiresAt) {
-                  const expireDate = new Date(formData.expiresAt);
-                  const now = new Date();
-                  
-                  if (expireDate < now) {
-                    showToast(
-                      'Cannot publish expired announcement',
-                      'error',
-                      `The expiration date has already passed. Please update the expiration date first.`
-                    );
-                    return; // Don't update the checkbox
-                  }
-                }
-                
-                setFormData({ ...formData, isPublished: newIsPublished });
-              }}
-              disabled={formData.expiresAt ? new Date(formData.expiresAt) < new Date() : false}
-              className="w-4 h-4"
-            />
-            <span className="text-sm text-gray-900 dark:text-white">
-              Published
-              {formData.expiresAt && new Date(formData.expiresAt) < new Date() && (
-                <span className="ml-2 text-xs text-red-600 dark:text-red-400">(Cannot publish - expired)</span>
-              )}
-            </span>
-          </label>
-        </div>
-
         <div className="flex gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
           {announcement?.id && onDelete && (
             <button
@@ -432,8 +460,9 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
           )}
           <button
             type="button"
-            onClick={onClose}
-            className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold transition-colors"
+            onClick={handleCancel}
+            disabled={!!(deleteLoading || loading)}
+            className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             Cancel
           </button>
