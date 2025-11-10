@@ -1102,10 +1102,10 @@ export default function SocialMediaForm({ initialFacebookData }: SocialMediaForm
         </div>
       </Modal>
 
-      <div className="space-y-4">
+      <div className="space-y-2 sm:space-y-4">
         {/* Facebook Connection Status Bar - Minimal */}
         {facebookData.connected && !isTokenExpired ? (
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-3">
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-2.5 sm:p-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <FaFacebook className="text-lg text-blue-600 dark:text-blue-400" />
@@ -1127,7 +1127,7 @@ export default function SocialMediaForm({ initialFacebookData }: SocialMediaForm
             </div>
           </div>
         ) : (
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-3">
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-2.5 sm:p-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <FaFacebook className="text-lg text-blue-600 dark:text-blue-400" />
@@ -1147,16 +1147,16 @@ export default function SocialMediaForm({ initialFacebookData }: SocialMediaForm
         )}
 
         {facebookData.connected && (
-          <div className="space-y-3">
+          <div className="space-y-2 sm:space-y-3">
             {postsLoading ? (
-              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
+              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 sm:p-8 text-center">
                 <div className="flex items-center justify-center gap-2 text-gray-500 dark:text-gray-400">
                   <FaSpinner className="animate-spin" />
                   <span className="text-sm">Loading posts...</span>
                 </div>
               </div>
             ) : posts.length === 0 ? (
-              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
+              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 sm:p-8 text-center">
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">No posts found. Create your first post!</p>
                 <button
                   type="button"
@@ -1181,7 +1181,7 @@ export default function SocialMediaForm({ initialFacebookData }: SocialMediaForm
                     <button
                       type="button"
                       onClick={() => setShowNewPostModal(true)}
-                      className="w-full sm:w-auto px-4 py-2.5 bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-medium text-sm transition-all duration-200 hover:scale-105 flex items-center justify-center gap-2 border border-blue-400 dark:border-blue-500"
+                      className="w-full sm:w-auto px-4 py-2 sm:py-2.5 bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-medium text-sm transition-all duration-200 hover:scale-105 flex items-center justify-center gap-2 border border-blue-400 dark:border-blue-500"
                     >
                       <FaPlus />
                       <span>New Post</span>
@@ -1189,9 +1189,9 @@ export default function SocialMediaForm({ initialFacebookData }: SocialMediaForm
                   }
                 />
                 <div className="relative">
-                  {/* Scrollable container with enhanced styling */}
+                  {/* Scrollable container with enhanced styling - Responsive height for mobile */}
                   <div 
-                    className="posts-scroll-container max-h-[calc(100vh-420px)] min-h-[300px] overflow-y-auto overflow-x-hidden rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-gradient-to-b from-gray-50/80 to-gray-100/60 dark:from-gray-900/80 dark:to-gray-800/60 p-4 shadow-inner backdrop-blur-sm"
+                    className="posts-scroll-container max-h-[calc(100vh-280px)] sm:max-h-[calc(100vh-420px)] min-h-[250px] sm:min-h-[300px] overflow-y-auto overflow-x-hidden rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-gradient-to-b from-gray-50/80 to-gray-100/60 dark:from-gray-900/80 dark:to-gray-800/60 p-3 sm:p-4 shadow-inner backdrop-blur-sm"
                     style={{ scrollBehavior: 'smooth' }}
                   >
                     <div className="grid gap-3 pb-2">

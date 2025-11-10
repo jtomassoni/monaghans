@@ -517,11 +517,20 @@ export default async function HomePage() {
               <div className="w-20 h-0.5 bg-gradient-to-r from-transparent via-white/50 to-transparent mx-auto"></div>
             </div>
 
-            {/* Dynamic Content Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
+            {/* Dynamic Content Grid - Responsive based on item count */}
+            {(() => {
+              const itemCount = [todaysFoodSpecial, todaysDrinkSpecial, todaysEvents.length > 0 ? todaysEvents[0] : null].filter(Boolean).length;
+              const gridCols = itemCount === 1 
+                ? 'grid-cols-1 max-w-2xl mx-auto' 
+                : itemCount === 2 
+                ? 'grid-cols-1 md:grid-cols-2 max-w-5xl mx-auto' 
+                : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3';
+              const cardPadding = itemCount <= 2 ? 'p-8 md:p-10' : 'p-6 md:p-8';
+              return (
+                <div className={`grid ${gridCols} gap-4 md:gap-6 mb-6 md:mb-8`}>
               {/* Food Special */}
               {todaysFoodSpecial && (
-                <div className="group relative bg-gradient-to-br from-orange-950/95 via-red-950/95 to-orange-950/95 backdrop-blur-md rounded-2xl p-6 md:p-8 shadow-2xl overflow-hidden animate-fade-in hover:scale-[1.02] transition-all duration-300 border border-orange-500/20">
+                <div className={`group relative bg-gradient-to-br from-orange-950/95 via-red-950/95 to-orange-950/95 backdrop-blur-md rounded-2xl ${cardPadding} shadow-2xl overflow-hidden animate-fade-in hover:scale-[1.02] transition-all duration-300 border border-orange-500/20`}>
                   <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                     <div className="absolute top-0 right-0 w-40 h-40 bg-orange-400/20 rounded-full -mr-20 -mt-20 blur-2xl"></div>
                     <div className="absolute bottom-0 left-0 w-32 h-32 bg-red-400/20 rounded-full -ml-16 -mb-16 blur-2xl"></div>
@@ -566,7 +575,7 @@ export default async function HomePage() {
 
               {/* Drink Special */}
               {todaysDrinkSpecial && (
-                <div className="group relative bg-gradient-to-br from-blue-950/95 via-indigo-950/95 to-purple-950/95 backdrop-blur-md rounded-2xl p-6 md:p-8 shadow-2xl overflow-hidden animate-fade-in hover:scale-[1.02] transition-all duration-300 border border-blue-500/20">
+                <div className={`group relative bg-gradient-to-br from-blue-950/95 via-indigo-950/95 to-purple-950/95 backdrop-blur-md rounded-2xl ${cardPadding} shadow-2xl overflow-hidden animate-fade-in hover:scale-[1.02] transition-all duration-300 border border-blue-500/20`}>
                   <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                     <div className="absolute top-0 right-0 w-40 h-40 bg-blue-400/20 rounded-full -mr-20 -mt-20 blur-2xl"></div>
                     <div className="absolute bottom-0 left-0 w-32 h-32 bg-indigo-400/20 rounded-full -ml-16 -mb-16 blur-2xl"></div>
@@ -611,7 +620,7 @@ export default async function HomePage() {
 
               {/* Today's Event */}
               {todaysEvents.length > 0 && (
-                <div className="group relative bg-gradient-to-br from-purple-950/95 via-pink-950/95 to-purple-950/95 backdrop-blur-md rounded-2xl p-6 md:p-8 shadow-2xl overflow-hidden animate-fade-in hover:scale-[1.02] transition-all duration-300 border border-purple-500/20">
+                <div className={`group relative bg-gradient-to-br from-purple-950/95 via-pink-950/95 to-purple-950/95 backdrop-blur-md rounded-2xl ${cardPadding} shadow-2xl overflow-hidden animate-fade-in hover:scale-[1.02] transition-all duration-300 border border-purple-500/20`}>
                   <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-purple-400/20 rounded-full -mr-16 -mt-16 blur-2xl"></div>
                     <div className="absolute bottom-0 left-0 w-24 h-24 bg-pink-400/20 rounded-full -ml-12 -mb-12 blur-2xl"></div>
@@ -661,11 +670,13 @@ export default async function HomePage() {
                   </div>
                 </div>
               )}
-            </div>
+                </div>
+              );
+            })()}
 
             {/* Happy Hour - Permanent Banner Style */}
             {happyHour && happyHour.enabled && (
-              <div className="relative bg-gradient-to-r from-green-950/95 via-emerald-950/95 to-green-950/95 backdrop-blur-md rounded-2xl p-6 md:p-8 shadow-xl overflow-hidden border border-green-500/30">
+              <div className="relative bg-gradient-to-r from-green-950/95 via-emerald-950/95 to-green-950/95 backdrop-blur-md rounded-2xl p-6 md:p-8 shadow-xl overflow-hidden border border-green-500/30 transition-none">
                 {/* Decorative Pattern */}
                 <div className="absolute inset-0 opacity-5">
                   <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.1)_1px,transparent_1px)] bg-[length:20px_20px]"></div>
