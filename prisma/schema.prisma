@@ -79,6 +79,21 @@ model PostQueue {
   updatedAt   DateTime  @updatedAt
 }
 
+model FacebookPost {
+  id        String   @id @default(cuid())
+  postId    String   @unique
+  pageId    String
+  message   String
+  link      String?
+  imageUrl  String?
+  permalink String?
+  createdBy String?
+  postedAt  DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  @@index([pageId])
+}
+
 model MenuSection {
   id           String     @id @default(cuid())
   name         String // e.g., "Starters", "Burgers", "Mexican"

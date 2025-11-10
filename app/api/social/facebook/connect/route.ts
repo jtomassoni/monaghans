@@ -23,6 +23,10 @@ export async function POST(req: NextRequest) {
 
   // Generate OAuth URL
   const redirectUri = `${NEXTAUTH_URL}/api/social/facebook/callback`;
+  // Request permissions needed for posting to pages
+  // pages_show_list: List user's pages and get page access tokens
+  // pages_read_engagement and pages_manage_posts: Required for posting to pages
+  // These can be requested as user scopes and will be included in the page token
   const scope = 'pages_show_list,pages_read_engagement,pages_manage_posts';
   const state = Buffer.from(JSON.stringify({ userId: session.user?.id })).toString('base64');
 

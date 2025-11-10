@@ -150,3 +150,48 @@ body {
   scrollbar-color: rgba(75, 85, 99, 0.5) transparent;
 }
 
+/* Enhanced scrollbar for posts container */
+.posts-scroll-container::-webkit-scrollbar {
+  width: 10px;
+}
+
+.posts-scroll-container::-webkit-scrollbar-track {
+  background: rgb(243 244 246);
+  border-radius: 5px;
+  margin: 8px 0;
+}
+
+.dark .posts-scroll-container::-webkit-scrollbar-track {
+  background: rgb(17 24 39);
+}
+
+.posts-scroll-container::-webkit-scrollbar-thumb {
+  background: rgb(156 163 175);
+  border-radius: 5px;
+  border: 2px solid rgb(243 244 246);
+  transition: background 0.2s ease;
+}
+
+.dark .posts-scroll-container::-webkit-scrollbar-thumb {
+  background: rgb(75 85 99);
+  border: 2px solid rgb(17 24 39);
+}
+
+.posts-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: rgb(107 114 128);
+}
+
+.dark .posts-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: rgb(107 114 128);
+}
+
+/* Firefox scrollbar for posts container */
+.posts-scroll-container {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(156 163 175) rgb(243 244 246);
+}
+
+.dark .posts-scroll-container {
+  scrollbar-color: rgb(75 85 99) rgb(17 24 39);
+}
+
