@@ -136,6 +136,8 @@ pg_dump $DATABASE_URL > backup.sql
 - **Public Pages** - Home, Menu, Events, About, Contact, Announcements
 - **Accessibility** - WCAG AA compliant, large tap targets, readable fonts
 - **SEO** - Metadata, OG tags, sitemap
+- **Mobile-Optimized** - Responsive layouts with collapsible filters, optimized spacing for mobile devices
+- **Social Media Integration** - Facebook posting with collapsible search/sort/filter controls on mobile
 
 ## TODO / Roadmap
 
@@ -407,7 +409,16 @@ pg_dump $DATABASE_URL > backup.sql
 
 ## Progress Log
 
-*Last updated: 2025-11-05*
+*Last updated: 2025-11-10*
+
+### Recent Improvements
+- ✅ **Mobile Layout Optimizations** - Improved mobile experience for social media filters and homepage highlights
+  - Added collapsible toggle for search/sort/filter controls on mobile (hidden by default, expandable on demand)
+  - Active filter count badge shows when filters are applied
+  - Reduced vertical spacing on mobile for better content visibility
+  - Responsive Today's Highlights section with centered layout for fewer items
+  - Enhanced card padding when only 1-2 items are displayed
+  - Optimized scroll container height calculations for mobile
 
 ### Completed
 - ✅ Phase 0: Project initialized with Next.js, TypeScript, Tailwind, ESLint, Prettier
