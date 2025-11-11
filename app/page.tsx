@@ -530,8 +530,8 @@ export default async function HomePage() {
                 <div className={`grid ${gridCols} gap-4 md:gap-6 mb-6 md:mb-8`}>
               {/* Food Special */}
               {todaysFoodSpecial && (
-                <div className={`group relative bg-gradient-to-br from-orange-950/95 via-red-950/95 to-orange-950/95 backdrop-blur-md rounded-2xl ${cardPadding} shadow-2xl overflow-hidden animate-fade-in hover:scale-[1.02] transition-all duration-300 border border-orange-500/20`}>
-                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <div className={`relative bg-gradient-to-br from-orange-950/95 via-red-950/95 to-orange-950/95 backdrop-blur-md rounded-2xl ${cardPadding} shadow-2xl overflow-hidden animate-fade-in transition-none border border-orange-500/20`}>
+                  <div className="absolute inset-0 opacity-0">
                     <div className="absolute top-0 right-0 w-40 h-40 bg-orange-400/20 rounded-full -mr-20 -mt-20 blur-2xl"></div>
                     <div className="absolute bottom-0 left-0 w-32 h-32 bg-red-400/20 rounded-full -ml-16 -mb-16 blur-2xl"></div>
                   </div>
