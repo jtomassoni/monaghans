@@ -195,6 +195,27 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
     return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
   };
 
+  // Helper function to get date/time 1 year from now in datetime-local format (Mountain Time)
+  const getOneYearFromNow = (): string => {
+    const now = new Date();
+    const oneYearLater = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate(), now.getHours(), now.getMinutes());
+    const mtStr = oneYearLater.toLocaleString('en-US', {
+      timeZone: 'America/Denver',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+    
+    const [datePart, timePart] = mtStr.split(', ');
+    const [month, day, year] = datePart.split('/').map(Number);
+    const [hours, minutes] = timePart.split(':').map(Number);
+    
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  };
+
   // Helper function to add 3 hours to a datetime string (in Mountain Time)
   const addThreeHours = (dateTime: string): string => {
     if (!dateTime) return '';
@@ -482,7 +503,7 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
       onClose={onClose}
       title={event?.id ? 'Edit Event' : 'Create Event'}
     >
-      <form onSubmit={handleSubmit} className="space-y-3">
+      <form onSubmit={handleSubmit} className="space-y-4">
         <StatusToggle
           type="active"
           value={formData.isActive}
@@ -599,6 +620,12 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
                   checked={recurrenceType === 'weekly'}
                   onChange={() => {
                     setRecurrenceType('weekly');
+                    // If creating new event (no event.id), default to 1 year from now
+                    if (!event?.id) {
+                      const oneYearLater = getOneYearFromNow();
+                      const newEndDateTime = !formData.isAllDay ? addThreeHours(oneYearLater) : formData.endDateTime;
+                      setFormData({ ...formData, startDateTime: oneYearLater, endDateTime: newEndDateTime });
+                    }
                     // If no days selected and startDateTime exists, default to the day of the week
                     if (recurrenceDays.length === 0 && formData.startDateTime) {
                       const startDate = new Date(formData.startDateTime);
@@ -629,6 +656,12 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
                   checked={recurrenceType === 'monthly'}
                   onChange={() => {
                     setRecurrenceType('monthly');
+                    // If creating new event (no event.id), default to 1 year from now
+                    if (!event?.id) {
+                      const oneYearLater = getOneYearFromNow();
+                      const newEndDateTime = !formData.isAllDay ? addThreeHours(oneYearLater) : formData.endDateTime;
+                      setFormData({ ...formData, startDateTime: oneYearLater, endDateTime: newEndDateTime });
+                    }
                     // If monthDay hasn't been set from existing RRULE and startDateTime exists, default to the day of month
                     if (formData.startDateTime) {
                       const startDate = new Date(formData.startDateTime);

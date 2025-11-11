@@ -25,15 +25,17 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/20 dark:bg-gray-900/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 bg-gray-900/20 dark:bg-gray-900/60 backdrop-blur-sm"
       onClick={onClose}
+      style={{ paddingLeft: '17rem' }}
     >
-      <div
-        className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="h-full flex items-center justify-center px-8 py-4">
+        <div
+          className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-h-[94vh] max-w-7xl flex flex-col"
+          onClick={(e) => e.stopPropagation()}
+        >
         {/* Header */}
-        <div className="flex justify-between items-center px-4 py-2.5 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex justify-between items-center px-6 py-3 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-bold text-gray-900 dark:text-white">{title}</h2>
           <button
             onClick={onClose}
@@ -44,8 +46,9 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto px-4 py-3">
+        <div className="flex-1 overflow-y-auto px-6 py-8">
           {children}
+        </div>
         </div>
       </div>
     </div>

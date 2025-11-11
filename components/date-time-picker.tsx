@@ -32,8 +32,21 @@ export default function DateTimePicker({ value, onChange, min, max, label, requi
   });
 
   const pickerRef = useRef<HTMLDivElement>(null);
-  const hoursRef = useRef<HTMLDivElement>(null);
-  const minutesRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [positionAbove, setPositionAbove] = useState(false);
+  const [horizontalOffset, setHorizontalOffset] = useState(0);
+
+  // Sync internal state when value prop changes
+  useEffect(() => {
+    if (value) {
+      const date = new Date(value);
+      setCurrentMonth(date);
+      setSelectedTime({
+        hours: date.getHours(),
+        minutes: date.getMinutes(),
+      });
+    }
+  }, [value]);
 
   // Close picker when clicking outside
   useEffect(() => {
@@ -49,25 +62,74 @@ export default function DateTimePicker({ value, onChange, min, max, label, requi
     }
   }, [isOpen]);
 
-  // Scroll to selected time when picker opens
-  useEffect(() => {
-    if (isOpen && hoursRef.current) {
-      const selectedHourElement = hoursRef.current.children[selectedTime.hours] as HTMLElement;
-      if (selectedHourElement) {
-        selectedHourElement.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      }
+  // Function to calculate and set picker position
+  const calculatePosition = () => {
+    if (!containerRef.current || !pickerRef.current) return;
+    
+    const rect = containerRef.current.getBoundingClientRect();
+    const pickerRect = pickerRef.current.getBoundingClientRect();
+    const pickerWidth = pickerRect.width || 700;
+    const pickerHeight = pickerRect.height || 450;
+    const padding = 16;
+    
+    // Check vertical positioning
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const viewportThreshold = window.innerHeight * 0.6;
+    
+    const shouldPositionAbove = 
+      (spaceBelow < pickerHeight + 20 && spaceAbove > pickerHeight) ||
+      (rect.bottom > viewportThreshold && spaceAbove > pickerHeight) ||
+      (spaceAbove > spaceBelow + 50 && spaceAbove > pickerHeight);
+    
+    setPositionAbove(shouldPositionAbove);
+    
+    // Calculate horizontal positioning
+    let offset = 0;
+    const naturalLeft = rect.left;
+    const naturalRight = naturalLeft + pickerWidth;
+    
+    // If picker overflows on the right, shift it left
+    if (naturalRight > window.innerWidth - padding) {
+      offset = window.innerWidth - padding - pickerWidth - naturalLeft;
     }
-  }, [isOpen, selectedTime.hours]);
+    
+    // If picker overflows on the left after shifting, align to left edge of viewport
+    if (naturalLeft + offset < padding) {
+      offset = padding - naturalLeft;
+    }
+    
+    // Final safety check: if still overflowing, use right alignment
+    const finalLeft = naturalLeft + offset;
+    if (finalLeft + pickerWidth > window.innerWidth - padding) {
+      offset = window.innerWidth - padding - pickerWidth - naturalLeft;
+    }
+    
+    setHorizontalOffset(offset);
+  };
 
+  // Position picker to stay within viewport
   useEffect(() => {
-    if (isOpen && minutesRef.current) {
-      const selectedMinuteIndex = selectedTime.minutes / 5;
-      const selectedMinuteElement = minutesRef.current.children[selectedMinuteIndex] as HTMLElement;
-      if (selectedMinuteElement) {
-        selectedMinuteElement.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      }
+    if (isOpen && containerRef.current && pickerRef.current) {
+      // Use requestAnimationFrame to ensure the picker is fully rendered
+      requestAnimationFrame(() => {
+        calculatePosition();
+      });
+      
+      // Also recalculate on window resize
+      const handleResize = () => {
+        requestAnimationFrame(() => {
+          calculatePosition();
+        });
+      };
+      
+      window.addEventListener('resize', handleResize);
+      return () => window.removeEventListener('resize', handleResize);
+    } else {
+      setPositionAbove(false);
+      setHorizontalOffset(0);
     }
-  }, [isOpen, selectedTime.minutes]);
+  }, [isOpen]);
 
   const selectedDate = value ? new Date(value) : null;
   const minDate = min ? new Date(min) : null;
@@ -138,7 +200,7 @@ export default function DateTimePicker({ value, onChange, min, max, label, requi
           {label} {required && '*'}
         </label>
       )}
-      <div className="relative">
+      <div className="relative" ref={containerRef}>
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
@@ -155,20 +217,23 @@ export default function DateTimePicker({ value, onChange, min, max, label, requi
         {isOpen && (
           <div
             ref={pickerRef}
-            className="absolute z-50 mt-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-xl p-4 w-[600px] max-w-[calc(100vw-2rem)]"
+            className={`absolute z-50 ${positionAbove ? 'bottom-full mb-2' : 'top-full mt-2'} bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-xl p-2.5 w-[700px] max-w-full`}
+            style={{ 
+              left: `${horizontalOffset}px`
+            }}
           >
-            <div className="flex gap-4">
+            <div className="flex gap-3 min-w-0">
               {/* Calendar */}
-              <div className="flex-1">
-                <div className="flex items-center justify-between mb-4">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-2">
                   <button
                     type="button"
                     onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
                     className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
                   >
-                    <HiChevronLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                    <HiChevronLeft className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                   </button>
-                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white whitespace-nowrap px-1">
                     {format(currentMonth, 'MMMM yyyy')}
                   </h3>
                   <button
@@ -176,19 +241,19 @@ export default function DateTimePicker({ value, onChange, min, max, label, requi
                     onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
                     className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
                   >
-                    <HiChevronRight className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                    <HiChevronRight className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                   </button>
                 </div>
 
-                <div className="grid grid-cols-7 gap-1 mb-2">
+                <div className="grid grid-cols-7 gap-0.5 mb-1.5">
                   {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-                    <div key={day} className="text-xs font-medium text-gray-500 dark:text-gray-400 text-center py-1">
+                    <div key={day} className="text-xs font-medium text-gray-500 dark:text-gray-400 text-center py-0.5">
                       {day}
                     </div>
                   ))}
                 </div>
 
-                <div className="grid grid-cols-7 gap-1">
+                <div className="grid grid-cols-7 gap-0.5 mb-2">
                   {calendarDays.map((day, idx) => {
                     const isCurrentMonth = isSameMonth(day, currentMonth);
                     const isSelected = selectedDate ? isSameDay(day, selectedDate) : false;
@@ -202,7 +267,7 @@ export default function DateTimePicker({ value, onChange, min, max, label, requi
                         onClick={() => handleDateSelect(day)}
                         disabled={isDisabled}
                         className={`
-                          h-8 text-xs rounded transition-colors
+                          h-7 text-xs rounded transition-colors
                           ${isCurrentMonth ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}
                           ${isSelected 
                             ? 'bg-blue-600 text-white font-semibold' 
@@ -219,7 +284,7 @@ export default function DateTimePicker({ value, onChange, min, max, label, requi
                   })}
                 </div>
 
-                <div className="flex gap-2 mt-3">
+                <div className="flex gap-2">
                   <button
                     type="button"
                     onClick={() => handleQuickSelect('topOfHour')}
@@ -238,20 +303,20 @@ export default function DateTimePicker({ value, onChange, min, max, label, requi
               </div>
 
               {/* Time Picker */}
-              <div className="flex-1 border-l border-gray-200 dark:border-gray-700 pl-4">
-                <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Time</h4>
-                <div className="flex gap-2">
-                  {/* Hours */}
+              <div className="flex-1 border-l border-gray-200 dark:border-gray-700 pl-3 min-w-0">
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-1.5">Time</h4>
+                <div className="flex gap-2 mb-2">
+                  {/* Hours - Grid layout, no scrolling needed */}
                   <div className="flex-1">
                     <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Hour</label>
-                    <div ref={hoursRef} className="h-32 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded bg-gray-50 dark:bg-gray-900">
+                    <div className="grid grid-cols-6 gap-0.5 border border-gray-200 dark:border-gray-700 rounded bg-gray-50 dark:bg-gray-900 p-1">
                       {hours.map((hour) => (
                         <button
                           key={hour}
                           type="button"
                           onClick={() => handleTimeChange(hour, selectedTime.minutes)}
                           className={`
-                            w-full px-2 py-1 text-sm transition-colors
+                            px-1 py-0.5 text-xs rounded transition-colors
                             ${selectedTime.hours === hour
                               ? 'bg-blue-600 text-white font-semibold'
                               : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
@@ -264,17 +329,17 @@ export default function DateTimePicker({ value, onChange, min, max, label, requi
                     </div>
                   </div>
 
-                  {/* Minutes */}
+                  {/* Minutes - Grid layout, no scrolling needed */}
                   <div className="flex-1">
                     <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Minute</label>
-                    <div ref={minutesRef} className="h-32 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded bg-gray-50 dark:bg-gray-900">
+                    <div className="grid grid-cols-4 gap-0.5 border border-gray-200 dark:border-gray-700 rounded bg-gray-50 dark:bg-gray-900 p-1">
                       {minutes.filter(m => m % 5 === 0).map((minute) => (
                         <button
                           key={minute}
                           type="button"
                           onClick={() => handleTimeChange(selectedTime.hours, minute)}
                           className={`
-                            w-full px-2 py-1 text-sm transition-colors
+                            px-1 py-0.5 text-xs rounded transition-colors
                             ${selectedTime.minutes === minute
                               ? 'bg-blue-600 text-white font-semibold'
                               : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
@@ -293,7 +358,7 @@ export default function DateTimePicker({ value, onChange, min, max, label, requi
                   <button
                     type="button"
                     onClick={() => handleTimeChange(selectedTime.hours + 12, selectedTime.minutes)}
-                    className="mt-3 w-full px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded text-sm hover:bg-gray-200 dark:hover:bg-gray-600"
+                    className="w-full px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded text-xs hover:bg-gray-200 dark:hover:bg-gray-600"
                   >
                     Switch to PM
                   </button>
@@ -301,7 +366,7 @@ export default function DateTimePicker({ value, onChange, min, max, label, requi
                   <button
                     type="button"
                     onClick={() => handleTimeChange(selectedTime.hours - 12, selectedTime.minutes)}
-                    className="mt-3 w-full px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded text-sm hover:bg-gray-200 dark:hover:bg-gray-600"
+                    className="w-full px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded text-xs hover:bg-gray-200 dark:hover:bg-gray-600"
                   >
                     Switch to AM
                   </button>
@@ -309,11 +374,11 @@ export default function DateTimePicker({ value, onChange, min, max, label, requi
               </div>
             </div>
 
-            <div className="mt-4 flex justify-end gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <div className="mt-2 flex justify-end gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
               >
                 Done
               </button>
