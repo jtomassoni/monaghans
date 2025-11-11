@@ -106,23 +106,6 @@ model MenuSection {
   updatedAt    DateTime   @updatedAt
 }
 
-model MenuItem {
-  id           String      @id @default(cuid())
-  sectionId    String
-  section      MenuSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  name         String
-  description  String? // Optional item description
-  price        String? // Price as string (e.g., "$14", "$8-12", "Market Price")
-  priceNotes   String? // Additional pricing info (e.g., "Full: $14, Half: $8")
-  modifiers    String? // JSON array of modifier options
-  isAvailable  Boolean     @default(true)
-  displayOrder Int         @default(0) // For ordering within section
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-
-  @@index([sectionId])
-}
-
 model User {
   id         String        @id @default(cuid())
   email      String        @unique
@@ -150,4 +133,72 @@ model ActivityLog {
   @@index([userId])
   @@index([entityType, entityId])
   @@index([createdAt])
+}
+
+model Order {
+  id                  String      @id @default(cuid())
+  orderNumber         String      @unique // Human-readable order number (e.g., "ORD-2025-001")
+  status              String      @default("pending") // "pending", "confirmed", "preparing", "ready", "completed", "cancelled"
+  customerName        String
+  customerEmail       String
+  customerPhone       String
+  customerAddress     String? // For delivery (future feature)
+  pickupTime          DateTime? // Requested pickup/delivery time
+  subtotal            Float       @default(0)
+  tax                 Float       @default(0)
+  tip                 Float       @default(0)
+  total               Float       @default(0)
+  paymentStatus       String      @default("pending") // "pending", "paid", "failed", "refunded"
+  paymentMethod       String? // "card", "cash", etc.
+  stripePaymentId     String? // Stripe payment intent ID
+  specialInstructions String? // Customer notes
+  items               OrderItem[]
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+  completedAt         DateTime?
+  // Timing fields for performance tracking
+  confirmedAt         DateTime? // When order was confirmed
+  preparingAt         DateTime? // When order started being prepared
+  readyAt             DateTime? // When order was marked ready
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([customerEmail])
+}
+
+model OrderItem {
+  id                  String    @id @default(cuid())
+  orderId             String
+  order               Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId          String? // Reference to MenuItem (null if custom item)
+  menuItem            MenuItem? @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
+  name                String // Item name at time of order (for historical accuracy)
+  description         String? // Item description at time of order
+  price               Float     @default(0) // Price at time of order
+  quantity            Int       @default(1)
+  modifiers           String? // JSON array of selected modifiers
+  specialInstructions String? // Item-specific notes
+  createdAt           DateTime  @default(now())
+
+  @@index([orderId])
+  @@index([menuItemId])
+}
+
+// Add relation to MenuItem for orders
+model MenuItem {
+  id           String      @id @default(cuid())
+  sectionId    String
+  section      MenuSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  name         String
+  description  String? // Optional item description
+  price        String? // Price as string (e.g., "$14", "$8-12", "Market Price")
+  priceNotes   String? // Additional pricing info (e.g., "Full: $14, Half: $8")
+  modifiers    String? // JSON array of modifier options
+  isAvailable  Boolean     @default(true)
+  displayOrder Int         @default(0) // For ordering within section
+  orderItems   OrderItem[] // Relation to orders
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([sectionId])
 }

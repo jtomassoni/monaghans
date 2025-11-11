@@ -356,9 +356,9 @@ export default async function HomePage() {
   };
 
   return (
-    <main className="min-h-screen bg-[var(--color-background)] text-[var(--color-foreground)] scroll-smooth">
+    <main id="main-content" className="min-h-screen bg-[var(--color-background)] text-[var(--color-foreground)] scroll-smooth" role="main" aria-label="Main content">
       {/* Hero Section */}
-      <section className="relative min-h-screen md:h-screen flex items-center justify-center overflow-y-auto overflow-x-hidden">
+      <section aria-label="Hero section" className="relative min-h-screen md:h-screen flex items-center justify-center overflow-y-auto overflow-x-hidden">
         <div className="absolute inset-0 z-0">
           <Image
             src="/pics/hero.png"
@@ -759,6 +759,15 @@ export default async function HomePage() {
               </a>
             )}
             <Link
+              href="/order"
+              className="group px-8 py-4 bg-[var(--color-accent)] hover:bg-[var(--color-accent-dark)] rounded-full text-lg font-semibold transition-all shadow-lg hover:shadow-xl hover:scale-105 flex items-center gap-2"
+            >
+              <svg className="w-5 h-5 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+              Order Online
+            </Link>
+            <Link
               href="/menu"
               className="group px-8 py-4 bg-white/10 backdrop-blur-sm hover:bg-white/20 rounded-full text-lg font-semibold border-2 border-white/30 hover:border-white/50 transition-all hover:scale-105 flex items-center gap-2"
             >
@@ -779,7 +788,7 @@ export default async function HomePage() {
       </section>
 
       {/* About Section */}
-      <section id="about" className="py-20 md:py-32 px-4 bg-gradient-to-b from-black via-gray-900 to-black">
+      <section id="about" aria-label="About section" className="py-20 md:py-32 px-4 bg-gradient-to-b from-black via-gray-900 to-black">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-5xl md:text-6xl font-bold mb-4 text-white">{about.title || "A Neighborhood Institution"}</h2>
@@ -831,7 +840,7 @@ export default async function HomePage() {
       </section>
 
       {/* Gallery Carousel */}
-      <section id="gallery" className="py-16 md:py-24 px-4 bg-gray-900">
+      <section id="gallery" aria-label="Gallery section" className="py-16 md:py-24 px-4 bg-gray-900">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-4xl md:text-5xl font-bold mb-12 text-center">{gallery.title || "Inside Monaghan's"}</h2>
           <ImageCarousel />
@@ -839,7 +848,7 @@ export default async function HomePage() {
       </section>
 
       {/* Events Section */}
-      <section id="events" className="py-16 md:py-24 px-4 bg-gradient-to-b from-black to-gray-900">
+      <section id="events" aria-label="Events section" className="py-16 md:py-24 px-4 bg-gradient-to-b from-black to-gray-900">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-4xl md:text-5xl font-bold mb-4 text-white">Upcoming Events</h2>

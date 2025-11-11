@@ -21,6 +21,9 @@ import {
   FaHistory,
   FaShareAlt,
   FaTimes,
+  FaChartLine,
+  FaShoppingCart,
+  FaTv,
 } from 'react-icons/fa';
 import { useTheme } from './theme-provider';
 
@@ -84,8 +87,11 @@ export default function AdminMobileMenu({
     { href: '/admin/specials-events', label: 'Events', icon: FaStar },
     { href: '/admin/announcements', label: 'Announcements', icon: FaBullhorn },
     { href: '/admin/menu', label: 'Menu', icon: FaUtensils },
+    { href: '/admin/orders', label: 'Orders', icon: FaShoppingCart },
+    { href: '/admin/kds', label: 'Kitchen Display', icon: FaTv },
     { href: '/admin/homepage', label: 'Homepage', icon: FaEdit },
     { href: '/admin/social', label: 'Social Media', icon: FaShareAlt },
+    { href: '/admin/reporting', label: 'Reporting', icon: FaChartLine },
   ];
 
   const isActive = (href: string) => {
@@ -106,6 +112,9 @@ export default function AdminMobileMenu({
     }
     if (href === '/admin/social') {
       return pathname?.startsWith('/admin/social');
+    }
+    if (href === '/admin/kds') {
+      return pathname?.startsWith('/admin/kds');
     }
     return pathname?.startsWith(href);
   };

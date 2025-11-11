@@ -3,6 +3,7 @@ import './globals.css';
 import ConditionalNavigation from '@/components/conditional-navigation';
 import ToastContainer from '@/components/toast';
 import { Providers } from '@/components/providers';
+import Analytics from '@/components/analytics';
 import Script from 'next/script';
 
 export const metadata: Metadata = {
@@ -59,9 +60,17 @@ export default function RootLayout({
           }}
         />
         <Providers>
+          {/* Skip to main content link for keyboard navigation */}
+          <a
+            href="#main-content"
+            className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-[var(--color-accent)] focus:text-white focus:rounded-lg focus:font-semibold focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-black"
+          >
+            Skip to main content
+          </a>
           <ConditionalNavigation />
           {children}
           <ToastContainer />
+          <Analytics />
         </Providers>
       </body>
     </html>
