@@ -116,7 +116,7 @@ interface CalendarViewProps {
   announcements?: CalendarAnnouncement[];
   onEventClick?: (eventId: string, occurrenceDate?: Date) => void;
   onSpecialClick?: (specialId: string) => void;
-  onNewEvent?: (date: Date) => void;
+  onNewEvent?: (date: Date, isAllDay?: boolean) => void;
   onEventUpdate?: () => void;
   onEventAdded?: (event: CalendarEvent) => void;
   onEventDeleted?: (eventId: string) => void; // Callback when event is deleted
@@ -141,6 +141,19 @@ export default function CalendarView({ events, specials, announcements = [], onE
   const [hasDragged, setHasDragged] = useState(false);
   const [localEvents, setLocalEvents] = useState<CalendarEvent[]>(events);
   const [newEventIds, setNewEventIds] = useState<Set<string>>(new Set());
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Update current time every minute
+  useEffect(() => {
+    const updateTime = () => {
+      setCurrentTime(new Date());
+    };
+    
+    updateTime();
+    const interval = setInterval(updateTime, 60000); // Update every minute
+    
+    return () => clearInterval(interval);
+  }, []);
 
   // Update local events when props change
   useEffect(() => {
@@ -1099,15 +1112,23 @@ export default function CalendarView({ events, specials, announcements = [], onE
               return (
                 <div
                   key={format(day, 'yyyy-MM-dd')}
-                  className={`min-h-[60px] p-1.5 border-r border-gray-300 dark:border-gray-700 last:border-r-0 flex flex-col gap-1 ${
+                  className={`min-h-[60px] p-1.5 border-r border-gray-300 dark:border-gray-700 last:border-r-0 flex flex-col gap-1 relative group ${
                     isToday 
                       ? 'bg-blue-50/30 dark:bg-blue-900/20 border-x border-blue-400 dark:border-blue-500' 
                       : 'bg-white dark:bg-gray-800'
-                  }`}
+                  } ${onNewEvent ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors' : ''}`}
+                  onClick={() => {
+                    if (onNewEvent) {
+                      const dayStart = startOfDay(day);
+                      onNewEvent(dayStart, true);
+                    }
+                  }}
                 >
                   {allDayItems.length === 0 ? (
-                    <div className="text-xs text-gray-400 dark:text-gray-600 text-center py-1">
-                      —
+                    <div className="text-xs text-gray-400 dark:text-gray-600 text-center py-1 flex items-center justify-center h-full">
+                      <span className={`${onNewEvent ? 'group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors' : ''}`}>
+                        {onNewEvent ? 'Click to add event' : '—'}
+                      </span>
                     </div>
                   ) : (
                     allDayItems.map((item, itemIdx) => {
@@ -1175,6 +1196,23 @@ export default function CalendarView({ events, specials, announcements = [], onE
                         </div>
                       );
                     })
+                  )}
+                  
+                  {/* Add button on hover when items exist */}
+                  {onNewEvent && allDayItems.length > 0 && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const dayStart = startOfDay(day);
+                          onNewEvent(dayStart, true);
+                        }}
+                        className="w-6 h-6 flex items-center justify-center bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-full text-white text-xs font-bold transition-all duration-200 hover:scale-110 border border-blue-400 dark:border-blue-500 pointer-events-auto shadow-lg"
+                        title="Add all-day event"
+                      >
+                        +
+                      </button>
+                    </div>
                   )}
                 </div>
               );
@@ -1259,6 +1297,23 @@ export default function CalendarView({ events, specials, announcements = [], onE
                       </div>
                     );
                   })}
+                  
+                  {/* Current time indicator line */}
+                  {isToday && (
+                    <div
+                      className="absolute left-0 right-0 z-[5] pointer-events-none"
+                      style={{
+                        top: `${(getHours(currentTime) * hourHeight) + (getMinutes(currentTime) / 60 * hourHeight)}px`,
+                      }}
+                    >
+                      <div className="relative">
+                        {/* Red line */}
+                        <div className="absolute left-0 right-0 h-0.5 bg-red-500 dark:bg-red-400 shadow-sm" />
+                        {/* Small dot on the left */}
+                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-red-500 dark:bg-red-400 rounded-full -translate-x-1/2 shadow-sm" />
+                      </div>
+                    </div>
+                  )}
                   
                   {/* Drag preview */}
                   {dragPreview && isDragging && draggedEvent && isSameDay(dragPreview.day, day) && (

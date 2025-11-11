@@ -12,6 +12,11 @@ export async function GET(
       where: { id },
       include: {
         section: true,
+        ingredients: {
+          include: {
+            ingredient: true,
+          },
+        },
       },
     });
 
@@ -62,9 +67,15 @@ export async function PUT(
         modifiers: body.modifiers ? JSON.stringify(body.modifiers) : null,
         isAvailable: body.isAvailable,
         displayOrder: body.displayOrder,
+        prepTimeMin: body.prepTimeMin ? parseInt(body.prepTimeMin) : null,
       },
       include: {
         section: true,
+        ingredients: {
+          include: {
+            ingredient: true,
+          },
+        },
       },
     });
 

@@ -22,6 +22,7 @@ interface Order {
   specialInstructions: string | null;
   createdAt: Date | string;
   confirmedAt: Date | string | null;
+  acknowledgedAt: Date | string | null;
   preparingAt: Date | string | null;
   readyAt: Date | string | null;
   items: OrderItem[];
@@ -83,8 +84,11 @@ export default function KDSDisplay() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending':
-      case 'confirmed':
         return 'border-yellow-500 bg-yellow-500/10';
+      case 'confirmed':
+        return 'border-blue-500 bg-blue-500/10';
+      case 'acknowledged':
+        return 'border-cyan-500 bg-cyan-500/10';
       case 'preparing':
         return 'border-orange-500 bg-orange-500/10';
       case 'ready':
@@ -103,12 +107,24 @@ export default function KDSDisplay() {
   );
   const displayedOrders = filter === 'active' ? activeOrders : orders;
 
-  // Group orders by status
+  // Group orders by status - show confirmed, acknowledged, and preparing orders in BOH columns
+  // Pending orders stay in pending (FOH hasn't confirmed yet)
+  // Once confirmed, they move to BOH workflow: confirmed → acknowledged → preparing → ready
   const ordersByStatus = {
     pending: displayedOrders.filter((o) => o.status === 'pending'),
     confirmed: displayedOrders.filter((o) => o.status === 'confirmed'),
+    acknowledged: displayedOrders.filter((o) => o.status === 'acknowledged'),
     preparing: displayedOrders.filter((o) => o.status === 'preparing'),
     ready: displayedOrders.filter((o) => o.status === 'ready'),
+  };
+
+  // Sort orders by time - most recent first
+  const sortByTime = (orders: Order[]) => {
+    return [...orders].sort((a, b) => {
+      const timeA = a.acknowledgedAt || a.confirmedAt || a.createdAt;
+      const timeB = b.acknowledgedAt || b.confirmedAt || b.createdAt;
+      return new Date(timeB).getTime() - new Date(timeA).getTime();
+    });
   };
 
   if (loading) {
@@ -154,7 +170,7 @@ export default function KDSDisplay() {
       </div>
 
       {/* Orders Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* Pending Orders */}
         <div className="space-y-4">
           <div className="bg-yellow-500/20 border-2 border-yellow-500 rounded-lg p-3">
@@ -163,7 +179,7 @@ export default function KDSDisplay() {
               Pending ({ordersByStatus.pending.length})
             </h2>
           </div>
-          {ordersByStatus.pending.map((order) => (
+          {sortByTime(ordersByStatus.pending).map((order) => (
             <OrderCard
               key={order.id}
               order={order}
@@ -174,15 +190,36 @@ export default function KDSDisplay() {
           ))}
         </div>
 
-        {/* Confirmed Orders */}
+        {/* Confirmed Orders - Sent to BOH */}
         <div className="space-y-4">
           <div className="bg-blue-500/20 border-2 border-blue-500 rounded-lg p-3">
             <h2 className="text-xl font-bold flex items-center gap-2">
               <FaCheckCircle className="text-blue-400" />
               Confirmed ({ordersByStatus.confirmed.length})
             </h2>
+            <p className="text-xs text-gray-400 mt-1">Sent to BOH</p>
           </div>
-          {ordersByStatus.confirmed.map((order) => (
+          {sortByTime(ordersByStatus.confirmed).map((order) => (
+            <OrderCard
+              key={order.id}
+              order={order}
+              getStatusColor={getStatusColor}
+              calculateElapsedTime={calculateElapsedTime}
+              handleStatusUpdate={handleStatusUpdate}
+            />
+          ))}
+        </div>
+
+        {/* Acknowledged Orders - BOH Confirmed Receipt */}
+        <div className="space-y-4">
+          <div className="bg-cyan-500/20 border-2 border-cyan-500 rounded-lg p-3">
+            <h2 className="text-xl font-bold flex items-center gap-2">
+              <FaCheckCircle className="text-cyan-400" />
+              Acknowledged ({ordersByStatus.acknowledged.length})
+            </h2>
+            <p className="text-xs text-gray-400 mt-1">BOH Received</p>
+          </div>
+          {sortByTime(ordersByStatus.acknowledged).map((order) => (
             <OrderCard
               key={order.id}
               order={order}
@@ -201,7 +238,7 @@ export default function KDSDisplay() {
               Preparing ({ordersByStatus.preparing.length})
             </h2>
           </div>
-          {ordersByStatus.preparing.map((order) => (
+          {sortByTime(ordersByStatus.preparing).map((order) => (
             <OrderCard
               key={order.id}
               order={order}
@@ -220,7 +257,7 @@ export default function KDSDisplay() {
               Ready ({ordersByStatus.ready.length})
             </h2>
           </div>
-          {ordersByStatus.ready.map((order) => (
+          {sortByTime(ordersByStatus.ready).map((order) => (
             <OrderCard
               key={order.id}
               order={order}
@@ -246,16 +283,24 @@ function OrderCard({
   calculateElapsedTime: (time: Date | string | null) => string | null;
   handleStatusUpdate: (orderId: string, status: string) => void;
 }) {
-  const elapsedTime = order.preparingAt
-    ? calculateElapsedTime(order.preparingAt)
-    : order.confirmedAt
-    ? calculateElapsedTime(order.confirmedAt)
-    : calculateElapsedTime(order.createdAt);
+  // Calculate elapsed time based on current status
+  const elapsedTime = 
+    order.status === 'preparing' && order.preparingAt
+      ? calculateElapsedTime(order.preparingAt)
+      : order.status === 'ready' && order.readyAt
+      ? calculateElapsedTime(order.readyAt)
+      : order.status === 'acknowledged' && order.acknowledgedAt
+      ? calculateElapsedTime(order.acknowledgedAt)
+      : order.status === 'confirmed' && order.confirmedAt
+      ? calculateElapsedTime(order.confirmedAt)
+      : calculateElapsedTime(order.createdAt);
 
   const nextStatus =
     order.status === 'pending'
       ? 'confirmed'
       : order.status === 'confirmed'
+      ? 'acknowledged'
+      : order.status === 'acknowledged'
       ? 'preparing'
       : order.status === 'preparing'
       ? 'ready'
@@ -339,6 +384,8 @@ function OrderCard({
           >
             {nextStatus === 'confirmed'
               ? 'Confirm'
+              : nextStatus === 'acknowledged'
+              ? 'Acknowledge'
               : nextStatus === 'preparing'
               ? 'Start Prep'
               : nextStatus === 'ready'

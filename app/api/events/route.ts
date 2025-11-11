@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, handleError, getCurrentUser, logActivity } from '@/lib/api-helpers';
+import { extractEventPattern } from '@/lib/event-pattern-helpers';
 
 export async function GET(req: NextRequest) {
   try {
@@ -40,11 +41,16 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
+    const startDateTime = new Date(body.startDateTime);
+    
+    // Extract pattern information
+    const pattern = extractEventPattern(startDateTime, body.recurrenceRule);
+    
     const event = await prisma.event.create({
       data: {
         title: body.title,
         description: body.description,
-        startDateTime: new Date(body.startDateTime),
+        startDateTime,
         endDateTime: body.endDateTime ? new Date(body.endDateTime) : null,
         venueArea: body.venueArea || 'bar',
         recurrenceRule: body.recurrenceRule,
@@ -53,6 +59,10 @@ export async function POST(req: NextRequest) {
         tags: body.tags ? JSON.stringify(body.tags) : null,
         image: body.image,
         isActive: body.isActive ?? true,
+        dayOfWeek: pattern?.dayOfWeek ?? null,
+        weekOfMonth: pattern?.weekOfMonth ?? null,
+        monthDay: pattern?.monthDay ?? null,
+        patternMetadata: pattern?.patternMetadata ? JSON.stringify(pattern.patternMetadata) : null,
       } as any,
     });
 

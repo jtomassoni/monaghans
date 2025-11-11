@@ -165,17 +165,27 @@ export default function DashboardContent({ events: initialEvents, specials, anno
     return `${year}-${month}-${day}T${hours}:${minutes}`;
   };
 
-  const handleNewEvent = (date?: Date) => {
+  const handleNewEvent = (date?: Date, isAllDay?: boolean) => {
     const eventDate = date || new Date();
     const startDateTime = new Date(eventDate);
-    // Only set to 12pm if no specific time was provided (i.e., date has no time component set)
-    if (!date || date.getHours() === 0 && date.getMinutes() === 0 && date.getSeconds() === 0 && date.getMilliseconds() === 0) {
-      startDateTime.setHours(12, 0, 0, 0);
+    
+    if (isAllDay) {
+      // For all-day events, set to start of day
+      startDateTime.setHours(0, 0, 0, 0);
+    } else {
+      // Only set to 12pm if no specific time was provided (i.e., date has no time component set)
+      if (!date || date.getHours() === 0 && date.getMinutes() === 0 && date.getSeconds() === 0 && date.getMilliseconds() === 0) {
+        startDateTime.setHours(12, 0, 0, 0);
+      }
     }
     
-    // Set endDateTime to 3 hours after startDateTime
+    // Set endDateTime to 3 hours after startDateTime (or end of day for all-day events)
     const endDateTime = new Date(startDateTime);
-    endDateTime.setHours(endDateTime.getHours() + 3);
+    if (isAllDay) {
+      endDateTime.setHours(23, 59, 59, 999);
+    } else {
+      endDateTime.setHours(endDateTime.getHours() + 3);
+    }
     
     // Clear any previous event state and set up new event
     setEditingEvent({
@@ -186,7 +196,7 @@ export default function DashboardContent({ events: initialEvents, specials, anno
       endDateTime: formatDateTimeLocal(endDateTime),
       venueArea: 'bar',
       recurrenceRule: '',
-      isAllDay: false,
+      isAllDay: isAllDay || false,
       tags: [],
       image: undefined,
       isActive: true,

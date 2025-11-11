@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { handleError } from '@/lib/api-helpers';
+import { calculateTipDistribution, type OrderManagementMode } from '@/lib/order-helpers';
 
 /**
  * Orders API
@@ -18,6 +19,7 @@ export async function POST(req: NextRequest) {
       items,
       subtotal,
       tax,
+      tip = 0,
       total,
     } = body;
 
@@ -28,6 +30,21 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Get order management mode setting
+    const orderManagementSetting = await prisma.setting.findUnique({
+      where: { key: 'orderManagement' },
+    });
+    let mode: OrderManagementMode = 'foh';
+    try {
+      if (orderManagementSetting?.value) {
+        const config = JSON.parse(orderManagementSetting.value);
+        mode = config.mode || 'foh';
+      }
+    } catch {}
+
+    // Calculate tip distribution
+    const { bohTip, fohTip } = calculateTipDistribution(tip, mode);
 
     // Generate order number
     const year = new Date().getFullYear();
@@ -51,6 +68,9 @@ export async function POST(req: NextRequest) {
         specialInstructions,
         subtotal,
         tax,
+        tip,
+        bohTip,
+        fohTip,
         total,
         status: 'pending',
         paymentStatus: 'pending',

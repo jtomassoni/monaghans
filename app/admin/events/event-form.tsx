@@ -94,6 +94,13 @@ export default function EventForm({ event }: { event?: Event }) {
   const [recurrenceType, setRecurrenceType] = useState<'none' | 'weekly' | 'monthly'>(initialRecurrence.frequency);
   const [recurrenceDays, setRecurrenceDays] = useState<string[]>(initialRecurrence.days);
   
+  // Helper to get 1 year from now for recurring events
+  const getOneYearFromNow = () => {
+    const now = new Date();
+    const oneYearLater = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate(), now.getHours(), now.getMinutes());
+    return oneYearLater.toISOString().slice(0, 16);
+  };
+  
   const [formData, setFormData] = useState({
     title: event?.title || '',
     description: event?.description || '',
@@ -264,7 +271,16 @@ export default function EventForm({ event }: { event?: Event }) {
                   name="recurrence"
                   value="weekly"
                   checked={recurrenceType === 'weekly'}
-                  onChange={() => setRecurrenceType('weekly')}
+                  onChange={() => {
+                    setRecurrenceType('weekly');
+                    // If creating new event (no event.id), default to 1 year from now
+                    if (!event?.id && !formData.startDateTime) {
+                      const oneYearLater = getOneYearFromNow();
+                      const threeHoursLater = new Date(oneYearLater);
+                      threeHoursLater.setHours(threeHoursLater.getHours() + 3);
+                      setFormData({ ...formData, startDateTime: oneYearLater, endDateTime: threeHoursLater.toISOString().slice(0, 16) });
+                    }
+                  }}
                   className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
                 />
                 <span className="text-sm">Weekly</span>
@@ -275,7 +291,16 @@ export default function EventForm({ event }: { event?: Event }) {
                   name="recurrence"
                   value="monthly"
                   checked={recurrenceType === 'monthly'}
-                  onChange={() => setRecurrenceType('monthly')}
+                  onChange={() => {
+                    setRecurrenceType('monthly');
+                    // If creating new event (no event.id), default to 1 year from now
+                    if (!event?.id && !formData.startDateTime) {
+                      const oneYearLater = getOneYearFromNow();
+                      const threeHoursLater = new Date(oneYearLater);
+                      threeHoursLater.setHours(threeHoursLater.getHours() + 3);
+                      setFormData({ ...formData, startDateTime: oneYearLater, endDateTime: threeHoursLater.toISOString().slice(0, 16) });
+                    }
+                  }}
                   className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
                 />
                 <span className="text-sm">Monthly</span>

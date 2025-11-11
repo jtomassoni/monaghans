@@ -231,8 +231,8 @@ export default function CheckoutPage() {
     if (storedCart) {
       setCart(JSON.parse(storedCart));
     } else {
-      // No cart, redirect to order page
-      router.push('/order');
+      // No cart, redirect to menu page
+      router.push('/menu');
     }
   }, [router]);
 
@@ -273,7 +273,7 @@ export default function CheckoutPage() {
         <div className="text-center">
           <p className="text-gray-400 text-xl mb-4">Your cart is empty</p>
           <Link
-            href="/order"
+            href="/menu"
             className="inline-flex items-center gap-2 px-6 py-3 bg-[var(--color-accent)] hover:bg-[var(--color-accent-dark)] text-white font-semibold rounded-lg transition"
           >
             Start Ordering
@@ -442,12 +442,12 @@ export default function CheckoutPage() {
                 </div>
 
                 <div className="flex gap-3 pt-4">
-                  <Link
-                    href="/order"
-                    className="flex-1 px-4 py-3 bg-gray-800 hover:bg-gray-700 text-white font-semibold rounded-lg transition text-center"
-                  >
-                    Back to Menu
-                  </Link>
+          <Link
+            href="/menu"
+            className="flex-1 px-4 py-3 bg-gray-800 hover:bg-gray-700 text-white font-semibold rounded-lg transition text-center"
+          >
+            Back to Menu
+          </Link>
                   <button
                     type="submit"
                     className="flex-1 px-4 py-3 bg-[var(--color-accent)] hover:bg-[var(--color-accent-dark)] text-white font-semibold rounded-lg transition"

@@ -145,10 +145,10 @@ export default function OrderingInterface({
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 lg:items-start">
       {/* Main Menu Area */}
-      <div className="flex-1">
-        <div className="space-y-4">
+      <div className="flex justify-center">
+        <div className="w-full max-w-3xl space-y-4">
           {/* Daily Specials Section */}
           {todaySpecial && (
             <div className="bg-gradient-to-r from-yellow-900/60 to-orange-900/60 backdrop-blur-sm border-2 border-yellow-600 rounded-lg p-4 mb-6">
@@ -202,7 +202,7 @@ export default function OrderingInterface({
           ) : (
             sections.map((section) => (
               <div key={section.id} className="space-y-2">
-                <div>
+                <div className="text-center">
                   <h2 className="text-xl md:text-2xl font-bold mb-1 text-[var(--color-gold)]">
                     {section.name}
                   </h2>
@@ -211,7 +211,7 @@ export default function OrderingInterface({
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-w-3xl mx-auto">
                   {section.items.map((item) => (
                     <button
                       key={item.id}
@@ -242,7 +242,7 @@ export default function OrderingInterface({
       </div>
 
       {/* Cart Sidebar */}
-      <div className={`lg:w-96 ${showCart || cart.length > 0 ? 'block' : 'hidden lg:block'}`}>
+      <div className={`${showCart || cart.length > 0 ? 'block' : 'hidden lg:block'}`}>
         <div className="bg-gray-900/60 backdrop-blur-sm border border-gray-800 rounded-lg p-6 sticky top-20">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-bold text-white">Your Order</h2>
@@ -326,13 +326,6 @@ export default function OrderingInterface({
               </button>
             </>
           )}
-
-          <Link
-            href="/menu"
-            className="block mt-4 text-center text-sm text-gray-400 hover:text-white transition"
-          >
-            View Full Menu
-          </Link>
         </div>
       </div>
 

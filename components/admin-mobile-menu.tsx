@@ -81,17 +81,42 @@ export default function AdminMobileMenu({
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isOpen, onClose]);
 
-  const navItems = [
-    { href: '/admin/overview', label: 'Overview', icon: FaHome },
-    { href: '/admin', label: 'Calendar', icon: FaCalendarAlt },
-    { href: '/admin/specials-events', label: 'Events', icon: FaStar },
-    { href: '/admin/announcements', label: 'Announcements', icon: FaBullhorn },
-    { href: '/admin/menu', label: 'Menu', icon: FaUtensils },
-    { href: '/admin/orders', label: 'Orders', icon: FaShoppingCart },
-    { href: '/admin/kds', label: 'Kitchen Display', icon: FaTv },
-    { href: '/admin/homepage', label: 'Homepage', icon: FaEdit },
-    { href: '/admin/social', label: 'Social Media', icon: FaShareAlt },
-    { href: '/admin/reporting', label: 'Reporting', icon: FaChartLine },
+  const navGroups = [
+    {
+      title: 'Dashboard',
+      items: [
+        { href: '/admin/overview', label: 'Overview', icon: FaHome },
+      ],
+    },
+    {
+      title: 'Content',
+      items: [
+        { href: '/admin', label: 'Calendar', icon: FaCalendarAlt },
+        { href: '/admin/specials-events', label: 'Events', icon: FaStar },
+        { href: '/admin/announcements', label: 'Announcements', icon: FaBullhorn },
+        { href: '/admin/homepage', label: 'Homepage', icon: FaEdit },
+      ],
+    },
+    {
+      title: 'Operations',
+      items: [
+        { href: '/admin/menu', label: 'Menu', icon: FaUtensils },
+        { href: '/admin/orders', label: 'Orders', icon: FaShoppingCart },
+        { href: '/admin/kds', label: 'Kitchen Display', icon: FaTv },
+      ],
+    },
+    {
+      title: 'Marketing',
+      items: [
+        { href: '/admin/social', label: 'Social Media', icon: FaShareAlt },
+      ],
+    },
+    {
+      title: 'Analytics',
+      items: [
+        { href: '/admin/reporting', label: 'Reporting', icon: FaChartLine },
+      ],
+    },
   ];
 
   const isActive = (href: string) => {
@@ -174,72 +199,94 @@ export default function AdminMobileMenu({
         </div>
 
         {/* Navigation Items */}
-        <nav className="flex-1 p-2 space-y-0.5 overflow-hidden">
-          {navItems.map((item, index) => {
-            const active = isActive(item.href);
+        <nav className="flex-1 p-2 space-y-3 overflow-y-auto">
+          {navGroups.map((group, groupIndex) => {
+            let itemIndex = 0;
+            navGroups.slice(0, groupIndex).forEach(g => itemIndex += g.items.length);
+            
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={onClose}
-                className={`group flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 ease-out relative ${
-                  active
-                    ? 'bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-800/50'
-                } ${
-                  isOpen && isAnimating
-                    ? 'opacity-100 translate-x-0'
-                    : 'opacity-0 -translate-x-4'
-                }`}
-                style={{
-                  transitionDelay: `${index * 30}ms`,
-                }}
-              >
-                {active && (
-                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 dark:bg-blue-400 rounded-r-full" />
-                )}
-                <item.icon className={`w-4 h-4 transition-colors flex-shrink-0 ${
-                  active
-                    ? 'text-blue-600 dark:text-blue-400'
-                    : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300'
-                }`} />
-                <span className={`font-medium text-sm flex-1 ${
-                  active ? 'text-blue-600 dark:text-blue-400' : ''
-                }`}>{item.label}</span>
-              </Link>
+              <div key={group.title} className="space-y-1">
+                <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  {group.title}
+                </div>
+                {group.items.map((item, idx) => {
+                  const active = isActive(item.href);
+                  const delay = (itemIndex + idx) * 30;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={onClose}
+                      className={`group flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 ease-out relative ${
+                        active
+                          ? 'bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400'
+                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-800/50'
+                      } ${
+                        isOpen && isAnimating
+                          ? 'opacity-100 translate-x-0'
+                          : 'opacity-0 -translate-x-4'
+                      }`}
+                      style={{
+                        transitionDelay: `${delay}ms`,
+                      }}
+                    >
+                      {active && (
+                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 dark:bg-blue-400 rounded-r-full" />
+                      )}
+                      <item.icon className={`w-4 h-4 transition-colors flex-shrink-0 ${
+                        active
+                          ? 'text-blue-600 dark:text-blue-400'
+                          : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300'
+                      }`} />
+                      <span className={`font-medium text-sm flex-1 ${
+                        active ? 'text-blue-600 dark:text-blue-400' : ''
+                      }`}>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
             );
           })}
 
-          {isSuperadmin && (
-            <Link
-              href="/admin/users"
-              onClick={onClose}
-              className={`group flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 ease-out relative ${
-                isActive('/admin/users')
-                  ? 'bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400'
-                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-800/50'
-              } ${
-                isOpen && isAnimating
-                  ? 'opacity-100 translate-x-0'
-                  : 'opacity-0 -translate-x-4'
-              }`}
-              style={{
-                transitionDelay: `${navItems.length * 30}ms`,
-              }}
-            >
-              {isActive('/admin/users') && (
-                <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 dark:bg-blue-400 rounded-r-full" />
-              )}
-              <FaUsers className={`w-4 h-4 transition-colors flex-shrink-0 ${
-                isActive('/admin/users')
-                  ? 'text-blue-600 dark:text-blue-400'
-                  : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300'
-              }`} />
-              <span className={`font-medium text-sm flex-1 ${
-                isActive('/admin/users') ? 'text-blue-600 dark:text-blue-400' : ''
-              }`}>Users</span>
-            </Link>
-          )}
+          {/* Administration section */}
+          <div className="space-y-1 pt-2">
+            <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              Administration
+            </div>
+            {isSuperadmin && (() => {
+              const totalItems = navGroups.reduce((sum, g) => sum + g.items.length, 0);
+              return (
+                <Link
+                  href="/admin/users"
+                  onClick={onClose}
+                  className={`group flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 ease-out relative ${
+                    isActive('/admin/users')
+                      ? 'bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-800/50'
+                  } ${
+                    isOpen && isAnimating
+                      ? 'opacity-100 translate-x-0'
+                      : 'opacity-0 -translate-x-4'
+                  }`}
+                  style={{
+                    transitionDelay: `${totalItems * 30}ms`,
+                  }}
+                >
+                  {isActive('/admin/users') && (
+                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 dark:bg-blue-400 rounded-r-full" />
+                  )}
+                  <FaUsers className={`w-4 h-4 transition-colors flex-shrink-0 ${
+                    isActive('/admin/users')
+                      ? 'text-blue-600 dark:text-blue-400'
+                      : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300'
+                  }`} />
+                  <span className={`font-medium text-sm flex-1 ${
+                    isActive('/admin/users') ? 'text-blue-600 dark:text-blue-400' : ''
+                  }`}>Users</span>
+                </Link>
+              );
+            })()}
+          </div>
         </nav>
 
         {/* Bottom Section */}
@@ -257,7 +304,7 @@ export default function AdminMobileMenu({
                 : 'opacity-0 -translate-x-4'
             }`}
             style={{
-              transitionDelay: `${(navItems.length + (isSuperadmin ? 1 : 0)) * 30 + 50}ms`,
+              transitionDelay: `${(navGroups.reduce((sum, g) => sum + g.items.length, 0) + (isSuperadmin ? 1 : 0)) * 30 + 50}ms`,
             }}
           >
             {isActive('/admin/activity') && (
@@ -286,7 +333,7 @@ export default function AdminMobileMenu({
                 : 'opacity-0 -translate-x-4'
             }`}
             style={{
-              transitionDelay: `${(navItems.length + (isSuperadmin ? 1 : 0)) * 30 + 80}ms`,
+              transitionDelay: `${(navGroups.reduce((sum, g) => sum + g.items.length, 0) + (isSuperadmin ? 1 : 0)) * 30 + 80}ms`,
             }}
           >
             {isActive('/admin/settings') && (
@@ -312,7 +359,7 @@ export default function AdminMobileMenu({
                 : 'opacity-0 -translate-x-4'
             }`}
             style={{
-              transitionDelay: `${(navItems.length + (isSuperadmin ? 1 : 0)) * 30 + 110}ms`,
+              transitionDelay: `${(navGroups.reduce((sum, g) => sum + g.items.length, 0) + (isSuperadmin ? 1 : 0)) * 30 + 110}ms`,
             }}
           >
             <FaGlobe className="w-4 h-4 text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors flex-shrink-0" />
@@ -327,7 +374,7 @@ export default function AdminMobileMenu({
                 : 'opacity-0 -translate-x-4'
             }`}
             style={{
-              transitionDelay: `${(navItems.length + (isSuperadmin ? 1 : 0)) * 30 + 140}ms`,
+              transitionDelay: `${(navGroups.reduce((sum, g) => sum + g.items.length, 0) + (isSuperadmin ? 1 : 0)) * 30 + 140}ms`,
             }}
           >
             <div className="flex items-center gap-3">
@@ -349,7 +396,7 @@ export default function AdminMobileMenu({
               : 'opacity-0 -translate-x-4'
           }`}
           style={{
-            transitionDelay: `${(navItems.length + (isSuperadmin ? 1 : 0)) * 30 + 170}ms`,
+            transitionDelay: `${(navGroups.reduce((sum, g) => sum + g.items.length, 0) + (isSuperadmin ? 1 : 0)) * 30 + 170}ms`,
           }}>
             <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg mb-2">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">

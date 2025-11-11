@@ -1,0 +1,8 @@
+-- AlterTable: Add timing fields and tip fields to Order table
+ALTER TABLE "Order" ADD COLUMN "bohTip" DOUBLE PRECISION NOT NULL DEFAULT 0;
+ALTER TABLE "Order" ADD COLUMN "fohTip" DOUBLE PRECISION NOT NULL DEFAULT 0;
+ALTER TABLE "Order" ADD COLUMN "confirmedAt" TIMESTAMP(3);
+ALTER TABLE "Order" ADD COLUMN "acknowledgedAt" TIMESTAMP(3);
+ALTER TABLE "Order" ADD COLUMN "preparingAt" TIMESTAMP(3);
+ALTER TABLE "Order" ADD COLUMN "readyAt" TIMESTAMP(3);
+

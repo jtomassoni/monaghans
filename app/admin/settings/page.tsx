@@ -28,11 +28,16 @@ export default async function AdminSettings() {
     where: { key: 'social' },
   });
 
+  const orderManagementSetting = await prisma.setting.findUnique({
+    where: { key: 'orderManagement' },
+  });
+
   let contact: any = {};
   let hours: any = {};
   let mapEmbed: any = {};
   let happyHour: any = {};
   let social: any = {};
+  let orderManagement: any = { mode: 'foh' }; // Default to FOH mode
 
   try {
     contact = contactSetting ? JSON.parse(contactSetting.value) : {};
@@ -40,6 +45,7 @@ export default async function AdminSettings() {
     mapEmbed = mapSetting ? JSON.parse(mapSetting.value) : {};
     happyHour = happyHourSetting ? JSON.parse(happyHourSetting.value) : {};
     social = socialSetting ? JSON.parse(socialSetting.value) : {};
+    orderManagement = orderManagementSetting ? JSON.parse(orderManagementSetting.value) : { mode: 'foh' };
   } catch {}
 
   return (
@@ -66,7 +72,7 @@ export default async function AdminSettings() {
       {/* Main Content - Scrollable */}
       <div className="flex-1 overflow-auto p-4 sm:p-6 relative z-10">
         <div className="max-w-6xl mx-auto">
-          <SettingsForm initialContact={contact} initialHours={hours} initialMapEmbed={mapEmbed} initialHappyHour={happyHour} initialSocial={social} />
+          <SettingsForm initialContact={contact} initialHours={hours} initialMapEmbed={mapEmbed} initialHappyHour={happyHour} initialSocial={social} initialOrderManagement={orderManagement} />
         </div>
       </div>
     </div>

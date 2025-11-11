@@ -5,7 +5,8 @@ import ImageCarousel from '@/components/image-carousel';
 import Footer from '@/components/footer';
 import { marked } from 'marked';
 import { getMountainTimeToday, getMountainTimeTomorrow, getMountainTimeWeekday, getMountainTimeNow } from '@/lib/timezone';
-import { startOfDay, endOfDay } from 'date-fns';
+import { startOfDay, endOfDay, isWithinInterval, format } from 'date-fns';
+import { RRule } from 'rrule';
 
 // Helper function to parse YYYY-MM-DD date strings as Mountain Time (not UTC)
 // This prevents dates from shifting by a day due to timezone conversion
@@ -56,52 +57,164 @@ export default async function HomePage() {
   const tomorrowStart = getMountainTimeTomorrow();
   const now = getMountainTimeNow();
 
-  // Fetch today's events (all day, not just tonight)
-  const todaysEvents = await prisma.event.findMany({
+  // Fetch all active events (including recurring ones)
+  const allEvents = await prisma.event.findMany({
     where: {
       isActive: true,
-      startDateTime: {
-        gte: today,
-        lt: tomorrowStart,
-      },
     },
     orderBy: { startDateTime: 'asc' },
-    take: 3,
   });
 
-  // Fetch the next 3 upcoming events (starting from now, regardless of how far in the future)
-  const upcomingEvents = await prisma.event.findMany({
-    where: {
-      isActive: true,
-      startDateTime: {
-        gte: now, // Start from now (Mountain Time)
-      },
-    },
-    orderBy: { startDateTime: 'asc' },
-    take: 3,
+  // Helper function to get recurring event occurrences for a date range
+  const getRecurringEventOccurrences = (event: any, rangeStart: Date, rangeEnd: Date) => {
+    if (!event.recurrenceRule) return [];
+    
+    try {
+      const exceptions: string[] = event.exceptions ? JSON.parse(event.exceptions) : [];
+      const startDate = new Date(event.startDateTime);
+      
+      // Handle monthly events with BYMONTHDAY (similar to calendar logic)
+      let ruleToUse = event.recurrenceRule;
+      let dtstartDate: Date;
+      
+      if (event.recurrenceRule.includes('BYMONTHDAY')) {
+        const monthDayMatch = event.recurrenceRule.match(/BYMONTHDAY=(\d+)/);
+        if (monthDayMatch) {
+          const targetDay = parseInt(monthDayMatch[1]);
+          const localYear = startDate.getFullYear();
+          const localMonth = startDate.getMonth();
+          const localTargetMidday = new Date(localYear, localMonth, targetDay, 12, 0, 0);
+          const utcMiddayDay = localTargetMidday.getUTCDate();
+          const utcTargetYear = localTargetMidday.getUTCFullYear();
+          const utcTargetMonth = localTargetMidday.getUTCMonth();
+          const utcCorrespondingDay = utcMiddayDay;
+          ruleToUse = event.recurrenceRule.replace(/BYMONTHDAY=\d+/, `BYMONTHDAY=${utcCorrespondingDay}`);
+          dtstartDate = new Date(Date.UTC(utcTargetYear, utcTargetMonth, utcCorrespondingDay, 12, 0, 0));
+        } else {
+          dtstartDate = startDate;
+        }
+      } else {
+        dtstartDate = startDate;
+      }
+      
+      const rule = RRule.fromString(ruleToUse);
+      const ruleOptions = {
+        ...rule.options,
+        dtstart: dtstartDate,
+      };
+      const ruleWithDtstart = new RRule(ruleOptions);
+      
+      const searchStart = startDate > rangeStart ? startDate : rangeStart;
+      const occurrences = ruleWithDtstart.between(searchStart, rangeEnd, true);
+      
+      // Filter out exceptions and create event objects for each occurrence
+      return occurrences
+        .filter(occurrence => {
+          const occurrenceDateStr = format(occurrence, 'yyyy-MM-dd');
+          return !exceptions.includes(occurrenceDateStr);
+        })
+        .map(occurrence => {
+          const eventStart = new Date(occurrence);
+          const originalStart = new Date(event.startDateTime);
+          const originalEnd = event.endDateTime ? new Date(event.endDateTime) : null;
+          const duration = originalEnd ? originalEnd.getTime() - originalStart.getTime() : 60 * 60 * 1000;
+          const eventEnd = originalEnd ? new Date(eventStart.getTime() + duration) : null;
+          
+          return {
+            ...event,
+            startDateTime: eventStart.toISOString(),
+            endDateTime: eventEnd?.toISOString() || null,
+            isRecurringOccurrence: true,
+          };
+        });
+    } catch (e) {
+      // If RRule parsing fails, return empty array
+      return [];
+    }
+  };
+
+  // Get today's events (one-time events + recurring occurrences)
+  const todaysOneTimeEvents = allEvents.filter(event => {
+    if (event.recurrenceRule) return false; // Skip recurring events here
+    const eventDate = new Date(event.startDateTime);
+    return eventDate >= today && eventDate < tomorrowStart;
   });
+
+  const todaysRecurringOccurrences = allEvents
+    .filter(event => event.recurrenceRule)
+    .flatMap(event => getRecurringEventOccurrences(event, today, tomorrowStart));
+
+  const todaysEvents = [...todaysOneTimeEvents, ...todaysRecurringOccurrences]
+    .sort((a, b) => new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime())
+    .slice(0, 3);
+
+  // Get upcoming events (one-time events + recurring occurrences, starting from now)
+  const futureDate = new Date(now);
+  futureDate.setMonth(futureDate.getMonth() + 3); // Look ahead 3 months for recurring events
+
+  const upcomingOneTimeEvents = allEvents.filter(event => {
+    if (event.recurrenceRule) return false;
+    const eventDate = new Date(event.startDateTime);
+    return eventDate >= now;
+  });
+
+  const upcomingRecurringOccurrences = allEvents
+    .filter(event => event.recurrenceRule)
+    .flatMap(event => getRecurringEventOccurrences(event, now, futureDate));
+
+  const upcomingEvents = [...upcomingOneTimeEvents, ...upcomingRecurringOccurrences]
+    .sort((a, b) => new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime())
+    .slice(0, 3);
 
   // Fetch published announcements (most recent first)
+  // First check total count to enforce 3-announcement limit
+  const totalPublishedAnnouncements = await prisma.announcement.count({
+    where: {
+      isPublished: true,
+      AND: [
+        {
+          OR: [
+            { publishAt: null },
+            { publishAt: { lte: now } },
+          ],
+        },
+        {
+          OR: [
+            { expiresAt: null },
+            { expiresAt: { gte: now } },
+          ] as any,
+        },
+      ],
+    },
+  });
+
+  // Throw error if more than 3 announcements are published
+  if (totalPublishedAnnouncements > 3) {
+    throw new Error(
+      `Too many published announcements (${totalPublishedAnnouncements}). Maximum of 3 announcements can be published at once. Please unpublish or expire some announcements.`
+    );
+  }
+
   const publishedAnnouncements = await prisma.announcement.findMany({
-      where: {
-        isPublished: true,
-        AND: [
-          {
-            OR: [
-              { publishAt: null },
-              { publishAt: { lte: now } },
-            ],
-          },
-          {
-            OR: [
-              { expiresAt: null },
-              { expiresAt: { gte: now } },
-            ] as any,
-          },
-        ],
-      },
+    where: {
+      isPublished: true,
+      AND: [
+        {
+          OR: [
+            { publishAt: null },
+            { publishAt: { lte: now } },
+          ],
+        },
+        {
+          OR: [
+            { expiresAt: null },
+            { expiresAt: { gte: now } },
+          ] as any,
+        },
+      ],
+    },
     orderBy: { createdAt: 'desc' },
-    take: 1, // Show only the most recent announcement
+    take: 3, // Show up to 3 announcements
   });
 
   const hoursSetting = await prisma.setting.findUnique({
@@ -189,20 +302,26 @@ export default async function HomePage() {
       );
       
       if (matchesDay) {
-        // Weekly recurring specials: prioritize day match over date ranges
-        // Only check startDate to see if special has started yet
-        // Ignore endDate for weekly recurring patterns (they recur indefinitely)
+        // Weekly recurring specials: check day match AND date range if set
+        let isInDateRange = true;
+        
+        // Check if we're past the start date (if set)
         if (startDate) {
           const start = startOfDay(startDate);
-          
-          // Only check if we're past the start date
-          if (todayStart >= start) {
-            todaysFoodSpecial = special;
-            break;
+          if (todayStart < start) {
+            isInDateRange = false;
           }
-          // If not started yet, skip this special
-        } else {
-          // No start date restriction, show based on day match
+        }
+        
+        // Check if we're before the end date (if set)
+        if (endDate && isInDateRange) {
+          const end = endOfDay(endDate);
+          if (todayStart > end) {
+            isInDateRange = false;
+          }
+        }
+        
+        if (isInDateRange) {
           todaysFoodSpecial = special;
           break;
         }
@@ -279,20 +398,26 @@ export default async function HomePage() {
       );
       
       if (matchesDay) {
-        // Weekly recurring specials: prioritize day match over date ranges
-        // Only check startDate to see if special has started yet
-        // Ignore endDate for weekly recurring patterns (they recur indefinitely)
+        // Weekly recurring specials: check day match AND date range if set
+        let isInDateRange = true;
+        
+        // Check if we're past the start date (if set)
         if (startDate) {
           const start = startOfDay(startDate);
-          
-          // Only check if we're past the start date
-          if (todayStart >= start) {
-            todaysDrinkSpecial = special;
-            break;
+          if (todayStart < start) {
+            isInDateRange = false;
           }
-          // If not started yet, skip this special
-        } else {
-          // No start date restriction, show based on day match
+        }
+        
+        // Check if we're before the end date (if set)
+        if (endDate && isInDateRange) {
+          const end = endOfDay(endDate);
+          if (todayStart > end) {
+            isInDateRange = false;
+          }
+        }
+        
+        if (isInDateRange) {
           todaysDrinkSpecial = special;
           break;
         }
@@ -414,38 +539,43 @@ export default async function HomePage() {
             </div>
           </div>
 
-          {/* Announcement Banner - Compact if not important */}
+          {/* Announcements - Support 1-3 with optimized layout */}
           {publishedAnnouncements.length > 0 && (
-            <div className="mb-6 md:mb-8 max-w-4xl mx-auto animate-fade-in">
-              {publishedAnnouncements.map((announcement) => {
+            <div className={`mb-6 md:mb-8 max-w-4xl mx-auto animate-fade-in space-y-4 ${publishedAnnouncements.length > 1 ? 'space-y-3' : ''}`}>
+              {publishedAnnouncements.map((announcement, index) => {
                 const announcementWithCTA = announcement as typeof announcement & { ctaText?: string | null; ctaUrl?: string | null };
                 const hasCTA = announcementWithCTA.ctaText && announcementWithCTA.ctaUrl;
                 const isImportant = announcement.title.toLowerCase() !== 'test' && announcement.title.trim().length > 0;
+                const isMultiple = publishedAnnouncements.length > 1;
+                const isFirst = index === 0;
                 
-                if (!isImportant) {
-                  // Compact banner for less important announcements
+                // For multiple announcements, use compact style for all except the first (if it's important)
+                const useCompactStyle = isMultiple && (!isFirst || !isImportant);
+                
+                if (useCompactStyle) {
+                  // Compact banner for multiple announcements or less important ones
                   return (
-                    <div key={announcement.id} className={`bg-gradient-to-r from-yellow-500/20 via-orange-500/20 to-red-500/20 backdrop-blur-sm border border-orange-500/30 rounded-lg p-4 ${hasCTA ? 'pb-6' : ''}`}>
+                    <div key={announcement.id} className={`bg-gradient-to-r from-yellow-500/20 via-orange-500/20 to-red-500/20 backdrop-blur-sm border border-orange-500/30 rounded-lg p-3 md:p-4 ${hasCTA ? 'pb-5 md:pb-6' : ''}`}>
                       <div className="flex items-center gap-2 mb-2">
                         <svg className="w-4 h-4 text-orange-400" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                         </svg>
                         <span className="text-orange-400 text-xs font-semibold uppercase tracking-wider">Announcement</span>
                       </div>
-                      <h2 className="text-lg md:text-xl font-bold text-white mb-1">{announcement.title}</h2>
+                      <h2 className="text-base md:text-lg font-bold text-white mb-1">{announcement.title}</h2>
                       {announcement.body && (
                         <div 
-                          className={`text-sm text-white/90 prose prose-invert prose-sm max-w-none prose-headings:text-white prose-p:text-white/90 prose-p:my-1 ${hasCTA ? 'mb-4' : ''}`}
+                          className={`text-xs md:text-sm text-white/90 prose prose-invert prose-sm max-w-none prose-headings:text-white prose-p:text-white/90 prose-p:my-1 ${hasCTA ? 'mb-3 md:mb-4' : ''}`}
                           dangerouslySetInnerHTML={{ __html: marked(announcement.body) }}
                         />
                       )}
                       {hasCTA && (
-                        <div className="mt-4 flex justify-center">
+                        <div className="mt-3 md:mt-4 flex justify-center">
                           <a
                             href={announcementWithCTA.ctaUrl || '#'}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-400 hover:to-red-400 text-white font-bold text-xs rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+                            className="inline-flex items-center gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-400 hover:to-red-400 text-white font-bold text-xs rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
                           >
                             <span>{announcementWithCTA.ctaText}</span>
                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -458,7 +588,7 @@ export default async function HomePage() {
                   );
                 }
                 
-                // Full banner for important announcements
+                // Full banner for single important announcement or first of multiple if important
                 return (
                   <div
                     key={announcement.id}
@@ -510,256 +640,273 @@ export default async function HomePage() {
           )}
 
           {/* Today's Highlights Section - Dynamic Content */}
-          <div className="mb-8 md:mb-12 max-w-7xl mx-auto">
-            {/* Section Header */}
-            <div className="text-center mb-6 md:mb-8">
-              <h2 className="text-3xl md:text-4xl font-bold text-white mb-2">Today&apos;s Highlights</h2>
-              <div className="w-20 h-0.5 bg-gradient-to-r from-transparent via-white/50 to-transparent mx-auto"></div>
-            </div>
+          {(() => {
+            const highlightItems = [
+              todaysFoodSpecial,
+              todaysDrinkSpecial,
+              todaysEvents.length > 0 ? todaysEvents[0] : null,
+            ].filter(Boolean);
+            const hasHappyHour = happyHour && happyHour.enabled;
+            const hasHighlights = highlightItems.length > 0 || hasHappyHour;
+            
+            if (!hasHighlights) return null;
+            
+            return (
+              <div className="mb-8 md:mb-12 max-w-7xl mx-auto">
+                {/* Section Header - Only show if there are highlight items */}
+                {highlightItems.length > 0 && (
+                  <div className="text-center mb-6 md:mb-8">
+                    <h2 className="text-3xl md:text-4xl font-bold text-white mb-2">Today&apos;s Highlights</h2>
+                    <div className="w-20 h-0.5 bg-gradient-to-r from-transparent via-white/50 to-transparent mx-auto"></div>
+                  </div>
+                )}
 
-            {/* Dynamic Content Grid - Responsive based on item count */}
-            {(() => {
-              const itemCount = [todaysFoodSpecial, todaysDrinkSpecial, todaysEvents.length > 0 ? todaysEvents[0] : null].filter(Boolean).length;
-              const gridCols = itemCount === 1 
-                ? 'grid-cols-1 max-w-2xl mx-auto' 
-                : itemCount === 2 
-                ? 'grid-cols-1 md:grid-cols-2 max-w-5xl mx-auto' 
-                : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3';
-              const cardPadding = itemCount <= 2 ? 'p-8 md:p-10' : 'p-6 md:p-8';
-              return (
-                <div className={`grid ${gridCols} gap-4 md:gap-6 mb-6 md:mb-8`}>
-              {/* Food Special */}
-              {todaysFoodSpecial && (
-                <div className={`relative bg-gradient-to-br from-orange-950/95 via-red-950/95 to-orange-950/95 backdrop-blur-md rounded-2xl ${cardPadding} shadow-2xl overflow-hidden animate-fade-in transition-none border border-orange-500/20`}>
-                  <div className="absolute inset-0 opacity-0">
-                    <div className="absolute top-0 right-0 w-40 h-40 bg-orange-400/20 rounded-full -mr-20 -mt-20 blur-2xl"></div>
-                    <div className="absolute bottom-0 left-0 w-32 h-32 bg-red-400/20 rounded-full -ml-16 -mb-16 blur-2xl"></div>
-                  </div>
-                  <div className="relative z-10">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="p-2.5 bg-gradient-to-br from-orange-500/40 to-red-500/40 rounded-xl backdrop-blur-sm">
-                        <svg className="w-6 h-6 text-orange-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                        </svg>
-                      </div>
-                      <span className="text-orange-300 text-xs font-bold uppercase tracking-wider">
-                        Today&apos;s Food Special
-                      </span>
-                    </div>
-                    <h3 className="text-2xl md:text-3xl font-bold text-white mb-3 leading-tight">
-                      {todaysFoodSpecial.title}
-                    </h3>
-                    {todaysFoodSpecial.description && (
-                      <p className="text-sm md:text-base text-white/90 mb-3 leading-relaxed">
-                        {todaysFoodSpecial.description}
-                      </p>
-                    )}
-                    {todaysFoodSpecial.priceNotes && (
-                      <div className="inline-block px-4 py-2 bg-gradient-to-r from-orange-500/30 to-red-500/30 rounded-lg backdrop-blur-sm mb-3">
-                        <p className="text-orange-200 font-bold text-base md:text-lg">
-                          {todaysFoodSpecial.priceNotes}
-                        </p>
-                      </div>
-                    )}
-                    {todaysFoodSpecial.timeWindow && (
-                      <div className="flex items-center gap-2 text-white/70 text-sm mt-4 pt-4 border-t border-white/10">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span>{todaysFoodSpecial.timeWindow}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Drink Special */}
-              {todaysDrinkSpecial && (
-                <div className={`group relative bg-gradient-to-br from-blue-950/95 via-indigo-950/95 to-purple-950/95 backdrop-blur-md rounded-2xl ${cardPadding} shadow-2xl overflow-hidden animate-fade-in hover:scale-[1.02] transition-all duration-300 border border-blue-500/20`}>
-                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <div className="absolute top-0 right-0 w-40 h-40 bg-blue-400/20 rounded-full -mr-20 -mt-20 blur-2xl"></div>
-                    <div className="absolute bottom-0 left-0 w-32 h-32 bg-indigo-400/20 rounded-full -ml-16 -mb-16 blur-2xl"></div>
-                  </div>
-                  <div className="relative z-10">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="p-2.5 bg-gradient-to-br from-blue-500/40 to-indigo-500/40 rounded-xl backdrop-blur-sm">
-                        <svg className="w-6 h-6 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                        </svg>
-                      </div>
-                      <span className="text-blue-300 text-xs font-bold uppercase tracking-wider">
-                        Today&apos;s Drink Special
-                      </span>
-                    </div>
-                    <h3 className="text-2xl md:text-3xl font-bold text-white mb-3 leading-tight">
-                      {todaysDrinkSpecial.title}
-                    </h3>
-                    {todaysDrinkSpecial.description && (
-                      <p className="text-sm md:text-base text-white/90 mb-3 leading-relaxed">
-                        {todaysDrinkSpecial.description}
-                      </p>
-                    )}
-                    {todaysDrinkSpecial.priceNotes && (
-                      <div className="inline-block px-4 py-2 bg-gradient-to-r from-blue-500/30 to-indigo-500/30 rounded-lg backdrop-blur-sm mb-3">
-                        <p className="text-blue-200 font-bold text-base md:text-lg">
-                          {todaysDrinkSpecial.priceNotes}
-                        </p>
-                      </div>
-                    )}
-                    {todaysDrinkSpecial.timeWindow && (
-                      <div className="flex items-center gap-2 text-white/70 text-sm mt-4 pt-4 border-t border-white/10">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span>{todaysDrinkSpecial.timeWindow}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Today's Event */}
-              {todaysEvents.length > 0 && (
-                <div className={`group relative bg-gradient-to-br from-purple-950/95 via-pink-950/95 to-purple-950/95 backdrop-blur-md rounded-2xl ${cardPadding} shadow-2xl overflow-hidden animate-fade-in hover:scale-[1.02] transition-all duration-300 border border-purple-500/20`}>
-                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-purple-400/20 rounded-full -mr-16 -mt-16 blur-2xl"></div>
-                    <div className="absolute bottom-0 left-0 w-24 h-24 bg-pink-400/20 rounded-full -ml-12 -mb-12 blur-2xl"></div>
-                  </div>
-                  <div className="relative z-10 flex flex-col h-full">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="p-2.5 bg-gradient-to-br from-purple-500/40 to-pink-500/40 rounded-xl backdrop-blur-sm">
-                        <svg className="w-6 h-6 text-purple-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                      </div>
-                      <span className="text-purple-300 text-xs font-bold uppercase tracking-wider">
-                        Today&apos;s Event
-                      </span>
-                    </div>
-                    
-                    <h3 className="text-2xl md:text-3xl font-bold text-white mb-3 leading-tight flex-1">
-                      {todaysEvents[0].title}
-                    </h3>
-                    
-                    {todaysEvents[0].description && (
-                      <p className="text-sm md:text-base text-white/90 mb-4 leading-relaxed">
-                        {todaysEvents[0].description}
-                      </p>
-                    )}
-                    
-                    <div className="flex items-center gap-3 pt-4 mt-auto border-t border-white/10">
-                      <div className="p-2 bg-purple-500/20 rounded-lg">
-                        <svg className="w-5 h-5 text-purple-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
-                      <div className="flex-1">
-                        <span className="text-purple-200 font-semibold text-sm md:text-base block">
-                          {new Date(todaysEvents[0].startDateTime).toLocaleTimeString('en-US', {
-                            hour: 'numeric',
-                            minute: '2-digit',
-                          })}
-                          {todaysEvents[0].endDateTime &&
-                            ` - ${new Date(todaysEvents[0].endDateTime).toLocaleTimeString('en-US', {
-                              hour: 'numeric',
-                              minute: '2-digit',
-                            })}`}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-                </div>
-              );
-            })()}
-
-            {/* Happy Hour - Permanent Banner Style */}
-            {happyHour && happyHour.enabled && (
-              <div className="relative bg-gradient-to-r from-green-950/95 via-emerald-950/95 to-green-950/95 backdrop-blur-md rounded-2xl p-6 md:p-8 shadow-xl overflow-hidden border border-green-500/30 transition-none">
-                {/* Decorative Pattern */}
-                <div className="absolute inset-0 opacity-5">
-                  <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.1)_1px,transparent_1px)] bg-[length:20px_20px]"></div>
-                </div>
-                <div className="absolute top-0 right-0 w-72 h-72 bg-green-400/5 rounded-full -mr-36 -mt-36 blur-3xl"></div>
-                <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-400/5 rounded-full -ml-32 -mb-32 blur-3xl"></div>
-                
-                <div className="relative z-10">
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 md:gap-6">
-                    {/* Left Content */}
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="p-2.5 bg-green-500/20 rounded-xl backdrop-blur-sm border border-green-400/30">
-                          <svg className="w-6 h-6 text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
+                {/* Dynamic Content Grid - Optimized for all combinations */}
+                {highlightItems.length > 0 && (() => {
+                  const itemCount = highlightItems.length;
+                  // Optimize grid layout based on item count
+                  let gridCols: string;
+                  let maxWidth: string;
+                  let cardPadding: string;
+                  
+                  if (itemCount === 1) {
+                    gridCols = 'grid-cols-1';
+                    maxWidth = 'max-w-2xl mx-auto';
+                    cardPadding = 'p-8 md:p-10';
+                  } else if (itemCount === 2) {
+                    gridCols = 'grid-cols-1 md:grid-cols-2';
+                    maxWidth = 'max-w-5xl mx-auto';
+                    cardPadding = 'p-6 md:p-8';
+                  } else {
+                    // 3 items
+                    gridCols = 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3';
+                    maxWidth = 'max-w-7xl mx-auto';
+                    cardPadding = 'p-6 md:p-8';
+                  }
+                  
+                  return (
+                    <div className={`grid ${gridCols} ${maxWidth} gap-4 md:gap-6 mb-6 md:mb-8`}>
+                      {/* Food Special */}
+                      {todaysFoodSpecial && (
+                        <div className={`relative bg-gradient-to-br from-orange-950/95 via-red-950/95 to-orange-950/95 backdrop-blur-md rounded-2xl ${cardPadding} shadow-2xl overflow-hidden animate-fade-in transition-none border border-orange-500/20`}>
+                          <div className="absolute inset-0 opacity-0">
+                            <div className="absolute top-0 right-0 w-40 h-40 bg-orange-400/20 rounded-full -mr-20 -mt-20 blur-2xl"></div>
+                            <div className="absolute bottom-0 left-0 w-32 h-32 bg-red-400/20 rounded-full -ml-16 -mb-16 blur-2xl"></div>
+                          </div>
+                          <div className="relative z-10">
+                            <div className="flex items-center gap-3 mb-4">
+                              <div className="p-2.5 bg-gradient-to-br from-orange-500/40 to-red-500/40 rounded-xl backdrop-blur-sm">
+                                <svg className="w-6 h-6 text-orange-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                </svg>
+                              </div>
+                              <span className="text-orange-300 text-xs font-bold uppercase tracking-wider">
+                                Today&apos;s Food Special
+                              </span>
+                            </div>
+                            <h3 className="text-2xl md:text-3xl font-bold text-white mb-3 leading-tight">
+                              {todaysFoodSpecial.title}
+                            </h3>
+                            {todaysFoodSpecial.description && (
+                              <p className="text-sm md:text-base text-white/90 mb-3 leading-relaxed">
+                                {todaysFoodSpecial.description}
+                              </p>
+                            )}
+                            {todaysFoodSpecial.priceNotes && (
+                              <div className="inline-block px-4 py-2 bg-gradient-to-r from-orange-500/30 to-red-500/30 rounded-lg backdrop-blur-sm mb-3">
+                                <p className="text-orange-200 font-bold text-base md:text-lg">
+                                  {todaysFoodSpecial.priceNotes}
+                                </p>
+                              </div>
+                            )}
+                            {todaysFoodSpecial.timeWindow && (
+                              <div className="flex items-center gap-2 text-white/70 text-sm mt-4 pt-4 border-t border-white/10">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span>{todaysFoodSpecial.timeWindow}</span>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        <div>
-                          <span className="text-green-300/90 text-xs font-semibold uppercase tracking-wider block">
-                            Always Available
-                          </span>
-                          <span className="text-green-200 text-lg font-bold">
-                            Daily Happy Hour
-                          </span>
-                        </div>
-                      </div>
-                      <h3 className="text-2xl md:text-3xl font-bold text-white mb-2">
-                        {happyHour.title || 'Buy One Get One'}
-                      </h3>
-                      {happyHour.description && (
-                        <p className="text-white/90 text-sm md:text-base mb-2 leading-relaxed">
-                          {happyHour.description}
-                        </p>
                       )}
-                      {happyHour.details && (
-                        <p className="text-white/70 text-xs md:text-sm mt-2">
-                          {happyHour.details}
-                        </p>
+
+                      {/* Drink Special */}
+                      {todaysDrinkSpecial && (
+                        <div className={`relative bg-gradient-to-br from-blue-950/95 via-indigo-950/95 to-purple-950/95 backdrop-blur-md rounded-2xl ${cardPadding} shadow-2xl overflow-hidden animate-fade-in transition-none border border-blue-500/20`}>
+                          <div className="absolute inset-0 opacity-0">
+                            <div className="absolute top-0 right-0 w-40 h-40 bg-blue-400/20 rounded-full -mr-20 -mt-20 blur-2xl"></div>
+                            <div className="absolute bottom-0 left-0 w-32 h-32 bg-indigo-400/20 rounded-full -ml-16 -mb-16 blur-2xl"></div>
+                          </div>
+                          <div className="relative z-10">
+                            <div className="flex items-center gap-3 mb-4">
+                              <div className="p-2.5 bg-gradient-to-br from-blue-500/40 to-indigo-500/40 rounded-xl backdrop-blur-sm">
+                                <svg className="w-6 h-6 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                                </svg>
+                              </div>
+                              <span className="text-blue-300 text-xs font-bold uppercase tracking-wider">
+                                Today&apos;s Drink Special
+                              </span>
+                            </div>
+                            <h3 className="text-2xl md:text-3xl font-bold text-white mb-3 leading-tight">
+                              {todaysDrinkSpecial.title}
+                            </h3>
+                            {todaysDrinkSpecial.description && (
+                              <p className="text-sm md:text-base text-white/90 mb-3 leading-relaxed">
+                                {todaysDrinkSpecial.description}
+                              </p>
+                            )}
+                            {todaysDrinkSpecial.priceNotes && (
+                              <div className="inline-block px-4 py-2 bg-gradient-to-r from-blue-500/30 to-indigo-500/30 rounded-lg backdrop-blur-sm mb-3">
+                                <p className="text-blue-200 font-bold text-base md:text-lg">
+                                  {todaysDrinkSpecial.priceNotes}
+                                </p>
+                              </div>
+                            )}
+                            {todaysDrinkSpecial.timeWindow && (
+                              <div className="flex items-center gap-2 text-white/70 text-sm mt-4 pt-4 border-t border-white/10">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span>{todaysDrinkSpecial.timeWindow}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Today's Event */}
+                      {todaysEvents.length > 0 && (
+                        <div className={`relative bg-gradient-to-br from-purple-950/95 via-pink-950/95 to-purple-950/95 backdrop-blur-md rounded-2xl ${cardPadding} shadow-2xl overflow-hidden animate-fade-in transition-none border border-purple-500/20`}>
+                          <div className="absolute inset-0 opacity-0">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-purple-400/20 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+                            <div className="absolute bottom-0 left-0 w-24 h-24 bg-pink-400/20 rounded-full -ml-12 -mb-12 blur-2xl"></div>
+                          </div>
+                          <div className="relative z-10 flex flex-col h-full">
+                            <div className="flex items-center gap-3 mb-4">
+                              <div className="p-2.5 bg-gradient-to-br from-purple-500/40 to-pink-500/40 rounded-xl backdrop-blur-sm">
+                                <svg className="w-6 h-6 text-purple-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                              </div>
+                              <span className="text-purple-300 text-xs font-bold uppercase tracking-wider">
+                                Today&apos;s Event
+                              </span>
+                            </div>
+                            
+                            <h3 className="text-2xl md:text-3xl font-bold text-white mb-3 leading-tight flex-1">
+                              {todaysEvents[0].title}
+                            </h3>
+                            
+                            {todaysEvents[0].description && (
+                              <p className="text-sm md:text-base text-white/90 mb-4 leading-relaxed">
+                                {todaysEvents[0].description}
+                              </p>
+                            )}
+                            
+                            <div className="flex items-center gap-3 pt-4 mt-auto border-t border-white/10">
+                              <div className="p-2 bg-purple-500/20 rounded-lg">
+                                <svg className="w-5 h-5 text-purple-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                              </div>
+                              <div className="flex-1">
+                                <span className="text-purple-200 font-semibold text-sm md:text-base block">
+                                  {new Date(todaysEvents[0].startDateTime).toLocaleTimeString('en-US', {
+                                    hour: 'numeric',
+                                    minute: '2-digit',
+                                  })}
+                                  {todaysEvents[0].endDateTime &&
+                                    ` - ${new Date(todaysEvents[0].endDateTime).toLocaleTimeString('en-US', {
+                                      hour: 'numeric',
+                                      minute: '2-digit',
+                                    })}`}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                       )}
                     </div>
+                  );
+                })()}
+
+                {/* Happy Hour - Permanent Banner Style */}
+                {hasHappyHour && (
+                  <div className="relative bg-gradient-to-r from-green-950/95 via-emerald-950/95 to-green-950/95 backdrop-blur-md rounded-2xl p-6 md:p-8 shadow-xl overflow-hidden border border-green-500/30 transition-none">
+                    {/* Decorative Pattern */}
+                    <div className="absolute inset-0 opacity-5">
+                      <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.1)_1px,transparent_1px)] bg-[length:20px_20px]"></div>
+                    </div>
+                    <div className="absolute top-0 right-0 w-72 h-72 bg-green-400/5 rounded-full -mr-36 -mt-36 blur-3xl"></div>
+                    <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-400/5 rounded-full -ml-32 -mb-32 blur-3xl"></div>
                     
-                    {/* Right Time Badge */}
-                    {happyHour.times && (
-                      <div className="flex-shrink-0">
-                        <div className="inline-flex flex-col items-center gap-2 px-6 md:px-8 py-5 md:py-6 bg-green-500/20 backdrop-blur-md rounded-2xl border border-green-400/30 shadow-lg">
-                          <svg className="w-7 h-7 md:w-8 md:h-8 text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          <span className="text-lg md:text-xl font-bold text-green-200 whitespace-nowrap">
-                            {happyHour.times}
-                          </span>
-                          <span className="text-xs text-green-300/80 font-semibold uppercase tracking-wider">
-                            Every Day
-                          </span>
+                    <div className="relative z-10">
+                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 md:gap-6">
+                        {/* Left Content */}
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-3">
+                            <div className="p-2.5 bg-green-500/20 rounded-xl backdrop-blur-sm border border-green-400/30">
+                              <svg className="w-6 h-6 text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            </div>
+                            <div>
+                              <span className="text-green-300/90 text-xs font-semibold uppercase tracking-wider block">
+                                Always Available
+                              </span>
+                              <span className="text-green-200 text-lg font-bold">
+                                Daily Happy Hour
+                              </span>
+                            </div>
+                          </div>
+                          <h3 className="text-2xl md:text-3xl font-bold text-white mb-2">
+                            {happyHour.title || 'Buy One Get One'}
+                          </h3>
+                          {happyHour.description && (
+                            <p className="text-white/90 text-sm md:text-base mb-2 leading-relaxed">
+                              {happyHour.description}
+                            </p>
+                          )}
+                          {happyHour.details && (
+                            <p className="text-white/70 text-xs md:text-sm mt-2">
+                              {happyHour.details}
+                            </p>
+                          )}
                         </div>
+                        
+                        {/* Right Time Badge */}
+                        {happyHour.times && (
+                          <div className="flex-shrink-0">
+                            <div className="inline-flex flex-col items-center gap-2 px-6 md:px-8 py-5 md:py-6 bg-green-500/20 backdrop-blur-md rounded-2xl border border-green-400/30 shadow-lg">
+                              <svg className="w-7 h-7 md:w-8 md:h-8 text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <span className="text-lg md:text-xl font-bold text-green-200 whitespace-nowrap">
+                                {happyHour.times}
+                              </span>
+                              <span className="text-xs text-green-300/80 font-semibold uppercase tracking-wider">
+                                Every Day
+                              </span>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    )}
+                    </div>
+                    
+                    {/* Subtle shine effect */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/3 to-transparent pointer-events-none"></div>
                   </div>
-                </div>
-                
-                {/* Subtle shine effect */}
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/3 to-transparent pointer-events-none"></div>
+                )}
               </div>
-            )}
-          </div>
+            );
+          })()}
           
           {/* Call to Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            {contact.phone && (
-              <a
-                href={`tel:${contact.phone.replace(/\D/g, '')}`}
-                className="group relative px-8 py-4 bg-[var(--color-accent)] hover:bg-[var(--color-accent-dark)] rounded-full text-lg font-semibold transition-all shadow-lg hover:shadow-xl hover:scale-105 overflow-hidden"
-              >
-                <span className="relative z-10 flex items-center gap-2">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                  </svg>
-                  Call Us
-                </span>
-              </a>
-            )}
             <Link
-              href="/order"
+              href="/menu"
               className="group px-8 py-4 bg-[var(--color-accent)] hover:bg-[var(--color-accent-dark)] rounded-full text-lg font-semibold transition-all shadow-lg hover:shadow-xl hover:scale-105 flex items-center gap-2"
             >
               <svg className="w-5 h-5 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">

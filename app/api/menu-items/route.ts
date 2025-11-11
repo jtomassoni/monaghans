@@ -20,6 +20,11 @@ export async function GET(req: NextRequest) {
       where,
       include: {
         section: true,
+        ingredients: {
+          include: {
+            ingredient: true,
+          },
+        },
       },
       orderBy: { displayOrder: 'asc' },
     });
@@ -51,9 +56,15 @@ export async function POST(req: NextRequest) {
         modifiers: body.modifiers ? JSON.stringify(body.modifiers) : null,
         isAvailable: body.isAvailable ?? true,
         displayOrder: body.displayOrder ?? 0,
+        prepTimeMin: body.prepTimeMin ? parseInt(body.prepTimeMin) : null,
       },
       include: {
         section: true,
+        ingredients: {
+          include: {
+            ingredient: true,
+          },
+        },
       },
     });
 

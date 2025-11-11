@@ -34,6 +34,7 @@ export default function DatePicker({ value, onChange, min, max, label, required,
   const pickerRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [positionAbove, setPositionAbove] = useState(false);
+  const [horizontalOffset, setHorizontalOffset] = useState(0);
 
   // Close picker when clicking outside
   useEffect(() => {
@@ -49,13 +50,16 @@ export default function DatePicker({ value, onChange, min, max, label, required,
     }
   }, [isOpen]);
 
-  // Position picker above if not enough space below or if input is in lower portion of viewport
+  // Position picker to stay within viewport
   useEffect(() => {
     if (isOpen && containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
+      const pickerWidth = 320; // Approximate width of the picker
+      const pickerHeight = 320; // Approximate height of the picker
+      
+      // Check vertical positioning
       const spaceBelow = window.innerHeight - rect.bottom;
       const spaceAbove = rect.top;
-      const pickerHeight = 320; // Approximate height of the picker
       const viewportThreshold = window.innerHeight * 0.6; // 60% down the viewport
       
       // Position above if:
@@ -69,12 +73,25 @@ export default function DatePicker({ value, onChange, min, max, label, required,
       
       setPositionAbove(shouldPositionAbove);
       
-      // If positioning above, scroll the input into view to ensure it's visible
-      if (shouldPositionAbove) {
-        containerRef.current.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+      // Check horizontal positioning
+      let offset = 0;
+      // If picker would overflow on the right, shift it left
+      if (rect.left + pickerWidth > window.innerWidth - 16) {
+        offset = window.innerWidth - rect.left - pickerWidth - 16;
       }
+      // If picker would overflow on the left after offset, shift it right
+      if (rect.left + offset < 16) {
+        offset = 16 - rect.left;
+      }
+      // Ensure we don't go beyond the right edge
+      if (rect.left + offset + pickerWidth > window.innerWidth - 16) {
+        offset = window.innerWidth - 16 - pickerWidth - rect.left;
+      }
+      
+      setHorizontalOffset(offset);
     } else {
       setPositionAbove(false);
+      setHorizontalOffset(0);
     }
   }, [isOpen]);
 
@@ -161,37 +178,51 @@ export default function DatePicker({ value, onChange, min, max, label, required,
         {isOpen && (
           <div
             ref={pickerRef}
-            className={`absolute z-50 ${positionAbove ? 'bottom-full mb-2' : 'top-full mt-2'} bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-xl p-3 w-[350px] max-w-[calc(100vw-2rem)]`}
+            className={`absolute z-50 ${positionAbove ? 'bottom-full mb-2' : 'top-full mt-2'} bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-xl p-3 w-[320px] max-w-[calc(100vw-2rem)]`}
+            style={{ left: `${horizontalOffset}px` }}
           >
-            <div className="flex items-center justify-between mb-3">
+            {/* Header with close button */}
+            <div className="flex items-center justify-between mb-2 relative">
               <button
                 type="button"
-                onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
-                className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                onClick={() => setIsOpen(false)}
+                className="absolute right-0 p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                aria-label="Close"
               >
-                <HiChevronLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                <svg className="w-4 h-4 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-                {format(currentMonth, 'MMMM yyyy')}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
-                className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
-              >
-                <HiChevronRight className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-              </button>
+              <div className="flex items-center justify-between w-full pr-7">
+                <button
+                  type="button"
+                  onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
+                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                >
+                  <HiChevronLeft className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                </button>
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                  {format(currentMonth, 'MMMM yyyy')}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
+                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                >
+                  <HiChevronRight className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                </button>
+              </div>
             </div>
 
-            <div className="grid grid-cols-7 gap-1 mb-1.5">
+            <div className="grid grid-cols-7 gap-0.5 mb-1.5">
               {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-                <div key={day} className="text-xs font-medium text-gray-500 dark:text-gray-400 text-center py-1">
+                <div key={day} className="text-xs font-medium text-gray-500 dark:text-gray-400 text-center py-0.5">
                   {day}
                 </div>
               ))}
             </div>
 
-            <div className="grid grid-cols-7 gap-1">
+            <div className="grid grid-cols-7 gap-0.5 mb-2">
               {calendarDays.map((day, idx) => {
                 const isCurrentMonth = isSameMonth(day, currentMonth);
                 const isSelected = selectedDate ? isSameDay(day, selectedDate) : false;
@@ -205,7 +236,7 @@ export default function DatePicker({ value, onChange, min, max, label, required,
                     onClick={() => handleDateSelect(day)}
                     disabled={isDisabled}
                     className={`
-                      h-8 text-xs rounded transition-colors
+                      h-7 text-xs rounded transition-colors
                       ${isCurrentMonth ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}
                       ${isSelected 
                         ? 'bg-blue-600 text-white font-semibold' 
@@ -222,7 +253,7 @@ export default function DatePicker({ value, onChange, min, max, label, required,
               })}
             </div>
 
-            <div className="flex gap-2 mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
               <button
                 type="button"
                 onClick={() => handleQuickSelect('today')}

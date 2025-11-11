@@ -92,7 +92,7 @@ export default async function OrderConfirmationPage({
 
             <div className="flex flex-col sm:flex-row gap-3 pt-4">
               <Link
-                href="/order"
+                href="/menu"
                 className="flex-1 px-6 py-3 bg-[var(--color-accent)] hover:bg-[var(--color-accent-dark)] text-white font-semibold rounded-lg transition text-center"
               >
                 Place Another Order

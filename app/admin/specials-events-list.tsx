@@ -8,6 +8,7 @@ import ConfirmationDialog from '@/components/confirmation-dialog';
 import EventModalForm from '@/components/event-modal-form';
 import StatusBadge from '@/components/status-badge';
 import { getItemStatus } from '@/lib/status-helpers';
+import DuplicateCalendarModal from '@/components/duplicate-calendar-modal';
 
 interface Event {
   id: string;
@@ -39,6 +40,7 @@ export default function EventsList({
   const [eventModalOpen, setEventModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{ id: string; title: string } | null>(null);
+  const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
 
   useEffect(() => {
     setEvents(initialEvents);
@@ -216,6 +218,16 @@ export default function EventsList({
     return item.recurrenceRule && item.recurrenceRule.trim().length > 0;
   };
 
+  // Check if there are any events scheduled at least one year from now
+  const hasEventsOneYearFromNow = () => {
+    const oneYearFromNow = new Date();
+    oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+    return events.some((event) => {
+      const eventDate = new Date(event.startDateTime);
+      return eventDate >= oneYearFromNow;
+    });
+  };
+
   return (
     <div className="flex flex-col h-full overflow-hidden min-h-0">
       {/* Fixed Header Section */}
@@ -229,13 +241,25 @@ export default function EventsList({
           filterOptions={filterOptions}
           defaultSort={sortOptions[0]}
           actionButton={showNewButtons ? (
-            <button
-              onClick={handleNewItem}
-              className="px-4 py-2 bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-medium text-sm transition-all duration-200 hover:scale-105 flex items-center gap-2 cursor-pointer whitespace-nowrap border border-blue-400 dark:border-blue-500"
-            >
-              <span>➕</span>
-              <span>New Event</span>
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={handleNewItem}
+                className="px-4 py-2 bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-medium text-sm transition-all duration-200 hover:scale-105 flex items-center gap-2 cursor-pointer whitespace-nowrap border border-blue-400 dark:border-blue-500"
+              >
+                <span>➕</span>
+                <span>New Event</span>
+              </button>
+              {hasEventsOneYearFromNow() && (
+                <button
+                  onClick={() => setDuplicateModalOpen(true)}
+                  className="px-4 py-2 bg-green-500/90 dark:bg-green-600/90 hover:bg-green-600 dark:hover:bg-green-700 rounded-lg text-white font-medium text-sm transition-all duration-200 hover:scale-105 flex items-center gap-2 cursor-pointer whitespace-nowrap border border-green-400 dark:border-green-500"
+                  title="Duplicate recurring events to following year"
+                >
+                  <span>📅</span>
+                  <span>Duplicate Calendar</span>
+                </button>
+              )}
+            </div>
           ) : undefined}
         />
       </div>
@@ -402,6 +426,17 @@ export default function EventsList({
         onDelete={(eventId) => {
           // Remove event from local state
           setEvents(prev => prev.filter(e => e.id !== eventId));
+        }}
+      />
+
+      {/* Duplicate Calendar Modal */}
+      <DuplicateCalendarModal
+        isOpen={duplicateModalOpen}
+        onClose={() => setDuplicateModalOpen(false)}
+        events={events}
+        onSuccess={() => {
+          // Refresh events list after duplication
+          window.location.reload();
         }}
       />
     </div>
