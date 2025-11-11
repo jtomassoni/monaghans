@@ -108,6 +108,7 @@ const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Satur
 export default function EventModalForm({ isOpen, onClose, event, occurrenceDate, onSuccess, onDelete, onEventAdded, onEventUpdated, onExceptionAdded }: EventModalFormProps) {
   const [loading, setLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showDeleteRecurringConfirm, setShowDeleteRecurringConfirm] = useState(false);
   
   // Helper function to convert datetime-local string to Date object treating it as Mountain Time
   // datetime-local format: "YYYY-MM-DDTHH:mm" (no timezone info)
@@ -328,6 +329,32 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
     }
   };
 
+  const handleDeleteRecurringEvent = async () => {
+    if (!event?.id) return;
+    
+    setLoading(true);
+    
+    try {
+      // Delete entire recurring event
+      const res = await fetch(`/api/events/${event.id}`, { method: 'DELETE' });
+      
+      if (res.ok) {
+        showToast('Recurring event deleted successfully', 'success');
+        onDelete?.(event.id);
+        onSuccess?.();
+        onClose();
+      } else {
+        const error = await res.json();
+        showToast('Failed to delete recurring event', 'error', error.error || error.details || 'Please try again.');
+      }
+    } catch (error) {
+      showToast('Delete failed', 'error', error instanceof Error ? error.message : 'An error occurred.');
+    } finally {
+      setLoading(false);
+      setShowDeleteRecurringConfirm(false);
+    }
+  };
+
   useEffect(() => {
     if (event) {
       const parsed = parseRRULE(event.recurrenceRule);
@@ -382,6 +409,7 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
   useEffect(() => {
     if (!isOpen) {
       setShowDeleteConfirm(false);
+      setShowDeleteRecurringConfirm(false);
     }
   }, [isOpen]);
 
@@ -727,26 +755,49 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
 
         <div className="flex gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
           {event?.id && (
-            <button
-              type="button"
-              onClick={() => setShowDeleteConfirm(true)}
-              disabled={loading}
-              className="px-4 py-2 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 mr-auto"
-            >
-              {event?.recurrenceRule && occurrenceDate ? 'Delete This Occurrence' : 'Delete'}
-            </button>
+            <div className="flex gap-2 mr-auto">
+              {event?.recurrenceRule && occurrenceDate ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    disabled={loading}
+                    className="px-4 py-2 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 cursor-pointer"
+                  >
+                    Delete This Occurrence
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteRecurringConfirm(true)}
+                    disabled={loading}
+                    className="px-4 py-2 bg-red-700 dark:bg-red-700 hover:bg-red-800 dark:hover:bg-red-600 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 cursor-pointer"
+                  >
+                    Delete Recurring Event
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  disabled={loading}
+                  className="px-4 py-2 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 cursor-pointer"
+                >
+                  Delete
+                </button>
+              )}
+            </div>
           )}
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold transition-colors"
+            className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={loading}
-            className="px-4 py-2 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-blue-500/20"
+            className="px-4 py-2 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-blue-500/20 cursor-pointer"
           >
             {loading ? (event?.id ? 'Saving...' : 'Creating...') : (event?.id ? 'Save' : 'Create')}
           </button>
@@ -763,6 +814,16 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
             : `Are you sure you want to delete "${event?.title}"? This action cannot be undone.`
         }
         confirmText={loading ? 'Deleting...' : 'Delete'}
+        cancelText="Cancel"
+        variant="danger"
+      />
+      <ConfirmationDialog
+        isOpen={showDeleteRecurringConfirm}
+        onClose={() => setShowDeleteRecurringConfirm(false)}
+        onConfirm={handleDeleteRecurringEvent}
+        title="Delete Recurring Event"
+        message={`Are you sure you want to delete the entire recurring event "${event?.title}"? This will remove all occurrences, past and future. This action cannot be undone.`}
+        confirmText={loading ? 'Deleting...' : 'Delete All'}
         cancelText="Cancel"
         variant="danger"
       />

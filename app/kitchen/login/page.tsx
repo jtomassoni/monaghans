@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { FaUtensils } from 'react-icons/fa';
 
 export default function KitchenLoginPage() {
   const router = useRouter();
@@ -17,18 +17,24 @@ export default function KitchenLoginPage() {
     setLoading(true);
 
     try {
-      // Kitchen login uses simple credentials
-      // In production, this should use environment variables
-      const kitchenUsername = process.env.NEXT_PUBLIC_KITCHEN_USERNAME || 'kitchen';
-      const kitchenPassword = process.env.NEXT_PUBLIC_KITCHEN_PASSWORD || 'kitchen123';
+      const response = await fetch('/api/kitchen/auth', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password }),
+      });
 
-      if (username === kitchenUsername && password === kitchenPassword) {
-        // Store kitchen session in localStorage (simple approach for tablet login)
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        // Store kitchen session
         localStorage.setItem('kitchen_authenticated', 'true');
-        localStorage.setItem('kitchen_username', username);
+        localStorage.setItem('kitchen_username', data.user.name || username);
+        localStorage.setItem('kitchen_userId', data.user.id);
         router.push('/kitchen');
       } else {
-        setError('Invalid username or password');
+        setError(data.error || 'Invalid username or password');
       }
     } catch (err) {
       setError('Login failed. Please try again.');
@@ -38,17 +44,22 @@ export default function KitchenLoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="bg-gray-800 rounded-lg p-8 shadow-xl">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-white mb-2">Kitchen Login</h1>
-            <p className="text-gray-400">Sign in to access the kitchen display</p>
+    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 flex items-center justify-center p-4">
+      <div className="w-full max-w-lg">
+        <div className="bg-gray-900 border-4 border-gray-800 rounded-2xl p-10 shadow-2xl">
+          <div className="text-center mb-10">
+            <div className="flex justify-center mb-6">
+              <div className="bg-orange-600 p-6 rounded-full">
+                <FaUtensils className="text-6xl text-white" />
+              </div>
+            </div>
+            <h1 className="text-5xl font-black text-white mb-3 tracking-tight">KITCHEN LOGIN</h1>
+            <p className="text-gray-400 text-xl">Sign in to access the kitchen display system</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-300 mb-2">
+              <label htmlFor="username" className="block text-lg font-bold text-gray-300 mb-3">
                 Username
               </label>
               <input
@@ -57,14 +68,15 @@ export default function KitchenLoginPage() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
-                className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
-                placeholder="Enter username"
+                className="w-full px-6 py-4 bg-gray-800 border-2 border-gray-700 rounded-xl text-white text-xl focus:ring-4 focus:ring-orange-500 focus:border-orange-500 transition"
+                placeholder="Enter your username"
                 autoComplete="username"
+                disabled={loading}
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
+              <label htmlFor="password" className="block text-lg font-bold text-gray-300 mb-3">
                 Password
               </label>
               <input
@@ -73,24 +85,25 @@ export default function KitchenLoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
-                placeholder="Enter password"
+                className="w-full px-6 py-4 bg-gray-800 border-2 border-gray-700 rounded-xl text-white text-xl focus:ring-4 focus:ring-orange-500 focus:border-orange-500 transition"
+                placeholder="Enter your password"
                 autoComplete="current-password"
+                disabled={loading}
               />
             </div>
 
             {error && (
-              <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-3">
-                <p className="text-red-400 text-sm">{error}</p>
+              <div className="bg-red-600/30 border-2 border-red-500 rounded-xl p-4">
+                <p className="text-red-300 text-lg font-semibold">{error}</p>
               </div>
             )}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full px-4 py-3 bg-[var(--color-accent)] hover:bg-[var(--color-accent-dark)] text-white font-semibold rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full px-6 py-4 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white font-black text-2xl rounded-xl transition shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
             >
-              {loading ? 'Signing in...' : 'Sign In'}
+              {loading ? 'Signing in...' : 'SIGN IN'}
             </button>
           </form>
         </div>

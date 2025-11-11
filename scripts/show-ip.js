@@ -18,9 +18,5 @@ function getLocalIP() {
 const ip = getLocalIP();
 const port = process.env.PORT || 3000;
 
-console.log('\n🚀 Starting Next.js dev server...\n');
-console.log('📱 Access from your phone:');
-console.log(`   http://${ip}:${port}\n`);
-console.log('💻 Local access:');
-console.log(`   http://localhost:${port}\n`);
+console.log(`\n📱 http://${ip}:${port}  |  💻 http://localhost:${port}\n`);
 

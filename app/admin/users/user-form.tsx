@@ -7,6 +7,7 @@ import { showToast } from '@/components/toast';
 import { FaExclamationTriangle } from 'react-icons/fa';
 import StatusToggle from '@/components/status-toggle';
 import ConfirmationDialog from '@/components/confirmation-dialog';
+import { getPermissions, canCreateRole, canManageUser } from '@/lib/permissions';
 
 interface User {
   id?: string;
@@ -17,37 +18,67 @@ interface User {
   isActive: boolean;
 }
 
-export default function UserForm({ user }: { user?: User }) {
+export default function UserForm({ user, currentUserRole }: { user?: User; currentUserRole: string }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [formData, setFormData] = useState({
+    email: user?.email || '',
     name: user?.name || '',
     role: user?.role || 'admin',
     isActive: user?.isActive ?? true,
   });
 
   const [initialFormData, setInitialFormData] = useState(formData);
+  const permissions = getPermissions(currentUserRole);
+  
+  // Get available roles based on current user's permissions
+  const getAvailableRoles = () => {
+    const roles: { value: string; label: string }[] = [];
+    
+    if (canCreateRole(currentUserRole, 'owner')) {
+      roles.push({ value: 'owner', label: 'Owner' });
+    }
+    if (canCreateRole(currentUserRole, 'manager')) {
+      roles.push({ value: 'manager', label: 'Manager' });
+    }
+    if (canCreateRole(currentUserRole, 'cook')) {
+      roles.push({ value: 'cook', label: 'Cook' });
+    }
+    if (canCreateRole(currentUserRole, 'bartender')) {
+      roles.push({ value: 'bartender', label: 'Bartender' });
+    }
+    if (canCreateRole(currentUserRole, 'barback')) {
+      roles.push({ value: 'barback', label: 'Barback' });
+    }
+    
+    return roles;
+  };
+
+  const availableRoles = getAvailableRoles();
+  const defaultRole = availableRoles.length > 0 ? availableRoles[0].value : 'manager';
 
   useEffect(() => {
     if (user) {
       const newFormData = {
+        email: user.email || '',
         name: user.name || '',
-        role: user.role || 'admin',
+        role: user.role || defaultRole,
         isActive: user.isActive ?? true,
       };
       setFormData(newFormData);
       setInitialFormData(newFormData);
     } else {
       const newFormData = {
+        email: '',
         name: '',
-        role: 'admin',
+        role: defaultRole,
         isActive: true,
       };
       setFormData(newFormData);
       setInitialFormData(newFormData);
     }
-  }, [user]);
+  }, [user, defaultRole]);
 
   // Check if form is dirty
   const isDirty = JSON.stringify(formData) !== JSON.stringify(initialFormData);
@@ -58,6 +89,7 @@ export default function UserForm({ user }: { user?: User }) {
       // Reset form to initial state
       if (user) {
         const newFormData = {
+          email: user.email || '',
           name: user.name || '',
           role: user.role || 'admin',
           isActive: user.isActive ?? true,
@@ -66,8 +98,9 @@ export default function UserForm({ user }: { user?: User }) {
         setInitialFormData(newFormData);
       } else {
         const newFormData = {
+          email: '',
           name: '',
-          role: 'admin',
+          role: defaultRole,
           isActive: true,
         };
         setFormData(newFormData);
@@ -90,7 +123,7 @@ export default function UserForm({ user }: { user?: User }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
-          email: user?.email || '',
+          email: formData.email || user?.email || '',
           image: user?.image || null,
         }),
       });
@@ -122,7 +155,7 @@ export default function UserForm({ user }: { user?: User }) {
   }
 
   async function handleDelete() {
-    if (!user?.id || user?.role === 'superadmin') return;
+    if (!user?.id || user?.role === 'admin' || user?.role === 'superadmin' || !canManageUser(currentUserRole, user.role)) return;
     
     setLoading(true);
     try {
@@ -144,7 +177,7 @@ export default function UserForm({ user }: { user?: User }) {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--color-background)] p-8">
+    <div className="min-h-screen bg-[var(--background)] p-8">
       <div className="max-w-2xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-4xl font-bold">{user ? 'Edit User' : 'New User'}</h1>
@@ -171,16 +204,37 @@ export default function UserForm({ user }: { user?: User }) {
                 <p className="text-sm text-gray-400">{user.email}</p>
               </div>
             </div>
-            {user.role === 'superadmin' && (
+            {(user.role === 'admin' || user.role === 'superadmin' || !canManageUser(currentUserRole, user.role)) && (
               <p className="text-sm text-yellow-400 mt-2 flex items-center gap-2">
                 <FaExclamationTriangle className="w-4 h-4" />
-                <span>Superadmin users cannot be modified or deleted</span>
+                <span>
+                  {user.role === 'admin' || user.role === 'superadmin'
+                    ? 'Admin users cannot be modified or deleted'
+                    : 'You do not have permission to modify this user'}
+                </span>
               </p>
             )}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6 bg-gray-900 p-6 rounded-lg">
+          {!user && (
+            <div>
+              <label htmlFor="email" className="block mb-2">
+                Email *
+              </label>
+              <input
+                id="email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded text-white"
+                required
+                placeholder="user@example.com"
+              />
+            </div>
+          )}
+
           {user && (
             <StatusToggle
               type="active"
@@ -200,7 +254,7 @@ export default function UserForm({ user }: { user?: User }) {
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded text-white"
-              disabled={user?.role === 'superadmin'}
+              disabled={user?.role === 'admin' || user?.role === 'superadmin' || (user && !canManageUser(currentUserRole, user.role))}
             />
           </div>
 
@@ -213,19 +267,22 @@ export default function UserForm({ user }: { user?: User }) {
               value={formData.role}
               onChange={(e) => setFormData({ ...formData, role: e.target.value })}
               className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded text-white"
-              disabled={user?.role === 'superadmin'}
+              disabled={user?.role === 'admin' || user?.role === 'superadmin' || (user && !canManageUser(currentUserRole, user.role))}
               required
             >
-              <option value="admin">Admin</option>
-              <option value="superadmin">Superadmin</option>
+              {availableRoles.map(role => (
+                <option key={role.value} value={role.value}>{role.label}</option>
+              ))}
             </select>
             <p className="text-sm text-gray-400 mt-1">
-              Admin: Can manage content. Superadmin: Can manage users and settings.
+              {user 
+                ? `Current role: ${user.role}. You can only change roles you have permission to manage.`
+                : 'Select a role for this user. Only roles you can create are shown.'}
             </p>
           </div>
 
           <div className="flex gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-            {user?.id && user?.role !== 'superadmin' && (
+            {user?.id && user?.role !== 'admin' && user?.role !== 'superadmin' && canManageUser(currentUserRole, user.role) && (
               <button
                 type="button"
                 onClick={() => setShowDeleteConfirm(true)}
@@ -244,14 +301,14 @@ export default function UserForm({ user }: { user?: User }) {
             </Link>
             <button
               type="submit"
-              disabled={!!(loading || user?.role === 'superadmin' || (user?.id && !isDirty))}
+              disabled={!!(loading || user?.role === 'admin' || user?.role === 'superadmin' || (user && !canManageUser(currentUserRole, user.role)) || (user?.id && !isDirty))}
               className="px-4 py-2 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-blue-500/20"
             >
               {loading ? (user?.id ? 'Saving...' : 'Creating...') : (user?.id ? 'Save' : 'Create')}
             </button>
           </div>
         </form>
-        {user?.id && user?.role !== 'superadmin' && (
+        {user?.id && user?.role !== 'admin' && user?.role !== 'superadmin' && canManageUser(currentUserRole, user.role) && (
           <ConfirmationDialog
             isOpen={showDeleteConfirm}
             onClose={() => setShowDeleteConfirm(false)}

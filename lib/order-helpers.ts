@@ -1,57 +1,32 @@
-export type OrderManagementMode = 'foh' | 'boh';
-
 export interface StatusOption {
   value: string;
   label: string;
-  department: 'FOH' | 'BOH';
 }
 
 /**
- * Get order status options based on management mode
+ * Get order status options - simplified single workflow
  */
-export function getOrderStatusOptions(mode: OrderManagementMode): StatusOption[] {
-  if (mode === 'boh') {
-    // BOH Mode: BOH handles everything except final handoff
-    return [
-      { value: 'pending', label: 'Pending', department: 'FOH' },
-      { value: 'confirmed', label: 'Confirmed (BOH)', department: 'BOH' },
-      { value: 'acknowledged', label: 'Acknowledged (BOH)', department: 'BOH' },
-      { value: 'preparing', label: 'Preparing (BOH)', department: 'BOH' },
-      { value: 'ready', label: 'Ready (BOH)', department: 'BOH' },
-      { value: 'completed', label: 'Completed (FOH)', department: 'FOH' },
-      { value: 'cancelled', label: 'Cancelled (FOH)', department: 'FOH' },
-    ];
-  } else {
-    // FOH Mode: Traditional workflow
-    return [
-      { value: 'pending', label: 'Pending (FOH)', department: 'FOH' },
-      { value: 'confirmed', label: 'Confirmed (FOH)', department: 'FOH' },
-      { value: 'acknowledged', label: 'Acknowledged (BOH)', department: 'BOH' },
-      { value: 'preparing', label: 'Preparing (BOH)', department: 'BOH' },
-      { value: 'ready', label: 'Ready (BOH)', department: 'BOH' },
-      { value: 'completed', label: 'Completed (FOH)', department: 'FOH' },
-      { value: 'cancelled', label: 'Cancelled (FOH)', department: 'FOH' },
-    ];
-  }
+export function getOrderStatusOptions(): StatusOption[] {
+  return [
+    { value: 'pending', label: 'Pending' },
+    { value: 'confirmed', label: 'Confirmed' },
+    { value: 'acknowledged', label: 'Acknowledged' },
+    { value: 'preparing', label: 'Preparing' },
+    { value: 'ready', label: 'Ready' },
+    { value: 'completed', label: 'Completed' },
+    { value: 'cancelled', label: 'Cancelled' },
+  ];
 }
 
 /**
- * Calculate tip distribution based on management mode
+ * Calculate tip distribution - simplified to 50/50 split
  */
-export function calculateTipDistribution(tipAmount: number, mode: OrderManagementMode): { bohTip: number; fohTip: number } {
-  if (mode === 'boh') {
-    // BOH gets 70%, FOH gets 30%
-    return {
-      bohTip: Math.round(tipAmount * 0.7 * 100) / 100,
-      fohTip: Math.round(tipAmount * 0.3 * 100) / 100,
-    };
-  } else {
-    // FOH Mode: Default split (can be customized)
-    // For now, FOH gets 100% in FOH mode
-    return {
-      bohTip: 0,
-      fohTip: tipAmount,
-    };
-  }
+export function calculateTipDistribution(tipAmount: number): { bohTip: number; fohTip: number } {
+  // Simple 50/50 split
+  const half = Math.round(tipAmount * 0.5 * 100) / 100;
+  return {
+    bohTip: half,
+    fohTip: tipAmount - half,
+  };
 }
 

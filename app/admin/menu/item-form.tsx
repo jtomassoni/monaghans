@@ -182,7 +182,7 @@ export default function MenuItemForm({ item, sections }: { item?: MenuItem; sect
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[var(--color-background)] p-8">
+    <div className="min-h-screen bg-[var(--background)] p-8">
       <div className="max-w-2xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 dark:text-white">{item ? 'Edit Item' : 'New Item'}</h1>

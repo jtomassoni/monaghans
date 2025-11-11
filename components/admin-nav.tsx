@@ -10,6 +10,7 @@ import {
   FaUtensils, 
   FaCog, 
   FaUsers, 
+  FaUser,
   FaBeer, 
   FaGlobe, 
   FaSignOutAlt,
@@ -26,20 +27,23 @@ import {
   FaTimes,
   FaChartLine,
   FaShoppingCart,
-  FaTv
+  FaTv,
+  FaClock
 } from 'react-icons/fa';
 import { useTheme } from './theme-provider';
 import { useEffect } from 'react';
 import AdminMobileHeader from './admin-mobile-header';
 import AdminMobileMenu from './admin-mobile-menu';
+import { getPermissions } from '@/lib/permissions';
 
 interface AdminNavProps {
-  isSuperadmin: boolean;
+  userRole: string;
   userName?: string;
   userEmail?: string;
 }
 
-export default function AdminNav({ isSuperadmin, userName, userEmail }: AdminNavProps) {
+export default function AdminNav({ userRole, userName, userEmail }: AdminNavProps) {
+  const permissions = getPermissions(userRole);
   const pathname = usePathname();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -91,39 +95,40 @@ export default function AdminNav({ isSuperadmin, userName, userEmail }: AdminNav
     {
       title: 'Dashboard',
       items: [
-        { href: '/admin/overview', label: 'Overview', icon: FaHome },
+        ...(permissions.canAccessAdmin ? [{ href: '/admin/overview', label: 'Overview', icon: FaHome }] : []),
       ],
     },
     {
       title: 'Content',
       items: [
-        { href: '/admin', label: 'Calendar', icon: FaCalendarAlt },
-        { href: '/admin/specials-events', label: 'Events', icon: FaStar },
-        { href: '/admin/announcements', label: 'Announcements', icon: FaBullhorn },
-        { href: '/admin/homepage', label: 'Homepage', icon: FaEdit },
+        ...(permissions.canAccessAdmin ? [{ href: '/admin', label: 'Calendar', icon: FaCalendarAlt }] : []),
+        ...(permissions.canManageEvents ? [{ href: '/admin/specials-events', label: 'Events', icon: FaStar }] : []),
+        ...(permissions.canManageAnnouncements ? [{ href: '/admin/announcements', label: 'Announcements', icon: FaBullhorn }] : []),
+        ...(permissions.canAccessAdmin ? [{ href: '/admin/homepage', label: 'Homepage', icon: FaEdit }] : []),
       ],
     },
     {
       title: 'Operations',
       items: [
-        { href: '/admin/menu', label: 'Menu', icon: FaUtensils },
-        { href: '/admin/orders', label: 'Orders', icon: FaShoppingCart },
-        { href: '/admin/kds', label: 'Kitchen Display', icon: FaTv },
+        ...(permissions.canManageMenu ? [{ href: '/admin/menu', label: 'Menu', icon: FaUtensils }] : []),
+        ...(permissions.canManageOrders ? [{ href: '/admin/orders', label: 'Orders', icon: FaShoppingCart }] : []),
+        ...(permissions.canAccessKDS ? [{ href: '/admin/kds', label: 'Kitchen Display', icon: FaTv }] : []),
+        ...(permissions.canManageStaff ? [{ href: '/admin/staff', label: 'Scheduling', icon: FaClock }] : []),
       ],
     },
     {
       title: 'Marketing',
       items: [
-        { href: '/admin/social', label: 'Social Media', icon: FaShareAlt },
+        ...(permissions.canAccessAdmin ? [{ href: '/admin/social', label: 'Social Media', icon: FaShareAlt }] : []),
       ],
     },
     {
       title: 'Analytics',
       items: [
-        { href: '/admin/reporting', label: 'Reporting', icon: FaChartLine },
+        ...(permissions.canAccessReporting ? [{ href: '/admin/reporting', label: 'Reporting', icon: FaChartLine }] : []),
       ],
     },
-  ];
+  ].filter(group => group.items.length > 0); // Remove empty groups
 
   const isActive = (href: string) => {
     if (href === '/admin') {
@@ -152,6 +157,9 @@ export default function AdminNav({ isSuperadmin, userName, userEmail }: AdminNav
     }
     if (href === '/admin/kds') {
       return pathname?.startsWith('/admin/kds');
+    }
+    if (href === '/admin/staff') {
+      return pathname?.startsWith('/admin/staff');
     }
     return pathname?.startsWith(href);
   };
@@ -187,89 +195,99 @@ export default function AdminNav({ isSuperadmin, userName, userEmail }: AdminNav
       </div>
 
       {/* Navigation */}
-      <nav className={`flex-1 space-y-2 overflow-y-auto ${sidebarCompact ? 'p-1.5' : 'p-2'}`}>
-        {navGroups.map((group) => (
-          <div key={group.title} className="space-y-1">
-            {!sidebarCompact && (
-              <div className={`px-3 py-1 text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider`}>
-                {group.title}
-              </div>
-            )}
-            {group.items.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={closeMobileMenu}
-                className={`flex items-center gap-2 ${sidebarCompact ? 'px-2 py-1.5' : 'px-3 py-2'} rounded-lg transition-all duration-200 group cursor-pointer ${
-                  isActive(item.href)
-                    ? 'bg-blue-500/90 dark:bg-blue-600/90 text-white border border-blue-400 dark:border-blue-500'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
-                }`}
-              >
-                <item.icon className={`group-hover:scale-110 transition-transform duration-200 flex-shrink-0 ${sidebarCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} />
-                <span className={`font-medium ${sidebarCompact ? 'text-xs' : 'text-sm'}`}>{item.label}</span>
-              </Link>
-            ))}
+      <nav className={`flex-1 space-y-2 overflow-y-auto ${sidebarCompact ? 'p-1.5' : 'p-2'} min-h-0`}>
+        {navGroups.length > 0 ? (
+          navGroups.map((group) => (
+            <div key={group.title} className="space-y-1">
+              {!sidebarCompact && (
+                <div className={`px-3 py-1 text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider`}>
+                  {group.title}
+                </div>
+              )}
+              {group.items.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={closeMobileMenu}
+                  className={`flex items-center gap-2 ${sidebarCompact ? 'px-2 py-1.5' : 'px-3 py-2'} rounded-lg transition-all duration-200 group cursor-pointer ${
+                    isActive(item.href)
+                      ? 'bg-blue-500/90 dark:bg-blue-600/90 text-white border border-blue-400 dark:border-blue-500'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  <item.icon className={`group-hover:scale-110 transition-transform duration-200 flex-shrink-0 ${sidebarCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} />
+                  <span className={`font-medium ${sidebarCompact ? 'text-xs' : 'text-sm'}`}>{item.label}</span>
+                </Link>
+              ))}
+            </div>
+          ))
+        ) : (
+          <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+            No navigation items available
           </div>
-        ))}
+        )}
 
         {/* Administration section */}
-        <div className="space-y-1 pt-1">
-          {!sidebarCompact && (
-            <div className={`px-3 py-1 text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider`}>
-              Administration
-            </div>
-          )}
-          {isSuperadmin && (
+        {permissions.canManageUsers && (
+          <div className="space-y-1 pt-1">
+            {!sidebarCompact && (
+              <div className={`px-3 py-1 text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider`}>
+                Administration
+              </div>
+            )}
             <Link
-              href="/admin/users"
+              href="/admin/users-staff"
               onClick={closeMobileMenu}
               className={`flex items-center gap-2 ${sidebarCompact ? 'px-2 py-1.5' : 'px-3 py-2'} rounded-lg transition-all duration-200 group cursor-pointer ${
-                isActive('/admin/users')
+                isActive('/admin/users-staff') || isActive('/admin/users')
                   ? 'bg-blue-500/90 dark:bg-blue-600/90 text-white border border-blue-400 dark:border-blue-500'
                   : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
               <FaUsers className={`group-hover:scale-110 transition-transform duration-200 flex-shrink-0 ${sidebarCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} />
-              <span className={`font-medium ${sidebarCompact ? 'text-xs' : 'text-sm'}`}>Users</span>
+              <span className={`font-medium ${sidebarCompact ? 'text-xs' : 'text-sm'}`}>Users & Staff</span>
             </Link>
-          )}
-        </div>
+          </div>
+        )}
       </nav>
 
       {/* Bottom Actions */}
       <div className={`border-t border-gray-200 dark:border-gray-700 space-y-1 ${sidebarCompact ? 'p-1.5' : 'p-2'}`}>
-        <Link
-          href="/admin/activity"
-          onClick={(e) => {
-            e.stopPropagation();
-            closeMobileMenu();
-          }}
-          className={`flex items-center gap-2 ${sidebarCompact ? 'px-2 py-1.5' : 'px-3 py-2'} rounded-lg transition-all duration-200 group cursor-pointer ${
-            isActive('/admin/activity')
-              ? 'bg-blue-500/90 dark:bg-blue-600/90 text-white border border-blue-400 dark:border-blue-500'
-              : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
-          }`}
-        >
-          <FaHistory className={`group-hover:scale-110 transition-transform duration-200 flex-shrink-0 ${sidebarCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} />
-          <span className={`font-medium ${sidebarCompact ? 'text-xs' : 'text-sm'}`}>Activity</span>
-        </Link>
+        {permissions.canAccessAdmin && (
+          <Link
+            href="/admin/activity"
+            onClick={(e) => {
+              e.stopPropagation();
+              closeMobileMenu();
+            }}
+            className={`flex items-center gap-2 ${sidebarCompact ? 'px-2 py-1.5' : 'px-3 py-2'} rounded-lg transition-all duration-200 group cursor-pointer ${
+              isActive('/admin/activity')
+                ? 'bg-blue-500/90 dark:bg-blue-600/90 text-white border border-blue-400 dark:border-blue-500'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+            }`}
+          >
+            <FaHistory className={`group-hover:scale-110 transition-transform duration-200 flex-shrink-0 ${sidebarCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} />
+            <span className={`font-medium ${sidebarCompact ? 'text-xs' : 'text-sm'}`}>Activity</span>
+          </Link>
+        )}
 
-        <Link
-          href="/admin/settings"
-          onClick={(e) => {
-            e.stopPropagation();
-            closeMobileMenu();
-          }}
-          className={`flex items-center gap-2 ${sidebarCompact ? 'px-2 py-1.5' : 'px-3 py-2'} rounded-lg transition-all duration-200 group cursor-pointer ${
-            isActive('/admin/settings')
-              ? 'bg-blue-500/90 dark:bg-blue-600/90 text-white border border-blue-400 dark:border-blue-500'
-              : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
-          }`}
-        >
-          <FaCog className={`group-hover:scale-110 transition-transform duration-200 flex-shrink-0 ${sidebarCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} />
-          <span className={`font-medium ${sidebarCompact ? 'text-xs' : 'text-sm'}`}>Settings</span>
-        </Link>
+        {permissions.canAccessSettings && (
+          <Link
+            href="/admin/settings"
+            onClick={(e) => {
+              e.stopPropagation();
+              closeMobileMenu();
+            }}
+            className={`flex items-center gap-2 ${sidebarCompact ? 'px-2 py-1.5' : 'px-3 py-2'} rounded-lg transition-all duration-200 group cursor-pointer ${
+              isActive('/admin/settings')
+                ? 'bg-blue-500/90 dark:bg-blue-600/90 text-white border border-blue-400 dark:border-blue-500'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+            }`}
+          >
+            <FaCog className={`group-hover:scale-110 transition-transform duration-200 flex-shrink-0 ${sidebarCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} />
+            <span className={`font-medium ${sidebarCompact ? 'text-xs' : 'text-sm'}`}>Settings</span>
+          </Link>
+        )}
 
         <Link
           href="/"
@@ -330,6 +348,17 @@ export default function AdminNav({ isSuperadmin, userName, userEmail }: AdminNav
 
           {showUserMenu && (
             <div className="absolute bottom-full left-0 right-0 mb-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden z-10 min-w-[120px]">
+              <Link
+                href="/portal"
+                onClick={() => {
+                  setShowUserMenu(false);
+                  closeMobileMenu();
+                }}
+                className="w-full px-3 py-2 text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 flex items-center gap-2 text-sm"
+              >
+                <FaUser className="w-3.5 h-3.5 flex-shrink-0" />
+                <span>Profile</span>
+              </Link>
               <button
                 onClick={() => {
                   setShowUserMenu(false);
@@ -357,13 +386,13 @@ export default function AdminNav({ isSuperadmin, userName, userEmail }: AdminNav
       <AdminMobileMenu
         isOpen={mobileMenuOpen}
         onClose={closeMobileMenu}
-        isSuperadmin={isSuperadmin}
+        userRole={userRole}
         userName={userName}
         userEmail={userEmail}
       />
 
       {/* Sidebar - Desktop */}
-      <aside className={`hidden md:flex flex-col h-full bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 relative z-20 transition-all duration-300 ease-in-out ${
+      <aside className={`hidden md:flex flex-col h-screen bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 relative z-20 transition-all duration-300 ease-in-out ${
         sidebarCompact ? 'w-52' : 'w-64'
       }`}>
         {navContent}

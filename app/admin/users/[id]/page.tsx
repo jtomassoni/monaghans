@@ -10,8 +10,10 @@ export default async function EditUserPage({ params }: { params: Promise<{ id: s
     redirect('/admin/login');
   }
 
-  // Only superadmin can edit users
-  if (session.user.role !== 'superadmin') {
+  // Check permissions for user management
+  const { getPermissions } = await import('@/lib/permissions');
+  const permissions = getPermissions(session.user.role);
+  if (!permissions.canManageUsers) {
     redirect('/admin');
   }
 
@@ -32,6 +34,6 @@ export default async function EditUserPage({ params }: { params: Promise<{ id: s
     redirect('/admin/users');
   }
 
-  return <UserForm user={user} />;
+  return <UserForm user={user} currentUserRole={session.user.role} />;
 }
 

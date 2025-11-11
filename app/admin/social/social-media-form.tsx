@@ -59,6 +59,9 @@ export default function SocialMediaForm({ initialFacebookData }: SocialMediaForm
   const [showNewPostModal, setShowNewPostModal] = useState(false);
   const [lastTestSuccessTime, setLastTestSuccessTime] = useState<number | null>(null);
   const [expandedPosts, setExpandedPosts] = useState<Set<string>>(new Set());
+  const [postInsights, setPostInsights] = useState<Map<string, any>>(new Map());
+  const [loadingInsights, setLoadingInsights] = useState<Set<string>>(new Set());
+  const [expandedInsights, setExpandedInsights] = useState<Set<string>>(new Set());
   const MAX_MESSAGE_LENGTH = 200; // Characters to show before "view more"
   
   // Calculate token expiration status
@@ -514,6 +517,47 @@ export default function SocialMediaForm({ initialFacebookData }: SocialMediaForm
       return newSet;
     });
   }
+
+  const fetchPostInsights = async (postId: string) => {
+    if (loadingInsights.has(postId) || postInsights.has(postId)) {
+      // Toggle if already loaded
+      setExpandedInsights((prev) => {
+        const next = new Set(prev);
+        if (next.has(postId)) {
+          next.delete(postId);
+        } else {
+          next.add(postId);
+        }
+        return next;
+      });
+      return;
+    }
+
+    setLoadingInsights((prev) => new Set(prev).add(postId));
+    try {
+      const response = await fetch(`/api/social/facebook/insights?postId=${postId}`);
+      if (response.ok) {
+        const insights = await response.json();
+        setPostInsights((prev) => {
+          const next = new Map(prev);
+          next.set(postId, insights);
+          return next;
+        });
+        setExpandedInsights((prev) => new Set(prev).add(postId));
+      } else {
+        showToast('Failed to fetch insights', 'error');
+      }
+    } catch (error) {
+      console.error('Failed to fetch insights:', error);
+      showToast('Failed to fetch insights', 'error');
+    } finally {
+      setLoadingInsights((prev) => {
+        const next = new Set(prev);
+        next.delete(postId);
+        return next;
+      });
+    }
+  };
 
   function getTruncatedMessage(message: string | undefined, postId: string): { text: string; isTruncated: boolean } {
     if (!message) return { text: '(No message content)', isTruncated: false };
@@ -1384,6 +1428,89 @@ export default function SocialMediaForm({ initialFacebookData }: SocialMediaForm
                                 )}
                               </div>
                             </div>
+                            {/* Insights Section */}
+                            {post.source === 'cms' && post.id && (
+                              <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    fetchPostInsights(post.id);
+                                  }}
+                                  disabled={loadingInsights.has(post.id)}
+                                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium flex items-center gap-1"
+                                >
+                                  {loadingInsights.has(post.id) ? (
+                                    <>
+                                      <FaSpinner className="animate-spin" />
+                                      Loading insights...
+                                    </>
+                                  ) : expandedInsights.has(post.id) ? (
+                                    'Hide insights'
+                                  ) : (
+                                    'View insights'
+                                  )}
+                                </button>
+                                {expandedInsights.has(post.id) && postInsights.has(post.id) && (
+                                  <div className="mt-2 bg-gray-50 dark:bg-gray-900/50 rounded-lg p-3">
+                                    {(() => {
+                                      const insights = postInsights.get(post.id);
+                                      if (!insights || Object.keys(insights).length === 0) {
+                                        return (
+                                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                                            Insights not available for this post
+                                          </p>
+                                        );
+                                      }
+                                      return (
+                                        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs">
+                                          {insights.impressions !== undefined && (
+                                            <div>
+                                              <div className="text-gray-500 dark:text-gray-400">Impressions</div>
+                                              <div className="font-semibold text-gray-900 dark:text-white">
+                                                {insights.impressions.toLocaleString()}
+                                              </div>
+                                            </div>
+                                          )}
+                                          {insights.reach !== undefined && (
+                                            <div>
+                                              <div className="text-gray-500 dark:text-gray-400">Reach</div>
+                                              <div className="font-semibold text-gray-900 dark:text-white">
+                                                {insights.reach.toLocaleString()}
+                                              </div>
+                                            </div>
+                                          )}
+                                          {insights.engagedUsers !== undefined && (
+                                            <div>
+                                              <div className="text-gray-500 dark:text-gray-400">Engaged Users</div>
+                                              <div className="font-semibold text-gray-900 dark:text-white">
+                                                {insights.engagedUsers.toLocaleString()}
+                                              </div>
+                                            </div>
+                                          )}
+                                          {insights.reactions?.total !== undefined && (
+                                            <div>
+                                              <div className="text-gray-500 dark:text-gray-400">Reactions</div>
+                                              <div className="font-semibold text-gray-900 dark:text-white">
+                                                {insights.reactions.total.toLocaleString()}
+                                              </div>
+                                            </div>
+                                          )}
+                                          {insights.clicks !== undefined && (
+                                            <div>
+                                              <div className="text-gray-500 dark:text-gray-400">Clicks</div>
+                                              <div className="font-semibold text-gray-900 dark:text-white">
+                                                {insights.clicks.toLocaleString()}
+                                              </div>
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })()}
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </>
                         )}
                       </div>

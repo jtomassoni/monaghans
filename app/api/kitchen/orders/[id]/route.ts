@@ -68,10 +68,12 @@ export async function PATCH(
       return NextResponse.json({ error: 'Status is required' }, { status: 400 });
     }
 
-    // Kitchen can acknowledge orders and advance through BOH workflow
-    const validStatuses = ['acknowledged', 'preparing', 'ready', 'completed'];
+    // Kitchen (BOH) can only advance through BOH workflow:
+    // confirmed → acknowledged → preparing → ready
+    // FOH handles: pending → confirmed and ready → completed
+    const validStatuses = ['acknowledged', 'preparing', 'ready'];
     if (!validStatuses.includes(status)) {
-      return NextResponse.json({ error: 'Invalid status for kitchen' }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid status for kitchen. Kitchen can only: acknowledge, start preparing, or mark ready.' }, { status: 400 });
     }
 
     // Get current order
@@ -80,24 +82,38 @@ export async function PATCH(
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
-    // Ensure order is in BOH workflow (confirmed or beyond)
+    // Ensure order is in BOH workflow (confirmed or beyond, but not completed)
     if (!['confirmed', 'acknowledged', 'preparing', 'ready'].includes(currentOrder.status)) {
-      return NextResponse.json({ error: 'Order not in kitchen workflow' }, { status: 400 });
+      return NextResponse.json({ error: 'Order not in kitchen workflow. Order must be confirmed by FOH first.' }, { status: 400 });
+    }
+
+    // Enforce proper status transitions
+    const statusFlow = {
+      'confirmed': ['acknowledged'], // Can only acknowledge from confirmed
+      'acknowledged': ['preparing'], // Can only start preparing from acknowledged
+      'preparing': ['ready'], // Can only mark ready from preparing
+      'ready': [], // Ready orders can't be changed by kitchen (FOH marks as completed)
+    };
+
+    const allowedNextStatuses = statusFlow[currentOrder.status as keyof typeof statusFlow] || [];
+    if (!allowedNextStatuses.includes(status)) {
+      return NextResponse.json({ 
+        error: `Invalid status transition. From "${currentOrder.status}", kitchen can only set: ${allowedNextStatuses.join(', ') || 'none'}` 
+      }, { status: 400 });
     }
 
     const updateData: any = { status };
     const now = new Date();
 
-    // Track timing fields
-    if (status === 'acknowledged' && currentOrder.status !== 'acknowledged') {
+    // Track timing fields for BOH workflow
+    if (status === 'acknowledged' && currentOrder.status === 'confirmed') {
       updateData.acknowledgedAt = now;
-    } else if (status === 'preparing' && currentOrder.status !== 'preparing') {
+    } else if (status === 'preparing' && currentOrder.status === 'acknowledged') {
       updateData.preparingAt = now;
-    } else if (status === 'ready' && currentOrder.status !== 'ready') {
+    } else if (status === 'ready' && currentOrder.status === 'preparing') {
       updateData.readyAt = now;
-    } else if (status === 'completed') {
-      updateData.completedAt = now;
     }
+    // Note: completedAt is set by FOH when marking order as completed
 
     const order = await prisma.order.update({
       where: { id },

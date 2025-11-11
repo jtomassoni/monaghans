@@ -161,7 +161,7 @@ export default function UserModalForm({ isOpen, onClose, user, onSuccess, onDele
       title={user ? 'Edit User' : 'New User'}
     >
       {user && (
-        <div className="mb-4 p-3 bg-gray-800 rounded-lg border border-gray-700">
+        <div className="mb-4 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-700">
           <div className="flex items-center gap-3 mb-2">
             {user.image && (
               <img
@@ -171,12 +171,12 @@ export default function UserModalForm({ isOpen, onClose, user, onSuccess, onDele
               />
             )}
             <div>
-              <p className="font-semibold text-sm">{user.name || 'No name'}</p>
-              <p className="text-xs text-gray-400">{user.email}</p>
+              <p className="font-semibold text-sm text-gray-900 dark:text-white">{user.name || 'No name'}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{user.email}</p>
             </div>
           </div>
           {user.role === 'superadmin' && (
-            <p className="text-xs text-yellow-400 mt-2 flex items-center gap-2">
+            <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-2 flex items-center gap-2">
               <FaExclamationTriangle className="w-3 h-3" />
               <span>Superadmin users cannot be modified or deleted</span>
             </p>
@@ -194,7 +194,7 @@ export default function UserModalForm({ isOpen, onClose, user, onSuccess, onDele
         )}
 
         <div>
-          <label htmlFor="name" className="block mb-1 text-sm font-medium">
+          <label htmlFor="name" className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
             Name
           </label>
           <input
@@ -202,27 +202,27 @@ export default function UserModalForm({ isOpen, onClose, user, onSuccess, onDele
             type="text"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            className="w-full px-3 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm"
+            className="w-full px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-white text-sm"
             disabled={user?.role === 'superadmin'}
           />
         </div>
 
         <div>
-          <label htmlFor="role" className="block mb-1 text-sm font-medium">
+          <label htmlFor="role" className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
             Role *
           </label>
           <select
             id="role"
             value={formData.role}
             onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-            className="w-full px-3 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm"
+            className="w-full px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-white text-sm"
             disabled={user?.role === 'superadmin'}
             required
           >
             <option value="admin">Admin</option>
             <option value="superadmin">Superadmin</option>
           </select>
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
             Admin: Can manage content. Superadmin: Can manage users and settings.
           </p>
         </div>

@@ -138,10 +138,9 @@ export default function MenuItemModalForm({
         setModifierText('');
         setInitialModifierText('');
       }
-    } else {
-      // Close form if clean
-      onClose();
     }
+    // Always close the modal after resetting (if dirty) or if clean
+    onClose();
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -219,7 +218,7 @@ export default function MenuItemModalForm({
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleCancel}
       title={item ? 'Edit Menu Item' : 'New Menu Item'}
     >
       <form onSubmit={handleSubmit} className="space-y-6">

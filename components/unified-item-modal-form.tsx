@@ -490,7 +490,7 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
 
         {/* Title - Common Field */}
         <div>
-          <label htmlFor="title" className="block mb-1 text-sm font-medium">
+          <label htmlFor="title" className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
             Title *
           </label>
           <input
@@ -505,13 +505,13 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
               }
             }}
             required
-            className="w-full px-3 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm"
+            className="w-full px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-white text-sm"
           />
         </div>
 
         {/* Description - Common Field */}
         <div>
-          <label htmlFor="description" className="block mb-1 text-sm font-medium">
+          <label htmlFor="description" className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
             Description
           </label>
           <textarea
@@ -525,7 +525,7 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
               }
             }}
             rows={2}
-            className="w-full px-3 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm"
+            className="w-full px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-white text-sm"
           />
         </div>
 
@@ -541,7 +541,7 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
                   onChange={(e) => handleAllDayChange(e.target.checked)}
                   className="w-4 h-4"
                 />
-                <label htmlFor="isAllDay" className="cursor-pointer text-sm">
+                <label htmlFor="isAllDay" className="cursor-pointer text-sm text-gray-900 dark:text-white">
                   All Day Event
                 </label>
               </div>
@@ -591,12 +591,12 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
               )}
 
               <div>
-                <label className="block mb-1 text-sm font-medium">
+                <label className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
                   Repeats
                 </label>
                 <div className="space-y-2">
                   <div className="flex gap-3 flex-wrap">
-                    <label className="flex items-center gap-1.5 cursor-pointer">
+                    <label className="flex items-center gap-1.5 cursor-pointer text-gray-900 dark:text-white">
                       <input
                         type="radio"
                         name="recurrence"
@@ -609,7 +609,7 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
                       />
                       <span className="text-sm">One-time event</span>
                     </label>
-                    <label className="flex items-center gap-1.5 cursor-pointer">
+                    <label className="flex items-center gap-1.5 cursor-pointer text-gray-900 dark:text-white">
                       <input
                         type="radio"
                         name="recurrence"
@@ -633,7 +633,7 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
                       />
                       <span className="text-sm">Weekly</span>
                     </label>
-                    <label className="flex items-center gap-1.5 cursor-pointer">
+                    <label className="flex items-center gap-1.5 cursor-pointer text-gray-900 dark:text-white">
                       <input
                         type="radio"
                         name="recurrence"
@@ -652,11 +652,11 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
                   </div>
 
                   {recurrenceType === 'weekly' && (
-                    <div className="ml-4 p-3 bg-gray-800 rounded border border-gray-700">
-                      <p className="text-xs text-gray-300 mb-2">Repeat on:</p>
+                    <div className="ml-4 p-3 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-700">
+                      <p className="text-xs text-gray-700 dark:text-gray-300 mb-2">Repeat on:</p>
                       <div className="grid grid-cols-2 gap-1.5">
                         {WEEKDAYS.map((day) => (
-                          <label key={day} className="flex items-center gap-1.5 cursor-pointer">
+                          <label key={day} className="flex items-center gap-1.5 cursor-pointer text-gray-900 dark:text-white">
                             <input
                               type="checkbox"
                               checked={recurrenceDays.includes(day)}
@@ -668,19 +668,19 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
                         ))}
                       </div>
                       {recurrenceDays.length === 0 && (
-                        <p className="text-[10px] text-yellow-400 mt-1.5">Select at least one day</p>
+                        <p className="text-[10px] text-yellow-600 dark:text-yellow-400 mt-1.5">Select at least one day</p>
                       )}
                     </div>
                   )}
 
                   {recurrenceType === 'monthly' && (
-                    <div className="ml-4 p-3 bg-gray-800 rounded border border-gray-700">
-                      <p className="text-xs text-gray-300 mb-2">Repeat on day of month:</p>
+                    <div className="ml-4 p-3 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-700">
+                      <p className="text-xs text-gray-700 dark:text-gray-300 mb-2">Repeat on day of month:</p>
                       <div className="flex items-center gap-2">
                         <select
                           value={monthDay}
                           onChange={(e) => setMonthDay(parseInt(e.target.value))}
-                          className="px-2 py-1 bg-gray-900 border border-gray-700 rounded text-white text-sm"
+                          className="px-2 py-1 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-white text-sm"
                         >
                           {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
                             <option key={day} value={day}>
@@ -689,7 +689,7 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
                             </option>
                           ))}
                         </select>
-                        <span className="text-xs text-gray-400">of each month</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">of each month</span>
                       </div>
                     </div>
                   )}
@@ -702,26 +702,26 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
         {/* Special-specific fields */}
         {currentItemType !== 'event' && (
           <>
-            <div>
-              <label htmlFor="priceNotes" className="block mb-1 text-sm font-medium">
-                Price Notes
-              </label>
-              <input
-                id="priceNotes"
-                type="text"
-                value={specialData.priceNotes}
-                onChange={(e) => setSpecialData({ ...specialData, priceNotes: e.target.value })}
-                placeholder="e.g., $3 drafts, Happy hour prices"
-                className="w-full px-3 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm"
-              />
-            </div>
+              <div>
+                <label htmlFor="priceNotes" className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
+                  Price Notes
+                </label>
+                <input
+                  id="priceNotes"
+                  type="text"
+                  value={specialData.priceNotes}
+                  onChange={(e) => setSpecialData({ ...specialData, priceNotes: e.target.value })}
+                  placeholder="e.g., $3 drafts, Happy hour prices"
+                  className="w-full px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-white text-sm"
+                />
+              </div>
 
             {currentItemType === 'drink' && (
               <div>
-                <label className="block mb-1 text-sm font-medium">Applies On (optional for date-specific specials)</label>
+                <label className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">Applies On (optional for date-specific specials)</label>
                 <div className="grid grid-cols-2 gap-2">
                   {WEEKDAYS.map((day) => (
-                    <label key={day} className="flex items-center gap-2 cursor-pointer">
+                    <label key={day} className="flex items-center gap-2 cursor-pointer text-gray-900 dark:text-white">
                       <input
                         type="checkbox"
                         checked={specialData.appliesOn.includes(day)}
@@ -732,14 +732,14 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
                     </label>
                   ))}
                 </div>
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                   Select which days this special applies. Leave empty if using start/end dates.
                 </p>
               </div>
             )}
 
             <div>
-              <label htmlFor="timeWindow" className="block mb-1 text-sm font-medium">
+              <label htmlFor="timeWindow" className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
                 Time Window
               </label>
               <input
@@ -748,13 +748,13 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
                 value={specialData.timeWindow}
                 onChange={(e) => setSpecialData({ ...specialData, timeWindow: e.target.value })}
                 placeholder="e.g., 11am-3pm, Happy Hour"
-                className="w-full px-3 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm"
+                className="w-full px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-white text-sm"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label htmlFor="startDate" className="block mb-1 text-sm font-medium">
+                <label htmlFor="startDate" className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
                   Start Date (optional)
                 </label>
                 <DatePicker
@@ -764,7 +764,7 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
                 />
               </div>
               <div>
-                <label htmlFor="endDate" className="block mb-1 text-sm font-medium">
+                <label htmlFor="endDate" className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
                   End Date (optional)
                 </label>
                 <DatePicker
@@ -777,7 +777,7 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
             </div>
 
             <div>
-              <label htmlFor="image" className="block mb-1 text-sm font-medium">
+              <label htmlFor="image" className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
                 Image Path (optional)
               </label>
               <input
@@ -786,7 +786,7 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
                 value={specialData.image}
                 onChange={(e) => setSpecialData({ ...specialData, image: e.target.value })}
                 placeholder="/uploads/special-image.jpg"
-                className="w-full px-3 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm"
+                className="w-full px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-white text-sm"
               />
             </div>
           </>

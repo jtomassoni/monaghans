@@ -3,17 +3,19 @@ import { prisma } from '@/lib/prisma';
 import { requireAuth, handleError } from '@/lib/api-helpers';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { getPermissions, canCreateRole, canManageUser } from '@/lib/permissions';
 
-// Helper to require superadmin role
-async function requireSuperadmin(req: NextRequest) {
+// Helper to require user management permissions
+async function requireUserManagement(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  if (session.user.role !== 'superadmin') {
-    return NextResponse.json({ error: 'Forbidden: Superadmin access required' }, { status: 403 });
+  const permissions = getPermissions(session.user.role);
+  if (!permissions.canManageUsers) {
+    return NextResponse.json({ error: 'Forbidden: User management access required' }, { status: 403 });
   }
-  return null;
+  return { session, permissions };
 }
 
 export async function GET(
@@ -53,20 +55,47 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authError = await requireSuperadmin(req);
-  if (authError) return authError;
+  const authResult = await requireUserManagement(req);
+  if (authResult instanceof NextResponse) return authResult;
+  const { session, permissions } = authResult;
 
   try {
     const { id } = await params;
     const body = await req.json();
 
-    // Prevent changing superadmin role or deactivating superadmin
+    // Get the user being updated
     const currentUser = await prisma.user.findUnique({ where: { id } });
-    if (currentUser?.role === 'superadmin' && body.role !== 'superadmin') {
-      return NextResponse.json({ error: 'Cannot change superadmin role' }, { status: 400 });
+    if (!currentUser) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
-    if (currentUser?.role === 'superadmin' && body.isActive === false) {
-      return NextResponse.json({ error: 'Cannot deactivate superadmin' }, { status: 400 });
+
+    // Prevent modifying admin or superadmin
+    if (currentUser.role === 'admin' || currentUser.role === 'superadmin') {
+      return NextResponse.json({ error: 'Cannot modify admin user' }, { status: 403 });
+    }
+
+    // Check if current user can manage this user
+    if (!canManageUser(session.user.role, currentUser.role)) {
+      return NextResponse.json({ 
+        error: `You do not have permission to manage users with role "${currentUser.role}"` 
+      }, { status: 403 });
+    }
+
+    // If changing role, check permission
+    if (body.role && body.role !== currentUser.role) {
+      if (!canCreateRole(session.user.role, body.role)) {
+        return NextResponse.json({ 
+          error: `You do not have permission to assign role "${body.role}"` 
+        }, { status: 403 });
+      }
+      
+      // Validate new role
+      const validRoles = ['owner', 'manager', 'cook', 'bartender', 'barback'];
+      if (!validRoles.includes(body.role)) {
+        return NextResponse.json({ 
+          error: `Invalid role. Must be one of: ${validRoles.join(', ')}` 
+        }, { status: 400 });
+      }
     }
 
     const user = await prisma.user.update({
@@ -74,7 +103,7 @@ export async function PUT(
       data: {
         name: body.name !== undefined ? body.name : undefined,
         image: body.image !== undefined ? body.image : undefined,
-        role: body.role || currentUser?.role,
+        role: body.role || currentUser.role,
         isActive: body.isActive !== undefined ? body.isActive : undefined,
       },
     });
@@ -89,15 +118,27 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authError = await requireSuperadmin(req);
-  if (authError) return authError;
+  const authResult = await requireUserManagement(req);
+  if (authResult instanceof NextResponse) return authResult;
+  const { session } = authResult;
 
   try {
     const { id } = await params;
     const user = await prisma.user.findUnique({ where: { id } });
 
-    if (user?.role === 'superadmin') {
-      return NextResponse.json({ error: 'Cannot delete superadmin' }, { status: 400 });
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    if (user.role === 'admin' || user.role === 'superadmin') {
+      return NextResponse.json({ error: 'Cannot delete admin user' }, { status: 403 });
+    }
+
+    // Check if current user can manage this user
+    if (!canManageUser(session.user.role, user.role)) {
+      return NextResponse.json({ 
+        error: `You do not have permission to delete users with role "${user.role}"` 
+      }, { status: 403 });
     }
 
     await prisma.user.delete({

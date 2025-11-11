@@ -5,8 +5,12 @@ import { useRouter } from 'next/navigation';
 import { 
   FaSearch,
   FaFilter,
+  FaStickyNote,
+  FaExclamationCircle,
+  FaPrint,
 } from 'react-icons/fa';
-import { getOrderStatusOptions, type OrderManagementMode } from '@/lib/order-helpers';
+import { getOrderStatusOptions } from '@/lib/order-helpers';
+import Modal from '@/components/modal';
 
 interface OrderItem {
   id: string;
@@ -37,34 +41,16 @@ interface Order {
 
 interface OrdersListProps {
   initialOrders: Order[];
-  orderManagementMode?: OrderManagementMode;
 }
 
-export default function OrdersList({ initialOrders, orderManagementMode = 'foh' }: OrdersListProps) {
+export default function OrdersList({ initialOrders }: OrdersListProps) {
   const router = useRouter();
   const [orders, setOrders] = useState<Order[]>(initialOrders);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [mode, setMode] = useState<OrderManagementMode>(orderManagementMode);
-
-  // Fetch order management mode setting
-  useEffect(() => {
-    async function fetchMode() {
-      try {
-        const response = await fetch('/api/settings?key=orderManagement');
-        if (response.ok) {
-          const setting = await response.json();
-          if (setting?.value) {
-            const config = JSON.parse(setting.value);
-            setMode(config.mode || 'foh');
-          }
-        }
-      } catch (error) {
-        console.error('Failed to fetch order management mode:', error);
-      }
-    }
-    fetchMode();
-  }, []);
+  const [printPreviewOrder, setPrintPreviewOrder] = useState<Order | null>(null);
+  const [printPreviewData, setPrintPreviewData] = useState<string>('');
+  const [loadingPrintPreview, setLoadingPrintPreview] = useState(false);
 
   const filteredOrders = orders.filter(order => {
     const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
@@ -93,6 +79,34 @@ export default function OrdersList({ initialOrders, orderManagementMode = 'foh' 
     } catch (error) {
       console.error('Error updating order:', error);
       alert('An error occurred');
+    }
+  };
+
+  const handlePrintPreview = async (order: Order) => {
+    setLoadingPrintPreview(true);
+    setPrintPreviewOrder(order);
+    setPrintPreviewData('');
+
+    try {
+      const response = await fetch('/api/printers/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: order.id }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setPrintPreviewData(data.printData);
+      } else {
+        alert('Failed to generate print preview');
+        setPrintPreviewOrder(null);
+      }
+    } catch (error) {
+      console.error('Error generating print preview:', error);
+      alert('An error occurred while generating print preview');
+      setPrintPreviewOrder(null);
+    } finally {
+      setLoadingPrintPreview(false);
     }
   };
 
@@ -160,7 +174,7 @@ export default function OrdersList({ initialOrders, orderManagementMode = 'foh' 
     { value: 'cancelled', label: 'Cancelled' },
   ];
 
-  const orderStatusOptions = getOrderStatusOptions(mode);
+  const orderStatusOptions = getOrderStatusOptions();
 
   return (
     <div className="space-y-4">
@@ -222,6 +236,14 @@ export default function OrdersList({ initialOrders, orderManagementMode = 'foh' 
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => handlePrintPreview(order)}
+                        className="flex items-center gap-2 px-4 py-2.5 text-sm bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white font-semibold transition-all shadow-sm hover:shadow-md"
+                        title="View Print Preview"
+                      >
+                        <FaPrint className="w-4 h-4" />
+                        <span className="hidden sm:inline">Print Preview</span>
+                      </button>
                       <label className="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide whitespace-nowrap">
                         Update Status
                       </label>
@@ -237,20 +259,17 @@ export default function OrdersList({ initialOrders, orderManagementMode = 'foh' 
                             backgroundSize: '1em 1em',
                           }}
                         >
-                          <optgroup label="Front of House (FOH)">
-                            {orderStatusOptions.filter(opt => opt.department === 'FOH').map(option => (
+                          {/* Chronological order: pending → confirmed → acknowledged → preparing → ready → completed → cancelled */}
+                          {orderStatusOptions
+                            .sort((a, b) => {
+                              const order = ['pending', 'confirmed', 'acknowledged', 'preparing', 'ready', 'completed', 'cancelled'];
+                              return order.indexOf(a.value) - order.indexOf(b.value);
+                            })
+                            .map(option => (
                               <option key={option.value} value={option.value}>
-                                {option.label.replace(' (FOH)', '').replace(' (BOH)', '')}
+                                {option.label}
                               </option>
                             ))}
-                          </optgroup>
-                          <optgroup label="Back of House (BOH)">
-                            {orderStatusOptions.filter(opt => opt.department === 'BOH').map(option => (
-                              <option key={option.value} value={option.value}>
-                                {option.label.replace(' (FOH)', '').replace(' (BOH)', '')}
-                              </option>
-                            ))}
-                          </optgroup>
                         </select>
                       </div>
                     </div>
@@ -316,9 +335,12 @@ export default function OrdersList({ initialOrders, orderManagementMode = 'foh' 
                                   return null;
                                 })()}
                                 {item.specialInstructions && (
-                                  <p className="text-xs text-amber-600 dark:text-amber-400 italic mt-1">
-                                    Note: {item.specialInstructions}
-                                  </p>
+                                  <div className="mt-2 flex items-start gap-2 p-2 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700/50 rounded-md">
+                                    <FaStickyNote className="text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" size={12} />
+                                    <p className="text-xs font-medium text-amber-800 dark:text-amber-200 leading-relaxed">
+                                      {item.specialInstructions}
+                                    </p>
+                                  </div>
                                 )}
                               </div>
                               <p className="text-sm font-semibold text-gray-900 dark:text-white whitespace-nowrap">
@@ -328,10 +350,18 @@ export default function OrdersList({ initialOrders, orderManagementMode = 'foh' 
                           ))}
                         </div>
                         {order.specialInstructions && (
-                          <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-                            <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
-                              Order Note: {order.specialInstructions}
-                            </p>
+                          <div className="mt-4 p-3.5 bg-orange-50 dark:bg-orange-900/25 border-2 border-orange-300 dark:border-orange-700/60 rounded-lg shadow-sm">
+                            <div className="flex items-start gap-2.5">
+                              <FaExclamationCircle className="text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" size={14} />
+                              <div className="flex-1">
+                                <p className="text-xs font-semibold text-orange-900 dark:text-orange-200 uppercase tracking-wide mb-1">
+                                  Order Note
+                                </p>
+                                <p className="text-sm font-medium text-orange-800 dark:text-orange-100 leading-relaxed">
+                                  {order.specialInstructions}
+                                </p>
+                              </div>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -378,6 +408,46 @@ export default function OrdersList({ initialOrders, orderManagementMode = 'foh' 
           })}
         </div>
       )}
+
+      {/* Print Preview Modal */}
+      <Modal
+        isOpen={printPreviewOrder !== null}
+        onClose={() => {
+          setPrintPreviewOrder(null);
+          setPrintPreviewData('');
+        }}
+        title={`Print Preview - ${printPreviewOrder?.orderNumber || ''}`}
+      >
+        <div className="space-y-4">
+          {loadingPrintPreview ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-white mb-4"></div>
+                <p className="text-gray-600 dark:text-gray-400">Generating print preview...</p>
+              </div>
+            </div>
+          ) : printPreviewData ? (
+            <div className="bg-white text-black p-6 rounded-lg font-mono text-sm whitespace-pre-wrap border-2 border-gray-300 shadow-inner max-h-[70vh] overflow-y-auto">
+              {printPreviewData}
+            </div>
+          ) : (
+            <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-12 text-center text-gray-600 dark:text-gray-400">
+              No preview data available
+            </div>
+          )}
+          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <button
+              onClick={() => {
+                setPrintPreviewOrder(null);
+                setPrintPreviewData('');
+              }}
+              className="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg font-semibold transition"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

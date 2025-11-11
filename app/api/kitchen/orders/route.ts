@@ -30,6 +30,12 @@ export async function GET(req: NextRequest) {
     const where: any = {};
     if (status && status !== 'all') {
       where.status = status;
+    } else {
+      // When status=all, only return orders in BOH workflow
+      // Exclude: pending (FOH hasn't confirmed), completed (FOH handles), cancelled
+      where.status = {
+        in: ['confirmed', 'acknowledged', 'preparing', 'ready'],
+      };
     }
 
     const orders = await prisma.order.findMany({

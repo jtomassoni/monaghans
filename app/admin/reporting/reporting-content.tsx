@@ -11,6 +11,7 @@ import {
   FaCalendarAlt,
   FaUsers,
   FaEdit,
+  FaFacebook,
 } from 'react-icons/fa';
 
 interface CMSAnalytics {
@@ -54,14 +55,47 @@ interface Insight {
   priority: 'low' | 'medium' | 'high';
 }
 
+interface FacebookAnalytics {
+  period: number;
+  summary: {
+    totalPosts: number;
+    totalImpressions: number;
+    totalReach: number;
+    totalEngagedUsers: number;
+    totalReactions: number;
+    totalClicks: number;
+    averageImpressions: number;
+    averageReach: number;
+    averageEngagedUsers: number;
+  };
+  pageInsights: {
+    fans?: number;
+    impressions?: number;
+    engagedUsers?: number;
+  } | null;
+  posts: Array<{
+    id: string;
+    postId: string;
+    message: string;
+    insights: {
+      impressions?: number;
+      reach?: number;
+      engagedUsers?: number;
+      reactions?: { total: number };
+      clicks?: number;
+    } | null;
+  }>;
+}
+
 export default function ReportingContent() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'cms' | 'pageviews' | 'menu' | 'specials' | 'insights'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'cms' | 'pageviews' | 'menu' | 'specials' | 'insights' | 'social'>('overview');
   const [period, setPeriod] = useState('30');
   const [loading, setLoading] = useState(true);
   
   const [cmsData, setCmsData] = useState<CMSAnalytics | null>(null);
   const [pageviewData, setPageviewData] = useState<PageviewAnalytics | null>(null);
   const [insights, setInsights] = useState<Insight[]>([]);
+  const [facebookData, setFacebookData] = useState<FacebookAnalytics | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -70,10 +104,11 @@ export default function ReportingContent() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [cmsRes, pageviewRes, insightsRes] = await Promise.all([
+      const [cmsRes, pageviewRes, insightsRes, facebookRes] = await Promise.all([
         fetch(`/api/reporting/cms-analytics?period=${period}`),
         fetch(`/api/reporting/pageviews?period=${period}`),
         fetch('/api/reporting/insights'),
+        fetch(`/api/reporting/facebook-analytics?period=${period}`),
       ]);
 
       if (cmsRes.ok) {
@@ -89,6 +124,14 @@ export default function ReportingContent() {
       if (insightsRes.ok) {
         const data = await insightsRes.json();
         setInsights(data.insights || []);
+      }
+
+      if (facebookRes.ok) {
+        const data = await facebookRes.json();
+        setFacebookData(data);
+      } else if (facebookRes.status === 400) {
+        // Facebook not connected - that's okay
+        setFacebookData(null);
       }
     } catch (error) {
       console.error('Failed to fetch reporting data:', error);
@@ -115,6 +158,7 @@ export default function ReportingContent() {
     { id: 'pageviews', label: 'Pageviews', icon: FaEye },
     { id: 'menu', label: 'Menu Performance', icon: FaUtensils },
     { id: 'specials', label: 'Specials Performance', icon: FaStar },
+    { id: 'social', label: 'Social Media', icon: FaFacebook },
     { id: 'insights', label: 'Insights', icon: FaLightbulb },
   ];
 
@@ -342,6 +386,174 @@ export default function ReportingContent() {
                   ))}
                 </div>
               </div>
+            </div>
+          )}
+
+          {activeTab === 'social' && (
+            <div className="space-y-6">
+              {!facebookData ? (
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
+                  <FaFacebook className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500 dark:text-gray-400 mb-2">Facebook not connected</p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500">
+                    Connect Facebook in the Social Media section to view analytics
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* Summary Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                      <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">Total Posts</div>
+                      <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                        {facebookData.summary.totalPosts}
+                      </div>
+                    </div>
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                      <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">Total Impressions</div>
+                      <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                        {facebookData.summary.totalImpressions.toLocaleString()}
+                      </div>
+                    </div>
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                      <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">Total Reach</div>
+                      <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                        {facebookData.summary.totalReach.toLocaleString()}
+                      </div>
+                    </div>
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                      <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">Total Reactions</div>
+                      <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                        {facebookData.summary.totalReactions.toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Page Insights */}
+                  {facebookData.pageInsights && (
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Page Insights</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {facebookData.pageInsights.fans !== undefined && (
+                          <div>
+                            <div className="text-sm text-gray-500 dark:text-gray-400">Page Fans</div>
+                            <div className="text-xl font-bold text-gray-900 dark:text-white">
+                              {facebookData.pageInsights.fans.toLocaleString()}
+                            </div>
+                          </div>
+                        )}
+                        {facebookData.pageInsights.impressions !== undefined && (
+                          <div>
+                            <div className="text-sm text-gray-500 dark:text-gray-400">Page Impressions</div>
+                            <div className="text-xl font-bold text-gray-900 dark:text-white">
+                              {facebookData.pageInsights.impressions.toLocaleString()}
+                            </div>
+                          </div>
+                        )}
+                        {facebookData.pageInsights.engagedUsers !== undefined && (
+                          <div>
+                            <div className="text-sm text-gray-500 dark:text-gray-400">Engaged Users</div>
+                            <div className="text-xl font-bold text-gray-900 dark:text-white">
+                              {facebookData.pageInsights.engagedUsers.toLocaleString()}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Average Metrics */}
+                  <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Average Performance</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">Avg Impressions</div>
+                        <div className="text-xl font-bold text-gray-900 dark:text-white">
+                          {facebookData.summary.averageImpressions.toLocaleString()}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">Avg Reach</div>
+                        <div className="text-xl font-bold text-gray-900 dark:text-white">
+                          {facebookData.summary.averageReach.toLocaleString()}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">Avg Engaged Users</div>
+                        <div className="text-xl font-bold text-gray-900 dark:text-white">
+                          {facebookData.summary.averageEngagedUsers.toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Top Posts */}
+                  {facebookData.posts.length > 0 && (
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Recent Posts</h3>
+                        <button
+                          onClick={() => exportToCSV(facebookData, 'facebook-analytics')}
+                          className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm flex items-center gap-2"
+                        >
+                          <FaDownload className="w-3 h-3" />
+                          Export
+                        </button>
+                      </div>
+                      <div className="space-y-3">
+                        {facebookData.posts.slice(0, 10).map((post) => (
+                          <div
+                            key={post.id}
+                            className="border border-gray-200 dark:border-gray-700 rounded-lg p-4"
+                          >
+                            <div className="text-sm text-gray-900 dark:text-white mb-2 line-clamp-2">
+                              {post.message || 'No message'}
+                            </div>
+                            {post.insights ? (
+                              <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
+                                <div>
+                                  <div className="text-gray-500 dark:text-gray-400">Impressions</div>
+                                  <div className="font-semibold text-gray-900 dark:text-white">
+                                    {post.insights.impressions?.toLocaleString() || '0'}
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="text-gray-500 dark:text-gray-400">Reach</div>
+                                  <div className="font-semibold text-gray-900 dark:text-white">
+                                    {post.insights.reach?.toLocaleString() || '0'}
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="text-gray-500 dark:text-gray-400">Engaged</div>
+                                  <div className="font-semibold text-gray-900 dark:text-white">
+                                    {post.insights.engagedUsers?.toLocaleString() || '0'}
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="text-gray-500 dark:text-gray-400">Reactions</div>
+                                  <div className="font-semibold text-gray-900 dark:text-white">
+                                    {post.insights.reactions?.total.toLocaleString() || '0'}
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="text-gray-500 dark:text-gray-400">Clicks</div>
+                                  <div className="font-semibold text-gray-900 dark:text-white">
+                                    {post.insights.clicks?.toLocaleString() || '0'}
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="text-xs text-gray-400 dark:text-gray-500">
+                                Insights not available
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           )}
 

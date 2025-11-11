@@ -4,42 +4,9 @@ import { prisma } from '@/lib/prisma';
 import ImageCarousel from '@/components/image-carousel';
 import Footer from '@/components/footer';
 import { marked } from 'marked';
-import { getMountainTimeToday, getMountainTimeTomorrow, getMountainTimeWeekday, getMountainTimeNow } from '@/lib/timezone';
+import { getMountainTimeToday, getMountainTimeTomorrow, getMountainTimeWeekday, getMountainTimeNow, getMountainTimeDateString, parseMountainTimeDate } from '@/lib/timezone';
 import { startOfDay, endOfDay, isWithinInterval, format } from 'date-fns';
 import { RRule } from 'rrule';
-
-// Helper function to parse YYYY-MM-DD date strings as Mountain Time (not UTC)
-// This prevents dates from shifting by a day due to timezone conversion
-function parseMountainTimeDate(dateStr: string): Date {
-  const [year, month, day] = dateStr.split('-').map(Number);
-  // Try different UTC hours to find which one gives us MT midnight
-  for (let offsetHours = 6; offsetHours <= 7; offsetHours++) {
-    const candidate = new Date(Date.UTC(year, month - 1, day, offsetHours, 0, 0));
-    const mtCandidate = candidate.toLocaleString('en-US', { 
-      timeZone: 'America/Denver',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    });
-    
-    const candidateParts = mtCandidate.split(', ');
-    const candidateDate = candidateParts[0];
-    const candidateTime = candidateParts[1];
-    
-    const targetDate = `${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}/${year}`;
-    
-    if (candidateDate === targetDate && candidateTime === '00:00:00') {
-      return candidate;
-    }
-  }
-  
-  // Fallback: use UTC-7 (MST)
-  return new Date(Date.UTC(year, month - 1, day, 7, 0, 0));
-}
 
 // Configure marked to allow HTML
 marked.setOptions({
@@ -73,7 +40,62 @@ export default async function HomePage() {
       const exceptions: string[] = event.exceptions ? JSON.parse(event.exceptions) : [];
       const startDate = new Date(event.startDateTime);
       
+      // Extract the original time components in Mountain Time
+      // This ensures recurring events always show at the same time of day
+      const mtFormatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/Denver',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      });
+      const originalStartMTParts = mtFormatter.formatToParts(startDate);
+      const originalHours = parseInt(originalStartMTParts.find(p => p.type === 'hour')!.value);
+      const originalMinutes = parseInt(originalStartMTParts.find(p => p.type === 'minute')!.value);
+      const originalSeconds = parseInt(originalStartMTParts.find(p => p.type === 'second')?.value || '0');
+      
+      // Extract original end time components if endDateTime exists
+      let originalEndHours = 0;
+      let originalEndMinutes = 0;
+      let originalEndSeconds = 0;
+      if (event.endDateTime) {
+        const endDate = new Date(event.endDateTime);
+        const originalEndMTParts = mtFormatter.formatToParts(endDate);
+        originalEndHours = parseInt(originalEndMTParts.find(p => p.type === 'hour')!.value);
+        originalEndMinutes = parseInt(originalEndMTParts.find(p => p.type === 'minute')!.value);
+        originalEndSeconds = parseInt(originalEndMTParts.find(p => p.type === 'second')?.value || '0');
+      }
+      
+      // Helper function to create a Date object for a specific date and time in Mountain Time
+      const createMountainTimeDate = (year: number, month: number, day: number, hours: number, minutes: number, seconds: number): Date => {
+        // Try different UTC offsets to find the one that gives us the desired Mountain Time
+        // MT is UTC-7 (MST) or UTC-6 (MDT)
+        for (let offsetHours = 6; offsetHours <= 7; offsetHours++) {
+          const candidateUTC = new Date(Date.UTC(year, month, day, hours + offsetHours, minutes, seconds));
+          const candidateParts = mtFormatter.formatToParts(candidateUTC);
+          const candidateYear = parseInt(candidateParts.find(p => p.type === 'year')!.value);
+          const candidateMonth = parseInt(candidateParts.find(p => p.type === 'month')!.value);
+          const candidateDay = parseInt(candidateParts.find(p => p.type === 'day')!.value);
+          const candidateHour = parseInt(candidateParts.find(p => p.type === 'hour')!.value);
+          const candidateMinute = parseInt(candidateParts.find(p => p.type === 'minute')!.value);
+          const candidateSecond = parseInt(candidateParts.find(p => p.type === 'second')?.value || '0');
+          
+          // candidateMonth is 1-indexed (1-12), month is 0-indexed (0-11)
+          if (candidateYear === year && candidateMonth === month + 1 && candidateDay === day &&
+              candidateHour === hours && candidateMinute === minutes && candidateSecond === seconds) {
+            return candidateUTC;
+          }
+        }
+        
+        // Fallback: use UTC-7 (MST)
+        return new Date(Date.UTC(year, month, day, hours + 7, minutes, seconds));
+      };
+      
       // Handle monthly events with BYMONTHDAY (similar to calendar logic)
+      // For weekly events, we need to ensure dtstart represents the correct day of week in Mountain Time
       let ruleToUse = event.recurrenceRule;
       let dtstartDate: Date;
       
@@ -93,6 +115,16 @@ export default async function HomePage() {
         } else {
           dtstartDate = startDate;
         }
+      } else if (event.recurrenceRule.includes('FREQ=WEEKLY')) {
+        // For weekly events, ensure dtstart represents the correct day of week in Mountain Time
+        // Get the start date components in Mountain Time
+        const startMTParts = mtFormatter.formatToParts(startDate);
+        const startMTYear = parseInt(startMTParts.find(p => p.type === 'year')!.value);
+        const startMTMonth = parseInt(startMTParts.find(p => p.type === 'month')!.value) - 1; // 0-indexed
+        const startMTDay = parseInt(startMTParts.find(p => p.type === 'day')!.value);
+        
+        // Create dtstart at the original time but ensure it represents the correct day in Mountain Time
+        dtstartDate = createMountainTimeDate(startMTYear, startMTMonth, startMTDay, originalHours, originalMinutes, originalSeconds);
       } else {
         dtstartDate = startDate;
       }
@@ -114,11 +146,46 @@ export default async function HomePage() {
           return !exceptions.includes(occurrenceDateStr);
         })
         .map(occurrence => {
-          const eventStart = new Date(occurrence);
-          const originalStart = new Date(event.startDateTime);
-          const originalEnd = event.endDateTime ? new Date(event.endDateTime) : null;
-          const duration = originalEnd ? originalEnd.getTime() - originalStart.getTime() : 60 * 60 * 1000;
-          const eventEnd = originalEnd ? new Date(eventStart.getTime() + duration) : null;
+          // Get the occurrence date components in Mountain Time
+          const occurrenceMTParts = mtFormatter.formatToParts(occurrence);
+          const occurrenceMTYear = parseInt(occurrenceMTParts.find(p => p.type === 'year')!.value);
+          const occurrenceMTMonth = parseInt(occurrenceMTParts.find(p => p.type === 'month')!.value);
+          const occurrenceMTDay = parseInt(occurrenceMTParts.find(p => p.type === 'day')!.value);
+          
+          // For monthly events with BYMONTHDAY, RRule returns UTC dates
+          // We need to ensure these display correctly in local time
+          // If the target day and occurrence day don't match in local time, adjust
+          let eventStart: Date;
+          if (event.recurrenceRule && event.recurrenceRule.includes('BYMONTHDAY')) {
+            const monthDayMatch = event.recurrenceRule.match(/BYMONTHDAY=(\d+)/);
+            if (monthDayMatch) {
+              const targetDay = parseInt(monthDayMatch[1]); // This is the original local day from RRULE
+              const occurrenceLocalDay = occurrence.getDate(); // What day the occurrence shows in local time
+              
+              // If RRule returned a date that displays as a different day in local time,
+              // we need to adjust it to match the target day
+              if (occurrenceLocalDay !== targetDay) {
+                // Use the target day with the original time in Mountain Time
+                eventStart = createMountainTimeDate(occurrenceMTYear, occurrenceMTMonth - 1, targetDay, originalHours, originalMinutes, originalSeconds);
+              } else {
+                // Use the occurrence date but preserve the original time in Mountain Time
+                eventStart = createMountainTimeDate(occurrenceMTYear, occurrenceMTMonth - 1, occurrenceMTDay, originalHours, originalMinutes, originalSeconds);
+              }
+            } else {
+              // Use the occurrence date but preserve the original time in Mountain Time
+              eventStart = createMountainTimeDate(occurrenceMTYear, occurrenceMTMonth - 1, occurrenceMTDay, originalHours, originalMinutes, originalSeconds);
+            }
+          } else {
+            // For weekly and other recurring events, use the occurrence date
+            // but preserve the original time components in Mountain Time
+            eventStart = createMountainTimeDate(occurrenceMTYear, occurrenceMTMonth - 1, occurrenceMTDay, originalHours, originalMinutes, originalSeconds);
+          }
+          
+          // Calculate end time by preserving the time from the original event in Mountain Time
+          let eventEnd: Date | null = null;
+          if (event.endDateTime) {
+            eventEnd = createMountainTimeDate(occurrenceMTYear, occurrenceMTMonth - 1, occurrenceMTDay, originalEndHours, originalEndMinutes, originalEndSeconds);
+          }
           
           return {
             ...event,
@@ -134,9 +201,11 @@ export default async function HomePage() {
   };
 
   // Get today's events (one-time events + recurring occurrences)
+  // IMPORTANT: We show ALL events for today, not just the first one
   const todaysOneTimeEvents = allEvents.filter(event => {
     if (event.recurrenceRule) return false; // Skip recurring events here
     const eventDate = new Date(event.startDateTime);
+    // Include any event that starts today (between today midnight and tomorrow midnight in Mountain Time)
     return eventDate >= today && eventDate < tomorrowStart;
   });
 
@@ -144,9 +213,10 @@ export default async function HomePage() {
     .filter(event => event.recurrenceRule)
     .flatMap(event => getRecurringEventOccurrences(event, today, tomorrowStart));
 
+  // Combine all events for today and sort by start time
+  // This will include multiple events if there are multiple events scheduled for the same day
   const todaysEvents = [...todaysOneTimeEvents, ...todaysRecurringOccurrences]
-    .sort((a, b) => new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime())
-    .slice(0, 3);
+    .sort((a, b) => new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime());
 
   // Get upcoming events (one-time events + recurring occurrences, starting from now)
   const futureDate = new Date(now);
@@ -245,7 +315,8 @@ export default async function HomePage() {
   const todayName = getMountainTimeWeekday();
   const todayStart = getMountainTimeToday();
 
-  // Get today's food special (date-based or weekly recurring)
+  // Get today's food specials (date-based or weekly recurring)
+  // Collect ALL matching food specials, not just the first one
   const allFoodSpecials = await prisma.special.findMany({
     where: {
       isActive: true,
@@ -253,7 +324,7 @@ export default async function HomePage() {
     },
   });
 
-  let todaysFoodSpecial = null;
+  const todaysFoodSpecials: typeof allFoodSpecials = [];
   for (const special of allFoodSpecials) {
     // Parse appliesOn if it exists
     let appliesOn: string[] = [];
@@ -281,14 +352,14 @@ export default async function HomePage() {
       const startDateValue = special.startDate as string | Date;
       startDateStr = typeof startDateValue === 'string' 
         ? startDateValue.split('T')[0] 
-        : startDateValue.toISOString().split('T')[0];
+        : getMountainTimeDateString(startDateValue);
     }
     
     if (special.endDate) {
       const endDateValue = special.endDate as string | Date;
       endDateStr = typeof endDateValue === 'string' 
         ? endDateValue.split('T')[0] 
-        : endDateValue.toISOString().split('T')[0];
+        : getMountainTimeDateString(endDateValue);
     }
     
     const startDate = startDateStr ? parseMountainTimeDate(startDateStr) : null;
@@ -322,21 +393,19 @@ export default async function HomePage() {
         }
         
         if (isInDateRange) {
-          todaysFoodSpecial = special;
-          break;
+          todaysFoodSpecials.push(special);
         }
       }
     } else if (startDate) {
       // Date-based special (no weekly recurring)
-      // Only show specials that have both startDate and endDate set
-      if (endDate) {
-        const start = startOfDay(startDate);
-        const end = endOfDay(endDate);
-        
-        if (todayStart >= start && todayStart <= end) {
-          todaysFoodSpecial = special;
-          break;
-        }
+      // If only startDate is set, treat it as a single-day special
+      // If both dates are set, use the date range
+      const effectiveEndDate = endDate || startDate;
+      const start = startOfDay(startDate);
+      const end = endOfDay(effectiveEndDate);
+      
+      if (todayStart >= start && todayStart <= end) {
+        todaysFoodSpecials.push(special);
       }
     }
   }
@@ -377,14 +446,14 @@ export default async function HomePage() {
       const startDateValue = special.startDate as string | Date;
       startDateStr = typeof startDateValue === 'string' 
         ? startDateValue.split('T')[0] 
-        : startDateValue.toISOString().split('T')[0];
+        : getMountainTimeDateString(startDateValue);
     }
     
     if (special.endDate) {
       const endDateValue = special.endDate as string | Date;
       endDateStr = typeof endDateValue === 'string' 
         ? endDateValue.split('T')[0] 
-        : endDateValue.toISOString().split('T')[0];
+        : getMountainTimeDateString(endDateValue);
     }
     
     const startDate = startDateStr ? parseMountainTimeDate(startDateStr) : null;
@@ -642,19 +711,21 @@ export default async function HomePage() {
           {/* Today's Highlights Section - Dynamic Content */}
           {(() => {
             const highlightItems = [
-              todaysFoodSpecial,
+              ...todaysFoodSpecials,
               todaysDrinkSpecial,
-              todaysEvents.length > 0 ? todaysEvents[0] : null,
             ].filter(Boolean);
             const hasHappyHour = happyHour && happyHour.enabled;
-            const hasHighlights = highlightItems.length > 0 || hasHappyHour;
+            const hasHighlights = highlightItems.length > 0 || todaysEvents.length > 0 || hasHappyHour;
             
             if (!hasHighlights) return null;
+            
+            // Calculate total items for grid layout (specials + events)
+            const totalItems = highlightItems.length + todaysEvents.length;
             
             return (
               <div className="mb-8 md:mb-12 max-w-7xl mx-auto">
                 {/* Section Header - Only show if there are highlight items */}
-                {highlightItems.length > 0 && (
+                {(highlightItems.length > 0 || todaysEvents.length > 0) && (
                   <div className="text-center mb-6 md:mb-8">
                     <h2 className="text-3xl md:text-4xl font-bold text-white mb-2">Today&apos;s Highlights</h2>
                     <div className="w-20 h-0.5 bg-gradient-to-r from-transparent via-white/50 to-transparent mx-auto"></div>
@@ -662,23 +733,26 @@ export default async function HomePage() {
                 )}
 
                 {/* Dynamic Content Grid - Optimized for all combinations */}
-                {highlightItems.length > 0 && (() => {
-                  const itemCount = highlightItems.length;
-                  // Optimize grid layout based on item count
+                {(highlightItems.length > 0 || todaysEvents.length > 0) && (() => {
+                  // Optimize grid layout based on total item count
                   let gridCols: string;
                   let maxWidth: string;
                   let cardPadding: string;
                   
-                  if (itemCount === 1) {
+                  if (totalItems === 1) {
                     gridCols = 'grid-cols-1';
                     maxWidth = 'max-w-2xl mx-auto';
                     cardPadding = 'p-8 md:p-10';
-                  } else if (itemCount === 2) {
+                  } else if (totalItems === 2) {
                     gridCols = 'grid-cols-1 md:grid-cols-2';
                     maxWidth = 'max-w-5xl mx-auto';
                     cardPadding = 'p-6 md:p-8';
+                  } else if (totalItems === 3) {
+                    gridCols = 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3';
+                    maxWidth = 'max-w-7xl mx-auto';
+                    cardPadding = 'p-6 md:p-8';
                   } else {
-                    // 3 items
+                    // 4+ items - use responsive grid
                     gridCols = 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3';
                     maxWidth = 'max-w-7xl mx-auto';
                     cardPadding = 'p-6 md:p-8';
@@ -686,9 +760,9 @@ export default async function HomePage() {
                   
                   return (
                     <div className={`grid ${gridCols} ${maxWidth} gap-4 md:gap-6 mb-6 md:mb-8`}>
-                      {/* Food Special */}
-                      {todaysFoodSpecial && (
-                        <div className={`relative bg-gradient-to-br from-orange-950/95 via-red-950/95 to-orange-950/95 backdrop-blur-md rounded-2xl ${cardPadding} shadow-2xl overflow-hidden animate-fade-in transition-none border border-orange-500/20`}>
+                      {/* Food Specials - Show all matching food specials */}
+                      {todaysFoodSpecials.map((special) => (
+                        <div key={special.id} className={`relative bg-gradient-to-br from-orange-950/95 via-red-950/95 to-orange-950/95 backdrop-blur-md rounded-2xl ${cardPadding} shadow-2xl overflow-hidden animate-fade-in transition-none border border-orange-500/20`}>
                           <div className="absolute inset-0 opacity-0">
                             <div className="absolute top-0 right-0 w-40 h-40 bg-orange-400/20 rounded-full -mr-20 -mt-20 blur-2xl"></div>
                             <div className="absolute bottom-0 left-0 w-32 h-32 bg-red-400/20 rounded-full -ml-16 -mb-16 blur-2xl"></div>
@@ -705,31 +779,31 @@ export default async function HomePage() {
                               </span>
                             </div>
                             <h3 className="text-2xl md:text-3xl font-bold text-white mb-3 leading-tight">
-                              {todaysFoodSpecial.title}
+                              {special.title}
                             </h3>
-                            {todaysFoodSpecial.description && (
+                            {special.description && (
                               <p className="text-sm md:text-base text-white/90 mb-3 leading-relaxed">
-                                {todaysFoodSpecial.description}
+                                {special.description}
                               </p>
                             )}
-                            {todaysFoodSpecial.priceNotes && (
+                            {special.priceNotes && (
                               <div className="inline-block px-4 py-2 bg-gradient-to-r from-orange-500/30 to-red-500/30 rounded-lg backdrop-blur-sm mb-3">
                                 <p className="text-orange-200 font-bold text-base md:text-lg">
-                                  {todaysFoodSpecial.priceNotes}
+                                  {special.priceNotes}
                                 </p>
                               </div>
                             )}
-                            {todaysFoodSpecial.timeWindow && (
+                            {special.timeWindow && (
                               <div className="flex items-center gap-2 text-white/70 text-sm mt-4 pt-4 border-t border-white/10">
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
-                                <span>{todaysFoodSpecial.timeWindow}</span>
+                                <span>{special.timeWindow}</span>
                               </div>
                             )}
                           </div>
                         </div>
-                      )}
+                      ))}
 
                       {/* Drink Special */}
                       {todaysDrinkSpecial && (
@@ -776,9 +850,9 @@ export default async function HomePage() {
                         </div>
                       )}
 
-                      {/* Today's Event */}
-                      {todaysEvents.length > 0 && (
-                        <div className={`relative bg-gradient-to-br from-purple-950/95 via-pink-950/95 to-purple-950/95 backdrop-blur-md rounded-2xl ${cardPadding} shadow-2xl overflow-hidden animate-fade-in transition-none border border-purple-500/20`}>
+                      {/* Today's Events - Show all events */}
+                      {todaysEvents.map((event, index) => (
+                        <div key={`${event.id}-${event.startDateTime}-${index}`} className={`relative bg-gradient-to-br from-purple-950/95 via-pink-950/95 to-purple-950/95 backdrop-blur-md rounded-2xl ${cardPadding} shadow-2xl overflow-hidden animate-fade-in transition-none border border-purple-500/20`}>
                           <div className="absolute inset-0 opacity-0">
                             <div className="absolute top-0 right-0 w-32 h-32 bg-purple-400/20 rounded-full -mr-16 -mt-16 blur-2xl"></div>
                             <div className="absolute bottom-0 left-0 w-24 h-24 bg-pink-400/20 rounded-full -ml-12 -mb-12 blur-2xl"></div>
@@ -796,12 +870,12 @@ export default async function HomePage() {
                             </div>
                             
                             <h3 className="text-2xl md:text-3xl font-bold text-white mb-3 leading-tight flex-1">
-                              {todaysEvents[0].title}
+                              {event.title}
                             </h3>
                             
-                            {todaysEvents[0].description && (
+                            {event.description && (
                               <p className="text-sm md:text-base text-white/90 mb-4 leading-relaxed">
-                                {todaysEvents[0].description}
+                                {event.description}
                               </p>
                             )}
                             
@@ -813,21 +887,23 @@ export default async function HomePage() {
                               </div>
                               <div className="flex-1">
                                 <span className="text-purple-200 font-semibold text-sm md:text-base block">
-                                  {new Date(todaysEvents[0].startDateTime).toLocaleTimeString('en-US', {
+                                  {new Date(event.startDateTime).toLocaleTimeString('en-US', {
                                     hour: 'numeric',
                                     minute: '2-digit',
+                                    timeZone: 'America/Denver',
                                   })}
-                                  {todaysEvents[0].endDateTime &&
-                                    ` - ${new Date(todaysEvents[0].endDateTime).toLocaleTimeString('en-US', {
+                                  {event.endDateTime &&
+                                    ` - ${new Date(event.endDateTime).toLocaleTimeString('en-US', {
                                       hour: 'numeric',
                                       minute: '2-digit',
+                                      timeZone: 'America/Denver',
                                     })}`}
                                 </span>
                               </div>
                             </div>
                           </div>
                         </div>
-                      )}
+                      ))}
                     </div>
                   );
                 })()}
@@ -935,14 +1011,14 @@ export default async function HomePage() {
       </section>
 
       {/* About Section */}
-      <section id="about" aria-label="About section" className="py-20 md:py-32 px-4 bg-gradient-to-b from-black via-gray-900 to-black">
+      <section id="about" aria-label="About section" className="py-20 md:py-32 px-4 bg-gradient-to-b from-gray-50 via-white to-gray-50 dark:from-black dark:via-gray-900 dark:to-black">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12">
-            <h2 className="text-5xl md:text-6xl font-bold mb-4 text-white">{about.title || "A Neighborhood Institution"}</h2>
+            <h2 className="text-5xl md:text-6xl font-bold mb-4 text-gray-900 dark:text-white">{about.title || "A Neighborhood Institution"}</h2>
             <div className="w-24 h-1 bg-[var(--color-accent)] mx-auto mb-8"></div>
           </div>
           
-          <div className="space-y-6 text-lg md:text-xl text-gray-300 leading-relaxed">
+          <div className="space-y-6 text-lg md:text-xl text-gray-700 dark:text-gray-300 leading-relaxed">
             {about.paragraph1 ? (
               <p>
                 {about.paragraph1}
@@ -954,11 +1030,11 @@ export default async function HomePage() {
             )}
             
             {about.paragraph2Title ? (
-              <p className="text-white font-semibold">
+              <p className="text-gray-900 dark:text-white font-semibold">
                 {about.paragraph2Title}
               </p>
             ) : (
-              <p className="text-white font-semibold">
+              <p className="text-gray-900 dark:text-white font-semibold">
                 A Woman-Owned Legacy
               </p>
             )}
@@ -987,46 +1063,46 @@ export default async function HomePage() {
       </section>
 
       {/* Gallery Carousel */}
-      <section id="gallery" aria-label="Gallery section" className="py-16 md:py-24 px-4 bg-gray-900">
+      <section id="gallery" aria-label="Gallery section" className="py-16 md:py-24 px-3 sm:px-4 md:px-6 lg:px-8 bg-white dark:bg-gray-900">
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-4xl md:text-5xl font-bold mb-12 text-center">{gallery.title || "Inside Monaghan's"}</h2>
+          <h2 className="text-4xl md:text-5xl font-bold mb-12 text-center text-gray-900 dark:text-white">{gallery.title || "Inside Monaghan's"}</h2>
           <ImageCarousel />
         </div>
       </section>
 
       {/* Events Section */}
-      <section id="events" aria-label="Events section" className="py-16 md:py-24 px-4 bg-gradient-to-b from-black to-gray-900">
+      <section id="events" aria-label="Events section" className="py-16 md:py-24 px-3 sm:px-4 md:px-6 lg:px-8 bg-gradient-to-b from-white to-gray-50 dark:from-black dark:to-gray-900">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
-            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-white">Upcoming Events</h2>
-            <div className="w-24 h-1 bg-purple-500 mx-auto mb-8"></div>
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-gray-900 dark:text-white">Upcoming Events</h2>
+            <div className="w-24 h-1 bg-[var(--color-accent)] mx-auto mb-8"></div>
           </div>
 
           {upcomingEvents.length === 0 ? (
             <div className="text-center py-16">
-              <div className="bg-gray-900/60 backdrop-blur-sm border border-gray-800 rounded-xl p-12">
-                <svg className="w-16 h-16 mx-auto mb-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="bg-gray-100 dark:bg-gray-900/60 backdrop-blur-sm border border-gray-300 dark:border-gray-800 rounded-xl p-12">
+                <svg className="w-16 h-16 mx-auto mb-4 text-gray-400 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
-                <p className="text-gray-400 text-lg mb-2">No upcoming events</p>
-                <p className="text-gray-500 text-sm">Check back soon for updates!</p>
+                <p className="text-gray-600 dark:text-gray-400 text-lg mb-2">No upcoming events</p>
+                <p className="text-gray-500 dark:text-gray-500 text-sm">Check back soon for updates!</p>
               </div>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {upcomingEvents.map((event) => (
                 <div
-                  key={event.id}
-                  className="bg-gray-900/60 backdrop-blur-sm border border-gray-800 rounded-xl p-6"
+                  key={`${event.id}-${event.startDateTime}`}
+                  className="bg-white dark:bg-gray-900/60 backdrop-blur-sm border border-gray-300 dark:border-gray-800 rounded-xl p-6 shadow-sm dark:shadow-none"
                 >
-                  <h3 className="text-xl font-bold mb-3 text-white">{event.title}</h3>
+                  <h3 className="text-xl font-bold mb-3 text-gray-900 dark:text-white">{event.title}</h3>
                   {event.description && (
-                    <p className="text-gray-300 mb-4 leading-relaxed text-sm">{event.description}</p>
+                    <p className="text-gray-700 dark:text-gray-300 mb-4 leading-relaxed text-sm">{event.description}</p>
                   )}
                   
-                  <div className="space-y-2 pt-4 border-t border-gray-800">
-                    <div className="flex items-center gap-2 text-gray-400">
-                      <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="space-y-2 pt-4 border-t border-gray-300 dark:border-gray-800">
+                    <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                      <svg className="w-5 h-5 text-[var(--color-accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
                       <span className="text-sm">
@@ -1034,30 +1110,33 @@ export default async function HomePage() {
                           weekday: 'short',
                           month: 'short',
                           day: 'numeric',
+                          timeZone: 'America/Denver',
                         })}
                       </span>
                     </div>
                     
-                    <div className="flex items-center gap-2 text-gray-400">
-                      <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                      <svg className="w-5 h-5 text-[var(--color-accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                       <span className="text-sm">
                         {new Date(event.startDateTime).toLocaleTimeString('en-US', {
                           hour: 'numeric',
                           minute: '2-digit',
+                          timeZone: 'America/Denver',
                         })}
                         {event.endDateTime &&
                           ` - ${new Date(event.endDateTime).toLocaleTimeString('en-US', {
                             hour: 'numeric',
                             minute: '2-digit',
+                            timeZone: 'America/Denver',
                           })}`}
                       </span>
                     </div>
                     
                     {event.venueArea && (
-                      <div className="flex items-center gap-2 text-gray-400">
-                        <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                        <svg className="w-5 h-5 text-[var(--color-accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
@@ -1073,10 +1152,10 @@ export default async function HomePage() {
           <div className="text-center mt-12">
             <Link
               href="/events"
-              className="inline-flex items-center gap-2 px-6 py-3 border border-purple-500 text-purple-400 hover:bg-purple-500 hover:text-white rounded-lg transition cursor-pointer"
+              className="group inline-flex items-center gap-2 px-6 py-3 bg-[var(--color-accent)] hover:bg-[var(--color-accent-dark)] text-white rounded-lg transition-all shadow-lg hover:shadow-xl hover:scale-105 cursor-pointer"
             >
-              View All Events
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <span>View All Events</span>
+              <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </Link>

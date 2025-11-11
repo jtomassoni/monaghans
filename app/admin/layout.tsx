@@ -37,7 +37,7 @@ export default async function AdminLayout({
           <div className="absolute bottom-0 left-1/3 w-96 h-96 bg-gradient-to-tr from-indigo-200/20 dark:from-indigo-900/20 to-transparent rounded-full blur-3xl"></div>
         </div>
         <AdminNav
-          isSuperadmin={session.user.role === 'superadmin'}
+          userRole={session.user.role}
           userName={session.user.name || undefined}
           userEmail={session.user.email || undefined}
         />

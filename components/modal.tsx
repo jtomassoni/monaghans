@@ -25,11 +25,13 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-gray-900/20 dark:bg-gray-900/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 bg-black/20 dark:bg-black/60 backdrop-blur-sm md:pl-64"
       onClick={onClose}
-      style={{ paddingLeft: '17rem' }}
     >
-      <div className="h-full flex items-center justify-center px-8 py-4">
+      <div 
+        className="h-full flex items-center justify-center px-8 py-4"
+        onClick={onClose}
+      >
         <div
           className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-h-[94vh] max-w-7xl flex flex-col"
           onClick={(e) => e.stopPropagation()}
@@ -39,7 +41,7 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
           <h2 className="text-lg font-bold text-gray-900 dark:text-white">{title}</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-white text-2xl leading-none"
+            className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-white text-2xl leading-none cursor-pointer"
           >
             ×
           </button>

@@ -20,6 +20,25 @@ interface CartItem {
   specialInstructions?: string;
 }
 
+interface MenuItem {
+  id: string;
+  name: string;
+  description: string | null;
+  price: string | null;
+  priceNotes: string | null;
+  modifiers: string | null;
+  section?: {
+    id: string;
+    name: string;
+  };
+}
+
+interface MenuSection {
+  id: string;
+  name: string;
+  items: MenuItem[];
+}
+
 // Initialize Stripe
 const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
   ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
@@ -204,7 +223,7 @@ function PaymentForm({
       <button
         type="submit"
         disabled={!stripe || processing}
-        className="w-full px-4 py-3 bg-[var(--color-accent)] hover:bg-[var(--color-accent-dark)] text-white font-semibold rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full px-4 py-3 bg-[var(--color-accent)] hover:bg-[var(--color-accent-dark)] text-white font-semibold rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
       >
         {processing ? 'Processing Payment...' : `Pay $${calculateTotal().toFixed(2)}`}
       </button>
@@ -224,6 +243,16 @@ export default function CheckoutPage() {
   });
   const [pickupOption, setPickupOption] = useState<'asap' | 'later'>('asap');
   const [showPayment, setShowPayment] = useState(false);
+  const [processingDemo, setProcessingDemo] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
+  const [menuSections, setMenuSections] = useState<MenuSection[]>([]);
+  const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
+  const [selectedItemSection, setSelectedItemSection] = useState<MenuSection | null>(null);
+  const [selectedModifiers, setSelectedModifiers] = useState<string[]>([]);
+  const [selectedSide, setSelectedSide] = useState<string>('');
+  const [itemQuantity, setItemQuantity] = useState(1);
+  const [itemNotes, setItemNotes] = useState('');
 
   useEffect(() => {
     // Load cart from sessionStorage
@@ -234,6 +263,20 @@ export default function CheckoutPage() {
       // No cart, redirect to menu page
       router.push('/menu');
     }
+
+    // Fetch menu sections for editing
+    const fetchMenuSections = async () => {
+      try {
+        const response = await fetch('/api/menu-sections?active=true');
+        if (response.ok) {
+          const sections = await response.json();
+          setMenuSections(sections);
+        }
+      } catch (error) {
+        console.error('Failed to fetch menu sections:', error);
+      }
+    };
+    fetchMenuSections();
   }, [router]);
 
   const calculateSubtotal = () => {
@@ -265,6 +308,172 @@ export default function CheckoutPage() {
   const handlePaymentError = (error: string) => {
     // Error is already shown in PaymentForm component
     console.error('Payment error:', error);
+  };
+
+  // Parse price string to number (handles "$14", "$8-12", etc.)
+  const parsePrice = (priceStr: string | null): number => {
+    if (!priceStr) return 0;
+    // Extract first number from price string
+    const match = priceStr.match(/\$?(\d+\.?\d*)/);
+    return match ? parseFloat(match[1]) : 0;
+  };
+
+  // Determine if an item is an entree (requires side selection)
+  const isEntree = (section: MenuSection | null): boolean => {
+    if (!section) return false;
+    const nonEntreeSections = ['Starters', 'Add-Ons', 'Sauces', 'Salads'];
+    return !nonEntreeSections.includes(section.name);
+  };
+
+  const sideOptions = ['Fries', 'Tots', 'Sweet Pot Fries'];
+
+  const handleEditItem = (index: number) => {
+    const cartItem = cart[index];
+    setEditingItemIndex(index);
+
+    // Find the menu item from the sections we already fetched
+    let menuItem: MenuItem | null = null;
+    let itemSection: MenuSection | null = null;
+
+    for (const section of menuSections) {
+      const item = section.items.find((i: MenuItem) => i.id === cartItem.menuItemId);
+      if (item) {
+        menuItem = item;
+        itemSection = section;
+        break;
+      }
+    }
+
+    if (menuItem) {
+      setSelectedItem(menuItem);
+      setSelectedItemSection(itemSection);
+      
+      // Parse existing modifiers and side
+      const existingModifiers = [...cartItem.modifiers];
+      const sideModifier = existingModifiers.find(m => m.startsWith('Side: '));
+      if (sideModifier) {
+        setSelectedSide(sideModifier.replace('Side: ', ''));
+        setSelectedModifiers(existingModifiers.filter(m => !m.startsWith('Side: ')));
+      } else {
+        setSelectedSide('');
+        setSelectedModifiers(existingModifiers);
+      }
+      
+      setItemQuantity(cartItem.quantity);
+      setItemNotes(cartItem.specialInstructions || '');
+      setShowEditModal(true);
+    } else {
+      // If item not found in sections, try fetching from API as fallback
+      fetch(`/api/menu-items?active=true`)
+        .then(response => response.json())
+        .then(allItems => {
+          const foundItem = allItems.find((item: MenuItem) => item.id === cartItem.menuItemId);
+          if (foundItem) {
+            const foundSection = menuSections.find(section => 
+              section.items.some(i => i.id === foundItem.id)
+            ) || null;
+            
+            setSelectedItem(foundItem);
+            setSelectedItemSection(foundSection);
+            
+            const existingModifiers = [...cartItem.modifiers];
+            const sideModifier = existingModifiers.find(m => m.startsWith('Side: '));
+            if (sideModifier) {
+              setSelectedSide(sideModifier.replace('Side: ', ''));
+              setSelectedModifiers(existingModifiers.filter(m => !m.startsWith('Side: ')));
+            } else {
+              setSelectedSide('');
+              setSelectedModifiers(existingModifiers);
+            }
+            
+            setItemQuantity(cartItem.quantity);
+            setItemNotes(cartItem.specialInstructions || '');
+            setShowEditModal(true);
+          }
+        })
+        .catch(error => {
+          console.error('Failed to fetch menu item:', error);
+        });
+    }
+  };
+
+  const handleSaveEdit = () => {
+    if (!selectedItem || editingItemIndex === null) return;
+
+    // Validate side selection for entrees
+    if (isEntree(selectedItemSection) && !selectedSide) {
+      alert('Please select a side option');
+      return;
+    }
+
+    const price = parsePrice(selectedItem.price);
+    // Include side in modifiers if it's an entree
+    const allModifiers = isEntree(selectedItemSection) && selectedSide
+      ? [...selectedModifiers, `Side: ${selectedSide}`]
+      : selectedModifiers;
+
+    const updatedCart = [...cart];
+    updatedCart[editingItemIndex] = {
+      menuItemId: selectedItem.id,
+      name: selectedItem.name,
+      price,
+      quantity: itemQuantity,
+      modifiers: allModifiers,
+      specialInstructions: itemNotes || undefined,
+    };
+
+    setCart(updatedCart);
+    sessionStorage.setItem('cart', JSON.stringify(updatedCart));
+    setShowEditModal(false);
+    setEditingItemIndex(null);
+    setSelectedItem(null);
+    setSelectedItemSection(null);
+    setSelectedModifiers([]);
+    setSelectedSide('');
+    setItemQuantity(1);
+    setItemNotes('');
+  };
+
+  const handleRemoveItem = (index: number) => {
+    const newCart = cart.filter((_, i) => i !== index);
+    setCart(newCart);
+    sessionStorage.setItem('cart', JSON.stringify(newCart));
+  };
+
+  const handleDemoPayment = async () => {
+    setProcessingDemo(true);
+    try {
+      const response = await fetch('/api/payments/demo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...formData,
+          pickupTime: pickupOption === 'asap' ? null : formData.pickupTime,
+          items: cart,
+          subtotal: calculateSubtotal(),
+          tax: calculateTax(),
+          total: calculateTotal(),
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to process demo payment');
+      }
+
+      const { order } = await response.json();
+      
+      // Clear cart
+      sessionStorage.removeItem('cart');
+      
+      // Redirect to confirmation
+      router.push(`/order/confirmation/${order.id}`);
+    } catch (error: any) {
+      console.error('Demo payment error:', error);
+      alert(error.message || 'Failed to process demo payment. Please try again.');
+    } finally {
+      setProcessingDemo(false);
+    }
   };
 
   if (cart.length === 0) {
@@ -315,7 +524,23 @@ export default function CheckoutPage() {
                       ${(item.price * item.quantity).toFixed(2)}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
+                  <div className="flex items-center justify-between mt-2">
+                    <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleEditItem(index)}
+                        className="text-xs text-[var(--color-accent)] hover:text-[var(--color-accent-dark)] transition cursor-pointer"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleRemoveItem(index)}
+                        className="text-xs text-red-400 hover:text-red-300 transition cursor-pointer"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -442,15 +667,15 @@ export default function CheckoutPage() {
                 </div>
 
                 <div className="flex gap-3 pt-4">
-          <Link
-            href="/menu"
-            className="flex-1 px-4 py-3 bg-gray-800 hover:bg-gray-700 text-white font-semibold rounded-lg transition text-center"
-          >
-            Back to Menu
-          </Link>
+                  <Link
+                    href="/menu"
+                    className="flex-1 px-4 py-3 bg-gray-800 hover:bg-gray-700 text-white font-semibold rounded-lg transition text-center cursor-pointer"
+                  >
+                    Add More Items
+                  </Link>
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-3 bg-[var(--color-accent)] hover:bg-[var(--color-accent-dark)] text-white font-semibold rounded-lg transition"
+                    className="flex-1 px-4 py-3 bg-[var(--color-accent)] hover:bg-[var(--color-accent-dark)] text-white font-semibold rounded-lg transition cursor-pointer"
                   >
                     Continue to Payment
                   </button>
@@ -475,19 +700,33 @@ export default function CheckoutPage() {
                   />
                   <button
                     onClick={() => setShowPayment(false)}
-                    className="w-full mt-4 px-4 py-3 bg-gray-800 hover:bg-gray-700 text-white font-semibold rounded-lg transition text-center"
+                    className="w-full mt-4 px-4 py-3 bg-gray-800 hover:bg-gray-700 text-white font-semibold rounded-lg transition text-center cursor-pointer"
                   >
                     Back to Customer Info
                   </button>
                 </Elements>
               ) : (
-                <div className="text-center py-8">
-                  <p className="text-gray-400 mb-4">Stripe is not configured. Please contact support.</p>
+                <div className="space-y-4">
+                  <div className="bg-yellow-900/20 border border-yellow-700/50 rounded-lg p-4 mb-4">
+                    <p className="text-yellow-300 text-sm font-semibold mb-2">Demo Mode</p>
+                    <p className="text-gray-400 text-xs">
+                      Stripe is not configured. Use the demo payment option below to complete your order for demonstration purposes.
+                    </p>
+                  </div>
+                  
+                  <button
+                    onClick={handleDemoPayment}
+                    disabled={processingDemo}
+                    className="w-full px-4 py-3 bg-[var(--color-accent)] hover:bg-[var(--color-accent-dark)] text-white font-semibold rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    {processingDemo ? 'Processing Demo Payment...' : `Process Demo Payment - $${calculateTotal().toFixed(2)}`}
+                  </button>
+                  
                   <button
                     onClick={() => setShowPayment(false)}
-                    className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg"
+                    className="w-full px-4 py-3 bg-gray-800 hover:bg-gray-700 text-white font-semibold rounded-lg transition text-center cursor-pointer"
                   >
-                    Go Back
+                    Back to Customer Info
                   </button>
                 </div>
               )
@@ -495,6 +734,140 @@ export default function CheckoutPage() {
           </div>
         </div>
       </div>
+
+      {/* Edit Item Modal */}
+      {showEditModal && selectedItem && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-gray-900 border border-gray-800 rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <h3 className="text-xl font-bold text-white mb-2">Edit {selectedItem.name}</h3>
+            {selectedItem.description && (
+              <p className="text-gray-300 text-sm mb-4">{selectedItem.description}</p>
+            )}
+            {selectedItem.price && (
+              <p className="text-lg font-bold text-[var(--color-accent)] mb-4">{selectedItem.price}</p>
+            )}
+
+            {/* Side Selection (Required for Entrees) */}
+            {isEntree(selectedItemSection) && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Choose a Side <span className="text-red-400">*</span>
+                </label>
+                <div className="space-y-2">
+                  {sideOptions.map((side) => (
+                    <label key={side} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="side"
+                        value={side}
+                        checked={selectedSide === side}
+                        onChange={(e) => setSelectedSide(e.target.value)}
+                        className="w-4 h-4 text-[var(--color-accent)] bg-gray-800 border-gray-700 focus:ring-[var(--color-accent)]"
+                        required
+                      />
+                      <span className="text-sm text-gray-300">{side}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Modifiers */}
+            {selectedItem.modifiers && (() => {
+              try {
+                const modifiers = JSON.parse(selectedItem.modifiers);
+                if (Array.isArray(modifiers) && modifiers.length > 0) {
+                  return (
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Options</label>
+                      <div className="space-y-2">
+                        {modifiers.map((modifier: string, idx: number) => (
+                          <label key={idx} className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={selectedModifiers.includes(modifier)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedModifiers([...selectedModifiers, modifier]);
+                                } else {
+                                  setSelectedModifiers(selectedModifiers.filter(m => m !== modifier));
+                                }
+                              }}
+                              className="w-4 h-4 text-[var(--color-accent)] bg-gray-800 border-gray-700 rounded focus:ring-[var(--color-accent)]"
+                            />
+                            <span className="text-sm text-gray-300">{modifier}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                }
+              } catch {
+                // Invalid JSON, ignore
+              }
+              return null;
+            })()}
+
+            {/* Quantity */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-300 mb-2">Quantity</label>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setItemQuantity(Math.max(1, itemQuantity - 1))}
+                  className="w-8 h-8 flex items-center justify-center bg-gray-800 hover:bg-gray-700 rounded text-white cursor-pointer"
+                >
+                  -
+                </button>
+                <span className="text-white font-semibold w-8 text-center">{itemQuantity}</span>
+                <button
+                  onClick={() => setItemQuantity(itemQuantity + 1)}
+                  className="w-8 h-8 flex items-center justify-center bg-gray-800 hover:bg-gray-700 rounded text-white cursor-pointer"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            {/* Special Instructions */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-300 mb-2">Special Instructions</label>
+              <textarea
+                value={itemNotes}
+                onChange={(e) => setItemNotes(e.target.value)}
+                placeholder="Any special requests?"
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
+                rows={2}
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowEditModal(false);
+                  setEditingItemIndex(null);
+                  setSelectedItem(null);
+                  setSelectedItemSection(null);
+                  setSelectedSide('');
+                  setSelectedModifiers([]);
+                  setItemQuantity(1);
+                  setItemNotes('');
+                }}
+                className="flex-1 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                disabled={isEntree(selectedItemSection) && !selectedSide}
+                className="flex-1 px-4 py-2 bg-[var(--color-accent)] hover:bg-[var(--color-accent-dark)] disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition cursor-pointer"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

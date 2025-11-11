@@ -204,12 +204,12 @@ export default function DateTimePicker({ value, onChange, min, max, label, requi
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white text-sm cursor-pointer hover:border-blue-500 dark:hover:border-blue-500 focus:border-blue-500 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-colors text-left flex items-center justify-between"
+          className="w-full px-4 py-2.5 bg-white dark:bg-gray-800/95 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white text-sm cursor-pointer hover:border-blue-500 dark:hover:border-blue-500 focus:border-blue-500 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 text-left flex items-center justify-between shadow-sm hover:shadow-md group"
         >
-          <span className={displayValue ? '' : 'text-gray-400 dark:text-gray-500'}>
+          <span className={displayValue ? 'font-medium' : 'text-gray-400 dark:text-gray-500'}>
             {displayValue || 'Select date and time'}
           </span>
-          <svg className="w-5 h-5 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className={`w-5 h-5 text-gray-400 dark:text-gray-500 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''} group-hover:text-blue-500 dark:group-hover:text-blue-400`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
           </svg>
         </button>
@@ -217,43 +217,43 @@ export default function DateTimePicker({ value, onChange, min, max, label, requi
         {isOpen && (
           <div
             ref={pickerRef}
-            className={`absolute z-50 ${positionAbove ? 'bottom-full mb-2' : 'top-full mt-2'} bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-xl p-2.5 w-[700px] max-w-full`}
+            className={`absolute z-50 ${positionAbove ? 'bottom-full mb-2' : 'top-full mt-2'} bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl p-4 w-[720px] max-w-full backdrop-blur-sm transition-all duration-200 ease-out`}
             style={{ 
               left: `${horizontalOffset}px`
             }}
           >
-            <div className="flex gap-3 min-w-0">
+            <div className="flex gap-4 min-w-0">
               {/* Calendar */}
               <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center justify-between mb-3">
                   <button
                     type="button"
                     onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
-                    className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                    className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700/50 rounded-lg transition-all duration-200 hover:scale-110 cursor-pointer"
                   >
-                    <HiChevronLeft className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                    <HiChevronLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                   </button>
-                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white whitespace-nowrap px-1">
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white whitespace-nowrap px-1">
                     {format(currentMonth, 'MMMM yyyy')}
                   </h3>
                   <button
                     type="button"
                     onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
-                    className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                    className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700/50 rounded-lg transition-all duration-200 hover:scale-110 cursor-pointer"
                   >
-                    <HiChevronRight className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                    <HiChevronRight className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                   </button>
                 </div>
 
-                <div className="grid grid-cols-7 gap-0.5 mb-1.5">
+                <div className="grid grid-cols-7 gap-1 mb-2">
                   {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-                    <div key={day} className="text-xs font-medium text-gray-500 dark:text-gray-400 text-center py-0.5">
+                    <div key={day} className="text-xs font-semibold text-gray-500 dark:text-gray-400 text-center py-1.5">
                       {day}
                     </div>
                   ))}
                 </div>
 
-                <div className="grid grid-cols-7 gap-0.5 mb-2">
+                <div className="grid grid-cols-7 gap-1 mb-3">
                   {calendarDays.map((day, idx) => {
                     const isCurrentMonth = isSameMonth(day, currentMonth);
                     const isSelected = selectedDate ? isSameDay(day, selectedDate) : false;
@@ -267,15 +267,15 @@ export default function DateTimePicker({ value, onChange, min, max, label, requi
                         onClick={() => handleDateSelect(day)}
                         disabled={isDisabled}
                         className={`
-                          h-7 text-xs rounded transition-colors
+                          h-9 w-9 text-sm rounded-lg transition-all duration-200 flex items-center justify-center
                           ${isCurrentMonth ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}
                           ${isSelected 
-                            ? 'bg-blue-600 text-white font-semibold' 
+                            ? 'bg-blue-600 text-white font-semibold shadow-lg shadow-blue-500/50 scale-110' 
                             : isCurrentDay
-                            ? 'bg-blue-100 dark:bg-blue-900/30 font-semibold'
-                            : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                            ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-semibold ring-2 ring-blue-200 dark:ring-blue-800'
+                            : 'hover:bg-gray-100 dark:hover:bg-gray-700/50 hover:scale-105'
                           }
-                          ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                          ${isDisabled ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}
                         `}
                       >
                         {format(day, 'd')}
@@ -288,14 +288,14 @@ export default function DateTimePicker({ value, onChange, min, max, label, requi
                   <button
                     type="button"
                     onClick={() => handleQuickSelect('topOfHour')}
-                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                    className="flex-1 px-3 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors duration-200 cursor-pointer"
                   >
                     Top of Hour
                   </button>
                   <button
                     type="button"
                     onClick={() => handleQuickSelect('now')}
-                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                    className="flex-1 px-3 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors duration-200 cursor-pointer"
                   >
                     Now
                   </button>
@@ -303,23 +303,23 @@ export default function DateTimePicker({ value, onChange, min, max, label, requi
               </div>
 
               {/* Time Picker */}
-              <div className="flex-1 border-l border-gray-200 dark:border-gray-700 pl-3 min-w-0">
-                <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-1.5">Time</h4>
-                <div className="flex gap-2 mb-2">
+              <div className="flex-1 border-l border-gray-200 dark:border-gray-700 pl-4 min-w-0">
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Time</h4>
+                <div className="flex gap-3 mb-3">
                   {/* Hours - Grid layout, no scrolling needed */}
                   <div className="flex-1">
-                    <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Hour</label>
-                    <div className="grid grid-cols-6 gap-0.5 border border-gray-200 dark:border-gray-700 rounded bg-gray-50 dark:bg-gray-900 p-1">
+                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 block">Hour</label>
+                    <div className="grid grid-cols-6 gap-1 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-900/50 p-1.5">
                       {hours.map((hour) => (
                         <button
                           key={hour}
                           type="button"
                           onClick={() => handleTimeChange(hour, selectedTime.minutes)}
                           className={`
-                            px-1 py-0.5 text-xs rounded transition-colors
+                            px-1.5 py-1.5 text-xs rounded-lg transition-all duration-200 cursor-pointer
                             ${selectedTime.hours === hour
-                              ? 'bg-blue-600 text-white font-semibold'
-                              : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                              ? 'bg-blue-600 text-white font-semibold shadow-md shadow-blue-500/50 scale-105'
+                              : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700/50 hover:scale-105'
                             }
                           `}
                         >
@@ -331,18 +331,18 @@ export default function DateTimePicker({ value, onChange, min, max, label, requi
 
                   {/* Minutes - Grid layout, no scrolling needed */}
                   <div className="flex-1">
-                    <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Minute</label>
-                    <div className="grid grid-cols-4 gap-0.5 border border-gray-200 dark:border-gray-700 rounded bg-gray-50 dark:bg-gray-900 p-1">
+                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 block">Minute</label>
+                    <div className="grid grid-cols-4 gap-1 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-900/50 p-1.5">
                       {minutes.filter(m => m % 5 === 0).map((minute) => (
                         <button
                           key={minute}
                           type="button"
                           onClick={() => handleTimeChange(selectedTime.hours, minute)}
                           className={`
-                            px-1 py-0.5 text-xs rounded transition-colors
+                            px-1.5 py-1.5 text-xs rounded-lg transition-all duration-200 cursor-pointer
                             ${selectedTime.minutes === minute
-                              ? 'bg-blue-600 text-white font-semibold'
-                              : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                              ? 'bg-blue-600 text-white font-semibold shadow-md shadow-blue-500/50 scale-105'
+                              : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700/50 hover:scale-105'
                             }
                           `}
                         >
@@ -358,7 +358,7 @@ export default function DateTimePicker({ value, onChange, min, max, label, requi
                   <button
                     type="button"
                     onClick={() => handleTimeChange(selectedTime.hours + 12, selectedTime.minutes)}
-                    className="w-full px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded text-xs hover:bg-gray-200 dark:hover:bg-gray-600"
+                    className="w-full px-3 py-2 bg-gray-100 dark:bg-gray-700/50 text-gray-700 dark:text-gray-300 rounded-lg text-xs font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors duration-200 cursor-pointer"
                   >
                     Switch to PM
                   </button>
@@ -366,7 +366,7 @@ export default function DateTimePicker({ value, onChange, min, max, label, requi
                   <button
                     type="button"
                     onClick={() => handleTimeChange(selectedTime.hours - 12, selectedTime.minutes)}
-                    className="w-full px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded text-xs hover:bg-gray-200 dark:hover:bg-gray-600"
+                    className="w-full px-3 py-2 bg-gray-100 dark:bg-gray-700/50 text-gray-700 dark:text-gray-300 rounded-lg text-xs font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors duration-200 cursor-pointer"
                   >
                     Switch to AM
                   </button>
@@ -374,11 +374,11 @@ export default function DateTimePicker({ value, onChange, min, max, label, requi
               </div>
             </div>
 
-            <div className="mt-2 flex justify-end gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+            <div className="mt-3 flex justify-end gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 dark:bg-blue-600 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-500 transition-all duration-200 hover:scale-105 shadow-md shadow-blue-500/30 cursor-pointer"
               >
                 Done
               </button>

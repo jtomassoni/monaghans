@@ -10,10 +10,9 @@ interface SettingsFormProps {
   initialMapEmbed: any;
   initialHappyHour: any;
   initialSocial: any;
-  initialOrderManagement: any;
 }
 
-export default function SettingsForm({ initialContact, initialHours, initialMapEmbed, initialHappyHour, initialSocial, initialOrderManagement }: SettingsFormProps) {
+export default function SettingsForm({ initialContact, initialHours, initialMapEmbed, initialHappyHour, initialSocial }: SettingsFormProps) {
   const router = useRouter();
   const [contactLoading, setContactLoading] = useState(false);
   const [hoursLoading, setHoursLoading] = useState(false);
@@ -58,17 +57,12 @@ export default function SettingsForm({ initialContact, initialHours, initialMapE
     instagram: initialSocial?.instagram || '',
   };
 
-  const initialOrderManagementData = {
-    mode: initialOrderManagement?.mode || 'foh', // 'foh' or 'boh'
-  };
-
   // Store initial values in refs to compare against
   const initialContactRef = useRef(initialContactData);
   const initialHoursRef = useRef(initialHoursData);
   const initialMapEmbedRef = useRef(initialMapEmbedData);
   const initialHappyHourRef = useRef(initialHappyHourData);
   const initialSocialRef = useRef(initialSocialData);
-  const initialOrderManagementRef = useRef(initialOrderManagementData);
   
   // Update refs when props change (after save)
   useEffect(() => {
@@ -95,18 +89,12 @@ export default function SettingsForm({ initialContact, initialHours, initialMapE
     initialSocialRef.current = initialSocialData;
     setIsSocialDirty(false);
   }, [initialSocial?.facebook, initialSocial?.instagram]);
-
-  useEffect(() => {
-    initialOrderManagementRef.current = initialOrderManagementData;
-    setIsOrderManagementDirty(false);
-  }, [initialOrderManagement?.mode]);
   
   const [contact, setContact] = useState(initialContactData);
   const [hours, setHours] = useState(initialHoursData);
   const [mapEmbed, setMapEmbed] = useState(initialMapEmbedData);
   const [happyHour, setHappyHour] = useState(initialHappyHourData);
   const [social, setSocial] = useState(initialSocialData);
-  const [orderManagement, setOrderManagement] = useState(initialOrderManagementData);
 
   // Track dirty state
   const [isContactDirty, setIsContactDirty] = useState(false);
@@ -114,8 +102,6 @@ export default function SettingsForm({ initialContact, initialHours, initialMapE
   const [isSocialDirty, setIsSocialDirty] = useState(false);
   const [isHappyHourDirty, setIsHappyHourDirty] = useState(false);
   const [isMapDirty, setIsMapDirty] = useState(false);
-  const [isOrderManagementDirty, setIsOrderManagementDirty] = useState(false);
-  const [orderManagementLoading, setOrderManagementLoading] = useState(false);
 
   // Check if forms are dirty
   useEffect(() => {
@@ -137,10 +123,6 @@ export default function SettingsForm({ initialContact, initialHours, initialMapE
   useEffect(() => {
     setIsMapDirty(JSON.stringify(mapEmbed) !== JSON.stringify(initialMapEmbedRef.current));
   }, [mapEmbed]);
-
-  useEffect(() => {
-    setIsOrderManagementDirty(JSON.stringify(orderManagement) !== JSON.stringify(initialOrderManagementRef.current));
-  }, [orderManagement]);
 
   async function handleSaveContact() {
     setContactLoading(true);
@@ -282,33 +264,6 @@ export default function SettingsForm({ initialContact, initialHours, initialMapE
     setIsMapDirty(false);
   }
 
-  async function handleSaveOrderManagement() {
-    setOrderManagementLoading(true);
-    try {
-      await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          key: 'orderManagement',
-          value: orderManagement,
-          description: 'Order management mode configuration',
-        }),
-      });
-      router.refresh();
-      setIsOrderManagementDirty(false);
-      initialOrderManagementRef.current = orderManagement;
-      showToast('Order management settings saved successfully', 'success');
-    } catch (error) {
-      showToast('Failed to save order management settings', 'error', error instanceof Error ? error.message : 'Please try again.');
-    } finally {
-      setOrderManagementLoading(false);
-    }
-  }
-
-  function handleCancelOrderManagement() {
-    setOrderManagement(initialOrderManagementRef.current);
-    setIsOrderManagementDirty(false);
-  }
 
   function updateHours(day: string, field: 'open' | 'close', value: string) {
     setHours({
@@ -370,7 +325,7 @@ export default function SettingsForm({ initialContact, initialHours, initialMapE
                     type="text"
                     value={contact.address}
                     onChange={(e) => setContact({ ...contact, address: e.target.value })}
-                    className="w-full px-3 py-1.5 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white cursor-text focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
+                    className="w-full px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white cursor-text focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
                   />
                 </div>
                 <div>
@@ -380,7 +335,7 @@ export default function SettingsForm({ initialContact, initialHours, initialMapE
                     type="text"
                     value={contact.city}
                     onChange={(e) => setContact({ ...contact, city: e.target.value })}
-                    className="w-full px-3 py-1.5 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white cursor-text focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
+                    className="w-full px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white cursor-text focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
                   />
                 </div>
                 <div>
@@ -390,7 +345,7 @@ export default function SettingsForm({ initialContact, initialHours, initialMapE
                     type="text"
                     value={contact.state}
                     onChange={(e) => setContact({ ...contact, state: e.target.value })}
-                    className="w-full px-3 py-1.5 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white cursor-text focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
+                    className="w-full px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white cursor-text focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
                   />
                 </div>
                 <div>
@@ -400,7 +355,7 @@ export default function SettingsForm({ initialContact, initialHours, initialMapE
                     type="text"
                     value={contact.zip}
                     onChange={(e) => setContact({ ...contact, zip: e.target.value })}
-                    className="w-full px-3 py-1.5 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white cursor-text focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
+                    className="w-full px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white cursor-text focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
                   />
                 </div>
                 <div>
@@ -410,7 +365,7 @@ export default function SettingsForm({ initialContact, initialHours, initialMapE
                     type="tel"
                     value={contact.phone}
                     onChange={(e) => setContact({ ...contact, phone: e.target.value })}
-                    className="w-full px-3 py-1.5 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white cursor-text focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
+                    className="w-full px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white cursor-text focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
                   />
                 </div>
                 <div>
@@ -420,98 +375,13 @@ export default function SettingsForm({ initialContact, initialHours, initialMapE
                     type="email"
                     value={contact.email}
                     onChange={(e) => setContact({ ...contact, email: e.target.value })}
-                    className="w-full px-3 py-1.5 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white cursor-text focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
+                    className="w-full px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white cursor-text focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
                   />
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Administration Settings */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600 shadow-md overflow-hidden">
-            <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-              <div className="flex justify-between items-center">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Administration</h2>
-                <div className="flex gap-2">
-                  {isOrderManagementDirty && (
-                    <button
-                      type="button"
-                      onClick={handleCancelOrderManagement}
-                      className="px-4 py-1.5 bg-gray-500 hover:bg-gray-600 rounded font-medium cursor-pointer transition text-white text-xs"
-                    >
-                      Cancel
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={handleSaveOrderManagement}
-                    disabled={orderManagementLoading || !isOrderManagementDirty}
-                    className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 rounded font-medium disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition text-white text-xs"
-                  >
-                    {orderManagementLoading ? 'Saving...' : 'Save'}
-                  </button>
-                </div>
-              </div>
-            </div>
-            <div className="p-4">
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Order Management Mode</h3>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
-                    Choose how online orders are managed. This affects which department handles order acknowledgment and tip distribution.
-                  </p>
-                  <div className="space-y-3">
-                    <label className="flex items-start gap-3 p-4 border-2 rounded-lg cursor-pointer transition-all hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                      style={{
-                        borderColor: orderManagement.mode === 'foh' ? 'rgb(37 99 235)' : 'rgb(209 213 219)',
-                        backgroundColor: orderManagement.mode === 'foh' ? 'rgb(239 246 255)' : 'transparent',
-                      }}
-                    >
-                      <input
-                        type="radio"
-                        name="orderMode"
-                        value="foh"
-                        checked={orderManagement.mode === 'foh'}
-                        onChange={(e) => setOrderManagement({ ...orderManagement, mode: e.target.value })}
-                        className="mt-1 w-4 h-4 cursor-pointer text-blue-600 dark:text-blue-400 focus:ring-blue-500 dark:focus:ring-blue-400"
-                      />
-                      <div className="flex-1">
-                        <div className="font-semibold text-gray-900 dark:text-white mb-1">Front of House (FOH) Mode</div>
-                        <div className="text-sm text-gray-600 dark:text-gray-400">
-                          FOH staff acknowledge orders on a tablet/laptop. FOH handles order confirmation and customer interaction. 
-                          BOH receives orders after confirmation and handles preparation.
-                        </div>
-                      </div>
-                    </label>
-                    <label className="flex items-start gap-3 p-4 border-2 rounded-lg cursor-pointer transition-all hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                      style={{
-                        borderColor: orderManagement.mode === 'boh' ? 'rgb(37 99 235)' : 'rgb(209 213 219)',
-                        backgroundColor: orderManagement.mode === 'boh' ? 'rgb(239 246 255)' : 'transparent',
-                      }}
-                    >
-                      <input
-                        type="radio"
-                        name="orderMode"
-                        value="boh"
-                        checked={orderManagement.mode === 'boh'}
-                        onChange={(e) => setOrderManagement({ ...orderManagement, mode: e.target.value })}
-                        className="mt-1 w-4 h-4 cursor-pointer text-blue-600 dark:text-blue-400 focus:ring-blue-500 dark:focus:ring-blue-400"
-                      />
-                      <div className="flex-1">
-                        <div className="font-semibold text-gray-900 dark:text-white mb-1">Back of House (BOH) Mode</div>
-                        <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                          BOH manages online orders end-to-end. They handle everything except giving the order to the customer or delivery driver.
-                        </div>
-                        <div className="text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 p-2 rounded">
-                          💰 Tip Distribution: BOH receives 70% of tips, FOH receives 30%
-                        </div>
-                      </div>
-                    </label>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Right Column - Hours & Happy Hour */}
@@ -551,13 +421,13 @@ export default function SettingsForm({ initialContact, initialHours, initialMapE
                       type="time"
                       value={hours[day.key as keyof typeof hours].open}
                       onChange={(e) => updateHours(day.key, 'open', e.target.value)}
-                      className="px-2 py-1 text-xs bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white cursor-text focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
+                      className="px-2 py-1 text-xs bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white cursor-text focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
                     />
                     <input
                       type="time"
                       value={hours[day.key as keyof typeof hours].close}
                       onChange={(e) => updateHours(day.key, 'close', e.target.value)}
-                      className="px-2 py-1 text-xs bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white cursor-text focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
+                      className="px-2 py-1 text-xs bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white cursor-text focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
                     />
                   </div>
                 ))}

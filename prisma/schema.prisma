@@ -116,7 +116,7 @@ model User {
   email      String        @unique
   name       String?
   image      String? // Profile image from Google
-  role       String        @default("admin") // "superadmin" or "admin"
+  role       String        @default("admin") // "superadmin", "owner", "manager", "cook", "bartender", "barback"
   isActive   Boolean       @default(true)
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @updatedAt
@@ -252,34 +252,113 @@ model MenuItemIngredient {
 
 // Employee management for labor cost tracking
 model Employee {
-  id           String   @id @default(cuid())
+  id           String              @id @default(cuid())
   name         String
-  email        String?  @unique
+  email        String              @unique // Required for credential management
   phone        String?
-  role         String // "server", "bartender", "cook", "dishwasher", "manager"
-  hourlyWage   Float // Hourly wage in dollars
-  isActive     Boolean  @default(true)
+  pin           String?             @unique // PIN for timeclock access
+  role         String              // "cook", "bartender", "barback"
+  hourlyWage   Float               // Hourly wage in dollars
+  isActive     Boolean             @default(true)
+  deletedAt    DateTime?           // Soft delete timestamp (null = not deleted)
   hireDate     DateTime?
   notes        String?
-  shifts       Shift[]
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  shifts       Shift[]             // Actual worked shifts (clock in/out)
+  schedules    Schedule[]          // Scheduled shifts (planned)
+  availability EmployeeAvailability[] // Employee availability entries
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
 
   @@index([isActive])
+  @@index([role])
+  @@index([deletedAt])
+  @@index([pin])
 }
 
-// Shift tracking for labor cost analysis
+// Scheduled shifts (planned shifts for scheduling)
+model Schedule {
+  id         String    @id @default(cuid())
+  employeeId String
+  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date       DateTime  // Date of the shift (time component ignored)
+  shiftType  String    // "open" (open to 4pm) or "close" (4pm to close)
+  startTime  DateTime  // Actual start time (accounts for kitchen 1hr early)
+  endTime    DateTime  // Actual end time (accounts for kitchen 1hr early + cleanup)
+  notes      String?   // Schedule notes
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([employeeId])
+  @@index([date])
+  @@unique([employeeId, date, shiftType]) // One employee can't have duplicate shift types on same day
+}
+
+// Shift tracking for labor cost analysis (actual worked time)
 model Shift {
   id         String    @id @default(cuid())
   employeeId String
   employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  scheduleId String?   // Optional link to scheduled shift
   clockIn    DateTime
   clockOut   DateTime?
   breakMin   Int       @default(0) // Break time in minutes (unpaid)
-  notes      String? // Shift notes
+  notes      String?   // Shift notes
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
   @@index([employeeId])
   @@index([clockIn])
+  @@index([scheduleId])
+}
+
+// Shift requirements - defines how many of each role are needed per day/shift
+model ShiftRequirement {
+  id         String    @id @default(cuid())
+  date       DateTime  // Date of the requirement (time component ignored)
+  shiftType  String    // "open" or "close"
+  cooks      Int       @default(0) // Number of cooks needed
+  bartenders Int       @default(0) // Number of bartenders needed
+  barbacks   Int       @default(0) // Number of barbacks needed
+  notes      String?   // Optional notes about this requirement
+  isFilled   Boolean   @default(false) // Whether this shift is marked as filled/complete
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([date])
+  @@unique([date, shiftType]) // One requirement per day/shift type
+}
+
+// Weekly schedule template - default requirements for each day of the week
+model WeeklyScheduleTemplate {
+  id         String    @id @default(cuid())
+  name       String    // Template name (e.g., "Standard Week", "Holiday Week")
+  dayOfWeek  Int       // 0-6 (Sunday-Saturday)
+  shiftType  String    // "open" or "close"
+  cooks      Int       @default(0)
+  bartenders Int       @default(0)
+  barbacks   Int       @default(0)
+  notes      String?   // Optional notes
+  isActive   Boolean   @default(true) // Can have multiple templates, one active
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([dayOfWeek, shiftType])
+  @@unique([dayOfWeek, shiftType, name]) // Unique combination per template name
+}
+
+// Employee availability - monthly availability entries
+model EmployeeAvailability {
+  id         String    @id @default(cuid())
+  employeeId String
+  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date       DateTime  // Date of availability (time component ignored)
+  shiftType  String?   // "open", "close", or null for all day
+  isAvailable Boolean  @default(true) // true = available, false = unavailable
+  notes      String?   // Optional notes (e.g., "Doctor appointment")
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([employeeId])
+  @@index([date])
+  @@unique([employeeId, date, shiftType]) // One availability entry per employee/date/shift
 }

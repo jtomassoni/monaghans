@@ -139,52 +139,21 @@ pg_dump $DATABASE_URL > backup.sql
 - **Mobile-Optimized** - Responsive layouts with collapsible filters, optimized spacing for mobile devices
 - **Social Media Integration** - Facebook posting with collapsible search/sort/filter controls on mobile
 
-## TODO / Roadmap
+## Tech Stack
 
-> **Note:** See [TODO.md](./TODO.md) for the complete roadmap with all phases and implementation progress.
+- **Framework:** Next.js 14+ (App Router)
+- **Language:** TypeScript
+- **Styling:** Tailwind CSS
+- **Database:** PostgreSQL (Prisma ORM)
+- **Authentication:** NextAuth.js
+- **Payments:** Stripe
+- **Deployment:** Vercel
 
-## UX & Content Guidelines (apply throughout)
+## Contributing
 
-- Copy tone: friendly, local, no tech jargon
-- Forms: one clear purpose per screen, hints under labels, sensible defaults
-- Readability: 18px base, 1.6 line-height, max-width ~70ch
-- Buttons: "Save & Preview," "Publish," "Save Draft"
+This is a private project. For questions or issues, please contact the repository owner.
 
----
+## License
 
-## Progress Log
-
-*Last updated: 2025-01-27*
-
-### Recent Improvements
-- ✅ **Mobile Layout Optimizations** - Improved mobile experience for social media filters and homepage highlights
-  - Added collapsible toggle for search/sort/filter controls on mobile (hidden by default, expandable on demand)
-  - Active filter count badge shows when filters are applied
-  - Reduced vertical spacing on mobile for better content visibility
-  - Responsive Today's Highlights section with centered layout for fewer items
-  - Enhanced card padding when only 1-2 items are displayed
-  - Optimized scroll container height calculations for mobile
-
-### Completed
-- ✅ Phase 0: Project initialized with Next.js, TypeScript, Tailwind, ESLint, Prettier
-- ✅ Phase 1: Prisma schema defined with all models (Special, Event, Announcement, Setting, PostQueue, MenuSection, MenuItem, User, ActivityLog, FacebookPost)
-- ✅ Database migrated and seeded with sample data
-- ✅ Phase 2: Admin dashboard with calendar view, CRUD forms for Specials, Events, Announcements, Menu system
-- ✅ Phase 3: Public site pages (Homepage, Events, Menu, Contact, About section)
-- ✅ Phase 4: Theme & Readability (keyboard navigation, skip links, ARIA labels, screen-reader compatibility)
-- ✅ Phase 5: Social media cross-posting with Facebook API integration
-- ✅ Phase 6: Polish & Ops (404/500 error pages, privacy-safe analytics, deployment docs)
-- ✅ Phase 8: Reporting & Insights (CMS analytics, pageviews, insights, extensible architecture)
-- ✅ Phase 14 (Partial): Multi-user roles, audit log, Facebook posting
-
-### In Progress / Partially Complete
-- ⚠️ Phase 2: Pages CRUD and unsaved-changes prompts pending
-- ⚠️ Phase 3: Sitemap/robots.txt pending (public announcements page not needed)
-
-### Next Up
-- Phase 3: Complete SEO (sitemap.xml, robots.txt)
-- Phase 2: Pages CRUD and unsaved-changes prompts (if needed)
-- Phase 7: Tests
-- Phase 8: Facebook post analytics integration
-- Phase 9: Online Ordering System
+Private - All rights reserved
 

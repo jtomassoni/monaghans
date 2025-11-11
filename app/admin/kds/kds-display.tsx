@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { FaClock, FaCheckCircle, FaUtensils, FaTimes } from 'react-icons/fa';
+import { FaClock, FaCheckCircle, FaUtensils, FaTimes, FaEdit } from 'react-icons/fa';
 
 interface OrderItem {
   id: string;
@@ -33,16 +33,30 @@ export default function KDSDisplay() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'active' | 'all'>('active');
 
-  // Fetch orders
+  // Fetch orders - only show orders in BOH workflow (confirmed and beyond, but not completed)
   const fetchOrders = async () => {
     try {
       const response = await fetch('/api/orders?status=all');
       if (response.ok) {
         const data = await response.json();
-        setOrders(data);
+        // Only show orders that are confirmed or in BOH workflow
+        // Exclude: pending (FOH hasn't confirmed), completed (FOH handles), cancelled
+        const validStatuses = ['confirmed', 'acknowledged', 'preparing', 'ready'];
+        const bohOrders = data.filter((o: Order) => {
+          const normalizedStatus = (o.status || '').toLowerCase().trim();
+          return validStatuses.includes(normalizedStatus);
+        });
+        console.log('KDS: Total orders fetched:', data.length);
+        console.log('KDS: BOH orders filtered:', bohOrders.length);
+        console.log('KDS: Order statuses:', data.map((o: Order) => o.status));
+        setOrders(bohOrders);
+      } else {
+        console.error('KDS: Failed to fetch orders:', response.status, response.statusText);
+        const errorText = await response.text();
+        console.error('KDS: Error response:', errorText);
       }
     } catch (error) {
-      console.error('Error fetching orders:', error);
+      console.error('KDS: Error fetching orders:', error);
     } finally {
       setLoading(false);
     }
@@ -68,6 +82,27 @@ export default function KDSDisplay() {
       }
     } catch (error) {
       console.error('Error updating order:', error);
+    }
+  };
+
+  const handleItemUpdate = async (itemId: string, updates: { quantity?: number; modifiers?: string[]; specialInstructions?: string }) => {
+    try {
+      const response = await fetch(`/api/orders/items/${itemId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+
+      if (response.ok) {
+        fetchOrders(); // Refresh immediately
+      } else {
+        const error = await response.json();
+        console.error('Error updating item:', error);
+        alert(`Failed to update item: ${error.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error updating item:', error);
+      alert('Failed to update item. Please try again.');
     }
   };
 
@@ -102,66 +137,64 @@ export default function KDSDisplay() {
     }
   };
 
-  const activeOrders = orders.filter(
-    (order) => !['completed', 'cancelled'].includes(order.status)
-  );
-  const displayedOrders = filter === 'active' ? activeOrders : orders;
+  // Filter orders: "active" shows in-progress orders (excludes ready), "all" shows everything
+  const displayedOrders = filter === 'active' 
+    ? orders.filter((o) => (o.status || '').toLowerCase().trim() !== 'ready')
+    : orders;
 
-  // Group orders by status - show confirmed, acknowledged, and preparing orders in BOH columns
-  // Pending orders stay in pending (FOH hasn't confirmed yet)
-  // Once confirmed, they move to BOH workflow: confirmed → acknowledged → preparing → ready
+  // Group orders by status - only BOH workflow statuses
+  // Flow: confirmed → acknowledged → preparing → ready
   const ordersByStatus = {
-    pending: displayedOrders.filter((o) => o.status === 'pending'),
-    confirmed: displayedOrders.filter((o) => o.status === 'confirmed'),
-    acknowledged: displayedOrders.filter((o) => o.status === 'acknowledged'),
-    preparing: displayedOrders.filter((o) => o.status === 'preparing'),
-    ready: displayedOrders.filter((o) => o.status === 'ready'),
+    confirmed: displayedOrders.filter((o) => (o.status || '').toLowerCase().trim() === 'confirmed'),
+    acknowledged: displayedOrders.filter((o) => (o.status || '').toLowerCase().trim() === 'acknowledged'),
+    preparing: displayedOrders.filter((o) => (o.status || '').toLowerCase().trim() === 'preparing'),
+    ready: displayedOrders.filter((o) => (o.status || '').toLowerCase().trim() === 'ready'),
   };
 
-  // Sort orders by time - most recent first
+  // Sort orders by time - oldest first (priority orders)
   const sortByTime = (orders: Order[]) => {
     return [...orders].sort((a, b) => {
       const timeA = a.acknowledgedAt || a.confirmedAt || a.createdAt;
       const timeB = b.acknowledgedAt || b.confirmedAt || b.createdAt;
-      return new Date(timeB).getTime() - new Date(timeA).getTime();
+      return new Date(timeA).getTime() - new Date(timeB).getTime();
     });
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-white text-xl">Loading orders...</div>
+      <div className="min-h-screen bg-[var(--background)] flex items-center justify-center">
+        <div className="text-[var(--foreground)] text-xl">Loading orders...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-4">
+    <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] p-6">
       {/* Header */}
-      <div className="mb-6 flex justify-between items-center">
+      <div className="mb-8 flex justify-between items-center pb-4 border-b border-gray-300 dark:border-gray-800">
         <div>
-          <h1 className="text-3xl font-bold">Kitchen Display</h1>
-          <p className="text-gray-400 text-sm mt-1">
-            {activeOrders.length} active order{activeOrders.length !== 1 ? 's' : ''}
+          <h1 className="text-4xl font-bold text-[var(--foreground)] mb-2">Kitchen Display</h1>
+          <p className="text-gray-600 dark:text-gray-400 text-sm font-medium">
+            {displayedOrders.length} {filter === 'active' ? 'active' : 'total'} order{displayedOrders.length !== 1 ? 's' : ''}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-3">
           <button
             onClick={() => setFilter('active')}
-            className={`px-4 py-2 rounded-lg font-semibold transition ${
+            className={`px-5 py-2.5 rounded-lg font-semibold transition-all shadow-md cursor-pointer ${
               filter === 'active'
-                ? 'bg-[var(--color-accent)] text-white'
-                : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                ? 'bg-[var(--color-accent)] text-white shadow-[var(--color-accent)]/30'
+                : 'bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'
             }`}
           >
             Active
           </button>
           <button
             onClick={() => setFilter('all')}
-            className={`px-4 py-2 rounded-lg font-semibold transition ${
+            className={`px-5 py-2.5 rounded-lg font-semibold transition-all shadow-md cursor-pointer ${
               filter === 'all'
-                ? 'bg-[var(--color-accent)] text-white'
-                : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                ? 'bg-[var(--color-accent)] text-white shadow-[var(--color-accent)]/30'
+                : 'bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'
             }`}
           >
             All
@@ -170,34 +203,15 @@ export default function KDSDisplay() {
       </div>
 
       {/* Orders Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        {/* Pending Orders */}
-        <div className="space-y-4">
-          <div className="bg-yellow-500/20 border-2 border-yellow-500 rounded-lg p-3">
-            <h2 className="text-xl font-bold flex items-center gap-2">
-              <FaClock className="text-yellow-400" />
-              Pending ({ordersByStatus.pending.length})
-            </h2>
-          </div>
-          {sortByTime(ordersByStatus.pending).map((order) => (
-            <OrderCard
-              key={order.id}
-              order={order}
-              getStatusColor={getStatusColor}
-              calculateElapsedTime={calculateElapsedTime}
-              handleStatusUpdate={handleStatusUpdate}
-            />
-          ))}
-        </div>
-
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Confirmed Orders - Sent to BOH */}
         <div className="space-y-4">
-          <div className="bg-blue-500/20 border-2 border-blue-500 rounded-lg p-3">
-            <h2 className="text-xl font-bold flex items-center gap-2">
-              <FaCheckCircle className="text-blue-400" />
+          <div className="bg-blue-500/20 dark:bg-blue-500/20 border-2 border-blue-500 rounded-xl p-4 shadow-lg">
+            <h2 className="text-xl font-bold flex items-center gap-2 text-gray-900 dark:text-white">
+              <FaCheckCircle className="text-blue-600 dark:text-blue-400" />
               Confirmed ({ordersByStatus.confirmed.length})
             </h2>
-            <p className="text-xs text-gray-400 mt-1">Sent to BOH</p>
+            <p className="text-xs text-gray-700 dark:text-gray-300 mt-1.5 font-medium">Sent to BOH</p>
           </div>
           {sortByTime(ordersByStatus.confirmed).map((order) => (
             <OrderCard
@@ -206,18 +220,19 @@ export default function KDSDisplay() {
               getStatusColor={getStatusColor}
               calculateElapsedTime={calculateElapsedTime}
               handleStatusUpdate={handleStatusUpdate}
+              handleItemUpdate={handleItemUpdate}
             />
           ))}
         </div>
 
         {/* Acknowledged Orders - BOH Confirmed Receipt */}
         <div className="space-y-4">
-          <div className="bg-cyan-500/20 border-2 border-cyan-500 rounded-lg p-3">
-            <h2 className="text-xl font-bold flex items-center gap-2">
-              <FaCheckCircle className="text-cyan-400" />
+          <div className="bg-cyan-500/20 dark:bg-cyan-500/20 border-2 border-cyan-500 rounded-xl p-4 shadow-lg">
+            <h2 className="text-xl font-bold flex items-center gap-2 text-gray-900 dark:text-white">
+              <FaCheckCircle className="text-cyan-600 dark:text-cyan-400" />
               Acknowledged ({ordersByStatus.acknowledged.length})
             </h2>
-            <p className="text-xs text-gray-400 mt-1">BOH Received</p>
+            <p className="text-xs text-gray-700 dark:text-gray-300 mt-1.5 font-medium">BOH Received</p>
           </div>
           {sortByTime(ordersByStatus.acknowledged).map((order) => (
             <OrderCard
@@ -226,15 +241,16 @@ export default function KDSDisplay() {
               getStatusColor={getStatusColor}
               calculateElapsedTime={calculateElapsedTime}
               handleStatusUpdate={handleStatusUpdate}
+              handleItemUpdate={handleItemUpdate}
             />
           ))}
         </div>
 
         {/* Preparing Orders */}
         <div className="space-y-4">
-          <div className="bg-orange-500/20 border-2 border-orange-500 rounded-lg p-3">
-            <h2 className="text-xl font-bold flex items-center gap-2">
-              <FaUtensils className="text-orange-400" />
+          <div className="bg-orange-500/20 dark:bg-orange-500/20 border-2 border-orange-500 rounded-xl p-4 shadow-lg">
+            <h2 className="text-xl font-bold flex items-center gap-2 text-gray-900 dark:text-white">
+              <FaUtensils className="text-orange-600 dark:text-orange-400" />
               Preparing ({ordersByStatus.preparing.length})
             </h2>
           </div>
@@ -245,15 +261,16 @@ export default function KDSDisplay() {
               getStatusColor={getStatusColor}
               calculateElapsedTime={calculateElapsedTime}
               handleStatusUpdate={handleStatusUpdate}
+              handleItemUpdate={handleItemUpdate}
             />
           ))}
         </div>
 
         {/* Ready Orders */}
         <div className="space-y-4">
-          <div className="bg-green-500/20 border-2 border-green-500 rounded-lg p-3">
-            <h2 className="text-xl font-bold flex items-center gap-2">
-              <FaCheckCircle className="text-green-400" />
+          <div className="bg-green-500/20 dark:bg-green-500/20 border-2 border-green-500 rounded-xl p-4 shadow-lg">
+            <h2 className="text-xl font-bold flex items-center gap-2 text-gray-900 dark:text-white">
+              <FaCheckCircle className="text-green-600 dark:text-green-400" />
               Ready ({ordersByStatus.ready.length})
             </h2>
           </div>
@@ -264,6 +281,7 @@ export default function KDSDisplay() {
               getStatusColor={getStatusColor}
               calculateElapsedTime={calculateElapsedTime}
               handleStatusUpdate={handleStatusUpdate}
+              handleItemUpdate={handleItemUpdate}
             />
           ))}
         </div>
@@ -277,12 +295,18 @@ function OrderCard({
   getStatusColor,
   calculateElapsedTime,
   handleStatusUpdate,
+  handleItemUpdate,
 }: {
   order: Order;
   getStatusColor: (status: string) => string;
   calculateElapsedTime: (time: Date | string | null) => string | null;
   handleStatusUpdate: (orderId: string, status: string) => void;
+  handleItemUpdate: (itemId: string, updates: { quantity?: number; modifiers?: string[]; specialInstructions?: string }) => void;
 }) {
+  const [editingItem, setEditingItem] = useState<OrderItem | null>(null);
+  const [editQuantity, setEditQuantity] = useState(1);
+  const [editModifiers, setEditModifiers] = useState<string[]>([]);
+  const [editSpecialInstructions, setEditSpecialInstructions] = useState('');
   // Calculate elapsed time based on current status
   const elapsedTime = 
     order.status === 'preparing' && order.preparingAt
@@ -308,102 +332,254 @@ function OrderCard({
       ? 'completed'
       : null;
 
+  const openEditModal = (item: OrderItem) => {
+    setEditingItem(item);
+    setEditQuantity(item.quantity);
+    setEditSpecialInstructions(item.specialInstructions || '');
+    
+    // Parse modifiers
+    if (item.modifiers) {
+      try {
+        const parsed = JSON.parse(item.modifiers);
+        setEditModifiers(Array.isArray(parsed) ? parsed : []);
+      } catch {
+        setEditModifiers([]);
+      }
+    } else {
+      setEditModifiers([]);
+    }
+  };
+
+  const closeEditModal = () => {
+    setEditingItem(null);
+    setEditQuantity(1);
+    setEditModifiers([]);
+    setEditSpecialInstructions('');
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingItem) return;
+    
+    handleItemUpdate(editingItem.id, {
+      quantity: editQuantity,
+      modifiers: editModifiers,
+      specialInstructions: editSpecialInstructions || undefined,
+    });
+    
+    closeEditModal();
+  };
+
   return (
-    <div
-      className={`border-2 rounded-lg p-4 bg-gray-800 ${getStatusColor(order.status)}`}
-    >
-      {/* Order Header */}
-      <div className="flex justify-between items-start mb-3">
-        <div>
-          <h3 className="text-2xl font-bold">{order.orderNumber}</h3>
-          <p className="text-sm text-gray-400 mt-1">{order.customerName}</p>
-          {order.pickupTime ? (
-            <p className="text-xs text-gray-500">
-              Pickup: {new Date(order.pickupTime).toLocaleTimeString()}
-            </p>
-          ) : (
-            <p className="text-xs text-yellow-400 font-semibold">ASAP</p>
+    <>
+      <div
+        className={`border-2 rounded-xl p-5 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all ${getStatusColor(order.status)}`}
+      >
+        {/* Order Header */}
+        <div className="flex justify-between items-start mb-4 pb-3 border-b border-gray-300 dark:border-gray-700/50">
+          <div className="flex-1">
+            <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">{order.orderNumber}</h3>
+            <p className="text-sm text-gray-700 dark:text-gray-300 font-medium">{order.customerName}</p>
+            {order.pickupTime ? (
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                Pickup: {new Date(order.pickupTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </p>
+            ) : (
+              <p className="text-xs text-yellow-600 dark:text-yellow-400 font-semibold mt-1">ASAP</p>
+            )}
+          </div>
+          {elapsedTime && (
+            <div className="text-right ml-4">
+              <div className="text-2xl font-bold text-gray-900 dark:text-white">{elapsedTime}</div>
+              <div className="text-xs text-gray-600 dark:text-gray-400 font-medium">elapsed</div>
+            </div>
           )}
         </div>
-        {elapsedTime && (
-          <div className="text-right">
-            <div className="text-lg font-bold">{elapsedTime}</div>
-            <div className="text-xs text-gray-400">elapsed</div>
+
+        {/* Order Items */}
+        <div className="space-y-3 mb-4">
+          {order.items.map((item) => {
+            let parsedModifiers: string[] = [];
+            if (item.modifiers) {
+              try {
+                const parsed = JSON.parse(item.modifiers);
+                parsedModifiers = Array.isArray(parsed) ? parsed : [];
+              } catch {}
+            }
+            
+            return (
+              <div key={item.id} className="bg-gray-100 dark:bg-gray-900/70 rounded-lg p-3 border border-gray-300 dark:border-gray-700/50 hover:border-gray-400 dark:hover:border-gray-600/50 transition-colors">
+                <div className="flex justify-between items-start gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-bold text-gray-900 dark:text-white text-base">
+                        {item.quantity}x {item.name}
+                      </span>
+                      <button
+                        onClick={() => openEditModal(item)}
+                        className="text-gray-600 dark:text-gray-400 hover:text-[var(--color-accent)] transition-colors p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-800/50 cursor-pointer"
+                        title="Edit item"
+                      >
+                        <FaEdit className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    {parsedModifiers.length > 0 && (
+                      <div className="text-xs text-gray-700 dark:text-gray-300 mt-1.5 space-y-0.5">
+                        {parsedModifiers.map((mod, idx) => (
+                          <div key={idx} className="flex items-center gap-1">
+                            <span className="text-gray-500 dark:text-gray-500">•</span>
+                            <span>{mod}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {item.specialInstructions && (
+                      <div className="text-xs text-yellow-700 dark:text-yellow-300 italic mt-2 pt-1.5 border-t border-yellow-500/30 dark:border-yellow-500/20">
+                        <span className="font-semibold text-yellow-600 dark:text-yellow-400">Note:</span> {item.specialInstructions}
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <div className="text-sm font-bold text-[var(--color-accent)]">
+                      ${(item.price * item.quantity).toFixed(2)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Special Instructions */}
+        {order.specialInstructions && (
+          <div className="mb-4 p-3 bg-yellow-100 dark:bg-yellow-500/20 border border-yellow-300 dark:border-yellow-500/50 rounded-lg">
+            <p className="text-xs font-semibold text-yellow-800 dark:text-yellow-300">
+              <span className="text-yellow-900 dark:text-yellow-400">Order Note:</span> {order.specialInstructions}
+            </p>
           </div>
         )}
+
+        {/* Action Buttons */}
+        <div className="flex gap-2 pt-3 border-t border-gray-300 dark:border-gray-700/50">
+          {nextStatus && (
+            <button
+              onClick={() => handleStatusUpdate(order.id, nextStatus)}
+              className="flex-1 px-4 py-3 bg-[var(--color-accent)] hover:bg-[var(--color-accent-dark)] text-white font-bold rounded-lg transition-all text-sm shadow-md hover:shadow-lg cursor-pointer"
+            >
+              {nextStatus === 'confirmed'
+                ? 'Confirm'
+                : nextStatus === 'acknowledged'
+                ? 'Acknowledge'
+                : nextStatus === 'preparing'
+                ? 'Start Prep'
+                : nextStatus === 'ready'
+                ? 'Mark Ready'
+                : 'Complete'}
+            </button>
+          )}
+          {order.status !== 'cancelled' && (
+            <button
+              onClick={() => handleStatusUpdate(order.id, 'cancelled')}
+              className="px-4 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-all shadow-md hover:shadow-lg cursor-pointer"
+              title="Cancel Order"
+            >
+              <FaTimes />
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Order Items */}
-      <div className="space-y-2 mb-3">
-        {order.items.map((item) => (
-          <div key={item.id} className="bg-gray-900/50 rounded p-2">
-            <div className="flex justify-between items-start">
-              <div className="flex-1">
-                <div className="font-semibold">
-                  {item.quantity}x {item.name}
-                </div>
-                {item.modifiers && (() => {
-                  try {
-                    const modifiers = JSON.parse(item.modifiers);
-                    if (Array.isArray(modifiers) && modifiers.length > 0) {
-                      return (
-                        <div className="text-xs text-gray-400 mt-1">
-                          {modifiers.join(', ')}
-                        </div>
-                      );
-                    }
-                  } catch {}
-                  return null;
-                })()}
-                {item.specialInstructions && (
-                  <div className="text-xs text-yellow-400 italic mt-1">
-                    Note: {item.specialInstructions}
-                  </div>
+      {/* Edit Item Modal */}
+      {editingItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-900 border-2 border-gray-300 dark:border-gray-700 rounded-xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-300 dark:border-gray-700">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white">Edit Item</h3>
+              <button
+                onClick={closeEditModal}
+                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer"
+              >
+                <FaTimes className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">{editingItem.name}</h4>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Price: ${editingItem.price.toFixed(2)} each</p>
+            </div>
+
+            {/* Quantity */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Quantity</label>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setEditQuantity(Math.max(1, editQuantity - 1))}
+                  className="w-10 h-10 flex items-center justify-center bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 rounded-lg text-gray-900 dark:text-white font-bold transition-colors cursor-pointer"
+                >
+                  -
+                </button>
+                <span className="text-gray-900 dark:text-white font-semibold text-lg w-12 text-center">{editQuantity}</span>
+                <button
+                  onClick={() => setEditQuantity(editQuantity + 1)}
+                  className="w-10 h-10 flex items-center justify-center bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 rounded-lg text-gray-900 dark:text-white font-bold transition-colors cursor-pointer"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            {/* Modifiers */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Modifiers</label>
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {editModifiers.length > 0 ? (
+                  editModifiers.map((modifier, idx) => (
+                    <div key={idx} className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800/50 rounded-lg p-2">
+                      <span className="text-sm text-gray-700 dark:text-gray-300 flex-1">{modifier}</span>
+                      <button
+                        onClick={() => setEditModifiers(editModifiers.filter((_, i) => i !== idx))}
+                        className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors cursor-pointer"
+                      >
+                        <FaTimes className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-gray-500 dark:text-gray-500 italic">No modifiers</p>
                 )}
               </div>
             </div>
-          </div>
-        ))}
-      </div>
 
-      {/* Special Instructions */}
-      {order.specialInstructions && (
-        <div className="mb-3 p-2 bg-yellow-500/20 border border-yellow-500/50 rounded">
-          <p className="text-xs font-semibold text-yellow-300">
-            Order Note: {order.specialInstructions}
-          </p>
+            {/* Special Instructions */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Special Instructions</label>
+              <textarea
+                value={editSpecialInstructions}
+                onChange={(e) => setEditSpecialInstructions(e.target.value)}
+                placeholder="Any special requests?"
+                className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent resize-none"
+                rows={3}
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3">
+              <button
+                onClick={closeEditModal}
+                className="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 text-gray-900 dark:text-white rounded-lg transition-colors font-medium cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                className="flex-1 px-4 py-2 bg-[var(--color-accent)] hover:bg-[var(--color-accent-dark)] text-white rounded-lg transition-colors font-semibold cursor-pointer"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
         </div>
       )}
-
-      {/* Action Buttons */}
-      <div className="flex gap-2">
-        {nextStatus && (
-          <button
-            onClick={() => handleStatusUpdate(order.id, nextStatus)}
-            className="flex-1 px-4 py-3 bg-[var(--color-accent)] hover:bg-[var(--color-accent-dark)] text-white font-bold rounded-lg transition text-sm"
-          >
-            {nextStatus === 'confirmed'
-              ? 'Confirm'
-              : nextStatus === 'acknowledged'
-              ? 'Acknowledge'
-              : nextStatus === 'preparing'
-              ? 'Start Prep'
-              : nextStatus === 'ready'
-              ? 'Mark Ready'
-              : 'Complete'}
-          </button>
-        )}
-        {order.status !== 'cancelled' && (
-          <button
-            onClick={() => handleStatusUpdate(order.id, 'cancelled')}
-            className="px-4 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition"
-            title="Cancel Order"
-          >
-            <FaTimes />
-          </button>
-        )}
-      </div>
-    </div>
+    </>
   );
 }
 

@@ -395,6 +395,200 @@ export async function uploadImageToFacebook(
 }
 
 /**
+ * Get insights for a specific Facebook post
+ * Requires pages_read_engagement permission (already included)
+ */
+export async function getPostInsights(
+  accessToken: string,
+  postId: string,
+  userAccessToken?: string
+): Promise<{
+  impressions?: number;
+  reach?: number;
+  engagedUsers?: number;
+  reactions?: {
+    like: number;
+    love: number;
+    wow: number;
+    haha: number;
+    sorry: number;
+    anger: number;
+    total: number;
+  };
+  clicks?: number;
+  negativeFeedback?: number;
+}> {
+  // Try to get a fresh page token if user token is provided
+  let tokenToUse = accessToken;
+  if (userAccessToken) {
+    try {
+      const pageId = postId.split('_')[0];
+      const freshPageToken = await getPageAccessToken(userAccessToken, pageId);
+      tokenToUse = freshPageToken;
+    } catch (freshTokenError) {
+      console.warn('Failed to get fresh page token, using stored token:', freshTokenError);
+      tokenToUse = accessToken;
+    }
+  }
+
+  // Request multiple insight metrics
+  const metrics = [
+    'post_impressions',
+    'post_impressions_unique', // Reach
+    'post_engaged_users',
+    'post_reactions_like_total',
+    'post_reactions_love_total',
+    'post_reactions_wow_total',
+    'post_reactions_haha_total',
+    'post_reactions_sorry_total',
+    'post_reactions_anger_total',
+    'post_clicks',
+    'post_clicks_unique',
+    'post_negative_feedback',
+  ].join(',');
+
+  const response = await fetch(
+    `https://graph.facebook.com/v18.0/${postId}/insights?` +
+    `metric=${metrics}` +
+    `&access_token=${tokenToUse}`,
+    { method: 'GET' }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    console.error('Facebook Insights API error:', {
+      status: response.status,
+      error: data.error,
+    });
+    
+    // If we get a permission error, return empty object rather than throwing
+    if (data.error?.code === 200 || data.error?.type === 'OAuthException') {
+      console.warn('Insufficient permissions for insights, returning empty data');
+      return {};
+    }
+    
+    throw new Error(
+      data.error?.message || `Facebook Insights API error: ${response.statusText}`
+    );
+  }
+
+  // Parse insights data
+  const insights: any = {};
+  if (Array.isArray(data.data)) {
+    data.data.forEach((metric: any) => {
+      const value = metric.values?.[0]?.value;
+      if (value !== undefined) {
+        insights[metric.name] = typeof value === 'string' ? parseInt(value, 10) : value;
+      }
+    });
+  }
+
+  // Calculate total reactions
+  const totalReactions = 
+    (insights.post_reactions_like_total || 0) +
+    (insights.post_reactions_love_total || 0) +
+    (insights.post_reactions_wow_total || 0) +
+    (insights.post_reactions_haha_total || 0) +
+    (insights.post_reactions_sorry_total || 0) +
+    (insights.post_reactions_anger_total || 0);
+
+  return {
+    impressions: insights.post_impressions,
+    reach: insights.post_impressions_unique,
+    engagedUsers: insights.post_engaged_users,
+    reactions: {
+      like: insights.post_reactions_like_total || 0,
+      love: insights.post_reactions_love_total || 0,
+      wow: insights.post_reactions_wow_total || 0,
+      haha: insights.post_reactions_haha_total || 0,
+      sorry: insights.post_reactions_sorry_total || 0,
+      anger: insights.post_reactions_anger_total || 0,
+      total: totalReactions,
+    },
+    clicks: insights.post_clicks,
+    negativeFeedback: insights.post_negative_feedback,
+  };
+}
+
+/**
+ * Get page-level insights
+ * Requires pages_read_engagement permission (already included)
+ */
+export async function getPageInsights(
+  accessToken: string,
+  pageId: string,
+  userAccessToken?: string,
+  period: 'day' | 'week' | 'days_28' = 'day'
+): Promise<{
+  fans?: number;
+  impressions?: number;
+  engagedUsers?: number;
+}> {
+  // Try to get a fresh page token if user token is provided
+  let tokenToUse = accessToken;
+  if (userAccessToken) {
+    try {
+      const freshPageToken = await getPageAccessToken(userAccessToken, pageId);
+      tokenToUse = freshPageToken;
+    } catch (freshTokenError) {
+      console.warn('Failed to get fresh page token, using stored token:', freshTokenError);
+      tokenToUse = accessToken;
+    }
+  }
+
+  const metrics = [
+    'page_fans',
+    'page_impressions',
+    'page_engaged_users',
+  ].join(',');
+
+  const response = await fetch(
+    `https://graph.facebook.com/v18.0/${pageId}/insights?` +
+    `metric=${metrics}` +
+    `&period=${period}` +
+    `&access_token=${tokenToUse}`,
+    { method: 'GET' }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    console.error('Facebook Page Insights API error:', {
+      status: response.status,
+      error: data.error,
+    });
+    
+    // If we get a permission error, return empty object rather than throwing
+    if (data.error?.code === 200 || data.error?.type === 'OAuthException') {
+      console.warn('Insufficient permissions for page insights, returning empty data');
+      return {};
+    }
+    
+    throw new Error(
+      data.error?.message || `Facebook Page Insights API error: ${response.statusText}`
+    );
+  }
+
+  // Parse insights data
+  const insights: any = {};
+  if (Array.isArray(data.data)) {
+    data.data.forEach((metric: any) => {
+      const value = metric.values?.[0]?.value;
+      if (value !== undefined) {
+        insights[metric.name] = typeof value === 'string' ? parseInt(value, 10) : value;
+      }
+    });
+  }
+
+  return {
+    fans: insights.page_fans,
+    impressions: insights.page_impressions,
+    engagedUsers: insights.page_engaged_users,
+  };
+}
+
+/**
  * Format announcement content for Facebook post
  */
 export function formatAnnouncementForFacebook(
@@ -478,4 +672,3 @@ export function formatDailySpecialsForFacebook(
 
   return message;
 }
-

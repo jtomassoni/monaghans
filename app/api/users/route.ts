@@ -3,17 +3,19 @@ import { prisma } from '@/lib/prisma';
 import { requireAuth, handleError } from '@/lib/api-helpers';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { getPermissions, canCreateRole } from '@/lib/permissions';
 
-// Helper to require superadmin role
-async function requireSuperadmin(req: NextRequest) {
+// Helper to require user management permissions
+async function requireUserManagement(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  if (session.user.role !== 'superadmin') {
-    return NextResponse.json({ error: 'Forbidden: Superadmin access required' }, { status: 403 });
+  const permissions = getPermissions(session.user.role);
+  if (!permissions.canManageUsers) {
+    return NextResponse.json({ error: 'Forbidden: User management access required' }, { status: 403 });
   }
-  return null;
+  return { session, permissions };
 }
 
 export async function GET(req: NextRequest) {
@@ -42,17 +44,35 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const authError = await requireSuperadmin(req);
-  if (authError) return authError;
+  const authResult = await requireUserManagement(req);
+  if (authResult instanceof NextResponse) return authResult;
+  const { session, permissions } = authResult;
 
   try {
     const body = await req.json();
+    const targetRole = body.role || 'manager';
+    
+    // Check if current user can create this role
+    if (!canCreateRole(session.user.role, targetRole)) {
+      return NextResponse.json({ 
+        error: `You do not have permission to create users with role "${targetRole}"` 
+      }, { status: 403 });
+    }
+    
+    // Validate role
+    const validRoles = ['owner', 'manager', 'cook', 'bartender', 'barback'];
+    if (!validRoles.includes(targetRole)) {
+      return NextResponse.json({ 
+        error: `Invalid role. Must be one of: ${validRoles.join(', ')}` 
+      }, { status: 400 });
+    }
+    
     const user = await prisma.user.create({
       data: {
         email: body.email,
         name: body.name || null,
         image: body.image || null,
-        role: body.role || 'admin',
+        role: targetRole,
         isActive: body.isActive ?? true,
       },
     });

@@ -236,6 +236,49 @@ export default function CalendarView({ events, specials, announcements = [], onE
           // Parse exceptions if they exist
           const exceptions: string[] = event.exceptions ? JSON.parse(event.exceptions) : [];
           
+          // Extract the original time components in Mountain Time first
+          // This ensures recurring events always show at the same time of day
+          const originalStartMT = new Date(event.startDateTime);
+          const mtFormatter = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'America/Denver',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+          });
+          const originalStartMTParts = mtFormatter.formatToParts(originalStartMT);
+          const originalHours = parseInt(originalStartMTParts.find(p => p.type === 'hour')!.value);
+          const originalMinutes = parseInt(originalStartMTParts.find(p => p.type === 'minute')!.value);
+          const originalSeconds = parseInt(originalStartMTParts.find(p => p.type === 'second')?.value || '0');
+          
+          // Helper function to create a Date object for a specific date and time in Mountain Time
+          const createMountainTimeDate = (year: number, month: number, day: number, hours: number, minutes: number, seconds: number): Date => {
+            // Try different UTC offsets to find the one that gives us the desired Mountain Time
+            // MT is UTC-7 (MST) or UTC-6 (MDT)
+            for (let offsetHours = 6; offsetHours <= 7; offsetHours++) {
+              const candidateUTC = new Date(Date.UTC(year, month, day, hours + offsetHours, minutes, seconds));
+              const candidateParts = mtFormatter.formatToParts(candidateUTC);
+              const candidateYear = parseInt(candidateParts.find(p => p.type === 'year')!.value);
+              const candidateMonth = parseInt(candidateParts.find(p => p.type === 'month')!.value);
+              const candidateDay = parseInt(candidateParts.find(p => p.type === 'day')!.value);
+              const candidateHour = parseInt(candidateParts.find(p => p.type === 'hour')!.value);
+              const candidateMinute = parseInt(candidateParts.find(p => p.type === 'minute')!.value);
+              const candidateSecond = parseInt(candidateParts.find(p => p.type === 'second')?.value || '0');
+              
+              // candidateMonth is 1-indexed (1-12), month is 0-indexed (0-11)
+              if (candidateYear === year && candidateMonth === month + 1 && candidateDay === day &&
+                  candidateHour === hours && candidateMinute === minutes && candidateSecond === seconds) {
+                return candidateUTC;
+              }
+            }
+            
+            // Fallback: use UTC-7 (MST)
+            return new Date(Date.UTC(year, month, day, hours + 7, minutes, seconds));
+          };
+          
           // For monthly events with BYMONTHDAY, we need to handle timezone issues
           // The problem: BYMONTHDAY is set to the local day (e.g., 18), but RRule uses UTC internally
           // Solution: Update BYMONTHDAY to match the UTC day that corresponds to the local target day
@@ -274,6 +317,72 @@ export default function CalendarView({ events, specials, announcements = [], onE
               dtstartDate = new Date(Date.UTC(utcTargetYear, utcTargetMonth, utcCorrespondingDay, 12, 0, 0));
             } else {
               dtstartDate = startDate;
+            }
+          } else if (event.recurrenceRule.includes('FREQ=WEEKLY')) {
+            // For weekly events, ensure dtstart represents the correct day of week
+            // RRule uses the day of the week from dtstart (in UTC) to determine which days to repeat on
+            // We need to ensure dtstart is a Monday in UTC if BYDAY=MO, Tuesday if BYDAY=TU, etc.
+            
+            // Extract the target day of week from BYDAY in the RRULE
+            const bydayMatch = event.recurrenceRule.match(/BYDAY=([^;]+)/);
+            const dayMap: Record<string, number> = {
+              'SU': 0, 'MO': 1, 'TU': 2, 'WE': 3, 'TH': 4, 'FR': 5, 'SA': 6
+            };
+            
+            // Get the start date components in Mountain Time
+            const startMTParts = mtFormatter.formatToParts(startDate);
+            const startMTYear = parseInt(startMTParts.find(p => p.type === 'year')!.value);
+            const startMTMonth = parseInt(startMTParts.find(p => p.type === 'month')!.value) - 1; // 0-indexed
+            const startMTDay = parseInt(startMTParts.find(p => p.type === 'day')!.value);
+            
+            // Get the day of the week in Mountain Time (0 = Sunday, 1 = Monday, etc.)
+            const startMTDayOfWeek = new Date(startMTYear, startMTMonth, startMTDay).getDay();
+            
+            // Create dtstart at the original time but ensure it represents the correct day in Mountain Time
+            let candidateDtstart = createMountainTimeDate(startMTYear, startMTMonth, startMTDay, originalHours, originalMinutes, originalSeconds);
+            
+            // Check what day of week this UTC date is (RRule uses UTC day of week)
+            const candidateUTCDayOfWeek = candidateDtstart.getUTCDay();
+            
+            // Determine the target UTC day of week
+            // If BYDAY is specified, use that; otherwise use the Mountain Time day of week
+            let targetUTCDayOfWeek: number;
+            if (bydayMatch) {
+              const bydayStr = bydayMatch[1].split(',')[0].trim(); // Take first day if multiple
+              targetUTCDayOfWeek = dayMap[bydayStr] ?? startMTDayOfWeek;
+            } else {
+              targetUTCDayOfWeek = startMTDayOfWeek;
+            }
+            
+            // If the UTC day of week doesn't match, adjust the date
+            if (candidateUTCDayOfWeek !== targetUTCDayOfWeek) {
+              // Calculate the difference in days
+              let dayDiff = targetUTCDayOfWeek - candidateUTCDayOfWeek;
+              // Handle wrap-around
+              if (dayDiff < -3) dayDiff += 7;
+              if (dayDiff > 3) dayDiff -= 7;
+              
+              // Adjust the UTC date to have the correct day of week
+              const adjustedUTC = new Date(candidateDtstart);
+              adjustedUTC.setUTCDate(adjustedUTC.getUTCDate() + dayDiff);
+              
+              // Now verify this adjusted date, when displayed in Mountain Time, shows the correct day
+              const adjustedMTParts = mtFormatter.formatToParts(adjustedUTC);
+              const adjustedMTYear = parseInt(adjustedMTParts.find(p => p.type === 'year')!.value);
+              const adjustedMTMonth = parseInt(adjustedMTParts.find(p => p.type === 'month')!.value) - 1;
+              const adjustedMTDay = parseInt(adjustedMTParts.find(p => p.type === 'day')!.value);
+              const adjustedMTDayOfWeek = new Date(adjustedMTYear, adjustedMTMonth, adjustedMTDay).getDay();
+              
+              // If the Mountain Time day of week matches, use this adjusted date
+              if (adjustedMTDayOfWeek === startMTDayOfWeek) {
+                // Preserve the original time in Mountain Time
+                dtstartDate = createMountainTimeDate(adjustedMTYear, adjustedMTMonth, adjustedMTDay, originalHours, originalMinutes, originalSeconds);
+              } else {
+                // Fallback: use the candidate as-is
+                dtstartDate = candidateDtstart;
+              }
+            } else {
+              dtstartDate = candidateDtstart;
             }
           } else {
             // For other cases, use the date as-is (already converted to local by JavaScript)
@@ -315,6 +424,12 @@ export default function CalendarView({ events, specials, announcements = [], onE
               return;
             }
             
+            // Get the occurrence date components in Mountain Time
+            const occurrenceMTParts = mtFormatter.formatToParts(occurrence);
+            const occurrenceMTYear = parseInt(occurrenceMTParts.find(p => p.type === 'year')!.value);
+            const occurrenceMTMonth = parseInt(occurrenceMTParts.find(p => p.type === 'month')!.value);
+            const occurrenceMTDay = parseInt(occurrenceMTParts.find(p => p.type === 'day')!.value);
+            
             // For monthly events with BYMONTHDAY, RRule returns UTC dates
             // We need to ensure these display correctly in local time
             // If the target day and occurrence day don't match in local time, adjust
@@ -328,30 +443,71 @@ export default function CalendarView({ events, specials, announcements = [], onE
                 // If RRule returned a date that displays as a different day in local time,
                 // we need to adjust it to match the target day
                 if (occurrenceLocalDay !== targetDay) {
-                  // Get the year/month from the occurrence
-                  const occYear = occurrence.getFullYear();
-                  const occMonth = occurrence.getMonth();
-                  
-                  // Create a date with the target day in local timezone
-                  // Use the same time as the original occurrence
-                  const occHours = occurrence.getHours();
-                  const occMinutes = occurrence.getMinutes();
-                  const occSeconds = occurrence.getSeconds();
-                  
-                  eventStart = new Date(occYear, occMonth, targetDay, occHours, occMinutes, occSeconds);
+                  // Use the target day with the original time in Mountain Time
+                  eventStart = createMountainTimeDate(occurrenceMTYear, occurrenceMTMonth - 1, targetDay, originalHours, originalMinutes, originalSeconds || 0);
                 } else {
-                  eventStart = new Date(occurrence);
+                  // Use the occurrence date but preserve the original time in Mountain Time
+                  eventStart = createMountainTimeDate(occurrenceMTYear, occurrenceMTMonth - 1, occurrenceMTDay, originalHours, originalMinutes, originalSeconds || 0);
                 }
               } else {
-                eventStart = new Date(occurrence);
+                // Use the occurrence date but preserve the original time in Mountain Time
+                eventStart = createMountainTimeDate(occurrenceMTYear, occurrenceMTMonth - 1, occurrenceMTDay, originalHours, originalMinutes, originalSeconds || 0);
+              }
+            } else if (event.recurrenceRule && event.recurrenceRule.includes('FREQ=WEEKLY')) {
+              // For weekly events, ensure the occurrence appears on the correct day of week in Mountain Time
+              // Get the target day of week from BYDAY or from the original start date
+              const bydayMatch = event.recurrenceRule.match(/BYDAY=([^;]+)/);
+              const dayMap: Record<string, number> = {
+                'SU': 0, 'MO': 1, 'TU': 2, 'WE': 3, 'TH': 4, 'FR': 5, 'SA': 6
+              };
+              
+              // Get the original start date's day of week in Mountain Time
+              const originalStartMTParts = mtFormatter.formatToParts(new Date(event.startDateTime));
+              const originalMTYear = parseInt(originalStartMTParts.find(p => p.type === 'year')!.value);
+              const originalMTMonth = parseInt(originalStartMTParts.find(p => p.type === 'month')!.value) - 1;
+              const originalMTDay = parseInt(originalStartMTParts.find(p => p.type === 'day')!.value);
+              const targetMTDayOfWeek = new Date(originalMTYear, originalMTMonth, originalMTDay).getDay();
+              
+              // Check what day of week the occurrence represents in Mountain Time
+              const occurrenceMTDayOfWeek = new Date(occurrenceMTYear, occurrenceMTMonth - 1, occurrenceMTDay).getDay();
+              
+              // If the day of week doesn't match, adjust to the target day
+              if (occurrenceMTDayOfWeek !== targetMTDayOfWeek) {
+                // Calculate the difference
+                let dayDiff = targetMTDayOfWeek - occurrenceMTDayOfWeek;
+                // Handle wrap-around
+                if (dayDiff < -3) dayDiff += 7;
+                if (dayDiff > 3) dayDiff -= 7;
+                
+                const adjustedDay = occurrenceMTDay + dayDiff;
+                eventStart = createMountainTimeDate(occurrenceMTYear, occurrenceMTMonth - 1, adjustedDay, originalHours, originalMinutes, originalSeconds || 0);
+              } else {
+                // Use the occurrence date but preserve the original time components in Mountain Time
+                eventStart = createMountainTimeDate(occurrenceMTYear, occurrenceMTMonth - 1, occurrenceMTDay, originalHours, originalMinutes, originalSeconds || 0);
               }
             } else {
-              eventStart = new Date(occurrence);
+              // For other recurring events, use the occurrence date
+              // but preserve the original time components in Mountain Time
+              eventStart = createMountainTimeDate(occurrenceMTYear, occurrenceMTMonth - 1, occurrenceMTDay, originalHours, originalMinutes, originalSeconds || 0);
             }
             
-            const eventEnd = endDate 
-              ? new Date(eventStart.getTime() + (endDate.getTime() - startDate.getTime()))
-              : null;
+            // Calculate end time by preserving the time from the original event in Mountain Time
+            let eventEnd: Date | null = null;
+            if (endDate) {
+              const originalEndMT = new Date(event.endDateTime!);
+              const originalEndMTParts = mtFormatter.formatToParts(originalEndMT);
+              const originalEndHours = parseInt(originalEndMTParts.find(p => p.type === 'hour')!.value);
+              const originalEndMinutes = parseInt(originalEndMTParts.find(p => p.type === 'minute')!.value);
+              const originalEndSeconds = parseInt(originalEndMTParts.find(p => p.type === 'second')?.value || '0');
+              
+              // Get the event start date components in Mountain Time to use for end date
+              const eventStartMTParts = mtFormatter.formatToParts(eventStart);
+              const eventStartMTYear = parseInt(eventStartMTParts.find(p => p.type === 'year')!.value);
+              const eventStartMTMonth = parseInt(eventStartMTParts.find(p => p.type === 'month')!.value);
+              const eventStartMTDay = parseInt(eventStartMTParts.find(p => p.type === 'day')!.value);
+              
+              eventEnd = createMountainTimeDate(eventStartMTYear, eventStartMTMonth - 1, eventStartMTDay, originalEndHours, originalEndMinutes, originalEndSeconds || 0);
+            }
 
             // Normalize to start of day to ensure correct day assignment
             const eventDay = startOfDay(eventStart);
@@ -1301,7 +1457,7 @@ export default function CalendarView({ events, specials, announcements = [], onE
                   {/* Current time indicator line */}
                   {isToday && (
                     <div
-                      className="absolute left-0 right-0 z-[5] pointer-events-none"
+                      className="absolute left-0 right-0 z-[20] pointer-events-none"
                       style={{
                         top: `${(getHours(currentTime) * hourHeight) + (getMinutes(currentTime) / 60 * hourHeight)}px`,
                       }}
@@ -1433,143 +1589,146 @@ export default function CalendarView({ events, specials, announcements = [], onE
   return (
     <div className="flex flex-col h-full min-h-0" ref={calendarRef}>
         {/* Calendar Header */}
-      <div className="flex flex-col sm:flex-row justify-center items-center mb-3 flex-shrink-0 gap-2 sm:gap-4">
-        <div className="flex items-center gap-2 flex-wrap justify-center">
-          <button
-            onClick={() => navigateDate('prev')}
-            className="w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 transition-all duration-200 hover:shadow-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white flex-shrink-0 cursor-pointer active:scale-95 z-10 relative touch-manipulation"
-            aria-label="Previous"
-          >
-            <HiChevronLeft className="w-5 h-5 pointer-events-none" />
-          </button>
-          <div className="relative px-2 sm:px-4 min-w-[200px] sm:min-w-[240px] flex items-center justify-center">
-            {viewMode === 'month' ? (
-              <div className="flex items-center gap-1 sm:gap-2 flex-wrap justify-center">
-                <button
-                  data-month-trigger
-                  onClick={() => {
-                    setShowMonthPicker(!showMonthPicker);
-                    setShowYearPicker(false);
-                  }}
-                  className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer active:scale-95 z-10 relative touch-manipulation px-1 py-1"
-                >
-                  {format(currentDate, 'MMMM')}
-                </button>
+      <div className="mb-3 flex-shrink-0 px-2">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 w-full">
+          {/* Navigation Controls */}
+          <div className="flex items-center gap-2 justify-center flex-1 min-w-0">
+            <button
+              onClick={() => navigateDate('prev')}
+              className="w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 transition-all duration-200 hover:shadow-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white flex-shrink-0 cursor-pointer active:scale-95 z-10 relative"
+              aria-label="Previous"
+            >
+              <HiChevronLeft className="w-5 h-5 pointer-events-none" />
+            </button>
+            <div className="relative px-2 sm:px-4 min-w-[200px] sm:min-w-[240px] flex items-center justify-center flex-shrink-0">
+              {viewMode === 'month' ? (
+                <div className="flex items-center gap-1 sm:gap-2">
+                  <button
+                    data-month-trigger
+                    onClick={() => {
+                      setShowMonthPicker(!showMonthPicker);
+                      setShowYearPicker(false);
+                    }}
+                    className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer active:scale-95 z-10 relative px-1 py-1"
+                  >
+                    {format(currentDate, 'MMMM')}
+                  </button>
+                  <button
+                    data-year-trigger
+                    onClick={() => {
+                      setShowYearPicker(!showYearPicker);
+                      setShowMonthPicker(false);
+                    }}
+                    className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer active:scale-95 z-10 relative px-1 py-1"
+                  >
+                    {format(currentDate, 'yyyy')}
+                  </button>
+                </div>
+              ) : viewMode === 'week' ? (
+                <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white text-center sm:whitespace-nowrap px-2">
+                  {`${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d, yyyy')}`}
+                </h2>
+              ) : (
                 <button
                   data-year-trigger
                   onClick={() => {
                     setShowYearPicker(!showYearPicker);
                     setShowMonthPicker(false);
                   }}
-                  className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer active:scale-95 z-10 relative touch-manipulation px-1 py-1"
+                  className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer active:scale-95 z-10 relative px-1 py-1"
                 >
                   {format(currentDate, 'yyyy')}
                 </button>
-              </div>
-            ) : viewMode === 'week' ? (
-              <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white text-center sm:whitespace-nowrap px-2">
-                {`${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d, yyyy')}`}
-              </h2>
-            ) : (
-              <button
-                data-year-trigger
-                onClick={() => {
-                  setShowYearPicker(!showYearPicker);
-                  setShowMonthPicker(false);
-                }}
-                className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer active:scale-95 z-10 relative touch-manipulation px-1 py-1"
-              >
-                {format(currentDate, 'yyyy')}
-              </button>
-            )}
+              )}
 
-            {/* Month Picker */}
-            {showMonthPicker && viewMode === 'month' && (
-              <div
-                ref={monthPickerRef}
-                className="absolute top-full left-0 mt-2 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl p-2"
-              >
-                <div className="grid grid-cols-3 gap-2">
-                  {months.map((month, index) => (
-                    <button
-                      key={month}
-                      onClick={() => handleMonthSelect(index)}
-                      className={`px-3 py-2.5 sm:py-2 rounded-lg transition-all duration-200 text-sm font-medium cursor-pointer active:scale-95 z-10 relative touch-manipulation ${
-                        index === getCurrentMonth()
-                          ? 'bg-blue-500/90 dark:bg-blue-600/90 text-white'
-                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                      }`}
-                    >
-                      {month.slice(0, 3)}
-                    </button>
-                  ))}
+              {/* Month Picker */}
+              {showMonthPicker && viewMode === 'month' && (
+                <div
+                  ref={monthPickerRef}
+                  className="absolute top-full left-0 mt-2 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl p-2"
+                >
+                  <div className="grid grid-cols-3 gap-2">
+                    {months.map((month, index) => (
+                      <button
+                        key={month}
+                        onClick={() => handleMonthSelect(index)}
+                        className={`px-3 py-2.5 sm:py-2 rounded-lg transition-all duration-200 text-sm font-medium cursor-pointer active:scale-95 z-10 relative ${
+                          index === getCurrentMonth()
+                            ? 'bg-blue-500/90 dark:bg-blue-600/90 text-white'
+                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                        }`}
+                      >
+                        {month.slice(0, 3)}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Year Picker */}
-            {showYearPicker && (
-              <div
-                ref={yearPickerRef}
-                className="absolute top-full left-0 mt-2 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl p-2"
-              >
-                <div className="grid grid-cols-4 gap-2">
-                  {getYearRange().map((year) => (
-                    <button
-                      key={year}
-                      onClick={() => handleYearSelect(year)}
-                      className={`px-3 py-2.5 sm:py-2 rounded-lg transition-all duration-200 text-sm font-medium cursor-pointer active:scale-95 touch-manipulation ${
-                        year === getCurrentYear()
-                          ? 'bg-blue-500/90 dark:bg-blue-600/90 text-white'
-                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                      }`}
-                    >
-                      {year}
-                    </button>
-                  ))}
+              {/* Year Picker */}
+              {showYearPicker && (
+                <div
+                  ref={yearPickerRef}
+                  className="absolute top-full left-0 mt-2 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl p-2"
+                >
+                  <div className="grid grid-cols-4 gap-2">
+                    {getYearRange().map((year) => (
+                      <button
+                        key={year}
+                        onClick={() => handleYearSelect(year)}
+                        className={`px-3 py-2.5 sm:py-2 rounded-lg transition-all duration-200 text-sm font-medium cursor-pointer active:scale-95 ${
+                          year === getCurrentYear()
+                            ? 'bg-blue-500/90 dark:bg-blue-600/90 text-white'
+                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                        }`}
+                      >
+                        {year}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
+            <button
+              onClick={() => navigateDate('next')}
+              className="w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 transition-all duration-200 hover:shadow-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white flex-shrink-0 cursor-pointer active:scale-95 z-10 relative"
+              aria-label="Next"
+            >
+              <HiChevronRight className="w-5 h-5 pointer-events-none" />
+            </button>
+            <button
+              onClick={() => setCurrentDate(new Date())}
+              className="px-4 py-2 sm:py-1.5 text-xs bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg transition-all duration-200 hover:scale-105 text-white font-semibold flex-shrink-0 cursor-pointer active:scale-95 z-10 relative border border-blue-400 dark:border-blue-500"
+            >
+              Today
+            </button>
           </div>
-          <button
-            onClick={() => navigateDate('next')}
-            className="w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 transition-all duration-200 hover:shadow-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white flex-shrink-0 cursor-pointer active:scale-95 z-10 relative touch-manipulation"
-            aria-label="Next"
-          >
-            <HiChevronRight className="w-5 h-5 pointer-events-none" />
-          </button>
-          <button
-            onClick={() => setCurrentDate(new Date())}
-            className="px-4 py-2 sm:py-1.5 text-xs bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg transition-all duration-200 hover:scale-105 text-white font-semibold flex-shrink-0 cursor-pointer active:scale-95 z-10 relative border border-blue-400 dark:border-blue-500 touch-manipulation"
-          >
-            Today
-          </button>
-        </div>
 
-        {/* View Mode Switcher */}
-        <div className="flex gap-0.5 bg-gray-100 dark:bg-gray-800 rounded-lg p-1 border border-gray-200 dark:border-gray-700 w-full sm:w-auto justify-center">
-          <button
-            onClick={() => setViewMode('month')}
-            className={`px-4 py-2.5 sm:py-2 rounded-md transition-all duration-200 flex items-center gap-1.5 text-xs font-medium cursor-pointer active:scale-95 z-10 relative touch-manipulation flex-1 sm:flex-initial ${
-              viewMode === 'month'
-                ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-gray-700/50'
-            }`}
-          >
-            <FaTable className="w-3.5 h-3.5 pointer-events-none" />
-            <span className="pointer-events-none">Month</span>
-          </button>
-          <button
-            onClick={() => setViewMode('week')}
-            className={`px-4 py-2.5 sm:py-2 rounded-md transition-all duration-200 flex items-center gap-1.5 text-xs font-medium cursor-pointer active:scale-95 z-10 relative touch-manipulation flex-1 sm:flex-initial ${
-              viewMode === 'week'
-                ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-gray-700/50'
-            }`}
-          >
-            <FaCalendarWeek className="w-3.5 h-3.5 pointer-events-none" />
-            <span className="pointer-events-none">Week</span>
-          </button>
+          {/* View Mode Switcher */}
+          <div className="flex gap-0.5 bg-gray-100 dark:bg-gray-800 rounded-lg p-1 border border-gray-200 dark:border-gray-700 flex-shrink-0">
+            <button
+              onClick={() => setViewMode('month')}
+              className={`px-4 py-2.5 sm:py-2 rounded-md transition-all duration-200 flex items-center gap-1.5 text-xs font-medium cursor-pointer active:scale-95 z-10 relative ${
+                viewMode === 'month'
+                  ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-gray-700/50'
+              }`}
+            >
+              <FaTable className="w-3.5 h-3.5 pointer-events-none" />
+              <span className="pointer-events-none">Month</span>
+            </button>
+            <button
+              onClick={() => setViewMode('week')}
+              className={`px-4 py-2.5 sm:py-2 rounded-md transition-all duration-200 flex items-center gap-1.5 text-xs font-medium cursor-pointer active:scale-95 z-10 relative ${
+                viewMode === 'week'
+                  ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-gray-700/50'
+              }`}
+            >
+              <FaCalendarWeek className="w-3.5 h-3.5 pointer-events-none" />
+              <span className="pointer-events-none">Week</span>
+            </button>
+          </div>
         </div>
       </div>
 
