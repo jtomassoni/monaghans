@@ -95,7 +95,7 @@ export function extractEventPattern(
             pattern.weekOfMonth = nth === -1 ? 5 : nth;
           } else {
             // Every occurrence of that weekday
-            pattern.weekOfMonth = null;
+            pattern.weekOfMonth = undefined;
           }
 
           pattern.patternMetadata = {

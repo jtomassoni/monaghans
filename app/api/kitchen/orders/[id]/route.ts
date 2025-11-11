@@ -95,7 +95,7 @@ export async function PATCH(
       'ready': [], // Ready orders can't be changed by kitchen (FOH marks as completed)
     };
 
-    const allowedNextStatuses = statusFlow[currentOrder.status as keyof typeof statusFlow] || [];
+    const allowedNextStatuses: string[] = statusFlow[currentOrder.status as keyof typeof statusFlow] || [];
     if (!allowedNextStatuses.includes(status)) {
       return NextResponse.json({ 
         error: `Invalid status transition. From "${currentOrder.status}", kitchen can only set: ${allowedNextStatuses.join(', ') || 'none'}` 

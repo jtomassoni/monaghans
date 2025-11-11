@@ -256,7 +256,6 @@ export default function DuplicateCalendarModal({
         message={`Are you sure you want to duplicate ${selectedEventIds.length} event${selectedEventIds.length !== 1 ? 's' : ''} from ${sourceYear} to ${targetYear}? This will create new events based on their recurrence patterns.`}
         confirmText={loading ? 'Duplicating...' : 'Duplicate'}
         cancelText="Cancel"
-        variant="default"
       />
     </>
   );

@@ -142,7 +142,7 @@ export default function PortalPage() {
       setEditingAvailability(existing);
       setAvailabilityFormData({
         date: dateStr,
-        shiftType: existing.shiftType || 'all',
+        shiftType: (existing.shiftType === 'open' || existing.shiftType === 'close' ? existing.shiftType : 'all') as 'open' | 'close' | 'all',
         isAvailable: existing.isAvailable,
         notes: existing.notes || '',
       });

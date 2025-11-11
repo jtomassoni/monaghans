@@ -182,14 +182,14 @@ export default function ClockInOutTab({ employees, openShifts, onOpenShiftsChang
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Clock In Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-          <FaSignInAlt className="w-5 h-5 text-green-600 dark:text-green-400" />
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
+        <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-3 sm:mb-4 flex items-center gap-2">
+          <FaSignInAlt className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 dark:text-green-400" />
           Clock In
         </h2>
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Employee *
@@ -197,7 +197,7 @@ export default function ClockInOutTab({ employees, openShifts, onOpenShiftsChang
             <select
               value={selectedEmployeeId}
               onChange={(e) => setSelectedEmployeeId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             >
               <option value="">Select employee...</option>
               {employees
@@ -220,7 +220,7 @@ export default function ClockInOutTab({ employees, openShifts, onOpenShiftsChang
                 min="0"
                 value={breakMin}
                 onChange={(e) => setBreakMin(parseInt(e.target.value) || 0)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               />
             </div>
           </div>
@@ -233,7 +233,7 @@ export default function ClockInOutTab({ employees, openShifts, onOpenShiftsChang
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               placeholder="Optional notes..."
             />
           </div>
@@ -241,9 +241,9 @@ export default function ClockInOutTab({ employees, openShifts, onOpenShiftsChang
           <button
             onClick={handleClockIn}
             disabled={loading || !selectedEmployeeId}
-            className="w-full px-4 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg font-semibold transition flex items-center justify-center gap-2"
+            className="w-full px-4 py-2.5 sm:py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg text-sm sm:text-base font-semibold transition flex items-center justify-center gap-2"
           >
-            <FaClock className="w-5 h-5" />
+            <FaClock className="w-4 h-4 sm:w-5 sm:h-5" />
             {loading ? 'Processing...' : 'Clock In'}
           </button>
         </div>
@@ -251,36 +251,36 @@ export default function ClockInOutTab({ employees, openShifts, onOpenShiftsChang
 
       {/* Currently Clocked In */}
       {openShifts.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <FaClock className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-3 sm:mb-4 flex items-center gap-2">
+            <FaClock className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600 dark:text-orange-400" />
             Currently Clocked In ({openShifts.length})
           </h2>
-          <div className="space-y-3">
+          <div className="space-y-2 sm:space-y-3">
             {openShifts.map(shift => (
               <div
                 key={shift.id}
-                className="p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg"
+                className="p-3 sm:p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg"
               >
-                <div className="flex justify-between items-start mb-2">
-                  <div>
-                    <h3 className="font-semibold text-gray-900 dark:text-white">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 sm:gap-2 mb-2">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-semibold text-sm sm:text-base text-gray-900 dark:text-white truncate">
                       {shift.employee.name}
                     </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                       {shift.employee.role} • ${shift.employee.hourlyWage.toFixed(2)}/hr
                     </p>
                   </div>
                   <button
                     onClick={() => handleClockOut(shift.id)}
                     disabled={loading}
-                    className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition flex items-center gap-2"
+                    className="w-full sm:w-auto px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white rounded-lg text-sm sm:text-base font-medium transition flex items-center justify-center gap-2"
                   >
-                    <FaSignOutAlt className="w-4 h-4" />
+                    <FaSignOutAlt className="w-3 h-3 sm:w-4 sm:h-4" />
                     Clock Out
                   </button>
                 </div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">
+                <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                   <p>Clocked in: {formatTime(shift.clockIn)} on {formatDate(shift.clockIn)}</p>
                   <p className="font-semibold text-orange-600 dark:text-orange-400 mt-1">
                     Elapsed: {getElapsedTime(shift.clockIn)}
@@ -293,13 +293,13 @@ export default function ClockInOutTab({ employees, openShifts, onOpenShiftsChang
       )}
 
       {/* Shift History */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
+        <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-3 sm:mb-4">
           Shift History
         </h2>
 
         {/* Filters */}
-        <div className="flex gap-4 mb-4">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-3 sm:mb-4">
           <div className="flex-1">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Employee
@@ -307,7 +307,7 @@ export default function ClockInOutTab({ employees, openShifts, onOpenShiftsChang
             <select
               value={filterEmployeeId}
               onChange={(e) => setFilterEmployeeId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             >
               <option value="all">All Employees</option>
               {employees.map(emp => (
@@ -325,7 +325,7 @@ export default function ClockInOutTab({ employees, openShifts, onOpenShiftsChang
               type="date"
               value={filterDate}
               onChange={(e) => setFilterDate(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             />
           </div>
         </div>
@@ -335,7 +335,9 @@ export default function ClockInOutTab({ employees, openShifts, onOpenShiftsChang
           {allShifts
             .filter(s => s.clockOut !== null) // Only show completed shifts
             .map(shift => {
-              const hoursWorked = calculateHoursWorked(shift.clockIn, shift.clockOut, shift.breakMin);
+              const clockInDate = shift.clockIn instanceof Date ? shift.clockIn : new Date(shift.clockIn);
+              const clockOutDate = shift.clockOut instanceof Date ? shift.clockOut : new Date(shift.clockOut!);
+              const hoursWorked = calculateHoursWorked(clockInDate, clockOutDate, shift.breakMin);
               const cost = calculateShiftCost(hoursWorked, shift.employee.hourlyWage);
 
               return (
@@ -343,12 +345,12 @@ export default function ClockInOutTab({ employees, openShifts, onOpenShiftsChang
                   key={shift.id}
                   className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600"
                 >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-semibold text-gray-900 dark:text-white">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 sm:gap-0">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-semibold text-sm sm:text-base text-gray-900 dark:text-white truncate">
                         {shift.employee.name}
                       </h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                      <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 break-words">
                         {formatDate(shift.clockIn)} • {formatTime(shift.clockIn)} - {shift.clockOut ? formatTime(shift.clockOut) : 'In Progress'}
                       </p>
                       {shift.breakMin > 0 && (
@@ -357,14 +359,14 @@ export default function ClockInOutTab({ employees, openShifts, onOpenShiftsChang
                         </p>
                       )}
                     </div>
-                    <div className="text-right">
+                    <div className="text-left sm:text-right flex-shrink-0">
                       {hoursWorked !== null && (
-                        <p className="font-semibold text-gray-900 dark:text-white">
+                        <p className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white">
                           {hoursWorked.toFixed(2)} hrs
                         </p>
                       )}
                       {cost !== null && (
-                        <p className="text-sm text-blue-600 dark:text-blue-400">
+                        <p className="text-xs sm:text-sm text-blue-600 dark:text-blue-400">
                           ${cost.toFixed(2)}
                         </p>
                       )}
@@ -376,7 +378,7 @@ export default function ClockInOutTab({ employees, openShifts, onOpenShiftsChang
         </div>
 
         {allShifts.filter(s => s.clockOut !== null).length === 0 && (
-          <p className="text-center py-8 text-gray-500 dark:text-gray-400">
+          <p className="text-center py-6 sm:py-8 text-sm sm:text-base text-gray-500 dark:text-gray-400">
             No shift history found
           </p>
         )}

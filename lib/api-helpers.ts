@@ -95,7 +95,7 @@ export function handleError(error: unknown, message = 'An error occurred') {
 export async function logActivity(
   userId: string,
   action: 'create' | 'update' | 'delete',
-  entityType: 'menuItem' | 'menuSection' | 'event' | 'special' | 'announcement' | 'user' | 'setting',
+  entityType: 'menuItem' | 'menuSection' | 'event' | 'special' | 'announcement' | 'user' | 'setting' | 'ingredient',
   entityId: string,
   entityName: string | null,
   changes?: Record<string, { before: any; after: any }>,

@@ -3,9 +3,15 @@ import Stripe from 'stripe';
 import { prisma } from '@/lib/prisma';
 import { handleError } from '@/lib/api-helpers';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2024-11-20.acacia',
-});
+// Lazy initialization to avoid build-time errors
+const getStripe = () => {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    throw new Error('Stripe is not configured');
+  }
+  return new Stripe(process.env.STRIPE_SECRET_KEY, {
+    apiVersion: '2025-10-29.clover',
+  });
+};
 
 /**
  * Confirm Payment and Update Order
@@ -23,14 +29,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!process.env.STRIPE_SECRET_KEY) {
-      return NextResponse.json(
-        { error: 'Stripe is not configured' },
-        { status: 500 }
-      );
-    }
-
     // Retrieve payment intent from Stripe
+    const stripe = getStripe();
     const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
 
     if (paymentIntent.status !== 'succeeded') {

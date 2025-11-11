@@ -80,12 +80,16 @@ export default function PayrollTab({ employees }: PayrollTabProps) {
   // Calculate totals
   const completedShifts = shifts.filter(s => s.clockOut !== null);
   const totalHours = completedShifts.reduce((sum, shift) => {
-    const hours = calculateHoursWorked(shift.clockIn, shift.clockOut, shift.breakMin);
+    const clockInDate = shift.clockIn instanceof Date ? shift.clockIn : new Date(shift.clockIn);
+    const clockOutDate = shift.clockOut instanceof Date ? shift.clockOut : new Date(shift.clockOut!);
+    const hours = calculateHoursWorked(clockInDate, clockOutDate, shift.breakMin);
     return sum + (hours || 0);
   }, 0);
 
   const totalCost = completedShifts.reduce((sum, shift) => {
-    const hours = calculateHoursWorked(shift.clockIn, shift.clockOut, shift.breakMin);
+    const clockInDate = shift.clockIn instanceof Date ? shift.clockIn : new Date(shift.clockIn);
+    const clockOutDate = shift.clockOut instanceof Date ? shift.clockOut : new Date(shift.clockOut!);
+    const hours = calculateHoursWorked(clockInDate, clockOutDate, shift.breakMin);
     const cost = calculateShiftCost(hours, shift.employee.hourlyWage);
     return sum + (cost || 0);
   }, 0);
@@ -102,7 +106,9 @@ export default function PayrollTab({ employees }: PayrollTabProps) {
       };
     }
     acc[empId].shifts.push(shift);
-    const hours = calculateHoursWorked(shift.clockIn, shift.clockOut, shift.breakMin);
+    const clockInDate = shift.clockIn instanceof Date ? shift.clockIn : new Date(shift.clockIn);
+    const clockOutDate = shift.clockOut instanceof Date ? shift.clockOut : new Date(shift.clockOut!);
+    const hours = calculateHoursWorked(clockInDate, clockOutDate, shift.breakMin);
     const cost = calculateShiftCost(hours, shift.employee.hourlyWage);
     acc[empId].totalHours += hours || 0;
     acc[empId].totalCost += cost || 0;
@@ -147,17 +153,17 @@ export default function PayrollTab({ employees }: PayrollTabProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Period Selector */}
-      <div className="flex justify-between items-center flex-wrap gap-4">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
           <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
             Period:
           </label>
           <select
             value={period}
             onChange={(e) => setPeriod(e.target.value)}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full sm:w-auto px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="7">Last 7 days</option>
             <option value="14">Last 14 days</option>
@@ -166,14 +172,14 @@ export default function PayrollTab({ employees }: PayrollTabProps) {
             <option value="90">Last 90 days</option>
           </select>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
           <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
             Role:
           </label>
           <select
             value={filterRole}
             onChange={(e) => setFilterRole(e.target.value)}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full sm:w-auto px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="all">All Roles</option>
             <option value="cook">Cook</option>
@@ -184,57 +190,57 @@ export default function PayrollTab({ employees }: PayrollTabProps) {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-              <FaDollarSign className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3 sm:p-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex-shrink-0">
+              <FaDollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 dark:text-blue-400" />
             </div>
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Total Labor Cost</p>
-              <p className="text-xl font-bold text-gray-900 dark:text-white">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Total Labor Cost</p>
+              <p className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white truncate">
                 ${totalCost.toFixed(2)}
               </p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
-              <FaClock className="w-5 h-5 text-green-600 dark:text-green-400" />
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3 sm:p-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg flex-shrink-0">
+              <FaClock className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 dark:text-green-400" />
             </div>
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Total Hours</p>
-              <p className="text-xl font-bold text-gray-900 dark:text-white">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Total Hours</p>
+              <p className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white truncate">
                 {totalHours.toFixed(2)}
               </p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-              <FaUsers className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3 sm:p-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex-shrink-0">
+              <FaUsers className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600 dark:text-purple-400" />
             </div>
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Shifts Worked</p>
-              <p className="text-xl font-bold text-gray-900 dark:text-white">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Shifts Worked</p>
+              <p className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white truncate">
                 {completedShifts.length}
               </p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
-              <FaChartLine className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3 sm:p-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex-shrink-0">
+              <FaChartLine className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600 dark:text-orange-400" />
             </div>
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Avg Hourly Cost</p>
-              <p className="text-xl font-bold text-gray-900 dark:text-white">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Avg Hourly Cost</p>
+              <p className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white truncate">
                 ${totalHours > 0 ? (totalCost / totalHours).toFixed(2) : '0.00'}
               </p>
             </div>
@@ -243,30 +249,30 @@ export default function PayrollTab({ employees }: PayrollTabProps) {
       </div>
 
       {/* By Role Breakdown */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
+        <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-3 sm:mb-4">
           Labor Cost by Role
         </h2>
-        <div className="space-y-3">
+        <div className="space-y-2 sm:space-y-3">
           {Object.entries(shiftsByRole).map(([role, data]) => (
             <div
               key={role}
-              className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600"
+              className="p-3 sm:p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600"
             >
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="font-semibold text-gray-900 dark:text-white capitalize">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 sm:gap-0">
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-semibold text-sm sm:text-base text-gray-900 dark:text-white capitalize truncate">
                     {role}
                   </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                     {data.employeeCount} {data.employeeCount === 1 ? 'employee' : 'employees'}
                   </p>
                 </div>
-                <div className="text-right">
-                  <p className="font-semibold text-gray-900 dark:text-white">
+                <div className="text-left sm:text-right">
+                  <p className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white">
                     {data.totalHours.toFixed(2)} hrs
                   </p>
-                  <p className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                  <p className="text-base sm:text-lg font-bold text-blue-600 dark:text-blue-400">
                     ${data.totalCost.toFixed(2)}
                   </p>
                 </div>
@@ -277,32 +283,32 @@ export default function PayrollTab({ employees }: PayrollTabProps) {
       </div>
 
       {/* By Employee Breakdown */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
+        <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-3 sm:mb-4">
           Labor Cost by Employee
         </h2>
-        <div className="space-y-3 max-h-96 overflow-y-auto">
+        <div className="space-y-2 sm:space-y-3 max-h-96 overflow-y-auto">
           {Object.values(shiftsByEmployee)
             .sort((a, b) => b.totalCost - a.totalCost)
             .map((empData) => (
               <div
                 key={empData.employee.id}
-                className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600"
+                className="p-3 sm:p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600"
               >
-                <div className="flex justify-between items-start mb-2">
-                  <div>
-                    <h3 className="font-semibold text-gray-900 dark:text-white">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 sm:gap-0 mb-2">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-semibold text-sm sm:text-base text-gray-900 dark:text-white truncate">
                       {empData.employee.name}
                     </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 capitalize">
+                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 capitalize">
                       {empData.employee.role} • ${empData.employee.hourlyWage.toFixed(2)}/hr
                     </p>
                   </div>
-                  <div className="text-right">
-                    <p className="font-semibold text-gray-900 dark:text-white">
+                  <div className="text-left sm:text-right">
+                    <p className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white">
                       {empData.totalHours.toFixed(2)} hrs
                     </p>
-                    <p className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                    <p className="text-base sm:text-lg font-bold text-blue-600 dark:text-blue-400">
                       ${empData.totalCost.toFixed(2)}
                     </p>
                   </div>
@@ -316,8 +322,8 @@ export default function PayrollTab({ employees }: PayrollTabProps) {
       </div>
 
       {/* Recent Shifts */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
+        <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-3 sm:mb-4">
           Recent Shifts
         </h2>
         <div className="space-y-2 max-h-96 overflow-y-auto">
@@ -325,7 +331,9 @@ export default function PayrollTab({ employees }: PayrollTabProps) {
             .sort((a, b) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime())
             .slice(0, 20)
             .map(shift => {
-              const hours = calculateHoursWorked(shift.clockIn, shift.clockOut, shift.breakMin);
+              const clockInDate = shift.clockIn instanceof Date ? shift.clockIn : new Date(shift.clockIn);
+              const clockOutDate = shift.clockOut instanceof Date ? shift.clockOut : new Date(shift.clockOut!);
+              const hours = calculateHoursWorked(clockInDate, clockOutDate, shift.breakMin);
               const cost = calculateShiftCost(hours, shift.employee.hourlyWage);
 
               return (
@@ -333,12 +341,12 @@ export default function PayrollTab({ employees }: PayrollTabProps) {
                   key={shift.id}
                   className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600"
                 >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-semibold text-gray-900 dark:text-white">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 sm:gap-0">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-semibold text-sm sm:text-base text-gray-900 dark:text-white truncate">
                         {shift.employee.name}
                       </h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                      <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 break-words">
                         {formatDate(shift.clockIn)} • {formatTime(shift.clockIn)} - {shift.clockOut ? formatTime(shift.clockOut) : 'In Progress'}
                       </p>
                       {shift.breakMin > 0 && (
@@ -347,14 +355,14 @@ export default function PayrollTab({ employees }: PayrollTabProps) {
                         </p>
                       )}
                     </div>
-                    <div className="text-right">
+                    <div className="text-left sm:text-right flex-shrink-0">
                       {hours !== null && (
-                        <p className="font-semibold text-gray-900 dark:text-white">
+                        <p className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white">
                           {hours.toFixed(2)} hrs
                         </p>
                       )}
                       {cost !== null && (
-                        <p className="text-sm text-blue-600 dark:text-blue-400">
+                        <p className="text-xs sm:text-sm text-blue-600 dark:text-blue-400">
                           ${cost.toFixed(2)}
                         </p>
                       )}
