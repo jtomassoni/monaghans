@@ -338,6 +338,14 @@ pg_dump $DATABASE_URL > backup.sql
 
 ### Phase 11 — Menu Analysis & Optimization
 
+- [ ] **Labor Management**
+  - Employee scheduling system
+  - Clock in/out tracking
+  - Hourly wage tracking per employee
+  - Calculate labor costs per shift
+  - Track labor costs per menu item (time to prep/cook)
+  - Labor cost % vs. sales analysis
+  - Schedule optimization based on busy hours
 - [ ] **Sales Analytics**
   - Track items sold by time of day
   - Track items sold by day of week
@@ -345,20 +353,26 @@ pg_dump $DATABASE_URL > backup.sql
   - Sales trends and patterns
 - [ ] **Ingredient Optimization**
   - Build ingredient tracking system
-  - Map menu items to their ingredients
+  - Map menu items to their ingredients with quantities
+  - Track ingredient costs per unit (oz, lb, count)
+  - Calculate exact food cost per menu item
   - Identify ingredient overlap and consolidation opportunities
   - Detect redundant prep items (e.g., marinara sauce vs. tomato-based pasta sauce should share base ingredients)
   - Optimize for ingredient turnover and reduce waste
+  - Track ingredient stock levels and par values
 - [ ] **Profitability Analysis**
-  - Calculate profit margins per item
+  - Calculate profit margins per item (revenue - food cost - labor cost)
   - Identify high-volume, low-margin items (e.g., "customers love lasagna, but only making $1 per plate")
+  - Track total cost of goods sold (COGS)
+  - Calculate contribution margin per menu item
   - Suggest menu adjustments to support popular low-margin items
+  - Prime cost analysis (food cost + labor cost)
 - [ ] **Drink Special Optimization**
   - Analyze drink special performance by day of week
   - Suggest optimal specials based on historical data
   - Track profitability of drink specials
 
-**Acceptance Criteria:** Owners can see detailed menu analytics; system identifies optimization opportunities.
+**Acceptance Criteria:** Owners can see detailed menu analytics including full cost breakdown (ingredients + labor); system identifies optimization opportunities; scheduling and payroll tracking integrated with profitability reports.
 
 ---
 

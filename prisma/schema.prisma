@@ -27,20 +27,25 @@ model Special {
 }
 
 model Event {
-  id             String    @id @default(cuid())
-  title          String
-  description    String?
-  startDateTime  DateTime
-  endDateTime    DateTime?
-  venueArea      String    @default("bar") // "bar", "stage", "other"
-  recurrenceRule String? // RRULE string (RFC 5545)
-  exceptions     String? // JSON array of exception dates: ["2024-01-15", ...]
-  isAllDay       Boolean   @default(false)
-  tags           String? // JSON array of tags: ["live-music", "trivia", ...]
-  image          String? // Path to image in /public/uploads
-  isActive       Boolean   @default(true)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id              String    @id @default(cuid())
+  title           String
+  description     String?
+  startDateTime   DateTime
+  endDateTime     DateTime?
+  venueArea       String    @default("bar") // "bar", "stage", "other"
+  recurrenceRule  String? // RRULE string (RFC 5545)
+  exceptions      String? // JSON array of exception dates: ["2024-01-15", ...]
+  isAllDay        Boolean   @default(false)
+  tags            String? // JSON array of tags: ["live-music", "trivia", ...]
+  image           String? // Path to image in /public/uploads
+  isActive        Boolean   @default(true)
+  // Pattern tracking for calendar duplication
+  dayOfWeek       Int? // 0-6 (Sunday-Saturday) for weekly events
+  weekOfMonth     Int? // 1-5 (first, second, third, fourth, last) for monthly events
+  monthDay        Int? // 1-31 for monthly events on specific day
+  patternMetadata String? // JSON object with additional pattern info (e.g., {"frequency": "weekly", "days": ["Monday", "Wednesday"]})
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 }
 
 model Announcement {
@@ -138,7 +143,7 @@ model ActivityLog {
 model Order {
   id                  String      @id @default(cuid())
   orderNumber         String      @unique // Human-readable order number (e.g., "ORD-2025-001")
-  status              String      @default("pending") // "pending", "confirmed", "preparing", "ready", "completed", "cancelled"
+  status              String      @default("pending") // "pending", "confirmed", "acknowledged", "preparing", "ready", "completed", "cancelled"
   customerName        String
   customerEmail       String
   customerPhone       String
@@ -147,6 +152,8 @@ model Order {
   subtotal            Float       @default(0)
   tax                 Float       @default(0)
   tip                 Float       @default(0)
+  bohTip              Float       @default(0) // Back of House tip portion
+  fohTip              Float       @default(0) // Front of House tip portion
   total               Float       @default(0)
   paymentStatus       String      @default("pending") // "pending", "paid", "failed", "refunded"
   paymentMethod       String? // "card", "cash", etc.
@@ -157,7 +164,8 @@ model Order {
   updatedAt           DateTime    @updatedAt
   completedAt         DateTime?
   // Timing fields for performance tracking
-  confirmedAt         DateTime? // When order was confirmed
+  confirmedAt         DateTime? // When order was confirmed (FOH)
+  acknowledgedAt      DateTime? // When order was acknowledged by BOH
   preparingAt         DateTime? // When order started being prepared
   readyAt             DateTime? // When order was marked ready
 
@@ -186,19 +194,92 @@ model OrderItem {
 
 // Add relation to MenuItem for orders
 model MenuItem {
-  id           String      @id @default(cuid())
+  id           String               @id @default(cuid())
   sectionId    String
-  section      MenuSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  section      MenuSection          @relation(fields: [sectionId], references: [id], onDelete: Cascade)
   name         String
   description  String? // Optional item description
   price        String? // Price as string (e.g., "$14", "$8-12", "Market Price")
   priceNotes   String? // Additional pricing info (e.g., "Full: $14, Half: $8")
   modifiers    String? // JSON array of modifier options
-  isAvailable  Boolean     @default(true)
-  displayOrder Int         @default(0) // For ordering within section
+  isAvailable  Boolean              @default(true)
+  displayOrder Int                  @default(0) // For ordering within section
   orderItems   OrderItem[] // Relation to orders
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  ingredients  MenuItemIngredient[] // Relation to ingredients
+  prepTimeMin  Int? // Prep/cook time in minutes
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
 
   @@index([sectionId])
+}
+
+// Ingredient master list
+model Ingredient {
+  id            String               @id @default(cuid())
+  name          String // "Mozzarella Cheese", "Tortilla - 10 inch", "Romaine Lettuce"
+  category      String               @default("Other") // "Dairy", "Grains", "Vegetables", "Proteins", "Condiments", "Other"
+  unit          String // "oz", "lb", "count", "cup", "tsp", "tbsp"
+  costPerUnit   Float // Cost per unit (e.g., $0.15/oz for cheese)
+  supplier      String? // Optional supplier info
+  parLevel      Float? // Minimum stock level to maintain
+  currentStock  Float? // Current inventory (optional for now)
+  notes         String? // Additional notes
+  isActive      Boolean              @default(true)
+  menuItems     MenuItemIngredient[] // Relation to menu items
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  @@index([category])
+  @@index([name])
+}
+
+// Junction table: Links menu items to ingredients with quantities
+model MenuItemIngredient {
+  id           String     @id @default(cuid())
+  menuItemId   String
+  ingredientId String
+  quantity     Float // e.g., 2.5 (oz), 1 (count)
+  notes        String? // Optional prep notes
+  menuItem     MenuItem   @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([menuItemId, ingredientId])
+  @@index([menuItemId])
+  @@index([ingredientId])
+}
+
+// Employee management for labor cost tracking
+model Employee {
+  id           String   @id @default(cuid())
+  name         String
+  email        String?  @unique
+  phone        String?
+  role         String // "server", "bartender", "cook", "dishwasher", "manager"
+  hourlyWage   Float // Hourly wage in dollars
+  isActive     Boolean  @default(true)
+  hireDate     DateTime?
+  notes        String?
+  shifts       Shift[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([isActive])
+}
+
+// Shift tracking for labor cost analysis
+model Shift {
+  id         String    @id @default(cuid())
+  employeeId String
+  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  clockIn    DateTime
+  clockOut   DateTime?
+  breakMin   Int       @default(0) // Break time in minutes (unpaid)
+  notes      String? // Shift notes
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([employeeId])
+  @@index([clockIn])
 }
