@@ -18,13 +18,28 @@ export async function GET(req: NextRequest) {
   const code = searchParams.get('code');
   const state = searchParams.get('state');
   const error = searchParams.get('error');
+  const errorReason = searchParams.get('error_reason');
+  const errorDescription = searchParams.get('error_description');
 
   if (error) {
+    let errorMessage = error;
+    
+    // Provide helpful error messages for common Facebook OAuth errors
+    if (error === 'redirect_uri_mismatch' || errorDescription?.includes('redirect URI') || errorDescription?.includes('whitelisted')) {
+      errorMessage = `Redirect URI not configured: The callback URL ${NEXTAUTH_URL}/api/social/facebook/callback must be added to your Facebook App's Valid OAuth Redirect URIs. Go to Facebook Developers > Your App > Settings > Basic > Add Platform > Website, then add this URL to "Valid OAuth Redirect URIs".`;
+    } else if (error === 'access_denied') {
+      errorMessage = 'Access denied: You did not grant the required permissions. Please try again and make sure to grant all requested permissions.';
+    } else if (errorDescription?.includes('app is not accessible') || errorDescription?.includes('app developer is aware')) {
+      errorMessage = 'Facebook App not active: Your Facebook App is currently inactive or in development mode. Go to Facebook Developers > Your App > Settings > Basic and ensure the app is set to "Live" mode, or add test users if in development mode.';
+    } else if (errorDescription) {
+      errorMessage = `${error}: ${errorDescription}`;
+    }
+    
     return new Response(`
       <html>
         <body>
           <script>
-            window.opener.postMessage({ type: 'FACEBOOK_ERROR', error: '${error}' }, '*');
+            window.opener.postMessage({ type: 'FACEBOOK_ERROR', error: ${JSON.stringify(errorMessage)} }, '*');
             window.close();
           </script>
         </body>
@@ -63,7 +78,33 @@ export async function GET(req: NextRequest) {
     const tokenData = await tokenResponse.json();
 
     if (!tokenData.access_token) {
-      throw new Error('Failed to get access token');
+      console.error('Token exchange failed:', tokenData);
+      throw new Error('Failed to get access token. Please make sure you granted all requested permissions.');
+    }
+
+    // Check what permissions were actually granted
+    try {
+      const debugResponse = await fetch(
+        `https://graph.facebook.com/v18.0/debug_token?` +
+        `input_token=${tokenData.access_token}` +
+        `&access_token=${tokenData.access_token}`,
+        { method: 'GET' }
+      );
+      const debugData = await debugResponse.json();
+      console.log('User token scopes granted:', debugData.data?.scopes);
+      console.log('User token granular scopes:', debugData.data?.granular_scopes);
+      
+      // Check if required permissions are present
+      const grantedScopes = debugData.data?.scopes || [];
+      const requiredScopes = ['pages_read_engagement', 'pages_manage_posts'];
+      const missingScopes = requiredScopes.filter(scope => !grantedScopes.includes(scope));
+      
+      if (missingScopes.length > 0) {
+        console.warn('Missing required scopes:', missingScopes);
+        // Don't fail here, but log it - the page token might still work
+      }
+    } catch (debugErr) {
+      console.error('Error checking granted permissions:', debugErr);
     }
 
     // Exchange short-lived token for long-lived token (60 days)
@@ -149,6 +190,21 @@ export async function GET(req: NextRequest) {
       );
       const tokenDebug = await tokenDebugResponse.json();
       console.log('Page token debug (before exchange):', JSON.stringify(tokenDebug, null, 2));
+      
+      // Check page token permissions
+      const pageScopes = tokenDebug.data?.scopes || [];
+      const requiredScopes = ['pages_read_engagement', 'pages_manage_posts'];
+      const missingPageScopes = requiredScopes.filter(scope => !pageScopes.includes(scope));
+      
+      if (missingPageScopes.length > 0) {
+        console.warn('Page token missing required scopes:', missingPageScopes);
+        console.warn('Available page token scopes:', pageScopes);
+        // This is a problem - the page token doesn't have the required permissions
+        // We should warn the user but still complete the connection
+        // They'll need to reconnect and grant permissions
+      } else {
+        console.log('✓ Page token has all required permissions');
+      }
     } catch (debugErr) {
       console.error('Error debugging page token:', debugErr);
     }

@@ -116,10 +116,14 @@ export async function PATCH(
       errorMessage = error.message;
       
       // Provide helpful error messages for common cases
-      if (errorMessage.includes('time limit') || errorMessage.includes('24 hours')) {
+      if (errorMessage.includes('OAuthException') || errorMessage.includes('Error 200') || errorMessage.includes('expired or invalid')) {
+        errorMessage = 'Facebook access token expired or invalid. Please reconnect your Facebook account in the settings.';
+      } else if (errorMessage.includes('time limit') || errorMessage.includes('24 hours')) {
         errorMessage = 'Posts can only be edited within 24 hours of posting.';
       } else if (errorMessage.includes('permission')) {
         errorMessage = 'You do not have permission to edit this post.';
+      } else if (errorMessage.includes('not exist') || errorMessage.includes('not found')) {
+        errorMessage = 'Post not found or has been deleted from Facebook.';
       }
     }
     
@@ -200,7 +204,9 @@ export async function DELETE(
       errorMessage = error.message;
       
       // Provide helpful error messages for common cases
-      if (errorMessage.includes('permission')) {
+      if (errorMessage.includes('OAuthException') || errorMessage.includes('Error 200') || errorMessage.includes('expired or invalid')) {
+        errorMessage = 'Facebook access token expired or invalid. Please reconnect your Facebook account in the settings.';
+      } else if (errorMessage.includes('permission')) {
         errorMessage = 'You do not have permission to delete this post.';
       } else if (errorMessage.includes('not exist')) {
         errorMessage = 'Post not found or already deleted.';

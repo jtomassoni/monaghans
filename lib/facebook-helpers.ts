@@ -24,6 +24,13 @@ export async function getPageAccessToken(
   const pagesData = await pagesResponse.json();
 
   if (pagesData.error) {
+    // Handle OAuth errors specifically
+    if (pagesData.error.code === 200 || pagesData.error.type === 'OAuthException') {
+      throw new Error(
+        `Facebook access token expired or invalid. Please reconnect your Facebook account. ` +
+        `(Error ${pagesData.error.code}, Type: ${pagesData.error.type})`
+      );
+    }
     throw new Error(pagesData.error.message || 'Failed to get page access token');
   }
 
@@ -138,6 +145,14 @@ export async function postToFacebook(
       const errorCode = photoData.error?.code;
       const errorType = photoData.error?.type;
       
+      // Provide clearer error message for OAuth errors
+      if (errorCode === 200 || errorType === 'OAuthException') {
+        throw new Error(
+          `Facebook access token expired or invalid. Please reconnect your Facebook account. ` +
+          `(Error ${errorCode}, Type: ${errorType})`
+        );
+      }
+      
       throw new Error(
         errorCode ? `${errorMessage} (Error ${errorCode}, Type: ${errorType})` : errorMessage
       );
@@ -229,6 +244,14 @@ export async function postToFacebook(
     const errorCode = data.error?.code;
     const errorType = data.error?.type;
     
+    // Provide clearer error message for OAuth errors
+    if (errorCode === 200 || errorType === 'OAuthException') {
+      throw new Error(
+        `Facebook access token expired or invalid. Please reconnect your Facebook account. ` +
+        `(Error ${errorCode}, Type: ${errorType})`
+      );
+    }
+    
     throw new Error(
       errorCode ? `${errorMessage} (Error ${errorCode}, Type: ${errorType})` : errorMessage
     );
@@ -291,6 +314,14 @@ export async function editFacebookPost(
     const errorCode = data.error?.code;
     const errorType = data.error?.type;
     
+    // Provide clearer error message for OAuth errors
+    if (errorCode === 200 || errorType === 'OAuthException') {
+      throw new Error(
+        `Facebook access token expired or invalid. Please reconnect your Facebook account. ` +
+        `(Error ${errorCode}, Type: ${errorType})`
+      );
+    }
+    
     throw new Error(
       errorCode ? `${errorMessage} (Error ${errorCode}, Type: ${errorType})` : errorMessage
     );
@@ -343,6 +374,14 @@ export async function deleteFacebookPost(
     const errorMessage = data.error?.message || `Facebook API error: ${response.statusText}`;
     const errorCode = data.error?.code;
     const errorType = data.error?.type;
+    
+    // Provide clearer error message for OAuth errors
+    if (errorCode === 200 || errorType === 'OAuthException') {
+      throw new Error(
+        `Facebook access token expired or invalid. Please reconnect your Facebook account. ` +
+        `(Error ${errorCode}, Type: ${errorType})`
+      );
+    }
     
     throw new Error(
       errorCode ? `${errorMessage} (Error ${errorCode}, Type: ${errorType})` : errorMessage

@@ -224,14 +224,23 @@ export default function CalendarView({ events, specials, announcements = [], onE
     const rangeStart = viewMode === 'week' ? weekStart : calendarStart;
     const rangeEnd = viewMode === 'week' ? weekEnd : calendarEnd;
 
-    // Process events
-    events.forEach((event) => {
+    // Process events - use localEvents to ensure we have the latest data
+    localEvents.forEach((event) => {
       if (!event.isActive) return;
 
       const startDate = new Date(event.startDateTime);
       const endDate = event.endDateTime ? new Date(event.endDateTime) : null;
 
       if (event.recurrenceRule) {
+        // Debug: Log recurring event processing
+        console.log('Processing recurring event:', {
+          title: event.title,
+          recurrenceRule: event.recurrenceRule,
+          startDate: startDate.toISOString(),
+          rangeStart: rangeStart.toISOString(),
+          rangeEnd: rangeEnd.toISOString(),
+        });
+        
         try {
           // Parse exceptions if they exist
           const exceptions: string[] = event.exceptions ? JSON.parse(event.exceptions) : [];
@@ -390,7 +399,22 @@ export default function CalendarView({ events, specials, announcements = [], onE
           }
           
           // Create RRule with updated BYMONTHDAY and dtstart
-          const rule = RRule.fromString(ruleToUse);
+          let rule: RRule;
+          try {
+            rule = RRule.fromString(ruleToUse);
+          } catch (parseError) {
+            console.error('Failed to parse RRule:', ruleToUse, parseError);
+            // Fallback: show just the initial event if it's in range
+            if (isWithinInterval(startDate, { start: rangeStart, end: rangeEnd })) {
+              const eventDay = startOfDay(startDate);
+              items.push({
+                ...event,
+                date: eventDay,
+              });
+            }
+            return; // Skip processing this event
+          }
+          
           const ruleOptions = {
             ...rule.options,
             dtstart: dtstartDate,
@@ -398,9 +422,35 @@ export default function CalendarView({ events, specials, announcements = [], onE
           const ruleWithDtstart = new RRule(ruleOptions);
           
           // Use between with inclusive=true to include start date if it's in range
-          // Also ensure we start from the event's start date, not before it
-          const searchStart = startDate > rangeStart ? startDate : rangeStart;
-          const occurrences = ruleWithDtstart.between(searchStart, rangeEnd, true);
+          // For recurring events, we want to find all occurrences in the visible range
+          // If the event starts in the future (beyond rangeEnd), we won't find any occurrences
+          // If the event starts before rangeStart, we search from rangeStart
+          // If the event starts within the range, we search from startDate
+          const searchStart = startDate > rangeStart ? (startDate > rangeEnd ? rangeStart : startDate) : rangeStart;
+          const occurrences = ruleWithDtstart.between(searchStart, rangeEnd, true).filter(occ => occ >= startDate);
+          
+          // Debug logging for recurring events
+          console.log('Recurring event occurrences:', {
+            title: event.title,
+            recurrenceRule: ruleToUse,
+            searchStart: searchStart.toISOString(),
+            rangeEnd: rangeEnd.toISOString(),
+            dtstart: dtstartDate.toISOString(),
+            occurrencesCount: occurrences.length,
+            occurrences: occurrences.map(o => o.toISOString()).slice(0, 5), // First 5 for debugging
+          });
+          
+          if (occurrences.length === 0) {
+            console.warn('Recurring event has no occurrences in range:', {
+              title: event.title,
+              recurrenceRule: ruleToUse,
+              startDate: startDate.toISOString(),
+              rangeStart: rangeStart.toISOString(),
+              rangeEnd: rangeEnd.toISOString(),
+              dtstart: dtstartDate.toISOString(),
+              searchStart: searchStart.toISOString(),
+            });
+          }
           
           // Always include the initial event occurrence if it's in the visible range
           // This ensures the first occurrence appears even if RRule calculation misses it
@@ -520,6 +570,13 @@ export default function CalendarView({ events, specials, announcements = [], onE
             });
           });
         } catch (e) {
+          console.error('Error processing recurring event:', {
+            title: event.title,
+            recurrenceRule: event.recurrenceRule,
+            error: e instanceof Error ? e.message : String(e),
+            stack: e instanceof Error ? e.stack : undefined,
+          });
+          // Fallback: show just the initial event if it's in range
           if (isWithinInterval(startDate, { start: rangeStart, end: rangeEnd })) {
             // Normalize to start of day to ensure correct day assignment
             const eventDay = startOfDay(startDate);

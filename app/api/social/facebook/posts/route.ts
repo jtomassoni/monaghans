@@ -70,7 +70,15 @@ export async function GET(req: NextRequest) {
         );
         const graphData = await graphResponse.json();
 
-        if (graphResponse.ok && Array.isArray(graphData.data)) {
+        // Check for OAuth errors
+        if (graphData.error) {
+          if (graphData.error.code === 200 || graphData.error.type === 'OAuthException') {
+            console.warn('OAuth error when fetching posts - token may be expired:', graphData.error);
+            // Continue with just DB posts if OAuth fails
+          } else {
+            console.warn('Failed to fetch posts from Facebook:', graphData);
+          }
+        } else if (graphResponse.ok && Array.isArray(graphData.data)) {
           graphData.data.forEach((graphPost: any) => {
             const dbPost = dbPostMap.get(graphPost.id);
             posts.push({
@@ -91,8 +99,6 @@ export async function GET(req: NextRequest) {
               dbPostMap.delete(graphPost.id);
             }
           });
-        } else {
-          console.warn('Failed to fetch posts from Facebook:', graphData);
         }
 
       } catch (err) {
@@ -100,18 +106,73 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Add remaining CMS posts that were not returned by the Graph API call
-    for (const dbPost of dbPostMap.values()) {
-      posts.push({
-        id: dbPost.postId,
-        message: dbPost.message,
-        permalink: dbPost.permalink,
-        imageUrl: dbPost.imageUrl,
-        link: dbPost.link,
-        postedAt: dbPost.postedAt.toISOString(),
-        source: 'cms',
-        createdBy: dbPost.createdBy,
-      });
+    // Verify remaining CMS posts still exist on Facebook before including them
+    // This prevents showing deleted posts
+    if (connectionData.connected && connectionData.pageId && pageToken && dbPostMap.size > 0) {
+      const postsToVerify = Array.from(dbPostMap.values());
+      const verifiedPosts: typeof postsToVerify = [];
+      
+      // Verify posts in batches to avoid rate limits
+      for (const dbPost of postsToVerify) {
+        try {
+          const verifyResponse = await fetch(
+            `https://graph.facebook.com/v18.0/${dbPost.postId}?` +
+              `fields=id&access_token=${pageToken}`,
+            { method: 'GET' }
+          );
+          const verifyData = await verifyResponse.json();
+          
+          // If post exists on Facebook, include it
+          if (verifyResponse.ok && verifyData.id) {
+            verifiedPosts.push(dbPost);
+          } else {
+            // Post doesn't exist on Facebook (deleted), remove from database
+            console.log(`Post ${dbPost.postId} not found on Facebook, removing from database`);
+            try {
+              await prisma.facebookPost.delete({
+                where: { postId: dbPost.postId },
+              }).catch(() => {
+                // Ignore errors if post already deleted
+              });
+            } catch (deleteErr) {
+              // Ignore database errors
+            }
+          }
+        } catch (verifyErr) {
+          // If verification fails (e.g., OAuth error), include the post anyway
+          // to avoid losing data if it's just a temporary API issue
+          verifiedPosts.push(dbPost);
+        }
+      }
+      
+      // Add verified posts
+      for (const dbPost of verifiedPosts) {
+        posts.push({
+          id: dbPost.postId,
+          message: dbPost.message,
+          permalink: dbPost.permalink,
+          imageUrl: dbPost.imageUrl,
+          link: dbPost.link,
+          postedAt: dbPost.postedAt.toISOString(),
+          source: 'cms',
+          createdBy: dbPost.createdBy,
+        });
+      }
+    } else if (dbPostMap.size > 0) {
+      // If we can't verify (no connection or token), include all DB posts
+      // This maintains backward compatibility when Facebook isn't connected
+      for (const dbPost of dbPostMap.values()) {
+        posts.push({
+          id: dbPost.postId,
+          message: dbPost.message,
+          permalink: dbPost.permalink,
+          imageUrl: dbPost.imageUrl,
+          link: dbPost.link,
+          postedAt: dbPost.postedAt.toISOString(),
+          source: 'cms',
+          createdBy: dbPost.createdBy,
+        });
+      }
     }
 
     posts.sort(

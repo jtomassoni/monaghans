@@ -120,8 +120,21 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error('Facebook post error:', error);
+    
+    let errorMessage = 'Failed to post to Facebook';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+      
+      // Provide helpful error messages for OAuth errors
+      if (errorMessage.includes('OAuthException') || errorMessage.includes('Error 200') || errorMessage.includes('expired or invalid')) {
+        errorMessage = 'Facebook access token expired or invalid. Please reconnect your Facebook account in the settings.';
+      } else if (errorMessage.includes('permission')) {
+        errorMessage = 'You do not have permission to post to this Facebook page.';
+      }
+    }
+    
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to post to Facebook' },
+      { error: errorMessage },
       { status: 500 }
     );
   }

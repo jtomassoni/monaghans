@@ -78,6 +78,9 @@ export default function SocialMediaForm({ initialFacebookData }: SocialMediaForm
   });
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [showConnectionModal, setShowConnectionModal] = useState(false);
+  const [oauthErrorDetected, setOauthErrorDetected] = useState(false);
+  const [showDiagnosticsModal, setShowDiagnosticsModal] = useState(false);
+  const [connectionDiagnostics, setConnectionDiagnostics] = useState<any>(null);
 
   // Helper function to validate and format URLs
   function validateAndFormatUrl(url: string, field: 'imageUrl'): string {
@@ -283,7 +286,27 @@ export default function SocialMediaForm({ initialFacebookData }: SocialMediaForm
             window.removeEventListener('message', messageHandler);
             popup?.close();
             setConnecting(false);
-            showToast('Facebook connection failed', 'error', event.data.error || 'Unknown error');
+            
+            const errorMsg = event.data.error || 'Unknown error';
+            
+            // Show detailed error message
+            if (errorMsg.includes('Redirect URI not configured') || errorMsg.includes('whitelisted')) {
+              showToast(
+                'Facebook App Configuration Required',
+                'error',
+                errorMsg + ' See the connection settings for more details.'
+              );
+              // Show connection modal with helpful info
+              setShowConnectionModal(true);
+            } else if (errorMsg.includes('App not active') || errorMsg.includes('not accessible')) {
+              showToast(
+                'Facebook App Not Active',
+                'error',
+                errorMsg + ' Check your Facebook App settings in Facebook Developers.'
+              );
+            } else {
+              showToast('Facebook connection failed', 'error', errorMsg);
+            }
           }
         };
         window.addEventListener('message', messageHandler);
@@ -350,8 +373,15 @@ export default function SocialMediaForm({ initialFacebookData }: SocialMediaForm
           const timestamp = Date.now();
           setLastTestSuccessTime(timestamp);
           localStorage.setItem('facebook_test_success_time', timestamp.toString());
+          setConnectionDiagnostics(null);
+          setShowDiagnosticsModal(false);
         } else {
-          showToast('Connection test completed', 'error', 'Permissions may be missing. Please review connection diagnostics.');
+          // Store diagnostics and show modal
+          if (data?.diagnostics) {
+            setConnectionDiagnostics(data.diagnostics);
+            setShowDiagnosticsModal(true);
+          }
+          showToast('Connection test completed', 'error', 'Permissions may be missing. Review diagnostics below.');
           // Clear stored success time on failure
           setLastTestSuccessTime(null);
           localStorage.removeItem('facebook_test_success_time');
@@ -622,10 +652,43 @@ export default function SocialMediaForm({ initialFacebookData }: SocialMediaForm
         fetchFacebookPosts();
       } else {
         const error = await response.json();
-        throw new Error(error.error || 'Failed to post to Facebook');
+        const errorMessage = error.error || 'Failed to post to Facebook';
+        
+        // Check if it's an OAuth error
+        if (errorMessage.includes('OAuthException') || 
+            errorMessage.includes('Error 200') || 
+            errorMessage.includes('expired or invalid') ||
+            errorMessage.includes('Please reconnect')) {
+          // Show reconnect modal instead of just toast
+          setOauthErrorDetected(true);
+          setShowConnectionModal(true);
+          showToast(
+            'Facebook connection expired',
+            'error',
+            'Please reconnect your Facebook account to continue posting.'
+          );
+        } else {
+          throw new Error(errorMessage);
+        }
       }
     } catch (error) {
-      showToast('Failed to post to Facebook', 'error', error instanceof Error ? error.message : 'Please try again.');
+      const errorMessage = error instanceof Error ? error.message : 'Please try again.';
+      
+      // Check if it's an OAuth error
+      if (errorMessage.includes('OAuthException') || 
+          errorMessage.includes('Error 200') || 
+          errorMessage.includes('expired or invalid') ||
+          errorMessage.includes('Please reconnect')) {
+        setOauthErrorDetected(true);
+        setShowConnectionModal(true);
+        showToast(
+          'Facebook connection expired',
+          'error',
+          'Please reconnect your Facebook account to continue posting.'
+        );
+      } else {
+        showToast('Failed to post to Facebook', 'error', errorMessage);
+      }
     } finally {
       setPosting(false);
     }
@@ -873,6 +936,154 @@ export default function SocialMediaForm({ initialFacebookData }: SocialMediaForm
         </Modal>
       )}
 
+      {/* Connection Diagnostics Modal */}
+      {showDiagnosticsModal && connectionDiagnostics && (
+        <Modal
+          isOpen={showDiagnosticsModal}
+          onClose={() => {
+            setShowDiagnosticsModal(false);
+            setConnectionDiagnostics(null);
+          }}
+          title="Facebook Connection Diagnostics"
+        >
+          <div className="space-y-4">
+            <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+              <p className="text-sm text-yellow-800 dark:text-yellow-300">
+                <strong>Connection test found issues.</strong> Review the diagnostics below and reconnect if needed.
+              </p>
+            </div>
+
+            {/* Required Permissions Check */}
+            <div className="space-y-3">
+              <h3 className="font-semibold text-gray-900 dark:text-white text-sm">Required Permissions</h3>
+              <div className="space-y-2">
+                {['pages_read_engagement', 'pages_manage_posts'].map((permission) => {
+                  const hasPermission = connectionDiagnostics.pageTokenScopes?.includes(permission) || false;
+                  return (
+                    <div
+                      key={permission}
+                      className={`flex items-center gap-2 p-2 rounded ${
+                        hasPermission
+                          ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
+                          : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
+                      }`}
+                    >
+                      {hasPermission ? (
+                        <FaCheckCircle className="text-green-600 dark:text-green-400" />
+                      ) : (
+                        <FaTimesCircle className="text-red-600 dark:text-red-400" />
+                      )}
+                      <span className={`text-sm ${hasPermission ? 'text-green-800 dark:text-green-300' : 'text-red-800 dark:text-red-300'}`}>
+                        {permission} {hasPermission ? '✓' : '✗ Missing'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Capabilities Check */}
+            <div className="space-y-3">
+              <h3 className="font-semibold text-gray-900 dark:text-white text-sm">Capabilities</h3>
+              <div className="space-y-2">
+                <div
+                  className={`flex items-center gap-2 p-2 rounded ${
+                    connectionDiagnostics.canReadPosts
+                      ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
+                      : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
+                  }`}
+                >
+                  {connectionDiagnostics.canReadPosts ? (
+                    <FaCheckCircle className="text-green-600 dark:text-green-400" />
+                  ) : (
+                    <FaTimesCircle className="text-red-600 dark:text-red-400" />
+                  )}
+                  <span className={`text-sm ${connectionDiagnostics.canReadPosts ? 'text-green-800 dark:text-green-300' : 'text-red-800 dark:text-red-300'}`}>
+                    Can read posts {connectionDiagnostics.canReadPosts ? '✓' : '✗'}
+                  </span>
+                </div>
+                <div
+                  className={`flex items-center gap-2 p-2 rounded ${
+                    connectionDiagnostics.hasManagePostsPermission
+                      ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
+                      : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
+                  }`}
+                >
+                  {connectionDiagnostics.hasManagePostsPermission ? (
+                    <FaCheckCircle className="text-green-600 dark:text-green-400" />
+                  ) : (
+                    <FaTimesCircle className="text-red-600 dark:text-red-400" />
+                  )}
+                  <span className={`text-sm ${connectionDiagnostics.hasManagePostsPermission ? 'text-green-800 dark:text-green-300' : 'text-red-800 dark:text-red-300'}`}>
+                    Has manage posts permission {connectionDiagnostics.hasManagePostsPermission ? '✓' : '✗'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Available Permissions */}
+            {connectionDiagnostics.pageTokenScopes && connectionDiagnostics.pageTokenScopes.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="font-semibold text-gray-900 dark:text-white text-sm">Available Page Token Permissions</h3>
+                <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
+                  <div className="flex flex-wrap gap-2">
+                    {connectionDiagnostics.pageTokenScopes.map((scope: string) => (
+                      <span
+                        key={scope}
+                        className="px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded border border-blue-200 dark:border-blue-800"
+                      >
+                        {scope}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Solution */}
+            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+              <h3 className="font-semibold text-blue-900 dark:text-blue-200 text-sm mb-2">How to Fix</h3>
+              <ol className="list-decimal list-inside space-y-1 text-sm text-blue-800 dark:text-blue-300 mb-3">
+                <li>Disconnect your Facebook account (click "Disconnect & Reconnect" button below)</li>
+                <li>Reconnect your Facebook account</li>
+                <li><strong>Important:</strong> When Facebook asks for permissions, make sure to check ALL boxes and grant all requested permissions</li>
+                <li>Run the connection test again to verify</li>
+              </ol>
+              <div className="mt-3 p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded border border-yellow-300 dark:border-yellow-700">
+                <p className="text-xs text-yellow-900 dark:text-yellow-200">
+                  <strong>Note:</strong> If permissions are still missing after reconnecting, your Facebook App may need to have these permissions approved in Facebook App Review. The required permissions are: <code className="bg-yellow-200 dark:bg-yellow-800 px-1 rounded">pages_read_engagement</code> and <code className="bg-yellow-200 dark:bg-yellow-800 px-1 rounded">pages_manage_posts</code>.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDiagnosticsModal(false);
+                  setConnectionDiagnostics(null);
+                }}
+                className="flex-1 px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg font-medium cursor-pointer transition text-gray-900 dark:text-white text-sm"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDiagnosticsModal(false);
+                  setConnectionDiagnostics(null);
+                  setShowConnectionModal(false);
+                  handleDisconnectFacebook();
+                }}
+                className="flex-1 px-4 py-2 bg-red-500/90 dark:bg-red-600/90 hover:bg-red-600 dark:hover:bg-red-700 rounded-lg font-medium cursor-pointer transition text-white text-sm border border-red-400 dark:border-red-500"
+              >
+                Disconnect & Reconnect
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
       <Modal
         isOpen={showNewPostModal}
         onClose={() => {
@@ -1014,11 +1225,48 @@ export default function SocialMediaForm({ initialFacebookData }: SocialMediaForm
       
       <Modal
         isOpen={showConnectionModal}
-        onClose={() => setShowConnectionModal(false)}
-        title="Facebook Connection Settings"
+        onClose={() => {
+          setShowConnectionModal(false);
+          setOauthErrorDetected(false);
+        }}
+        title={oauthErrorDetected ? "Facebook Connection Required" : "Facebook Connection Settings"}
       >
         <div className="space-y-4">
-          {facebookData.connected && !isTokenExpired ? (
+          {oauthErrorDetected ? (
+            <div className="space-y-4">
+              <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                <div className="flex items-center gap-3 mb-2">
+                  <FaTimesCircle className="text-xl text-red-600 dark:text-red-400" />
+                  <h3 className="font-semibold text-red-900 dark:text-red-200">Connection Expired</h3>
+                </div>
+                <p className="text-sm text-red-800 dark:text-red-300">
+                  Your Facebook access token has expired or is invalid. Please reconnect your Facebook account to continue posting.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setOauthErrorDetected(false);
+                  setShowConnectionModal(false);
+                  handleConnectFacebook();
+                }}
+                disabled={connecting}
+                className="w-full px-4 py-3 text-sm bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition text-white flex items-center justify-center gap-2 border border-blue-400 dark:border-blue-500"
+              >
+                {connecting ? (
+                  <>
+                    <FaSpinner className="animate-spin" />
+                    <span>Connecting...</span>
+                  </>
+                ) : (
+                  <>
+                    <FaFacebook />
+                    <span>Reconnect Facebook Account</span>
+                  </>
+                )}
+              </button>
+            </div>
+          ) : facebookData.connected && !isTokenExpired ? (
             <>
               <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                 <div className="flex items-center gap-3 mb-3">
@@ -1123,6 +1371,32 @@ export default function SocialMediaForm({ initialFacebookData }: SocialMediaForm
                   </div>
                 </div>
               </div>
+
+              {/* Configuration Help */}
+              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                <h3 className="font-semibold text-blue-900 dark:text-blue-200 text-sm mb-2">Facebook App Configuration</h3>
+                <p className="text-xs text-blue-800 dark:text-blue-300 mb-3">
+                  Before connecting, make sure your Facebook App is configured correctly:
+                </p>
+                <ol className="list-decimal list-inside space-y-1.5 text-xs text-blue-800 dark:text-blue-300 mb-3">
+                  <li>Go to <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener noreferrer" className="underline font-medium">Facebook Developers</a></li>
+                  <li>Select your app and go to <strong>Settings → Basic</strong></li>
+                  <li>Add <strong>Website</strong> platform if not already added</li>
+                  <li>In <strong>Valid OAuth Redirect URIs</strong>, add:
+                    <div className="mt-1.5 p-2 bg-blue-100 dark:bg-blue-900/40 rounded border border-blue-300 dark:border-blue-700 font-mono text-xs break-all">
+                      {typeof window !== 'undefined' ? window.location.origin : 'YOUR_DOMAIN'}/api/social/facebook/callback
+                    </div>
+                  </li>
+                  <li>Ensure <strong>Client OAuth Login</strong> and <strong>Web OAuth Login</strong> are enabled</li>
+                  <li>If in development mode, add yourself as a test user</li>
+                </ol>
+                <div className="mt-3 p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded border border-yellow-300 dark:border-yellow-700">
+                  <p className="text-xs text-yellow-900 dark:text-yellow-200">
+                    <strong>Required Permissions:</strong> <code className="bg-yellow-200 dark:bg-yellow-800 px-1 rounded">pages_show_list</code>, <code className="bg-yellow-200 dark:bg-yellow-800 px-1 rounded">pages_read_engagement</code>, <code className="bg-yellow-200 dark:bg-yellow-800 px-1 rounded">pages_manage_posts</code>
+                  </p>
+                </div>
+              </div>
+
               <button
                 type="button"
                 onClick={handleConnectFacebook}
