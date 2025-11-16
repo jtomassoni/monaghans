@@ -141,6 +141,17 @@ export default function IngredientsList({ initialIngredients }: IngredientsListP
       });
 
       if (res.ok) {
+        // Fetch fresh data from API
+        try {
+          const refreshRes = await fetch('/api/ingredients');
+          if (refreshRes.ok) {
+            const freshData = await refreshRes.json();
+            setIngredients(freshData);
+          }
+        } catch (error) {
+          console.error('Failed to refresh ingredients:', error);
+        }
+        
         router.refresh();
         showToast(
           editingIngredient ? 'Ingredient updated successfully' : 'Ingredient created successfully',
@@ -173,6 +184,17 @@ export default function IngredientsList({ initialIngredients }: IngredientsListP
     try {
       const res = await fetch(`/api/ingredients/${deleteConfirmation.id}`, { method: 'DELETE' });
       if (res.ok) {
+        // Fetch fresh data from API
+        try {
+          const refreshRes = await fetch('/api/ingredients');
+          if (refreshRes.ok) {
+            const freshData = await refreshRes.json();
+            setIngredients(freshData);
+          }
+        } catch (error) {
+          console.error('Failed to refresh ingredients:', error);
+        }
+        
         router.refresh();
         showToast('Ingredient deleted successfully', 'success');
         setDeleteConfirmation(null);

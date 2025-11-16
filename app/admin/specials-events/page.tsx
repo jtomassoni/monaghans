@@ -2,7 +2,9 @@ import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { Suspense } from 'react';
 import EventsList from '../specials-events-list';
+import EventsHeader from '../events/events-header';
 
 export default async function AdminSpecialsEvents() {
   const session = await getServerSession(authOptions);
@@ -37,25 +39,18 @@ export default async function AdminSpecialsEvents() {
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-rose-200/15 dark:from-rose-900/20 to-transparent rounded-full blur-3xl"></div>
       </div>
       {/* Header */}
-      <div className="flex-shrink-0 px-4 sm:px-6 py-3 pt-16 md:pt-3 border-b border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm relative z-10">
-        <div className="flex justify-between items-center">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 min-w-0">
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-              Events
-            </h1>
-            <p className="text-gray-500 dark:text-gray-400 text-xs hidden sm:block">
-              Manage events and daily specials
-            </p>
-          </div>
-        </div>
+      <div className="flex-shrink-0 px-4 sm:px-6 py-3 pt-16 md:pt-3 border-b border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm relative z-[1]">
+        <EventsHeader />
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden p-4 sm:p-6 relative z-10 min-h-0">
-        <div className="max-w-6xl mx-auto flex-1 flex flex-col overflow-hidden min-h-0 w-full">
-          <EventsList 
-            initialEvents={transformedEvents}
-          />
+      <div className="flex-1 overflow-auto p-4 sm:p-6 relative z-10">
+        <div className="max-w-6xl mx-auto">
+          <Suspense fallback={<div className="text-center py-8 text-gray-500 dark:text-gray-400">Loading...</div>}>
+            <EventsList 
+              initialEvents={transformedEvents}
+            />
+          </Suspense>
         </div>
       </div>
     </div>

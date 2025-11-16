@@ -75,6 +75,12 @@ export default function UnifiedUsersStaffList({
   const [viewMode, setViewMode] = useState<'all' | 'users' | 'staff'>('all');
   const itemsToShow = 10;
 
+  // Sync state when props change (e.g., after router.refresh())
+  useEffect(() => {
+    setUsers(initialUsers);
+    setEmployees(initialEmployees);
+  }, [initialUsers, initialEmployees]);
+
   // Combine users and employees into unified list
   const unifiedPeople: UnifiedPerson[] = (() => {
     const peopleMap = new Map<string, UnifiedPerson>();
@@ -173,7 +179,28 @@ export default function UnifiedUsersStaffList({
     setModalOpen(true);
   }
 
-  function handleSuccess() {
+  async function handleSuccess() {
+    // Fetch fresh data from API
+    try {
+      const [usersRes, employeesRes] = await Promise.all([
+        fetch('/api/users'),
+        fetch('/api/employees'),
+      ]);
+
+      if (usersRes.ok) {
+        const usersData = await usersRes.json();
+        setUsers(usersData);
+      }
+
+      if (employeesRes.ok) {
+        const employeesData = await employeesRes.json();
+        setEmployees(employeesData);
+      }
+    } catch (error) {
+      console.error('Failed to refresh data:', error);
+    }
+    
+    // Also refresh server components
     router.refresh();
   }
 

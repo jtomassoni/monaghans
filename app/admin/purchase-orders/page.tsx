@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import PurchaseOrdersList from './purchase-orders-list';
 
 export default async function AdminPurchaseOrders({
@@ -17,8 +18,48 @@ export default async function AdminPurchaseOrders({
   const params = await searchParams;
   const supplierId = params.supplierId;
 
-  let orders = [];
-  let suppliers = [];
+  type PurchaseOrderWithRelations = Prisma.PurchaseOrderGetPayload<{
+    include: {
+      supplier: {
+        select: {
+          id: true;
+          name: true;
+          displayName: true;
+        };
+      };
+      items: {
+        include: {
+          product: {
+            select: {
+              id: true;
+              name: true;
+              supplierSku: true;
+            };
+          };
+          ingredient: {
+            select: {
+              id: true;
+              name: true;
+            };
+          };
+        };
+      };
+      _count: {
+        select: {
+          items: true;
+        };
+      };
+    };
+  }>;
+
+  type SupplierSelect = {
+    id: string;
+    name: string;
+    displayName: string | null;
+  };
+
+  let orders: PurchaseOrderWithRelations[] = [];
+  let suppliers: SupplierSelect[] = [];
   
   try {
     orders = await prisma.purchaseOrder.findMany({

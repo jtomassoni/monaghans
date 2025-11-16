@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { handleError } from '@/lib/api-helpers';
+import { handleError, logActivity } from '@/lib/api-helpers';
 import { calculateHoursWorked, calculateShiftCost } from '@/lib/schedule-helpers';
 
 /**
@@ -14,7 +14,6 @@ export async function POST(req: NextRequest) {
     const {
       employeeId,
       action, // "clockIn" or "clockOut"
-      breakMin,
       notes,
     } = body;
 
@@ -69,10 +68,32 @@ export async function POST(req: NextRequest) {
         data: {
           employeeId,
           clockIn: new Date(),
-          breakMin: breakMin || 0,
+          breakMin: 0,
           notes: notes || null,
         },
       });
+
+      // Log activity - find user by employee email
+      try {
+        const user = await prisma.user.findUnique({
+          where: { email: employee.email },
+        });
+        
+        if (user) {
+          await logActivity(
+            user.id,
+            'clockIn',
+            'shift',
+            shift.id,
+            employee.name,
+            undefined,
+            `Clocked in at ${new Date(shift.clockIn).toLocaleTimeString()}`
+          );
+        }
+      } catch (error) {
+        // Don't fail the request if logging fails
+        console.error('Failed to log clock in activity:', error);
+      }
 
       return NextResponse.json({
         success: true,
@@ -100,10 +121,6 @@ export async function POST(req: NextRequest) {
         clockOut: new Date(),
       };
 
-      if (breakMin !== undefined) {
-        updateData.breakMin = breakMin;
-      }
-
       if (notes !== undefined) {
         updateData.notes = notes;
       }
@@ -118,6 +135,7 @@ export async function POST(req: NextRequest) {
               name: true,
               role: true,
               hourlyWage: true,
+              email: true,
             },
           },
         },
@@ -130,6 +148,28 @@ export async function POST(req: NextRequest) {
         shift.breakMin
       );
       const cost = calculateShiftCost(hoursWorked, shift.employee.hourlyWage);
+
+      // Log activity - find user by employee email
+      try {
+        const user = await prisma.user.findUnique({
+          where: { email: shift.employee.email },
+        });
+        
+        if (user) {
+          await logActivity(
+            user.id,
+            'clockOut',
+            'shift',
+            shift.id,
+            shift.employee.name,
+            undefined,
+            `Clocked out at ${new Date(shift.clockOut!).toLocaleTimeString()} - Worked ${hoursWorked?.toFixed(2) ?? '0.00'} hours`
+          );
+        }
+      } catch (error) {
+        // Don't fail the request if logging fails
+        console.error('Failed to log clock out activity:', error);
+      }
 
       return NextResponse.json({
         success: true,

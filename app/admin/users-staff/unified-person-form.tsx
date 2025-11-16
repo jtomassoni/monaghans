@@ -381,7 +381,7 @@ export default function UnifiedPersonModalForm({
       title={person ? 'Edit Person' : 'New Person'}
     >
       {person && person.user?.role === 'superadmin' && (
-        <div className="mb-6 rounded-3xl border border-yellow-300/70 dark:border-yellow-700/60 bg-yellow-100/90 dark:bg-yellow-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm">
+        <div className="mb-2 rounded-lg border border-yellow-300/70 dark:border-yellow-700/60 bg-yellow-100/90 dark:bg-yellow-900/40 shadow-sm shadow-black/5 p-2 backdrop-blur-sm">
           <p className="text-xs text-yellow-800 dark:text-yellow-200 flex items-center gap-2">
             <FaExclamationTriangle className="w-3 h-3" />
             <span>Superadmin users cannot be modified or deleted</span>
@@ -389,19 +389,16 @@ export default function UnifiedPersonModalForm({
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-8">
+      <form onSubmit={handleSubmit} className="space-y-3">
         {/* Shared Information Section */}
-        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm space-y-6">
+        <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 backdrop-blur-sm space-y-2">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Basic Information</p>
-            <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
-              Shared details for both account types.
-            </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-900 dark:text-white">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-gray-900 dark:text-white">
                 Full Name
               </label>
               <input
@@ -412,18 +409,18 @@ export default function UnifiedPersonModalForm({
                   if (createUserAccount) setUserFormData({ ...userFormData, name: value });
                   if (createEmployeeRecord) setEmployeeFormData({ ...employeeFormData, name: value });
                 }}
-                className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+                className="w-full rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
                 disabled={person?.user?.role === 'superadmin'}
                 placeholder="John Doe"
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-900 dark:text-white">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-gray-900 dark:text-white">
                 Email Address <span className="text-red-500">*</span>
               </label>
               {person?.user || person?.employee ? (
-                <div className="px-4 py-3 bg-gray-50 dark:bg-gray-900/50 border border-gray-200/70 dark:border-gray-700/60 rounded-2xl text-sm text-gray-700 dark:text-gray-300">
+                <div className="px-3 py-2 bg-gray-50 dark:bg-gray-900/50 border border-gray-200/70 dark:border-gray-700/60 rounded-lg text-sm text-gray-700 dark:text-gray-300">
                   {person.user?.email || person.employee?.email}
                 </div>
               ) : (
@@ -435,7 +432,7 @@ export default function UnifiedPersonModalForm({
                     if (createUserAccount) setUserFormData({ ...userFormData, email: value });
                     if (createEmployeeRecord) setEmployeeFormData({ ...employeeFormData, email: value });
                   }}
-                  className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+                  className="w-full rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
                   required
                   placeholder="person@example.com"
                 />
@@ -446,22 +443,19 @@ export default function UnifiedPersonModalForm({
 
         {/* User Account Section */}
         {createUserAccount && (
-          <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm space-y-6">
+          <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 backdrop-blur-sm space-y-2">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Admin Account</p>
-              <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
-                Access to admin dashboard and settings.
-              </p>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-900 dark:text-white">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-gray-900 dark:text-white">
                 Account Role <span className="text-red-500">*</span>
               </label>
               <select
                 value={userFormData.role}
                 onChange={(e) => setUserFormData({ ...userFormData, role: e.target.value })}
-                className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+                className="w-full rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
                 disabled={person?.user?.role === 'superadmin'}
                 required={createUserAccount}
               >
@@ -474,12 +468,9 @@ export default function UnifiedPersonModalForm({
             </div>
 
             {person?.user && (
-              <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Account Status</p>
-                  <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
-                    Control whether this user account is active.
-                  </p>
                 </div>
                 <StatusToggle
                   type="active"
@@ -494,23 +485,20 @@ export default function UnifiedPersonModalForm({
 
         {/* Staff Record Section */}
         {createEmployeeRecord && (
-          <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm space-y-6">
+          <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 backdrop-blur-sm space-y-2">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Staff Record</p>
-              <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
-                Employee information for scheduling and payroll.
-              </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-900 dark:text-white">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-gray-900 dark:text-white">
                   Staff Role <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={employeeFormData.role}
                   onChange={(e) => setEmployeeFormData({ ...employeeFormData, role: e.target.value as any })}
-                  className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+                  className="w-full rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
                   required={createEmployeeRecord}
                 >
                   <option value="cook">Cook</option>
@@ -519,19 +507,19 @@ export default function UnifiedPersonModalForm({
                 </select>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-900 dark:text-white">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-gray-900 dark:text-white">
                   Hourly Wage ($) <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 text-sm">$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 text-sm">$</span>
                   <input
                     type="number"
                     step="0.01"
                     min="0"
                     value={employeeFormData.hourlyWage}
                     onChange={(e) => setEmployeeFormData({ ...employeeFormData, hourlyWage: e.target.value })}
-                    className="w-full pl-8 pr-4 py-3 rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="w-full pl-7 pr-3 py-2 rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     required={createEmployeeRecord}
                     placeholder="0.00"
                   />
@@ -539,37 +527,37 @@ export default function UnifiedPersonModalForm({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-900 dark:text-white">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-900 dark:text-white">
                   Phone Number
                 </label>
                 <input
                   type="tel"
                   value={employeeFormData.phone}
                   onChange={(e) => setEmployeeFormData({ ...employeeFormData, phone: e.target.value })}
-                  className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+                  className="w-full rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
                   placeholder="(555) 123-4567"
                 />
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-900 dark:text-white">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-900 dark:text-white">
                   Timeclock PIN
                 </label>
                 <input
                   type="text"
                   value={employeeFormData.pin}
                   onChange={(e) => setEmployeeFormData({ ...employeeFormData, pin: e.target.value.replace(/\D/g, '').slice(0, 4) })}
-                  className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all font-mono text-center tracking-widest"
+                  className="w-full rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all font-mono text-center tracking-widest"
                   placeholder="0000"
                   maxLength={4}
                 />
-                <p className="text-xs text-gray-500 dark:text-gray-400">4-digit PIN for timeclock access</p>
+                <p className="text-[10px] text-gray-500 dark:text-gray-400">4-digit PIN</p>
               </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1">
               <DatePicker
                 label="Hire Date"
                 value={employeeFormData.hireDate}
@@ -579,12 +567,9 @@ export default function UnifiedPersonModalForm({
             </div>
 
             {person?.employee && (
-              <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Employment Status</p>
-                  <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
-                    Control whether this employee record is active.
-                  </p>
                 </div>
                 <StatusToggle
                   type="active"
@@ -595,22 +580,22 @@ export default function UnifiedPersonModalForm({
               </div>
             )}
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-900 dark:text-white">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-gray-900 dark:text-white">
                 Notes
               </label>
               <textarea
                 value={employeeFormData.notes}
                 onChange={(e) => setEmployeeFormData({ ...employeeFormData, notes: e.target.value })}
-                rows={3}
-                className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all resize-none"
-                placeholder="Additional notes about this employee..."
+                rows={2}
+                className="w-full rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all resize-none"
+                placeholder="Additional notes..."
               />
             </div>
           </div>
         )}
 
-        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm flex flex-wrap items-center justify-end gap-3">
+        <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 backdrop-blur-sm flex flex-wrap items-center justify-end gap-2">
           {canDelete && (
             <button
               type="button"

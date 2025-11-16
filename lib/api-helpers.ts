@@ -94,8 +94,8 @@ export function handleError(error: unknown, message = 'An error occurred') {
 
 export async function logActivity(
   userId: string,
-  action: 'create' | 'update' | 'delete' | 'login',
-  entityType: 'menuItem' | 'menuSection' | 'event' | 'special' | 'announcement' | 'user' | 'setting' | 'ingredient' | 'posIntegration' | 'purchaseOrder' | 'supplierConnection' | 'supplier',
+  action: 'create' | 'update' | 'delete' | 'login' | 'clockIn' | 'clockOut',
+  entityType: 'menuItem' | 'menuSection' | 'event' | 'special' | 'announcement' | 'user' | 'setting' | 'ingredient' | 'posIntegration' | 'purchaseOrder' | 'supplierConnection' | 'supplier' | 'shift',
   entityId: string,
   entityName: string | null,
   changes?: Record<string, { before: any; after: any }>,

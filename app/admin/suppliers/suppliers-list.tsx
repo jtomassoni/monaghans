@@ -125,6 +125,17 @@ export default function SuppliersList({ initialSuppliers }: SuppliersListProps) 
       });
 
       if (res.ok) {
+        // Fetch fresh data from API
+        try {
+          const refreshRes = await fetch('/api/suppliers');
+          if (refreshRes.ok) {
+            const freshData = await refreshRes.json();
+            setSuppliers(freshData);
+          }
+        } catch (error) {
+          console.error('Failed to refresh suppliers:', error);
+        }
+        
         router.refresh();
         showToast(
           editingSupplier ? 'Supplier updated successfully' : 'Supplier created successfully',
@@ -157,6 +168,17 @@ export default function SuppliersList({ initialSuppliers }: SuppliersListProps) 
     try {
       const res = await fetch(`/api/suppliers/${deleteConfirmation.id}`, { method: 'DELETE' });
       if (res.ok) {
+        // Fetch fresh data from API
+        try {
+          const refreshRes = await fetch('/api/suppliers');
+          if (refreshRes.ok) {
+            const freshData = await refreshRes.json();
+            setSuppliers(freshData);
+          }
+        } catch (error) {
+          console.error('Failed to refresh suppliers:', error);
+        }
+        
         router.refresh();
         showToast('Supplier deleted successfully', 'success');
         setDeleteConfirmation(null);

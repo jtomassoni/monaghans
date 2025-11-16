@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { 
   FaChartLine, 
   FaEye, 
@@ -18,6 +18,12 @@ import {
   FaCog,
   FaWineGlass,
   FaUserClock,
+  FaSearch,
+  FaTimes,
+  FaChartBar,
+  FaArrowUp,
+  FaBrain,
+  FaArrowLeft,
 } from 'react-icons/fa';
 
 interface CMSAnalytics {
@@ -369,30 +375,150 @@ export default function ReportingContent() {
     window.URL.revokeObjectURL(url);
   };
 
-  const tabs = [
-    { id: 'overview', label: 'Overview', icon: FaChartLine },
-    { id: 'cms', label: 'CMS Analytics', icon: FaEdit },
-    { id: 'pageviews', label: 'Pageviews', icon: FaEye },
-    { id: 'menu', label: 'Menu Performance', icon: FaUtensils },
-    { id: 'specials', label: 'Specials Performance', icon: FaStar },
-    { id: 'food-cost', label: 'Food Cost Analysis', icon: FaDollarSign },
-    { id: 'labor-cost', label: 'Labor Cost Analysis', icon: FaClock },
-    { id: 'profitability', label: 'Profitability Analysis', icon: FaChartPie },
-    { id: 'menu-optimization', label: 'Menu Optimization', icon: FaCog },
-    { id: 'specials-optimization', label: 'Specials Optimization', icon: FaWineGlass },
-    { id: 'schedule-optimization', label: 'Schedule Optimization', icon: FaUserClock },
-    { id: 'social', label: 'Social Media', icon: FaFacebook },
-    { id: 'insights', label: 'Insights', icon: FaLightbulb },
-    { id: 'ai-insights', label: 'AI Insights', icon: FaLightbulb },
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+
+  const reportCategories = [
+    {
+      id: 'analytics',
+      name: 'Analytics',
+      icon: FaChartBar,
+      color: 'blue',
+      reports: [
+        { id: 'overview', label: 'Overview', icon: FaChartLine, description: 'Quick overview of all metrics' },
+        { id: 'cms', label: 'CMS Analytics', icon: FaEdit, description: 'Content management activity tracking' },
+        { id: 'pageviews', label: 'Pageviews', icon: FaEye, description: 'Website traffic and page performance' },
+        { id: 'social', label: 'Social Media', icon: FaFacebook, description: 'Facebook engagement and reach' },
+      ],
+    },
+    {
+      id: 'performance',
+      name: 'Performance',
+      icon: FaArrowUp,
+      color: 'green',
+      reports: [
+        { id: 'menu', label: 'Menu Performance', icon: FaUtensils, description: 'Menu item sales and popularity' },
+        { id: 'specials', label: 'Specials Performance', icon: FaStar, description: 'Daily specials effectiveness' },
+      ],
+    },
+    {
+      id: 'financial',
+      name: 'Financial',
+      icon: FaDollarSign,
+      color: 'amber',
+      reports: [
+        { id: 'food-cost', label: 'Food Cost Analysis', icon: FaDollarSign, description: 'Ingredient costs and margins' },
+        { id: 'labor-cost', label: 'Labor Cost Analysis', icon: FaClock, description: 'Staffing costs and efficiency' },
+        { id: 'profitability', label: 'Profitability Analysis', icon: FaChartPie, description: 'Overall profitability metrics' },
+      ],
+    },
+    {
+      id: 'optimization',
+      name: 'Optimization',
+      icon: FaCog,
+      color: 'purple',
+      reports: [
+        { id: 'menu-optimization', label: 'Menu Optimization', icon: FaCog, description: 'Menu item recommendations' },
+        { id: 'specials-optimization', label: 'Specials Optimization', icon: FaWineGlass, description: 'Specials strategy insights' },
+        { id: 'schedule-optimization', label: 'Schedule Optimization', icon: FaUserClock, description: 'Staffing recommendations' },
+      ],
+    },
+    {
+      id: 'insights',
+      name: 'Insights',
+      icon: FaBrain,
+      color: 'indigo',
+      reports: [
+        { id: 'insights', label: 'Insights', icon: FaLightbulb, description: 'Actionable business insights' },
+        { id: 'ai-insights', label: 'AI Insights', icon: FaBrain, description: 'AI-powered recommendations' },
+      ],
+    },
   ];
+
+  const allReports = reportCategories.flatMap(cat => 
+    cat.reports.map(report => ({ ...report, category: cat.id, categoryName: cat.name, categoryColor: cat.color }))
+  );
+
+  const filteredReports = useMemo(() => {
+    let filtered = allReports;
+    
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(report => 
+        report.label.toLowerCase().includes(query) ||
+        report.description.toLowerCase().includes(query) ||
+        report.categoryName.toLowerCase().includes(query)
+      );
+    }
+    
+    if (selectedCategory) {
+      filtered = filtered.filter(report => report.category === selectedCategory);
+    }
+    
+    return filtered;
+  }, [searchQuery, selectedCategory, allReports]);
+
+  const tabs = allReports.map(r => ({ id: r.id, label: r.label, icon: r.icon }));
+
+  const getColorClasses = (color: string, type: 'bg' | 'text' | 'border' = 'bg') => {
+    const colors: Record<string, Record<string, string>> = {
+      blue: {
+        bg: 'bg-blue-50 dark:bg-blue-900/20',
+        text: 'text-blue-600 dark:text-blue-400',
+        border: 'border-blue-200 dark:border-blue-800',
+      },
+      green: {
+        bg: 'bg-green-50 dark:bg-green-900/20',
+        text: 'text-green-600 dark:text-green-400',
+        border: 'border-green-200 dark:border-green-800',
+      },
+      amber: {
+        bg: 'bg-amber-50 dark:bg-amber-900/20',
+        text: 'text-amber-600 dark:text-amber-400',
+        border: 'border-amber-200 dark:border-amber-800',
+      },
+      purple: {
+        bg: 'bg-purple-50 dark:bg-purple-900/20',
+        text: 'text-purple-600 dark:text-purple-400',
+        border: 'border-purple-200 dark:border-purple-800',
+      },
+      indigo: {
+        bg: 'bg-indigo-50 dark:bg-indigo-900/20',
+        text: 'text-indigo-600 dark:text-indigo-400',
+        border: 'border-indigo-200 dark:border-indigo-800',
+      },
+    };
+    return colors[color]?.[type] || colors.blue[type];
+  };
 
   return (
     <div className="space-y-6">
-      {/* Period Selector */}
-      <div className="flex justify-between items-center flex-wrap gap-4">
-        <div className="flex items-center gap-4">
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            Period:
+      {/* Header with Search and Period Selector */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        {/* Search Bar */}
+        <div className="relative flex-1 max-w-md">
+          <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <input
+            type="text"
+            placeholder="Search reports..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-10 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            >
+              <FaTimes className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        {/* Period Selector */}
+        <div className="flex items-center gap-3">
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+            Time Period:
           </label>
           <select
             value={period}
@@ -407,28 +533,233 @@ export default function ReportingContent() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="border-b border-gray-200 dark:border-gray-700">
-        <nav className="flex space-x-8 overflow-x-auto">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
+      {/* Category Filters */}
+      {!searchQuery && (
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setSelectedCategory(null)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              selectedCategory === null
+                ? 'bg-blue-500 text-white'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+            }`}
+          >
+            All Reports
+          </button>
+          {reportCategories.map((category) => {
+            const Icon = category.icon;
             return (
               <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                  activeTab === tab.id
-                    ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                key={category.id}
+                onClick={() => setSelectedCategory(category.id)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+                  selectedCategory === category.id
+                    ? `${getColorClasses(category.color, 'bg')} ${getColorClasses(category.color, 'text')} border-2 ${getColorClasses(category.color, 'border')}`
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}
               >
                 <Icon className="w-4 h-4" />
-                {tab.label}
+                {category.name}
               </button>
             );
           })}
-        </nav>
-      </div>
+        </div>
+      )}
+
+      {/* Quick Stats Overview - Only show when on overview tab and not searching */}
+      {activeTab === 'overview' && !searchQuery && !loading && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          {/* CMS Summary */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-5 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">CMS Activity</h3>
+              <FaEdit className="w-4 h-4 text-blue-500" />
+            </div>
+            {cmsData ? (
+              <>
+                <div className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
+                  {cmsData.summary.totalActivities.toLocaleString()}
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Changes in last {period} days
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-gray-500 dark:text-gray-400">No data</p>
+            )}
+          </div>
+
+          {/* Pageviews Summary */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-5 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Pageviews</h3>
+              <FaEye className="w-4 h-4 text-green-500" />
+            </div>
+            {pageviewData ? (
+              <>
+                <div className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
+                  {pageviewData.summary.totalPageviews.toLocaleString()}
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {pageviewData.summary.uniquePaths} unique pages
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-gray-500 dark:text-gray-400">No data</p>
+            )}
+          </div>
+
+          {/* Insights Summary */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-5 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Insights</h3>
+              <FaLightbulb className="w-4 h-4 text-yellow-500" />
+            </div>
+            <div className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
+              {insights.length}
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Actionable recommendations
+            </p>
+          </div>
+
+          {/* Social Media Summary */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-5 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Social Media</h3>
+              <FaFacebook className="w-4 h-4 text-blue-600" />
+            </div>
+            {facebookData ? (
+              <>
+                <div className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
+                  {facebookData.summary.totalPosts}
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {facebookData.summary.totalImpressions.toLocaleString()} impressions
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-gray-500 dark:text-gray-400">Not connected</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Report Cards Grid - Show when on overview tab and not searching */}
+      {activeTab === 'overview' && !searchQuery && (
+        <div className="space-y-8">
+          {reportCategories.map((category) => {
+            const CategoryIcon = category.icon;
+            let categoryReports = category.reports;
+            
+            // Apply category filter
+            if (selectedCategory) {
+              if (category.id !== selectedCategory) return null;
+            }
+            
+            if (categoryReports.length === 0) return null;
+
+            return (
+              <div key={category.id} className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg ${getColorClasses(category.color, 'bg')}`}>
+                    <CategoryIcon className={`w-5 h-5 ${getColorClasses(category.color, 'text')}`} />
+                  </div>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">{category.name}</h2>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">({categoryReports.length})</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {categoryReports.map((report) => {
+                    const ReportIcon = report.icon;
+                    return (
+                      <button
+                        key={report.id}
+                        onClick={() => setActiveTab(report.id as any)}
+                        className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all duration-200 hover:scale-[1.02] p-5 text-left group"
+                      >
+                        <div className="flex items-start justify-between mb-3">
+                          <div className={`p-2.5 rounded-lg ${getColorClasses(category.color, 'bg')}`}>
+                            <ReportIcon className={`w-5 h-5 ${getColorClasses(category.color, 'text')}`} />
+                          </div>
+                        </div>
+                        <h3 className="font-semibold text-gray-900 dark:text-white mb-1.5 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                          {report.label}
+                        </h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2">
+                          {report.description}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Search Results View */}
+      {activeTab === 'overview' && searchQuery && filteredReports.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            Search Results ({filteredReports.length})
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredReports.map((report) => {
+              const ReportIcon = report.icon;
+              const category = reportCategories.find(c => c.id === report.category);
+              return (
+                <button
+                  key={report.id}
+                  onClick={() => setActiveTab(report.id as any)}
+                  className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all duration-200 hover:scale-[1.02] p-5 text-left group"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className={`p-2.5 rounded-lg ${getColorClasses(report.categoryColor, 'bg')}`}>
+                      <ReportIcon className={`w-5 h-5 ${getColorClasses(report.categoryColor, 'text')}`} />
+                    </div>
+                    <span className="text-xs px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
+                      {report.categoryName}
+                    </span>
+                  </div>
+                  <h3 className="font-semibold text-gray-900 dark:text-white mb-1.5 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                    {report.label}
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2">
+                    {report.description}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* No Search Results */}
+      {activeTab === 'overview' && searchQuery && filteredReports.length === 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-12 text-center">
+          <FaSearch className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <p className="text-gray-500 dark:text-gray-400 mb-2">No reports found</p>
+          <p className="text-sm text-gray-400 dark:text-gray-500">
+            Try adjusting your search terms
+          </p>
+        </div>
+      )}
+
+      {/* Back Button when viewing a specific report */}
+      {activeTab !== 'overview' && (
+        <button
+          onClick={() => {
+            setActiveTab('overview');
+            setSearchQuery('');
+            setSelectedCategory(null);
+          }}
+          className="flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors mb-6 px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+        >
+          <FaArrowLeft className="w-4 h-4" />
+          Back to Reports
+        </button>
+      )}
 
       {/* Content */}
       {loading ? (
@@ -438,63 +769,7 @@ export default function ReportingContent() {
         </div>
       ) : (
         <div className="mt-6">
-          {activeTab === 'overview' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* CMS Summary */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">CMS Activity</h3>
-                  <FaEdit className="w-5 h-5 text-blue-500" />
-                </div>
-                {cmsData ? (
-                  <>
-                    <div className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                      {cmsData.summary.totalActivities}
-                    </div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      Total changes in last {period} days
-                    </p>
-                  </>
-                ) : (
-                  <p className="text-gray-500 dark:text-gray-400">No data available</p>
-                )}
-              </div>
-
-              {/* Pageviews Summary */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Pageviews</h3>
-                  <FaEye className="w-5 h-5 text-green-500" />
-                </div>
-                {pageviewData ? (
-                  <>
-                    <div className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                      {pageviewData.summary.totalPageviews.toLocaleString()}
-                    </div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {pageviewData.summary.uniquePaths} unique pages
-                    </p>
-                  </>
-                ) : (
-                  <p className="text-gray-500 dark:text-gray-400">No data available</p>
-                )}
-              </div>
-
-              {/* Insights Summary */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Insights</h3>
-                  <FaLightbulb className="w-5 h-5 text-yellow-500" />
-                </div>
-                <div className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                  {insights.length}
-                </div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Actionable recommendations
-                </p>
-              </div>
-            </div>
-          )}
+          {/* Overview content is now shown above in the report cards section */}
 
           {activeTab === 'cms' && cmsData && (
             <div className="space-y-6">

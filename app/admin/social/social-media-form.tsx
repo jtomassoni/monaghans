@@ -12,6 +12,7 @@ const ENABLE_TEST_TOKEN_TOOLS = false;
 
 interface SocialMediaFormProps {
   initialFacebookData: any;
+  initialSocial: any;
 }
 
 type FacebookFeedPost = {
@@ -25,10 +26,11 @@ type FacebookFeedPost = {
   createdBy?: string | null;
 };
 
-export default function SocialMediaForm({ initialFacebookData }: SocialMediaFormProps) {
+export default function SocialMediaForm({ initialFacebookData, initialSocial }: SocialMediaFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [connecting, setConnecting] = useState(false);
+  const [socialLoading, setSocialLoading] = useState(false);
   const [facebookData, setFacebookData] = useState({
     connected: initialFacebookData?.connected || false,
     pageId: initialFacebookData?.pageId || '',
@@ -36,6 +38,15 @@ export default function SocialMediaForm({ initialFacebookData }: SocialMediaForm
     accessToken: initialFacebookData?.accessToken || '',
     expiresAt: initialFacebookData?.expiresAt || null,
   });
+
+  const initialSocialData = {
+    facebook: initialSocial?.facebook || '',
+    instagram: initialSocial?.instagram || '',
+  };
+
+  const [social, setSocial] = useState(initialSocialData);
+  const initialSocialRef = useRef(initialSocialData);
+  const [isSocialDirty, setIsSocialDirty] = useState(false);
 
   const initialFacebookDataRef = useRef(facebookData);
   const [isDirty, setIsDirty] = useState(false);
@@ -234,6 +245,38 @@ export default function SocialMediaForm({ initialFacebookData }: SocialMediaForm
   useEffect(() => {
     setIsDirty(JSON.stringify(facebookData) !== JSON.stringify(initialFacebookDataRef.current));
   }, [facebookData]);
+
+  useEffect(() => {
+    setIsSocialDirty(JSON.stringify(social) !== JSON.stringify(initialSocialRef.current));
+  }, [social]);
+
+  async function handleSaveSocial() {
+    setSocialLoading(true);
+    try {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key: 'social',
+          value: social,
+          description: 'Social media links',
+        }),
+      });
+      router.refresh();
+      setIsSocialDirty(false);
+      initialSocialRef.current = social;
+      showToast('Social media URLs saved successfully', 'success');
+    } catch (error) {
+      showToast('Failed to save social media URLs', 'error', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setSocialLoading(false);
+    }
+  }
+
+  function handleCancelSocial() {
+    setSocial(initialSocialRef.current);
+    setIsSocialDirty(false);
+  }
 
   async function handleConnectFacebook() {
     setConnecting(true);
@@ -1421,6 +1464,56 @@ export default function SocialMediaForm({ initialFacebookData }: SocialMediaForm
       </Modal>
 
       <div className="space-y-2 sm:space-y-4">
+        {/* Social Media URLs */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-2.5 sm:p-3">
+          <div className="flex justify-between items-center mb-2">
+            <h2 className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white">Social Media URLs</h2>
+            <div className="flex gap-1.5">
+              {isSocialDirty && (
+                <button
+                  type="button"
+                  onClick={handleCancelSocial}
+                  className="px-3 py-1 bg-gray-500 hover:bg-gray-600 rounded font-medium cursor-pointer transition text-white text-[10px] sm:text-xs"
+                >
+                  Cancel
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleSaveSocial}
+                disabled={socialLoading || !isSocialDirty}
+                className="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded font-medium disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition text-white text-[10px] sm:text-xs"
+              >
+                {socialLoading ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <div>
+              <label htmlFor="facebookUrl" className="block text-[10px] sm:text-xs text-gray-700 dark:text-gray-300 mb-0.5 font-medium">Facebook URL</label>
+              <input
+                id="facebookUrl"
+                type="url"
+                value={social.facebook}
+                onChange={(e) => setSocial({ ...social, facebook: e.target.value })}
+                placeholder="https://facebook.com/yourpage"
+                className="w-full px-2 py-1 text-xs sm:text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white cursor-text focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
+              />
+            </div>
+            <div>
+              <label htmlFor="instagramUrl" className="block text-[10px] sm:text-xs text-gray-700 dark:text-gray-300 mb-0.5 font-medium">Instagram URL</label>
+              <input
+                id="instagramUrl"
+                type="url"
+                value={social.instagram}
+                onChange={(e) => setSocial({ ...social, instagram: e.target.value })}
+                placeholder="https://instagram.com/yourpage"
+                className="w-full px-2 py-1 text-xs sm:text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white cursor-text focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
+              />
+            </div>
+          </div>
+        </div>
+
         {/* Facebook Connection Status Bar - Minimal */}
         {facebookData.connected && !isTokenExpired ? (
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-2.5 sm:p-3">

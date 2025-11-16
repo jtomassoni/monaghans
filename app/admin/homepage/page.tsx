@@ -20,15 +20,35 @@ export default async function AdminHomepage() {
   const gallerySetting = await prisma.setting.findUnique({
     where: { key: 'homepageGallery' },
   });
+  const contactSetting = await prisma.setting.findUnique({
+    where: { key: 'contact' },
+  });
+  const hoursSetting = await prisma.setting.findUnique({
+    where: { key: 'hours' },
+  });
+  const mapSetting = await prisma.setting.findUnique({
+    where: { key: 'mapEmbed' },
+  });
+  const happyHourSetting = await prisma.setting.findUnique({
+    where: { key: 'happyHour' },
+  });
 
   let hero: any = {};
   let about: any = {};
   let gallery: any = {};
+  let contact: any = {};
+  let hours: any = {};
+  let mapEmbed: any = {};
+  let happyHour: any = {};
 
   try {
     hero = heroSetting ? JSON.parse(heroSetting.value) : {};
     about = aboutSetting ? JSON.parse(aboutSetting.value) : {};
     gallery = gallerySetting ? JSON.parse(gallerySetting.value) : {};
+    contact = contactSetting ? JSON.parse(contactSetting.value) : {};
+    hours = hoursSetting ? JSON.parse(hoursSetting.value) : {};
+    mapEmbed = mapSetting ? JSON.parse(mapSetting.value) : {};
+    happyHour = happyHourSetting ? JSON.parse(happyHourSetting.value) : {};
   } catch {}
 
   return (
@@ -39,13 +59,13 @@ export default async function AdminHomepage() {
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-rose-200/15 dark:from-rose-900/20 to-transparent rounded-full blur-3xl"></div>
       </div>
       {/* Header */}
-      <div className="flex-shrink-0 px-4 sm:px-6 py-3 pt-16 md:pt-3 border-b border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm relative z-10">
+      <div className="flex-shrink-0 px-4 sm:px-6 py-2 pt-16 md:pt-2 border-b border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm relative z-10">
         <div className="flex justify-between items-center">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 min-w-0">
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-3 min-w-0">
+            <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">
               Homepage Content
             </h1>
-            <p className="text-gray-500 dark:text-gray-400 text-xs hidden sm:block">
+            <p className="text-gray-500 dark:text-gray-400 text-[10px] sm:text-xs hidden sm:block">
               Edit homepage sections and content
             </p>
           </div>
@@ -53,9 +73,17 @@ export default async function AdminHomepage() {
       </div>
 
       {/* Main Content - Scrollable */}
-      <div className="flex-1 overflow-auto p-4 sm:p-6 relative z-10">
-        <div className="max-w-4xl mx-auto">
-          <HomepageForm initialHero={hero} initialAbout={about} initialGallery={gallery} />
+      <div className="flex-1 overflow-hidden p-2 sm:p-3 relative z-10">
+        <div className="h-full">
+          <HomepageForm 
+            initialHero={hero} 
+            initialAbout={about} 
+            initialGallery={gallery}
+            initialContact={contact}
+            initialHours={hours}
+            initialMapEmbed={mapEmbed}
+            initialHappyHour={happyHour}
+          />
         </div>
       </div>
     </div>

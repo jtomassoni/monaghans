@@ -2,45 +2,34 @@ import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import SettingsForm from './settings-form';
+import { Suspense } from 'react';
+import DailySpecialsList from '../menu/daily-specials-list';
 
-export default async function AdminSettings() {
+export default async function AdminFoodSpecials() {
   const session = await getServerSession(authOptions);
   if (!session) {
     redirect('/admin/login');
   }
 
-  const contactSetting = await prisma.setting.findUnique({
-    where: { key: 'contact' },
-  });
-  const hoursSetting = await prisma.setting.findUnique({
-    where: { key: 'hours' },
-  });
-  const mapSetting = await prisma.setting.findUnique({
-    where: { key: 'mapEmbed' },
+  const specials = await prisma.special.findMany({
+    where: {
+      type: 'food',
+    },
+    orderBy: { createdAt: 'desc' },
   });
 
-  const happyHourSetting = await prisma.setting.findUnique({
-    where: { key: 'happyHour' },
-  });
-
-  const socialSetting = await prisma.setting.findUnique({
-    where: { key: 'social' },
-  });
-
-  let contact: any = {};
-  let hours: any = {};
-  let mapEmbed: any = {};
-  let happyHour: any = {};
-  let social: any = {};
-
-  try {
-    contact = contactSetting ? JSON.parse(contactSetting.value) : {};
-    hours = hoursSetting ? JSON.parse(hoursSetting.value) : {};
-    mapEmbed = mapSetting ? JSON.parse(mapSetting.value) : {};
-    happyHour = happyHourSetting ? JSON.parse(happyHourSetting.value) : {};
-    social = socialSetting ? JSON.parse(socialSetting.value) : {};
-  } catch {}
+  // Transform specials for the component
+  const transformedSpecials = specials.map((special) => ({
+    id: special.id,
+    title: special.title,
+    description: special.description || null,
+    priceNotes: special.priceNotes || null,
+    type: special.type,
+    timeWindow: special.timeWindow || null,
+    startDate: special.startDate?.toISOString() || null,
+    endDate: special.endDate?.toISOString() || null,
+    isActive: special.isActive,
+  }));
 
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 overflow-hidden relative">
@@ -54,19 +43,21 @@ export default async function AdminSettings() {
         <div className="flex justify-between items-center">
           <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 min-w-0">
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-              Settings
+              Food Specials
             </h1>
             <p className="text-gray-500 dark:text-gray-400 text-xs hidden sm:block">
-              Manage contact info, hours, and site configuration
+              Manage daily food specials
             </p>
           </div>
         </div>
       </div>
 
-      {/* Main Content - Scrollable */}
+      {/* Main Content */}
       <div className="flex-1 overflow-auto p-4 sm:p-6 relative z-10">
         <div className="max-w-6xl mx-auto">
-          <SettingsForm initialContact={contact} initialHours={hours} initialMapEmbed={mapEmbed} initialHappyHour={happyHour} initialSocial={social} />
+          <Suspense fallback={<div className="text-center py-8 text-gray-500 dark:text-gray-400">Loading...</div>}>
+            <DailySpecialsList initialSpecials={transformedSpecials} />
+          </Suspense>
         </div>
       </div>
     </div>

@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { Suspense } from 'react';
 import MenuTabs from './menu-tabs';
 
 export default async function AdminMenu() {
@@ -120,13 +121,15 @@ export default async function AdminMenu() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden relative z-10 min-h-0">
         <div className="max-w-6xl mx-auto flex-1 flex flex-col overflow-hidden min-h-0 w-full">
-          <MenuTabs 
-            sections={sections} 
-            specials={transformedSpecials}
-            drinkSpecials={transformedDrinkSpecials}
-            items={transformedItems}
-            sectionsForItems={sectionsForItems}
-          />
+          <Suspense fallback={<div className="text-center py-8 text-gray-500 dark:text-gray-400">Loading...</div>}>
+            <MenuTabs 
+              sections={sections} 
+              specials={transformedSpecials}
+              drinkSpecials={transformedDrinkSpecials}
+              items={transformedItems}
+              sectionsForItems={sectionsForItems}
+            />
+          </Suspense>
         </div>
       </div>
     </div>

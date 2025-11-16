@@ -26,6 +26,8 @@ import {
   FaShoppingCart,
   FaTv,
   FaClock,
+  FaDrumstickBite,
+  FaWineGlass,
 } from 'react-icons/fa';
 import { useTheme } from './theme-provider';
 import { getPermissions } from '@/lib/permissions';
@@ -102,6 +104,13 @@ export default function AdminMobileMenu({
       ],
     },
     {
+      title: 'Specials',
+      items: [
+        ...(permissions.canManageMenu ? [{ href: '/admin/food-specials', label: 'Food Specials', icon: FaDrumstickBite }] : []),
+        ...(permissions.canManageMenu ? [{ href: '/admin/drink-specials', label: 'Drink Specials', icon: FaWineGlass }] : []),
+      ],
+    },
+    {
       title: 'Operations',
       items: [
         ...(permissions.canManageMenu ? [{ href: '/admin/menu', label: 'Menu', icon: FaUtensils }] : []),
@@ -132,7 +141,13 @@ export default function AdminMobileMenu({
       return pathname === '/admin/overview';
     }
     if (href === '/admin/specials-events') {
-      return pathname?.startsWith('/admin/specials') || pathname?.startsWith('/admin/events');
+      return pathname?.startsWith('/admin/specials-events') || pathname?.startsWith('/admin/events');
+    }
+    if (href === '/admin/food-specials') {
+      return pathname?.startsWith('/admin/food-specials');
+    }
+    if (href === '/admin/drink-specials') {
+      return pathname?.startsWith('/admin/drink-specials');
     }
     if (href === '/admin/announcements') {
       return pathname?.startsWith('/admin/announcements');

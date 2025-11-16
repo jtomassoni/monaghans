@@ -2,46 +2,35 @@ import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
-import SuppliersList from './suppliers-list';
+import { Suspense } from 'react';
+import DrinkSpecialsList from '../menu/drink-specials-list';
 
-export default async function AdminSuppliers() {
+export default async function AdminDrinkSpecials() {
   const session = await getServerSession(authOptions);
   if (!session) {
     redirect('/admin/login');
   }
 
-  type SupplierWithCount = Prisma.SupplierGetPayload<{
-    include: {
-      _count: {
-        select: {
-          products: true;
-          orders: true;
-          connections: true;
-        };
-      };
-    };
-  }>;
+  const drinkSpecials = await prisma.special.findMany({
+    where: {
+      type: 'drink',
+    },
+    orderBy: { createdAt: 'desc' },
+  });
 
-  let suppliers: SupplierWithCount[] = [];
-  try {
-    suppliers = await prisma.supplier.findMany({
-      include: {
-        _count: {
-          select: {
-            products: true,
-            orders: true,
-            connections: true,
-          },
-        },
-      },
-      orderBy: { name: 'asc' },
-    });
-  } catch (error) {
-    console.error('Error fetching suppliers:', error);
-    // Return empty array on error to prevent page crash
-    suppliers = [];
-  }
+  // Transform drink specials for the component
+  const transformedDrinkSpecials = drinkSpecials.map((special) => ({
+    id: special.id,
+    title: special.title,
+    description: special.description || null,
+    priceNotes: special.priceNotes || null,
+    type: special.type,
+    appliesOn: special.appliesOn || null,
+    timeWindow: special.timeWindow || null,
+    startDate: special.startDate?.toISOString() || null,
+    endDate: special.endDate?.toISOString() || null,
+    isActive: special.isActive,
+  }));
 
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 overflow-hidden relative">
@@ -55,10 +44,10 @@ export default async function AdminSuppliers() {
         <div className="flex justify-between items-center">
           <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 min-w-0">
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-              Suppliers
+              Drink Specials
             </h1>
             <p className="text-gray-500 dark:text-gray-400 text-xs hidden sm:block">
-              Manage supplier integrations, product catalogs, and purchase orders
+              Manage daily drink specials
             </p>
           </div>
         </div>
@@ -66,10 +55,13 @@ export default async function AdminSuppliers() {
 
       {/* Main Content */}
       <div className="flex-1 overflow-auto p-4 sm:p-6 relative z-10">
-        <div className="max-w-7xl mx-auto">
-          <SuppliersList initialSuppliers={suppliers} />
+        <div className="max-w-6xl mx-auto">
+          <Suspense fallback={<div className="text-center py-8 text-gray-500 dark:text-gray-400">Loading...</div>}>
+            <DrinkSpecialsList initialSpecials={transformedDrinkSpecials} />
+          </Suspense>
         </div>
       </div>
     </div>
   );
 }
+

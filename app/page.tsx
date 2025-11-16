@@ -637,7 +637,7 @@ export default async function HomePage() {
   return (
     <main id="main-content" className="min-h-screen bg-[var(--color-background)] text-[var(--color-foreground)] scroll-smooth" role="main" aria-label="Main content">
       {/* Hero Section */}
-      <section aria-label="Hero section" className="relative min-h-screen overflow-x-hidden">
+      <section aria-label="Hero section" className="relative h-screen overflow-hidden">
         <div className="absolute inset-0 z-0">
           <Image
             src="/pics/hero.png"
@@ -649,9 +649,9 @@ export default async function HomePage() {
           />
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/80" />
         </div>
-        <div className="relative z-10 container mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 flex flex-col h-full justify-center">
+        <div className="relative z-10 container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 flex flex-col h-full justify-center">
           {/* Compact Grid Layout for Specials, Events, and Announcements */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-10 max-w-6xl mx-auto w-full">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6 max-w-6xl mx-auto w-full">
             {/* Today's Events - Recurring and Ad Hoc */}
             {todaysEvents.map((event) => {
               const isRecurring = event.recurrenceRule || (event as any).isRecurringOccurrence;
@@ -694,44 +694,44 @@ export default async function HomePage() {
               return (
                 <div 
                   key={`${event.id}-${event.startDateTime}`} 
-                  className="group bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20 hover:bg-white/15 hover:border-white/30 transition-all duration-300 shadow-lg hover:shadow-xl"
+                  className="group bg-white/10 backdrop-blur-md rounded-xl p-3 sm:p-4 border border-white/20 hover:bg-white/15 hover:border-white/30 transition-all duration-300 shadow-lg hover:shadow-xl"
                 >
-                  <div className="flex items-start gap-4">
-                    <div className={`p-2.5 ${isRecurring ? 'bg-purple-500/40' : 'bg-purple-500/30'} rounded-xl flex-shrink-0 group-hover:scale-110 transition-transform duration-300`}>
-                      <svg className="w-5 h-5 text-purple-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="flex items-start gap-2 sm:gap-3">
+                    <div className={`p-1.5 sm:p-2 ${isRecurring ? 'bg-purple-500/40' : 'bg-purple-500/30'} rounded-lg flex-shrink-0 group-hover:scale-110 transition-transform duration-300`}>
+                      <svg className="w-4 h-4 sm:w-5 sm:h-5 text-purple-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-purple-200 text-xs font-semibold uppercase tracking-wider">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="text-purple-200 text-[10px] sm:text-xs font-semibold uppercase tracking-wider">
                           {isRecurring ? 'Recurring Event' : 'Today\'s Event'}
                         </span>
                         {isRecurring && (
-                          <span className="px-2 py-0.5 bg-purple-500/30 border border-purple-400/30 rounded-full text-purple-200 text-[10px] font-medium">
+                          <span className="px-1.5 py-0.5 bg-purple-500/30 border border-purple-400/30 rounded-full text-purple-200 text-[9px] font-medium">
                             Recurring
                           </span>
                         )}
                       </div>
-                      <h3 className="text-xl font-bold text-white mb-2.5 line-clamp-2 leading-tight">
+                      <h3 className="text-base sm:text-lg font-bold text-white mb-1.5 line-clamp-2 leading-tight">
                         {event.title}
                       </h3>
                       {event.description && (
-                        <p className="text-white/80 text-sm mb-4 line-clamp-2 leading-relaxed">
+                        <p className="text-white/80 text-xs sm:text-sm mb-2 line-clamp-2 leading-relaxed">
                           {event.description}
                         </p>
                       )}
-                      <div className="space-y-2">
+                      <div className="space-y-1">
                         {recurrenceLabel && (
-                          <div className="flex items-center gap-2 text-purple-200/90 text-xs font-medium">
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <div className="flex items-center gap-1.5 text-purple-200/90 text-[10px] sm:text-xs font-medium">
+                            <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                             </svg>
                             <span>{recurrenceLabel}</span>
                           </div>
                         )}
-                        <div className="flex items-center gap-2 text-purple-200 text-xs">
-                          <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div className="flex items-center gap-1.5 text-purple-200 text-[10px] sm:text-xs">
+                          <svg className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
                           <span className="font-medium">
@@ -757,33 +757,33 @@ export default async function HomePage() {
 
             {/* Food Specials */}
             {todaysFoodSpecials.map((special) => (
-              <div key={special.id} className="group bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20 hover:bg-white/15 hover:border-white/30 transition-all duration-300 shadow-lg hover:shadow-xl">
-                <div className="flex items-start gap-4">
-                  <div className="p-2.5 bg-orange-500/30 rounded-xl flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
-                    <svg className="w-5 h-5 text-orange-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div key={special.id} className="group bg-white/10 backdrop-blur-md rounded-xl p-3 sm:p-4 border border-white/20 hover:bg-white/15 hover:border-white/30 transition-all duration-300 shadow-lg hover:shadow-xl">
+                <div className="flex items-start gap-2 sm:gap-3">
+                  <div className="p-1.5 sm:p-2 bg-orange-500/30 rounded-lg flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
+                    <svg className="w-4 h-4 sm:w-5 sm:h-5 text-orange-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                     </svg>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <span className="text-orange-200 text-xs font-semibold uppercase tracking-wider block mb-2">
+                    <span className="text-orange-200 text-[10px] sm:text-xs font-semibold uppercase tracking-wider block mb-1">
                       Food Special
                     </span>
-                    <h3 className="text-xl font-bold text-white mb-2.5 line-clamp-2 leading-tight">
+                    <h3 className="text-base sm:text-lg font-bold text-white mb-1.5 line-clamp-2 leading-tight">
                       {special.title}
                     </h3>
                     {special.description && (
-                      <p className="text-white/80 text-sm mb-3 line-clamp-2 leading-relaxed">
+                      <p className="text-white/80 text-xs sm:text-sm mb-2 line-clamp-2 leading-relaxed">
                         {special.description}
                       </p>
                     )}
                     {special.priceNotes && (
-                      <p className="text-white/70 text-xs mb-3 font-medium">
+                      <p className="text-white/70 text-[10px] sm:text-xs mb-2 font-medium">
                         {special.priceNotes}
                       </p>
                     )}
                     {special.timeWindow && (
-                      <div className="flex items-center gap-2 text-orange-200 text-xs">
-                        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="flex items-center gap-1.5 text-orange-200 text-[10px] sm:text-xs">
+                        <svg className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         <span className="font-medium">{special.timeWindow}</span>
@@ -796,33 +796,33 @@ export default async function HomePage() {
 
             {/* Drink Special */}
             {todaysDrinkSpecial && (
-              <div className="group bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20 hover:bg-white/15 hover:border-white/30 transition-all duration-300 shadow-lg hover:shadow-xl">
-                <div className="flex items-start gap-4">
-                  <div className="p-2.5 bg-blue-500/30 rounded-xl flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
-                    <svg className="w-5 h-5 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="group bg-white/10 backdrop-blur-md rounded-xl p-3 sm:p-4 border border-white/20 hover:bg-white/15 hover:border-white/30 transition-all duration-300 shadow-lg hover:shadow-xl">
+                <div className="flex items-start gap-2 sm:gap-3">
+                  <div className="p-1.5 sm:p-2 bg-blue-500/30 rounded-lg flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
+                    <svg className="w-4 h-4 sm:w-5 sm:h-5 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
                     </svg>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <span className="text-blue-200 text-xs font-semibold uppercase tracking-wider block mb-2">
+                    <span className="text-blue-200 text-[10px] sm:text-xs font-semibold uppercase tracking-wider block mb-1">
                       Drink Special
                     </span>
-                    <h3 className="text-xl font-bold text-white mb-2.5 line-clamp-2 leading-tight">
+                    <h3 className="text-base sm:text-lg font-bold text-white mb-1.5 line-clamp-2 leading-tight">
                       {todaysDrinkSpecial.title}
                     </h3>
                     {todaysDrinkSpecial.description && (
-                      <p className="text-white/80 text-sm mb-3 line-clamp-2 leading-relaxed">
+                      <p className="text-white/80 text-xs sm:text-sm mb-2 line-clamp-2 leading-relaxed">
                         {todaysDrinkSpecial.description}
                       </p>
                     )}
                     {todaysDrinkSpecial.priceNotes && (
-                      <p className="text-white/70 text-xs mb-3 font-medium">
+                      <p className="text-white/70 text-[10px] sm:text-xs mb-2 font-medium">
                         {todaysDrinkSpecial.priceNotes}
                       </p>
                     )}
                     {todaysDrinkSpecial.timeWindow && (
-                      <div className="flex items-center gap-2 text-blue-200 text-xs">
-                        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="flex items-center gap-1.5 text-blue-200 text-[10px] sm:text-xs">
+                        <svg className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         <span className="font-medium">{todaysDrinkSpecial.timeWindow}</span>
@@ -835,25 +835,25 @@ export default async function HomePage() {
 
             {/* Announcements */}
             {publishedAnnouncements.map((announcement) => (
-              <div key={announcement.id} className="group bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20 hover:bg-white/15 hover:border-white/30 transition-all duration-300 shadow-lg hover:shadow-xl">
-                <div className="flex items-start gap-4">
-                  <div className="p-2.5 bg-red-500/30 rounded-xl flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
-                    <svg className="w-5 h-5 text-red-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div key={announcement.id} className="group bg-white/10 backdrop-blur-md rounded-xl p-3 sm:p-4 border border-white/20 hover:bg-white/15 hover:border-white/30 transition-all duration-300 shadow-lg hover:shadow-xl">
+                <div className="flex items-start gap-2 sm:gap-3">
+                  <div className="p-1.5 sm:p-2 bg-red-500/30 rounded-lg flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
+                    <svg className="w-4 h-4 sm:w-5 sm:h-5 text-red-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
                     </svg>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <span className="text-red-200 text-xs font-semibold uppercase tracking-wider block mb-2">
+                    <span className="text-red-200 text-[10px] sm:text-xs font-semibold uppercase tracking-wider block mb-1">
                       Announcement
                     </span>
-                    <h3 className="text-xl font-bold text-white mb-2.5 line-clamp-2 leading-tight">
+                    <h3 className="text-base sm:text-lg font-bold text-white mb-1.5 line-clamp-2 leading-tight">
                       {announcement.title}
                     </h3>
                     {announcement.body && (
-                      <div className="text-white/80 text-sm mb-4 line-clamp-3 leading-relaxed prose prose-invert max-w-none prose-sm" dangerouslySetInnerHTML={{ __html: marked.parse(announcement.body) }} />
+                      <div className="text-white/80 text-xs sm:text-sm mb-2 line-clamp-2 leading-relaxed prose prose-invert max-w-none prose-sm" dangerouslySetInnerHTML={{ __html: marked.parse(announcement.body) }} />
                     )}
                     {announcement.ctaText && announcement.ctaUrl && (
-                      <Link href={announcement.ctaUrl} className="inline-block mt-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 rounded-lg text-red-200 text-xs font-semibold transition-all hover:scale-105">
+                      <Link href={announcement.ctaUrl} className="inline-block mt-1 px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 rounded-lg text-red-200 text-[10px] sm:text-xs font-semibold transition-all hover:scale-105">
                         {announcement.ctaText}
                       </Link>
                     )}
@@ -864,33 +864,33 @@ export default async function HomePage() {
 
             {/* Happy Hour */}
             {hasHappyHour && (
-              <div className="group bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20 hover:bg-white/15 hover:border-white/30 transition-all duration-300 shadow-lg hover:shadow-xl">
-                <div className="flex items-start gap-4">
-                  <div className="p-2.5 bg-green-500/30 rounded-xl flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
-                    <svg className="w-5 h-5 text-green-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="group bg-white/10 backdrop-blur-md rounded-xl p-3 sm:p-4 border border-white/20 hover:bg-white/15 hover:border-white/30 transition-all duration-300 shadow-lg hover:shadow-xl">
+                <div className="flex items-start gap-2 sm:gap-3">
+                  <div className="p-1.5 sm:p-2 bg-green-500/30 rounded-lg flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
+                    <svg className="w-4 h-4 sm:w-5 sm:h-5 text-green-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <span className="text-green-200 text-xs font-semibold uppercase tracking-wider block mb-2">
+                    <span className="text-green-200 text-[10px] sm:text-xs font-semibold uppercase tracking-wider block mb-1">
                       Always Available
                     </span>
-                    <h3 className="text-xl font-bold text-white mb-2.5 line-clamp-2 leading-tight">
+                    <h3 className="text-base sm:text-lg font-bold text-white mb-1.5 line-clamp-2 leading-tight">
                       {happyHour.title || 'Buy One Get One'}
                     </h3>
                     {happyHour.description && (
-                      <p className="text-white/80 text-sm mb-3 line-clamp-2 leading-relaxed">
+                      <p className="text-white/80 text-xs sm:text-sm mb-2 line-clamp-2 leading-relaxed">
                         {happyHour.description}
                       </p>
                     )}
                     {happyHour.details && (
-                      <p className="text-white/70 text-xs mb-3 font-medium">
+                      <p className="text-white/70 text-[10px] sm:text-xs mb-2 font-medium">
                         {happyHour.details}
                       </p>
                     )}
                     {happyHour.times && (
-                      <div className="flex items-center gap-2 text-green-200 text-xs">
-                        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="flex items-center gap-1.5 text-green-200 text-[10px] sm:text-xs">
+                        <svg className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         <span className="font-medium">{happyHour.times}</span>
@@ -904,33 +904,26 @@ export default async function HomePage() {
           </div>
           
           {/* Call to Action Buttons */}
-          <div className="flex flex-wrap justify-center gap-3 sm:gap-4 max-w-6xl mx-auto w-full">
+          <div className="flex flex-wrap justify-center gap-2 sm:gap-3 max-w-6xl mx-auto w-full">
             <Link
               href="/menu"
-              className="group inline-flex w-full items-center justify-center gap-2 rounded-full px-8 py-4 text-base font-semibold transition-all shadow-lg hover:scale-105 hover:shadow-xl bg-[var(--color-accent)] hover:bg-[var(--color-accent-dark)] sm:w-auto sm:text-lg"
+              className="group inline-flex w-full items-center justify-center gap-2 rounded-full px-6 py-2.5 sm:px-8 sm:py-3 text-sm sm:text-base font-semibold transition-all shadow-lg hover:scale-105 hover:shadow-xl bg-[var(--color-accent)] hover:bg-[var(--color-accent-dark)] sm:w-auto"
             >
-              <svg className="w-5 h-5 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
               Order Online
             </Link>
             <Link
               href="/menu"
-              className="group inline-flex w-full items-center justify-center gap-2 rounded-full border-2 border-white/30 px-8 py-4 text-base font-semibold transition-all hover:scale-105 bg-white/10 backdrop-blur-sm hover:border-white/50 hover:bg-white/20 sm:w-auto sm:text-lg"
+              className="group inline-flex w-full items-center justify-center gap-2 rounded-full border-2 border-white/30 px-6 py-2.5 sm:px-8 sm:py-3 text-sm sm:text-base font-semibold transition-all hover:scale-105 bg-white/10 backdrop-blur-sm hover:border-white/50 hover:bg-white/20 sm:w-auto"
             >
-              <svg className="w-5 h-5 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
               </svg>
               View Menu
             </Link>
           </div>
-        </div>
-
-        {/* Scroll Indicator */}
-        <div className="pointer-events-none absolute bottom-8 left-1/2 z-10 hidden -translate-x-1/2 animate-bounce sm:block">
-          <svg className="w-6 h-6 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-          </svg>
         </div>
       </section>
 

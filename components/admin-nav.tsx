@@ -8,7 +8,6 @@ import {
   FaCalendarAlt, 
   FaStar, 
   FaUtensils, 
-  FaCog, 
   FaUsers, 
   FaUser,
   FaBeer, 
@@ -31,7 +30,9 @@ import {
   FaClock,
   FaCashRegister,
   FaTruck,
-  FaFileInvoiceDollar
+  FaFileInvoiceDollar,
+  FaDrumstickBite,
+  FaWineGlass
 } from 'react-icons/fa';
 import { useTheme } from './theme-provider';
 import { useEffect } from 'react';
@@ -111,6 +112,13 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
       ],
     },
     {
+      title: 'Specials',
+      items: [
+        ...(permissions.canManageMenu ? [{ href: '/admin/food-specials', label: 'Food Specials', icon: FaDrumstickBite }] : []),
+        ...(permissions.canManageMenu ? [{ href: '/admin/drink-specials', label: 'Drink Specials', icon: FaWineGlass }] : []),
+      ],
+    },
+    {
       title: 'Operations',
       items: [
         ...(permissions.canManageMenu ? [{ href: '/admin/menu', label: 'Menu', icon: FaUtensils }] : []),
@@ -144,7 +152,13 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
       return pathname === '/admin/overview';
     }
     if (href === '/admin/specials-events') {
-      return pathname?.startsWith('/admin/specials') || pathname?.startsWith('/admin/events');
+      return pathname?.startsWith('/admin/specials-events') || pathname?.startsWith('/admin/events');
+    }
+    if (href === '/admin/food-specials') {
+      return pathname?.startsWith('/admin/food-specials');
+    }
+    if (href === '/admin/drink-specials') {
+      return pathname?.startsWith('/admin/drink-specials');
     }
     if (href === '/admin/announcements') {
       return pathname?.startsWith('/admin/announcements');
@@ -283,24 +297,6 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
           >
             <FaHistory className={`group-hover:scale-110 transition-transform duration-200 flex-shrink-0 ${sidebarCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} />
             <span className={`font-medium ${sidebarCompact ? 'text-xs' : 'text-sm'}`}>Activity</span>
-          </Link>
-        )}
-
-        {permissions.canAccessSettings && (
-          <Link
-            href="/admin/settings"
-            onClick={(e) => {
-              e.stopPropagation();
-              closeMobileMenu();
-            }}
-            className={`flex items-center gap-2 ${sidebarCompact ? 'px-2 py-1.5' : 'px-3 py-2'} rounded-lg transition-all duration-200 group cursor-pointer ${
-              isActive('/admin/settings')
-                ? 'bg-blue-500/90 dark:bg-blue-600/90 text-white border border-blue-400 dark:border-blue-500'
-                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
-            }`}
-          >
-            <FaCog className={`group-hover:scale-110 transition-transform duration-200 flex-shrink-0 ${sidebarCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} />
-            <span className={`font-medium ${sidebarCompact ? 'text-xs' : 'text-sm'}`}>Settings</span>
           </Link>
         )}
 

@@ -14,10 +14,15 @@ export default async function AdminSocialMedia() {
   const facebookConnection = await prisma.setting.findUnique({
     where: { key: 'facebook_connection' },
   });
+  const socialSetting = await prisma.setting.findUnique({
+    where: { key: 'social' },
+  });
 
   let facebookData: any = {};
+  let social: any = {};
   try {
     facebookData = facebookConnection ? JSON.parse(facebookConnection.value) : {};
+    social = socialSetting ? JSON.parse(socialSetting.value) : {};
   } catch {}
 
   return (
@@ -44,7 +49,7 @@ export default async function AdminSocialMedia() {
       {/* Main Content - Scrollable */}
       <div className="flex-1 overflow-auto p-4 sm:p-6 relative z-10">
         <div className="max-w-4xl mx-auto">
-          <SocialMediaForm initialFacebookData={facebookData} />
+          <SocialMediaForm initialFacebookData={facebookData} initialSocial={social} />
         </div>
       </div>
     </div>

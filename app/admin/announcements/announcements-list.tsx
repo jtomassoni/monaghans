@@ -215,9 +215,17 @@ export default function AdminAnnouncementsList({
     setEditingAnnouncement(undefined);
   }
 
-  function handleSuccess() {
-    // Refresh the page to get updated data
-    window.location.reload();
+  async function handleSuccess() {
+    // Fetch fresh data from API
+    try {
+      const res = await fetch('/api/announcements');
+      if (res.ok) {
+        const freshData = await res.json();
+        setAnnouncements(freshData);
+      }
+    } catch (error) {
+      console.error('Failed to refresh announcements:', error);
+    }
   }
 
   return (
@@ -243,29 +251,30 @@ export default function AdminAnnouncementsList({
         cancelText="Cancel"
         variant="danger"
       />
-      <div className="space-y-3">
-        {announcements.length === 0 ? (
+      <div className="space-y-4">
+        {/* Search, Sort, Filter - Always visible */}
+        <SearchSortFilter
+          items={announcements}
+          onFilteredItemsChange={setFilteredItems}
+          searchFields={['title', 'body']}
+          searchPlaceholder="Search announcements..."
+          sortOptions={sortOptions}
+          filterOptions={filterOptions}
+          defaultSort={sortOptions[0]}
+        />
+
+        {/* Announcements List */}
+        {filteredItems.length === 0 ? (
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
-            <p className="text-sm text-gray-500 dark:text-gray-400">No announcements yet. Create your first one!</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {announcements.length === 0 
+                ? 'No announcements yet. Create your first one!'
+                : 'No announcements match your search or filter criteria.'}
+            </p>
           </div>
         ) : (
-          <>
-            <SearchSortFilter
-              items={announcements}
-              onFilteredItemsChange={setFilteredItems}
-              searchFields={['title', 'body']}
-              searchPlaceholder="Search announcements..."
-              sortOptions={sortOptions}
-              filterOptions={filterOptions}
-              defaultSort={sortOptions[0]}
-            />
-            <div className="grid gap-3">
-              {filteredItems.length === 0 ? (
-                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
-                  <p className="text-sm text-gray-500 dark:text-gray-400">No announcements match your filters.</p>
-                </div>
-              ) : (
-                filteredItems.map((announcement) => (
+          <div className="grid gap-3">
+            {filteredItems.map((announcement) => (
                 <div
                   key={announcement.id}
                   className="group/item relative bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all duration-200 p-4 flex justify-between items-start gap-4 cursor-pointer"
@@ -315,10 +324,8 @@ export default function AdminAnnouncementsList({
                     </button>
                   </div>
                 </div>
-                ))
-              )}
-            </div>
-          </>
+            ))}
+          </div>
         )}
       </div>
     </>

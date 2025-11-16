@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { FaPlus } from 'react-icons/fa';
 import AdminMenuSections from './menu-sections-list';
 import DailySpecialsList from './daily-specials-list';
@@ -80,9 +81,28 @@ interface MenuTabsProps {
 }
 
 export default function MenuTabs({ sections, specials, drinkSpecials, items, sectionsForItems }: MenuTabsProps) {
-  const [activeTab, setActiveTab] = useState<'sections' | 'specials' | 'drinkSpecials'>('sections');
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  
+  // Set initial tab based on query parameter
+  const getInitialTab = (): 'sections' | 'specials' | 'drinkSpecials' => {
+    if (tabParam === 'specials') return 'specials';
+    if (tabParam === 'drinkSpecials') return 'drinkSpecials';
+    return 'sections';
+  };
+  
+  const [activeTab, setActiveTab] = useState<'sections' | 'specials' | 'drinkSpecials'>(getInitialTab());
   const [sectionsViewMode, setSectionsViewMode] = useState<'sections' | 'items'>('sections');
   const [reorderSectionsActive, setReorderSectionsActive] = useState(false);
+
+  // Update tab when query parameter changes
+  useEffect(() => {
+    if (tabParam === 'specials') {
+      setActiveTab('specials');
+    } else if (tabParam === 'drinkSpecials') {
+      setActiveTab('drinkSpecials');
+    }
+  }, [tabParam]);
 
   // Listen for reorder sections state changes
   useEffect(() => {
