@@ -2,6 +2,7 @@ import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import GoogleProvider from 'next-auth/providers/google';
 import { prisma } from './prisma';
+import { logLoginActivity } from './api-helpers';
 
 // Validate admin credentials are set
 function getAdminCredentials() {
@@ -86,6 +87,7 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: 'jwt',
+    maxAge: 8 * 60 * 60, // 8 hours in seconds
   },
   callbacks: {
     async signIn({ user, account, profile }) {
@@ -120,10 +122,15 @@ export const authOptions: NextAuthOptions = {
         }
 
         // Only allow active users to sign in
+        if (dbUser.isActive) {
+          // Log login activity
+          await logLoginActivity(dbUser.id, dbUser.email, dbUser.name);
+        }
         return dbUser.isActive;
       }
 
       // For credentials, allow sign in (already checked in authorize)
+      // Login activity will be logged in the jwt callback for credentials
       return true;
     },
     async jwt({ token, user, account }) {
@@ -132,6 +139,29 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id;
         token.role = user.role || 'admin';
         token.email = user.email;
+        // Set token issued at time for session expiration checking
+        token.iat = Math.floor(Date.now() / 1000);
+        
+        // Log login activity for credentials auth (Google OAuth is logged in signIn callback)
+        if (account?.provider === 'credentials' && user.id) {
+          await logLoginActivity(user.id, user.email || '', user.name || null);
+        }
+      } else {
+        // On token refresh, preserve iat if it exists, otherwise set it (for backward compatibility)
+        if (!token.iat) {
+          token.iat = Math.floor(Date.now() / 1000);
+        }
+      }
+
+      // Check if token has expired (8 hours = 28800 seconds)
+      const maxAge = 8 * 60 * 60; // 8 hours in seconds
+      const now = Math.floor(Date.now() / 1000);
+      const tokenAge = token.iat ? now - (token.iat as number) : 0;
+      
+      if (tokenAge > maxAge) {
+        // Token has expired - invalidate it
+        token.id = '';
+        return token;
       }
 
       // Refresh user data from DB on every request (for both credentials and Google OAuth)

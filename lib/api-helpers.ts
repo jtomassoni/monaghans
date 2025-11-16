@@ -94,7 +94,7 @@ export function handleError(error: unknown, message = 'An error occurred') {
 
 export async function logActivity(
   userId: string,
-  action: 'create' | 'update' | 'delete',
+  action: 'create' | 'update' | 'delete' | 'login',
   entityType: 'menuItem' | 'menuSection' | 'event' | 'special' | 'announcement' | 'user' | 'setting' | 'ingredient' | 'posIntegration' | 'purchaseOrder' | 'supplierConnection' | 'supplier',
   entityId: string,
   entityName: string | null,
@@ -132,6 +132,27 @@ export async function logActivity(
   } catch (error) {
     // Don't fail the request if logging fails
     console.error('Failed to log activity:', error);
+  }
+}
+
+/**
+ * Helper function to log user login activities
+ */
+export async function logLoginActivity(userId: string, userEmail: string, userName: string | null) {
+  try {
+    await prisma.activityLog.create({
+      data: {
+        userId,
+        action: 'login',
+        entityType: 'user',
+        entityId: userId,
+        entityName: userName || userEmail,
+        description: `User logged in`,
+      },
+    });
+  } catch (error) {
+    // Don't fail the request if logging fails
+    console.error('Failed to log login activity:', error);
   }
 }
 
