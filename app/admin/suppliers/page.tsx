@@ -10,18 +10,25 @@ export default async function AdminSuppliers() {
     redirect('/admin/login');
   }
 
-  const suppliers = await prisma.supplier.findMany({
-    include: {
-      _count: {
-        select: {
-          products: true,
-          orders: true,
-          connections: true,
+  let suppliers = [];
+  try {
+    suppliers = await prisma.supplier.findMany({
+      include: {
+        _count: {
+          select: {
+            products: true,
+            orders: true,
+            connections: true,
+          },
         },
       },
-    },
-    orderBy: { name: 'asc' },
-  });
+      orderBy: { name: 'asc' },
+    });
+  } catch (error) {
+    console.error('Error fetching suppliers:', error);
+    // Return empty array on error to prevent page crash
+    suppliers = [];
+  }
 
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 overflow-hidden relative">

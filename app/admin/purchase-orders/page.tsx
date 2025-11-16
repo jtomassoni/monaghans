@@ -17,52 +17,65 @@ export default async function AdminPurchaseOrders({
   const params = await searchParams;
   const supplierId = params.supplierId;
 
-  const orders = await prisma.purchaseOrder.findMany({
-    where: supplierId ? { supplierId } : undefined,
-    include: {
-      supplier: {
-        select: {
-          id: true,
-          name: true,
-          displayName: true,
-        },
-      },
-      items: {
-        include: {
-          product: {
-            select: {
-              id: true,
-              name: true,
-              supplierSku: true,
-            },
-          },
-          ingredient: {
-            select: {
-              id: true,
-              name: true,
-            },
+  let orders = [];
+  let suppliers = [];
+  
+  try {
+    orders = await prisma.purchaseOrder.findMany({
+      where: supplierId ? { supplierId } : undefined,
+      include: {
+        supplier: {
+          select: {
+            id: true,
+            name: true,
+            displayName: true,
           },
         },
-      },
-      _count: {
-        select: {
-          items: true,
+        items: {
+          include: {
+            product: {
+              select: {
+                id: true,
+                name: true,
+                supplierSku: true,
+              },
+            },
+            ingredient: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            items: true,
+          },
         },
       },
-    },
-    orderBy: { orderDate: 'desc' },
-    take: 100,
-  });
+      orderBy: { orderDate: 'desc' },
+      take: 100,
+    });
+  } catch (error) {
+    console.error('Error fetching purchase orders:', error);
+    orders = [];
+  }
 
-  const suppliers = await prisma.supplier.findMany({
-    where: { isActive: true },
-    select: {
-      id: true,
-      name: true,
-      displayName: true,
-    },
-    orderBy: { name: 'asc' },
-  });
+  try {
+    suppliers = await prisma.supplier.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        name: true,
+        displayName: true,
+      },
+      orderBy: { name: 'asc' },
+    });
+  } catch (error) {
+    console.error('Error fetching suppliers:', error);
+    suppliers = [];
+  }
 
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 overflow-hidden relative">
