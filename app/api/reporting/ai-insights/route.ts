@@ -177,7 +177,7 @@ export async function GET(req: NextRequest) {
           quantity: 0,
           revenue: 0,
           foodCost: itemCosts.foodCost,
-          laborCost: itemCosts.laborCost,
+          laborCost: itemCosts.laborCost ?? 0,
           profitMargin: null,
         };
 
@@ -201,7 +201,7 @@ export async function GET(req: NextRequest) {
           quantity: 0,
           revenue: 0,
           foodCost: itemCosts.foodCost,
-          laborCost: itemCosts.laborCost,
+          laborCost: itemCosts.laborCost ?? 0,
           profitMargin: null,
         };
 
@@ -288,7 +288,7 @@ export async function GET(req: NextRequest) {
     
     // Generate menu combination insights
     const allOrders = [...onlineOrders.map(o => ({
-      items: o.items.map(i => ({
+      items: o.items.map((i: any) => ({
         menuItemId: i.menuItemId || '',
         menuItemName: i.menuItem?.name || i.name,
       })),

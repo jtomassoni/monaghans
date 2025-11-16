@@ -18,12 +18,19 @@ export type FilterOption<T> = {
 interface SearchSortFilterProps<T> {
   items: T[];
   onFilteredItemsChange: (filtered: T[]) => void;
-  searchFields?: (keyof T)[];
+  searchFields?: (keyof T | string)[];
   searchPlaceholder?: string;
   sortOptions?: SortOption<T>[];
   filterOptions?: FilterOption<T>[];
   defaultSort?: SortOption<T>;
   actionButton?: React.ReactNode;
+}
+
+// Helper function to get nested property values
+function getNestedValue(obj: any, path: string): any {
+  return path.split('.').reduce((current, prop) => {
+    return current && current[prop] !== undefined ? current[prop] : null;
+  }, obj);
 }
 
 export default function SearchSortFilter<T extends Record<string, any>>({
@@ -49,7 +56,9 @@ export default function SearchSortFilter<T extends Record<string, any>>({
       const query = searchQuery.toLowerCase().trim();
       result = result.filter((item) =>
         searchFields.some((field) => {
-          const value = item[field];
+          const value = typeof field === 'string' && field.includes('.')
+            ? getNestedValue(item, field)
+            : item[field as keyof T];
           if (value === null || value === undefined) return false;
           return String(value).toLowerCase().includes(query);
         })

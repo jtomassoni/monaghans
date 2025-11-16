@@ -91,7 +91,7 @@ export async function PUT(
       'purchaseOrder',
       order.id,
       order.orderNumber,
-      JSON.stringify({ before: existing, after: order }),
+      undefined,
       `updated purchase order ${order.orderNumber}`
     );
 

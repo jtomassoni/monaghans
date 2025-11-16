@@ -223,14 +223,6 @@ export async function GET(req: NextRequest) {
           not: null,
         },
       },
-      include: {
-        section: {
-          select: {
-            name: true,
-            menuType: true,
-          },
-        },
-      },
       select: {
         id: true,
         name: true,

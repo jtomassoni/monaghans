@@ -168,12 +168,12 @@ export default function PurchaseOrdersList({ initialOrders, suppliers }: Purchas
 
       {/* Search, Sort, Filter */}
       <SearchSortFilter
-        data={filteredOrders}
-        onFilteredDataChange={setFilteredOrders}
+        items={filteredOrders}
+        onFilteredItemsChange={setFilteredOrders}
         sortOptions={sortOptions}
         filterOptions={filterOptions}
         searchPlaceholder="Search orders..."
-        searchKeys={['orderNumber', 'supplier.name', 'supplier.displayName']}
+        searchFields={['orderNumber', 'supplier.name', 'supplier.displayName']}
       />
 
       {/* Orders List */}

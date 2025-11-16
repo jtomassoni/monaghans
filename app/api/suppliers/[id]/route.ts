@@ -96,7 +96,7 @@ export async function PUT(
       'supplier',
       supplier.id,
       supplier.name,
-      JSON.stringify({ before: existing, after: supplier }),
+      undefined,
       `updated supplier "${supplier.name}"`
     );
 
