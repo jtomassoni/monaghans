@@ -1,16 +1,5 @@
--- CreateTable
-CREATE TABLE "User" (
-    "id" TEXT NOT NULL,
-    "email" TEXT NOT NULL,
-    "name" TEXT,
-    "image" TEXT,
-    "role" TEXT NOT NULL DEFAULT 'admin',
-    "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
+-- Add user model migration
+-- User table is now created in the baseline migration
+-- This migration is kept for historical purposes but the table is created in 0000_baseline
 
-    CONSTRAINT "User_pkey" PRIMARY KEY ("id")
-);
-
--- CreateIndex
-CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
+-- Note: User table is created in the baseline migration (0000_baseline)

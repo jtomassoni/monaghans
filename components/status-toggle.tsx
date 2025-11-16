@@ -37,14 +37,14 @@ export default function StatusToggle({ type, value, onChange, label, className =
   return (
     <div className={className}>
       {label && (
-        <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">{label}</label>
+        <label className="block mb-0.5 text-xs font-medium text-gray-700 dark:text-gray-300">{label}</label>
       )}
       <button
         type="button"
         onClick={() => onChange(!value)}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        className={`relative inline-flex items-center gap-2 px-4 py-2 rounded-xl font-medium text-sm transition-all duration-200 ${
+        className={`relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium text-xs transition-all duration-200 ${
           value
             ? `${config.activeColor} text-white shadow-lg`
             : 'bg-gray-400 dark:bg-gray-700 hover:bg-gray-500 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-300'

@@ -6,6 +6,7 @@ import Modal from '@/components/modal';
 import { showToast } from '@/components/toast';
 import StatusToggle from '@/components/status-toggle';
 import ConfirmationDialog from '@/components/confirmation-dialog';
+import { useUnsavedChangesWarning } from '@/lib/use-unsaved-changes-warning';
 
 interface MenuSection {
   id?: string;
@@ -62,6 +63,9 @@ export default function MenuSectionModalForm({ isOpen, onClose, section, onSucce
 
   // Check if form is dirty
   const isDirty = JSON.stringify(formData) !== JSON.stringify(initialFormData);
+  
+  // Warn user before leaving page with unsaved changes
+  useUnsavedChangesWarning(isDirty && isOpen);
 
   function handleCancel() {
     if (isDirty) {
@@ -173,42 +177,54 @@ export default function MenuSectionModalForm({ isOpen, onClose, section, onSucce
       onClose={onClose}
       title={section ? 'Edit Section' : 'New Section'}
     >
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <StatusToggle
-          type="active"
-          value={formData.isActive}
-          onChange={(value) => setFormData({ ...formData, isActive: value })}
-          label="Status"
-        />
+      <form onSubmit={handleSubmit} className="space-y-8">
+        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm space-y-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Section Status</p>
+              <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
+                Control whether this section appears on your public menu.
+              </p>
+            </div>
+            <StatusToggle
+              type="active"
+              value={formData.isActive}
+              onChange={(value) => setFormData({ ...formData, isActive: value })}
+              className="shrink-0"
+            />
+          </div>
 
-        <div>
-          <label htmlFor="name" className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
-            Section Name *
-          </label>
-          <input
-            id="name"
-            type="text"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            required
-            className="w-full px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-          />
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="name" className="text-sm font-medium text-gray-900 dark:text-white">
+                Section Name *
+              </label>
+              <input
+                id="name"
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+                className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="description" className="text-sm font-medium text-gray-900 dark:text-white">
+                Description
+              </label>
+              <textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                rows={3}
+                className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+              />
+            </div>
+          </div>
         </div>
 
-        <div>
-          <label htmlFor="description" className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
-            Description
-          </label>
-          <textarea
-            id="description"
-            value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            rows={3}
-            className="w-full px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors resize-y"
-          />
-        </div>
-
-        <div className="flex gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm flex flex-wrap items-center justify-end gap-3">
           {section?.id && onDelete && (
             <button
               type="button"
@@ -220,7 +236,7 @@ export default function MenuSectionModalForm({ isOpen, onClose, section, onSucce
                 setShowDeleteConfirm(true);
               }}
               disabled={loading || itemCount > 0}
-              className="px-4 py-2 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 mr-auto"
+              className="px-4 py-2 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 cursor-pointer"
               title={itemCount > 0 ? `Cannot delete: section contains ${itemCount} menu item${itemCount === 1 ? '' : 's'}` : 'Delete section'}
             >
               Delete
@@ -230,14 +246,14 @@ export default function MenuSectionModalForm({ isOpen, onClose, section, onSucce
             type="button"
             onClick={handleCancel}
             disabled={loading}
-            className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={!!(loading || (section?.id && !isDirty))}
-            className="px-4 py-2 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-blue-500/20"
+            className="px-4 py-2 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-blue-500/20 cursor-pointer"
           >
             {loading ? (section?.id ? 'Saving...' : 'Creating...') : (section?.id ? 'Save' : 'Create')}
           </button>

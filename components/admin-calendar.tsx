@@ -328,11 +328,10 @@ export default function CalendarView({ events, specials, announcements = [], onE
               dtstartDate = startDate;
             }
           } else if (event.recurrenceRule.includes('FREQ=WEEKLY')) {
-            // For weekly events, ensure dtstart represents the correct day of week
+            // For weekly events, ensure dtstart is on one of the days specified in BYDAY
             // RRule uses the day of the week from dtstart (in UTC) to determine which days to repeat on
-            // We need to ensure dtstart is a Monday in UTC if BYDAY=MO, Tuesday if BYDAY=TU, etc.
             
-            // Extract the target day of week from BYDAY in the RRULE
+            // Extract the target days of week from BYDAY in the RRULE
             const bydayMatch = event.recurrenceRule.match(/BYDAY=([^;]+)/);
             const dayMap: Record<string, number> = {
               'SU': 0, 'MO': 1, 'TU': 2, 'WE': 3, 'TH': 4, 'FR': 5, 'SA': 6
@@ -353,44 +352,42 @@ export default function CalendarView({ events, specials, announcements = [], onE
             // Check what day of week this UTC date is (RRule uses UTC day of week)
             const candidateUTCDayOfWeek = candidateDtstart.getUTCDay();
             
-            // Determine the target UTC day of week
-            // If BYDAY is specified, use that; otherwise use the Mountain Time day of week
-            let targetUTCDayOfWeek: number;
+            // If BYDAY is specified, check if the start date's day matches any of the specified days
             if (bydayMatch) {
-              const bydayStr = bydayMatch[1].split(',')[0].trim(); // Take first day if multiple
-              targetUTCDayOfWeek = dayMap[bydayStr] ?? startMTDayOfWeek;
-            } else {
-              targetUTCDayOfWeek = startMTDayOfWeek;
-            }
-            
-            // If the UTC day of week doesn't match, adjust the date
-            if (candidateUTCDayOfWeek !== targetUTCDayOfWeek) {
-              // Calculate the difference in days
-              let dayDiff = targetUTCDayOfWeek - candidateUTCDayOfWeek;
-              // Handle wrap-around
-              if (dayDiff < -3) dayDiff += 7;
-              if (dayDiff > 3) dayDiff -= 7;
+              const bydayStr = bydayMatch[1];
+              const targetDays = bydayStr.split(',').map(d => dayMap[d.trim()]).filter(d => d !== undefined);
               
-              // Adjust the UTC date to have the correct day of week
-              const adjustedUTC = new Date(candidateDtstart);
-              adjustedUTC.setUTCDate(adjustedUTC.getUTCDate() + dayDiff);
+              // Check if the start date's day of week (in MT) matches any of the target days
+              const startDateMatches = targetDays.includes(startMTDayOfWeek);
               
-              // Now verify this adjusted date, when displayed in Mountain Time, shows the correct day
-              const adjustedMTParts = mtFormatter.formatToParts(adjustedUTC);
-              const adjustedMTYear = parseInt(adjustedMTParts.find(p => p.type === 'year')!.value);
-              const adjustedMTMonth = parseInt(adjustedMTParts.find(p => p.type === 'month')!.value) - 1;
-              const adjustedMTDay = parseInt(adjustedMTParts.find(p => p.type === 'day')!.value);
-              const adjustedMTDayOfWeek = new Date(adjustedMTYear, adjustedMTMonth, adjustedMTDay).getDay();
+              // Check if the UTC day of week matches any of the target days
+              const utcDayMatches = targetDays.includes(candidateUTCDayOfWeek);
               
-              // If the Mountain Time day of week matches, use this adjusted date
-              if (adjustedMTDayOfWeek === startMTDayOfWeek) {
-                // Preserve the original time in Mountain Time
+              if (!startDateMatches || !utcDayMatches) {
+                // The start date doesn't match any of the BYDAY days
+                // Find the first target day that comes after or on the start date
+                // Sort target days and find the next one
+                const sortedTargetDays = [...targetDays].sort((a, b) => a - b);
+                let targetDay = sortedTargetDays.find(d => d >= startMTDayOfWeek) || sortedTargetDays[0];
+                
+                // Calculate days to add to get to the target day
+                let dayDiff = targetDay - startMTDayOfWeek;
+                if (dayDiff < 0) dayDiff += 7; // Wrap around to next week
+                
+                // Adjust the date to the target day
+                const adjustedDate = new Date(startMTYear, startMTMonth, startMTDay + dayDiff);
+                const adjustedMTYear = adjustedDate.getFullYear();
+                const adjustedMTMonth = adjustedDate.getMonth();
+                const adjustedMTDay = adjustedDate.getDate();
+                
+                // Create dtstart on the target day with the original time
                 dtstartDate = createMountainTimeDate(adjustedMTYear, adjustedMTMonth, adjustedMTDay, originalHours, originalMinutes, originalSeconds);
               } else {
-                // Fallback: use the candidate as-is
+                // The start date already matches one of the BYDAY days, use it as-is
                 dtstartDate = candidateDtstart;
               }
             } else {
+              // No BYDAY specified, use the start date as-is
               dtstartDate = candidateDtstart;
             }
           } else {
@@ -505,34 +502,38 @@ export default function CalendarView({ events, specials, announcements = [], onE
               }
             } else if (event.recurrenceRule && event.recurrenceRule.includes('FREQ=WEEKLY')) {
               // For weekly events, ensure the occurrence appears on the correct day of week in Mountain Time
-              // Get the target day of week from BYDAY or from the original start date
+              // Get the target days of week from BYDAY
               const bydayMatch = event.recurrenceRule.match(/BYDAY=([^;]+)/);
               const dayMap: Record<string, number> = {
                 'SU': 0, 'MO': 1, 'TU': 2, 'WE': 3, 'TH': 4, 'FR': 5, 'SA': 6
               };
               
-              // Get the original start date's day of week in Mountain Time
-              const originalStartMTParts = mtFormatter.formatToParts(new Date(event.startDateTime));
-              const originalMTYear = parseInt(originalStartMTParts.find(p => p.type === 'year')!.value);
-              const originalMTMonth = parseInt(originalStartMTParts.find(p => p.type === 'month')!.value) - 1;
-              const originalMTDay = parseInt(originalStartMTParts.find(p => p.type === 'day')!.value);
-              const targetMTDayOfWeek = new Date(originalMTYear, originalMTMonth, originalMTDay).getDay();
-              
               // Check what day of week the occurrence represents in Mountain Time
               const occurrenceMTDayOfWeek = new Date(occurrenceMTYear, occurrenceMTMonth - 1, occurrenceMTDay).getDay();
               
-              // If the day of week doesn't match, adjust to the target day
-              if (occurrenceMTDayOfWeek !== targetMTDayOfWeek) {
-                // Calculate the difference
-                let dayDiff = targetMTDayOfWeek - occurrenceMTDayOfWeek;
-                // Handle wrap-around
-                if (dayDiff < -3) dayDiff += 7;
-                if (dayDiff > 3) dayDiff -= 7;
+              // If BYDAY is specified, check if the occurrence's day matches any of the specified days
+              if (bydayMatch) {
+                const bydayStr = bydayMatch[1];
+                const targetDays = bydayStr.split(',').map(d => dayMap[d.trim()]).filter(d => d !== undefined);
                 
-                const adjustedDay = occurrenceMTDay + dayDiff;
-                eventStart = createMountainTimeDate(occurrenceMTYear, occurrenceMTMonth - 1, adjustedDay, originalHours, originalMinutes, originalSeconds || 0);
+                // Check if the occurrence's day of week matches any of the target days
+                if (targetDays.includes(occurrenceMTDayOfWeek)) {
+                  // The occurrence is on one of the target days, use it as-is
+                  eventStart = createMountainTimeDate(occurrenceMTYear, occurrenceMTMonth - 1, occurrenceMTDay, originalHours, originalMinutes, originalSeconds || 0);
+                } else {
+                  // The occurrence is not on a target day (timezone issue), find the nearest target day
+                  const sortedTargetDays = [...targetDays].sort((a, b) => a - b);
+                  let targetDay = sortedTargetDays.find(d => d >= occurrenceMTDayOfWeek) || sortedTargetDays[0];
+                  
+                  // Calculate days to add to get to the target day
+                  let dayDiff = targetDay - occurrenceMTDayOfWeek;
+                  if (dayDiff < 0) dayDiff += 7; // Wrap around to next week
+                  
+                  const adjustedDay = occurrenceMTDay + dayDiff;
+                  eventStart = createMountainTimeDate(occurrenceMTYear, occurrenceMTMonth - 1, adjustedDay, originalHours, originalMinutes, originalSeconds || 0);
+                }
               } else {
-                // Use the occurrence date but preserve the original time components in Mountain Time
+                // No BYDAY specified, use the occurrence date as-is
                 eventStart = createMountainTimeDate(occurrenceMTYear, occurrenceMTMonth - 1, occurrenceMTDay, originalHours, originalMinutes, originalSeconds || 0);
               }
             } else {

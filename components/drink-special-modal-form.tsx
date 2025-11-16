@@ -7,6 +7,7 @@ import { showToast } from '@/components/toast';
 import ConfirmationDialog from '@/components/confirmation-dialog';
 import StatusToggle from '@/components/status-toggle';
 import DatePicker from '@/components/date-picker';
+import { useUnsavedChangesWarning } from '@/lib/use-unsaved-changes-warning';
 
 interface DrinkSpecial {
   id?: string;
@@ -80,6 +81,9 @@ export default function DrinkSpecialModalForm({ isOpen, onClose, special, onSucc
 
   // Check if form is dirty
   const isDirty = JSON.stringify(formData) !== JSON.stringify(initialFormData);
+  
+  // Warn user before leaving page with unsaved changes
+  useUnsavedChangesWarning(isDirty && isOpen);
 
   function handleCancel() {
     if (isDirty) {
@@ -213,100 +217,133 @@ export default function DrinkSpecialModalForm({ isOpen, onClose, special, onSucc
       onClose={onClose}
       title={special ? 'Edit Drink Special' : 'New Drink Special'}
     >
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <StatusToggle
-          type="active"
-          value={formData.isActive}
-          onChange={(value) => setFormData({ ...formData, isActive: value })}
-          label="Status"
-        />
-
-        <div>
-          <label htmlFor="title" className="block mb-2 text-gray-900 dark:text-white">
-            Title *
-          </label>
-          <input
-            id="title"
-            type="text"
-            value={formData.title}
-            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-            required
-            className="w-full px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-white"
-            placeholder="e.g., $3 Drafts, Happy Hour"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="description" className="block mb-2 text-gray-900 dark:text-white">
-            Description
-          </label>
-          <textarea
-            id="description"
-            value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            rows={3}
-            className="w-full px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-white"
-            placeholder="Describe the drink special..."
-          />
-        </div>
-
-        <div>
-          <label htmlFor="priceNotes" className="block mb-2 text-gray-900 dark:text-white">
-            Price Notes
-          </label>
-          <input
-            id="priceNotes"
-            type="text"
-            value={formData.priceNotes}
-            onChange={(e) => setFormData({ ...formData, priceNotes: e.target.value })}
-            placeholder="e.g., $3 drafts, Happy hour prices"
-            className="w-full px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-white"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="timeWindow" className="block mb-2 text-gray-900 dark:text-white">
-            Time Window
-          </label>
-          <input
-            id="timeWindow"
-            type="text"
-            value={formData.timeWindow}
-            onChange={(e) => setFormData({ ...formData, timeWindow: e.target.value })}
-            placeholder="e.g., 4pm-9pm, All Day, Happy Hour"
-            className="w-full px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-white"
-          />
-        </div>
-
-        {/* Weekly Recurring Pattern */}
-        <div>
-          <label className="block mb-2 text-gray-900 dark:text-white">Weekly Recurring Days</label>
-          <div className="grid grid-cols-2 gap-2 mb-2">
-            {WEEKDAYS.map((day) => (
-              <label key={day} className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors text-gray-900 dark:text-white">
-                <input
-                  type="checkbox"
-                  checked={formData.appliesOn.includes(day)}
-                  onChange={() => toggleDay(day)}
-                  className="w-4 h-4 text-blue-600 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500"
-                />
-                <span>{day}</span>
-              </label>
-            ))}
+      <form onSubmit={handleSubmit} className="space-y-8">
+        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm space-y-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Special Status</p>
+              <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
+                Control whether this special appears on your public menu.
+              </p>
+            </div>
+            <StatusToggle
+              type="active"
+              value={formData.isActive}
+              onChange={(value) => setFormData({ ...formData, isActive: value })}
+              className="shrink-0"
+            />
           </div>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-            {hasWeeklyRecurring 
-              ? 'This special will run every selected day, ongoing forever.'
-              : 'Select which days this special applies each week. Leave empty to use date range instead.'}
-          </p>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="title" className="text-sm font-medium text-gray-900 dark:text-white">
+                Title *
+              </label>
+              <input
+                id="title"
+                type="text"
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                required
+                className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+                placeholder="e.g., $3 Drafts, Happy Hour"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="description" className="text-sm font-medium text-gray-900 dark:text-white">
+                Description
+              </label>
+              <textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                rows={3}
+                className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+                placeholder="Describe the drink special..."
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="priceNotes" className="text-sm font-medium text-gray-900 dark:text-white">
+                Price Notes
+              </label>
+              <input
+                id="priceNotes"
+                type="text"
+                value={formData.priceNotes}
+                onChange={(e) => setFormData({ ...formData, priceNotes: e.target.value })}
+                placeholder="e.g., $3 drafts, Happy hour prices"
+                className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="timeWindow" className="text-sm font-medium text-gray-900 dark:text-white">
+                Time Window
+              </label>
+              <input
+                id="timeWindow"
+                type="text"
+                value={formData.timeWindow}
+                onChange={(e) => setFormData({ ...formData, timeWindow: e.target.value })}
+                placeholder="e.g., 4pm-9pm, All Day, Happy Hour"
+                className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm space-y-6">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Weekly Schedule</p>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
+              {hasWeeklyRecurring 
+                ? 'This special will run every selected day, ongoing forever.'
+                : 'Select which days this special applies each week. Leave empty to use date range instead.'}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/70 dark:bg-gray-900/40 p-4 shadow-inner space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Applies On</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {WEEKDAYS.map((day) => {
+                const isSelected = formData.appliesOn.includes(day);
+                return (
+                  <label
+                    key={day}
+                    className={`flex items-center justify-center rounded-xl border px-3 py-2 text-xs font-semibold transition-all cursor-pointer ${
+                      isSelected
+                        ? 'border-blue-500 bg-blue-600 text-white shadow-sm shadow-blue-500/30'
+                        : 'border-gray-200/70 dark:border-gray-700/60 text-gray-700 dark:text-gray-200 bg-white/80 dark:bg-gray-900/40 hover:border-blue-400/70'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleDay(day)}
+                      className="sr-only"
+                    />
+                    {day}
+                  </label>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         {/* Date Range (alternative to weekly recurring) */}
         {!hasWeeklyRecurring && (
-          <div>
-            <label className="block mb-2 text-gray-900 dark:text-white">Date Range (optional, alternative to weekly recurring)</label>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
+          <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm space-y-6">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Date Range</p>
+              <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
+                Use this for one-time or date-specific specials. Leave empty if using weekly recurring days.
+              </p>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="relative isolate">
                 <DatePicker
                   label="Start Date"
                   value={formData.startDate}
@@ -314,7 +351,7 @@ export default function DrinkSpecialModalForm({ isOpen, onClose, special, onSucc
                   dateOnly={true}
                 />
               </div>
-              <div>
+              <div className="relative isolate">
                 <DatePicker
                   label="End Date"
                   value={formData.endDate}
@@ -324,19 +361,16 @@ export default function DrinkSpecialModalForm({ isOpen, onClose, special, onSucc
                 />
               </div>
             </div>
-            <p className="text-sm text-gray-400 mt-2">
-              Use this for one-time or date-specific specials. Leave empty if using weekly recurring days.
-            </p>
           </div>
         )}
 
-        <div className="flex gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm flex flex-wrap items-center justify-end gap-3">
           {special?.id && onDelete && (
             <button
               type="button"
               onClick={() => setShowDeleteConfirm(true)}
               disabled={loading}
-              className="px-4 py-2 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 mr-auto cursor-pointer"
+              className="px-4 py-2 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 cursor-pointer"
             >
               Delete
             </button>
@@ -345,7 +379,7 @@ export default function DrinkSpecialModalForm({ isOpen, onClose, special, onSucc
             type="button"
             onClick={handleCancel}
             disabled={loading}
-            className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+            className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
           >
             Cancel
           </button>

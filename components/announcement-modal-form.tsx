@@ -7,6 +7,7 @@ import ConfirmationDialog from '@/components/confirmation-dialog';
 import { showToast } from '@/components/toast';
 import StatusToggle from '@/components/status-toggle';
 import DateTimePicker from '@/components/date-time-picker';
+import { useUnsavedChangesWarning } from '@/lib/use-unsaved-changes-warning';
 
 // Helper function to convert UTC ISO string to datetime-local string (Mountain Time)
 // Used when loading dates from the database to display in the form
@@ -200,6 +201,9 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
   // Check if form is dirty
   const isDirty = JSON.stringify(formData) !== JSON.stringify(initialFormData) ||
                   showCTA !== !!(announcement?.ctaText && announcement?.ctaUrl);
+  
+  // Warn user before leaving page with unsaved changes
+  useUnsavedChangesWarning(isDirty && isOpen);
 
   function handleCancel() {
     if (isDirty) {
@@ -358,117 +362,164 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
       onClose={onClose}
       title={announcement ? 'Edit Announcement' : 'New Announcement'}
     >
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <div>
-          <label htmlFor="title" className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
-            Title *
-          </label>
-          <input
-            id="title"
-            type="text"
-            value={formData.title}
-            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-            required
-            className="w-full px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-white text-sm"
-          />
+      <form onSubmit={handleSubmit} className="space-y-8">
+        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm space-y-6">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Announcement Content</p>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
+              Create your announcement with title and content.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="title" className="text-sm font-medium text-gray-900 dark:text-white">
+                Title *
+              </label>
+              <input
+                id="title"
+                type="text"
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                required
+                className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="body" className="text-sm font-medium text-gray-900 dark:text-white">
+                Content *
+              </label>
+              <textarea
+                id="body"
+                value={formData.body}
+                onChange={(e) => setFormData({ ...formData, body: e.target.value })}
+                rows={6}
+                required
+                className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400">Supports markdown and HTML</p>
+            </div>
+          </div>
         </div>
 
-        <div>
-          <label htmlFor="body" className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
-            Content *
-          </label>
-          <textarea
-            id="body"
-            value={formData.body}
-            onChange={(e) => setFormData({ ...formData, body: e.target.value })}
-            rows={6}
-            required
-            className="w-full px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-white text-sm"
-          />
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Supports markdown and HTML</p>
+        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm space-y-6">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Schedule</p>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
+              Set when this announcement should be published and expire.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <div className="relative isolate">
+              <DateTimePicker
+                label="Publish Date & Time"
+                value={formData.publishAt}
+                onChange={(value) => setFormData({ ...formData, publishAt: value })}
+                required
+              />
+            </div>
+
+            <div className="relative isolate">
+              <DateTimePicker
+                label="Expiration Date & Time"
+                value={formData.expiresAt}
+                onChange={(value) => {
+                  // Validate expiration date is not more than 1 month after publish date
+                  if (formData.publishAt && value) {
+                    const publishDate = new Date(formData.publishAt);
+                    const expireDate = new Date(value);
+                    const maxExpireDate = new Date(publishDate);
+                    maxExpireDate.setMonth(maxExpireDate.getMonth() + 1);
+                    
+                    if (expireDate > maxExpireDate) {
+                      showToast(
+                        'Expiration date cannot be more than 1 month after publish date',
+                        'error',
+                        `Maximum expiration date: ${maxExpireDate.toLocaleDateString()} ${maxExpireDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                      );
+                      const maxValue = maxExpireDate.toISOString().slice(0, 16);
+                      setFormData({ ...formData, expiresAt: maxValue });
+                      return;
+                    }
+                  }
+                  
+                  setFormData({ ...formData, expiresAt: value });
+                }}
+                min={formData.publishAt || undefined}
+                max={formData.publishAt ? (() => {
+                  const maxDate = new Date(formData.publishAt);
+                  maxDate.setMonth(maxDate.getMonth() + 1);
+                  return maxDate.toISOString().slice(0, 16);
+                })() : undefined}
+                required
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5">Must be within 1 month of publish date</p>
+            </div>
+          </div>
         </div>
 
-        <div>
-          <DateTimePicker
-            label="Publish Date & Time"
-            value={formData.publishAt}
-            onChange={(value) => setFormData({ ...formData, publishAt: value })}
-            required
-          />
-        </div>
+        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm space-y-6">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Social Media</p>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
+              Automatically share this announcement to your connected social media accounts.
+            </p>
+          </div>
 
-        <div>
-          <DateTimePicker
-            label="Expiration Date & Time"
-            value={formData.expiresAt}
-            onChange={(value) => {
-              // Validate expiration date is not more than 1 month after publish date
-              if (formData.publishAt && value) {
-                const publishDate = new Date(formData.publishAt);
-                const expireDate = new Date(value);
-                const maxExpireDate = new Date(publishDate);
-                maxExpireDate.setMonth(maxExpireDate.getMonth() + 1);
-                
-                if (expireDate > maxExpireDate) {
-                  showToast(
-                    'Expiration date cannot be more than 1 month after publish date',
-                    'error',
-                    `Maximum expiration date: ${maxExpireDate.toLocaleDateString()} ${maxExpireDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-                  );
-                  const maxValue = maxExpireDate.toISOString().slice(0, 16);
-                  setFormData({ ...formData, expiresAt: maxValue });
-                  return;
-                }
-              }
-              
-              setFormData({ ...formData, expiresAt: value });
-            }}
-            min={formData.publishAt || undefined}
-            max={formData.publishAt ? (() => {
-              const maxDate = new Date(formData.publishAt);
-              maxDate.setMonth(maxDate.getMonth() + 1);
-              return maxDate.toISOString().slice(0, 16);
-            })() : undefined}
-            required
-          />
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Must be within 1 month of publish date</p>
-        </div>
-
-        <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
-          <div className="space-y-2 mb-4">
-            <label className={`flex items-center gap-2 ${facebookConnected ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}>
+          <div className="space-y-3">
+            <label
+              htmlFor="crossPostFacebook"
+              className={`inline-flex items-center gap-3 rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-2.5 text-sm font-medium text-gray-900 dark:text-white shadow-inner cursor-pointer transition-colors ${
+                facebookConnected ? 'hover:border-blue-400/70 focus-within:ring-2 focus-within:ring-blue-500/30' : 'opacity-50 cursor-not-allowed'
+              }`}
+            >
               <input
                 type="checkbox"
+                id="crossPostFacebook"
                 checked={formData.crossPostFacebook}
                 onChange={(e) => setFormData({ ...formData, crossPostFacebook: e.target.checked })}
                 disabled={!facebookConnected}
-                className="w-4 h-4 text-blue-600 dark:text-blue-400 focus:ring-blue-500 dark:focus:ring-blue-400 disabled:cursor-not-allowed"
+                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
-              <span className={`text-sm font-medium ${facebookConnected ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
+              <span>
                 Cross-post to Facebook
                 {!facebookConnected && ' (Connect Facebook in Settings)'}
               </span>
             </label>
-            <label className="flex items-center gap-2 cursor-not-allowed opacity-50">
+            <label
+              htmlFor="crossPostInstagram"
+              className="inline-flex items-center gap-3 rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-2.5 text-sm font-medium text-gray-500 dark:text-gray-400 shadow-inner cursor-not-allowed opacity-50"
+            >
               <input
                 type="checkbox"
+                id="crossPostInstagram"
                 checked={formData.crossPostInstagram}
                 onChange={(e) => setFormData({ ...formData, crossPostInstagram: e.target.checked })}
-                className="w-4 h-4 text-blue-600 dark:text-blue-400 focus:ring-blue-500 dark:focus:ring-blue-400"
+                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 disabled
               />
-              <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                Cross-post to Instagram (coming soon)
-              </span>
+              <span>Cross-post to Instagram (coming soon)</span>
             </label>
-            <p className="text-xs text-gray-500 dark:text-gray-400 ml-6">
-              Automatically share this announcement to your connected social media accounts
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm space-y-6">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Call-to-Action</p>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
+              Add an optional button to your announcement.
             </p>
           </div>
 
-          <label className="flex items-center gap-2 cursor-pointer mb-3">
+          <label
+            htmlFor="showCTA"
+            className="inline-flex items-center gap-3 rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-2.5 text-sm font-medium text-gray-900 dark:text-white shadow-inner cursor-pointer transition-colors hover:border-blue-400/70 focus-within:ring-2 focus-within:ring-blue-500/30"
+          >
             <input
               type="checkbox"
+              id="showCTA"
               checked={showCTA}
               onChange={(e) => {
                 setShowCTA(e.target.checked);
@@ -476,50 +527,53 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
                   setFormData({ ...formData, ctaText: '', ctaUrl: '' });
                 }
               }}
-              className="w-4 h-4"
+              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
             />
-            <span className="text-sm font-semibold text-gray-900 dark:text-white">Add Call-to-Action Button</span>
+            Add Call-to-Action Button
           </label>
+
           {showCTA && (
-            <div className="space-y-3 pl-6 border-l-2 border-blue-500 dark:border-blue-400">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Both fields are required for the CTA button to appear.</p>
-              <div>
-                <label htmlFor="ctaText" className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
-                  Button Text *
-                </label>
-                <input
-                  id="ctaText"
-                  type="text"
-                  value={formData.ctaText}
-                  onChange={(e) => setFormData({ ...formData, ctaText: e.target.value })}
-                  placeholder="e.g., Learn More, Book Now, Order Here"
-                  className="w-full px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-white text-sm"
-                />
-              </div>
-              <div>
-                <label htmlFor="ctaUrl" className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
-                  Button URL *
-                </label>
-                <input
-                  id="ctaUrl"
-                  type="url"
-                  value={formData.ctaUrl}
-                  onChange={(e) => setFormData({ ...formData, ctaUrl: e.target.value })}
-                  placeholder="https://example.com or /menu"
-                  className="w-full px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-white text-sm"
-                />
+            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/70 dark:bg-gray-900/40 p-4 shadow-inner space-y-4 border-l-4 border-l-blue-500 dark:border-l-blue-400">
+              <p className="text-xs text-gray-500 dark:text-gray-400">Both fields are required for the CTA button to appear.</p>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label htmlFor="ctaText" className="text-sm font-medium text-gray-900 dark:text-white">
+                    Button Text *
+                  </label>
+                  <input
+                    id="ctaText"
+                    type="text"
+                    value={formData.ctaText}
+                    onChange={(e) => setFormData({ ...formData, ctaText: e.target.value })}
+                    placeholder="e.g., Learn More, Book Now, Order Here"
+                    className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="ctaUrl" className="text-sm font-medium text-gray-900 dark:text-white">
+                    Button URL *
+                  </label>
+                  <input
+                    id="ctaUrl"
+                    type="url"
+                    value={formData.ctaUrl}
+                    onChange={(e) => setFormData({ ...formData, ctaUrl: e.target.value })}
+                    placeholder="https://example.com or /menu"
+                    className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+                  />
+                </div>
               </div>
             </div>
           )}
         </div>
 
-        <div className="flex gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm flex flex-wrap items-center justify-end gap-3">
           {announcement?.id && onDelete && (
             <button
               type="button"
               onClick={() => setShowDeleteConfirm(true)}
               disabled={deleteLoading || loading}
-              className="px-4 py-2 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 mr-auto"
+              className="px-4 py-2 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 cursor-pointer"
             >
               Delete
             </button>
@@ -528,14 +582,14 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
             type="button"
             onClick={handleCancel}
             disabled={!!(deleteLoading || loading)}
-            className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={loading}
-            className="px-4 py-2 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-blue-500/20"
+            className="px-4 py-2 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-blue-500/20 cursor-pointer"
           >
             {loading ? (announcement?.id ? 'Saving...' : 'Creating...') : (announcement?.id ? 'Save' : 'Create')}
           </button>

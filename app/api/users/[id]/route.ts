@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAuth, handleError } from '@/lib/api-helpers';
+import { requireAuth, handleError, getCurrentUser, logActivity } from '@/lib/api-helpers';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getPermissions, canCreateRole, canManageUser } from '@/lib/permissions';
@@ -60,6 +60,11 @@ export async function PUT(
   const { session, permissions } = authResult;
 
   try {
+    const actingUser = await getCurrentUser(req);
+    if (!actingUser?.id) {
+      return NextResponse.json({ error: 'User not found' }, { status: 401 });
+    }
+
     const { id } = await params;
     const body = await req.json();
 
@@ -108,6 +113,22 @@ export async function PUT(
       },
     });
 
+    // Track changes
+    const changes: Record<string, { before: any; after: any }> = {};
+    if (currentUser.name !== user.name) changes.name = { before: currentUser.name || '(empty)', after: user.name || '(empty)' };
+    if (currentUser.role !== user.role) changes.role = { before: currentUser.role, after: user.role };
+    if (currentUser.isActive !== user.isActive) changes.isActive = { before: currentUser.isActive, after: user.isActive };
+
+    await logActivity(
+      actingUser.id,
+      'update',
+      'user',
+      user.id,
+      user.name || user.email,
+      Object.keys(changes).length > 0 ? changes : undefined,
+      `updated user "${user.name || user.email}"`
+    );
+
     return NextResponse.json(user);
   } catch (error) {
     return handleError(error, 'Failed to update user');
@@ -123,6 +144,11 @@ export async function DELETE(
   const { session } = authResult;
 
   try {
+    const actingUser = await getCurrentUser(req);
+    if (!actingUser?.id) {
+      return NextResponse.json({ error: 'User not found' }, { status: 401 });
+    }
+
     const { id } = await params;
     const user = await prisma.user.findUnique({ where: { id } });
 
@@ -144,6 +170,16 @@ export async function DELETE(
     await prisma.user.delete({
       where: { id },
     });
+
+    await logActivity(
+      actingUser.id,
+      'delete',
+      'user',
+      id,
+      user.name || user.email,
+      undefined,
+      `deleted user "${user.name || user.email}"`
+    );
 
     return NextResponse.json({ success: true });
   } catch (error) {

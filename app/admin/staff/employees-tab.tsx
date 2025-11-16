@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { FaPlus, FaEdit, FaTrash, FaBan, FaEllipsisV } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaTrash, FaPowerOff, FaEllipsisV } from 'react-icons/fa';
 import Modal from '@/components/modal';
 import ConfirmationDialog from '@/components/confirmation-dialog';
 import DatePicker from '@/components/date-picker';
@@ -324,109 +324,153 @@ export default function EmployeesTab({ employees, onEmployeesChange }: Employees
           defaultSort={defaultSort}
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredEmployees.map((employee) => (
-            <div
-              key={employee.id}
-              className={`bg-white dark:bg-gray-800 rounded-lg border p-4 shadow-sm ${
-                employee.isActive 
-                  ? 'border-gray-200 dark:border-gray-700' 
-                  : 'border-orange-300 dark:border-orange-700 bg-orange-50/50 dark:bg-orange-900/10'
-              }`}
-            >
-              <div className="flex justify-between items-start mb-2">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-gray-900 dark:text-white">
-                      {employee.name}
-                    </h3>
-                    {!employee.isActive && (
-                      <span className="px-2 py-0.5 rounded text-xs font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200">
-                        Inactive
-                      </span>
-                    )}
-                  </div>
-                  <span className={`inline-block px-2 py-1 rounded text-xs font-medium mt-1 ${getRoleColor(employee.role)}`}>
-                    {employee.role}
-                  </span>
-                </div>
-                <div className="flex gap-2 relative">
-                  <button
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                    Name
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                    Role
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider hidden md:table-cell">
+                    Email
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider hidden lg:table-cell">
+                    Phone
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                    Wage
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider hidden lg:table-cell">
+                    Hire Date
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                {filteredEmployees.map((employee) => (
+                  <tr
+                    key={employee.id}
                     onClick={() => handleEdit(employee)}
-                    className="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
-                    title="Edit"
+                    className={`cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${
+                      !employee.isActive 
+                        ? 'bg-orange-50/50 dark:bg-orange-900/10' 
+                        : ''
+                    }`}
                   >
-                    <FaEdit className="w-4 h-4" />
-                  </button>
-                  {employee.isActive ? (
-                    <button
-                      onClick={() => setDeactivateConfirmation(employee)}
-                      className="text-gray-600 dark:text-gray-400 hover:text-orange-600 dark:hover:text-orange-400"
-                      title="Deactivate"
-                    >
-                      <FaBan className="w-4 h-4" />
-                    </button>
-                  ) : (
-                    <div className="relative">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowDeleteMenu(showDeleteMenu === employee.id ? null : employee.id);
-                        }}
-                        className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
-                        title="More options"
-                      >
-                        <FaEllipsisV className="w-4 h-4" />
-                      </button>
-                      {showDeleteMenu === employee.id && (
-                        <div 
-                          className="absolute right-0 top-8 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10 min-w-[160px]"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <button
-                            onClick={() => {
-                              setDeleteStep1(employee);
-                              setShowDeleteMenu(null);
-                            }}
-                            className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
-                          >
-                            <FaTrash className="w-3 h-3" />
-                            Delete Permanently
-                          </button>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-gray-900 dark:text-white">
+                            {employee.name}
+                          </span>
+                          {!employee.isActive && (
+                            <span className="px-2 py-0.5 rounded text-xs font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200">
+                              Inactive
+                            </span>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
-                {employee.email && <p>{employee.email}</p>}
-                {employee.phone && <p>{employee.phone}</p>}
-                <p className="font-medium text-gray-900 dark:text-white">
-                  ${employee.hourlyWage.toFixed(2)}/hr
-                </p>
-              </div>
+                        {employee.notes && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400 italic line-clamp-2" title={employee.notes}>
+                            {employee.notes}
+                          </p>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${getRoleColor(employee.role)}`}>
+                        {employee.role}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 hidden md:table-cell">
+                      {employee.email || '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 hidden lg:table-cell">
+                      {employee.phone || '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
+                      ${employee.hourlyWage.toFixed(2)}/hr
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 hidden lg:table-cell">
+                      {employee.hireDate 
+                        ? format(new Date(employee.hireDate), 'MMM d, yyyy')
+                        : '-'
+                      }
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div 
+                        className="flex items-center justify-end gap-2"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {employee.isActive ? (
+                          <button
+                            onClick={() => setDeactivateConfirmation(employee)}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-800 hover:bg-orange-100 dark:hover:bg-orange-900/50 hover:border-orange-300 dark:hover:border-orange-700 rounded-md transition-all"
+                            title="Deactivate employee"
+                          >
+                            <FaPowerOff className="w-3 h-3" />
+                            <span>Deactivate</span>
+                          </button>
+                        ) : (
+                          <div className="relative">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowDeleteMenu(showDeleteMenu === employee.id ? null : employee.id);
+                              }}
+                              className="p-1.5 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                              title="More options"
+                            >
+                              <FaEllipsisV className="w-4 h-4" />
+                            </button>
+                            {showDeleteMenu === employee.id && (
+                              <div 
+                                className="absolute right-0 top-10 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10 min-w-[160px]"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <button
+                                  onClick={() => {
+                                    setDeleteStep1(employee);
+                                    setShowDeleteMenu(null);
+                                  }}
+                                  className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
+                                >
+                                  <FaTrash className="w-3 h-3" />
+                                  Delete Permanently
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {filteredEmployees.length === 0 && visibleEmployees.length > 0 && (
+            <div className="px-4 py-12 text-center text-gray-500 dark:text-gray-400">
+              No employees match your search or filter criteria
             </div>
-          ))}
+          )}
+          {filteredEmployees.length === 0 && visibleEmployees.length === 0 && (
+            <div className="px-4 py-12 text-center text-gray-500 dark:text-gray-400">
+              <p className="mb-4">No employees yet</p>
+              <button
+                onClick={handleNew}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition"
+              >
+                Add Your First Employee
+              </button>
+            </div>
+          )}
         </div>
-
-        {filteredEmployees.length === 0 && visibleEmployees.length > 0 && (
-          <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-            <p className="text-gray-500 dark:text-gray-400">No employees match your search or filter criteria</p>
-          </div>
-        )}
-
-        {visibleEmployees.length === 0 && (
-          <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-            <p className="text-gray-500 dark:text-gray-400">No employees yet</p>
-            <button
-              onClick={handleNew}
-              className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition"
-            >
-              Add Your First Employee
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Employee Modal */}
@@ -438,29 +482,29 @@ export default function EmployeesTab({ employees, onEmployeesChange }: Employees
         }}
         title={editingEmployee ? 'Edit Employee' : 'Add Employee'}
       >
-        <div className="space-y-4">
+        <div className="space-y-2.5">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-0.5">
               Name *
             </label>
             <input
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="w-full px-2.5 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               required
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-2.5">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-0.5">
                 Role *
               </label>
               <select
                 value={formData.role}
                 onChange={(e) => setFormData({ ...formData, role: e.target.value as any })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                className="w-full px-2.5 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               >
                 <option value="cook">Cook</option>
                 <option value="bartender">Bartender</option>
@@ -469,8 +513,8 @@ export default function EmployeesTab({ employees, onEmployeesChange }: Employees
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Hourly Wage ($) *
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-0.5">
+                Wage ($) *
               </label>
               <input
                 type="number"
@@ -478,56 +522,51 @@ export default function EmployeesTab({ employees, onEmployeesChange }: Employees
                 min="0"
                 value={formData.hourlyWage}
                 onChange={(e) => setFormData({ ...formData, hourlyWage: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                className="w-full px-2.5 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 required
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-0.5">
+                PIN
+              </label>
+              <input
+                type="text"
+                value={formData.pin}
+                onChange={(e) => setFormData({ ...formData, pin: e.target.value.replace(/\D/g, '').slice(0, 4) })}
+                className="w-full px-2.5 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                placeholder="4 digits"
+                maxLength={4}
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-2.5">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-0.5">
                 Email *
               </label>
               <input
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                className="w-full px-2.5 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-0.5">
                 Phone
               </label>
               <input
                 type="tel"
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                className="w-full px-2.5 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               />
             </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              PIN (for timeclock)
-            </label>
-            <input
-              type="text"
-              value={formData.pin}
-              onChange={(e) => setFormData({ ...formData, pin: e.target.value.replace(/\D/g, '').slice(0, 4) })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              placeholder="Enter 4-digit PIN"
-              maxLength={4}
-            />
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              {editingEmployee 
-                ? 'PIN used for timeclock access at /timeclock. Must be unique.'
-                : 'Auto-generated 4-digit PIN. You can change it, but it must be unique.'}
-            </p>
           </div>
 
           <div>
@@ -551,31 +590,31 @@ export default function EmployeesTab({ employees, onEmployeesChange }: Employees
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-0.5">
               Notes
             </label>
             <textarea
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              rows={2}
+              className="w-full px-2.5 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
             />
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex justify-end gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
             <button
               onClick={() => {
                 setIsModalOpen(false);
                 setEditingEmployee(null);
               }}
-              className="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg font-medium transition"
+              className="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg font-medium transition"
             >
               Cancel
             </button>
             <button
               onClick={handleSave}
               disabled={loading || !formData.name || !formData.hourlyWage || !formData.email}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg font-medium transition"
+              className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg font-medium transition"
             >
               {loading ? 'Saving...' : editingEmployee ? 'Update' : 'Create'}
             </button>

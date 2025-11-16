@@ -7,6 +7,7 @@ import { showToast } from '@/components/toast';
 import { FaExclamationTriangle } from 'react-icons/fa';
 import StatusToggle from '@/components/status-toggle';
 import ConfirmationDialog from '@/components/confirmation-dialog';
+import { useUnsavedChangesWarning } from '@/lib/use-unsaved-changes-warning';
 
 interface User {
   id?: string;
@@ -59,6 +60,9 @@ export default function UserModalForm({ isOpen, onClose, user, onSuccess, onDele
 
   // Check if form is dirty
   const isDirty = JSON.stringify(formData) !== JSON.stringify(initialFormData);
+  
+  // Warn user before leaving page with unsaved changes
+  useUnsavedChangesWarning(isDirty && isOpen);
 
   function handleCancel() {
     if (isDirty) {
@@ -161,8 +165,8 @@ export default function UserModalForm({ isOpen, onClose, user, onSuccess, onDele
       title={user ? 'Edit User' : 'New User'}
     >
       {user && (
-        <div className="mb-4 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-700">
-          <div className="flex items-center gap-3 mb-2">
+        <div className="mb-6 rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm">
+          <div className="flex items-center gap-3 mb-3">
             {user.image && (
               <img
                 src={user.image}
@@ -176,64 +180,85 @@ export default function UserModalForm({ isOpen, onClose, user, onSuccess, onDele
             </div>
           </div>
           {user.role === 'superadmin' && (
-            <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-2 flex items-center gap-2">
+            <p className="text-xs text-yellow-600 dark:text-yellow-400 flex items-center gap-2">
               <FaExclamationTriangle className="w-3 h-3" />
               <span>Superadmin users cannot be modified or deleted</span>
             </p>
           )}
         </div>
       )}
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-8">
         {user && (
-          <StatusToggle
-            type="active"
-            value={formData.isActive}
-            onChange={(value) => setFormData({ ...formData, isActive: value })}
-            label="Status"
-          />
+          <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm space-y-6">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">User Status</p>
+                <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
+                  Control whether this user account is active.
+                </p>
+              </div>
+              <StatusToggle
+                type="active"
+                value={formData.isActive}
+                onChange={(value) => setFormData({ ...formData, isActive: value })}
+                className="shrink-0"
+              />
+            </div>
+          </div>
         )}
 
-        <div>
-          <label htmlFor="name" className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
-            Name
-          </label>
-          <input
-            id="name"
-            type="text"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            className="w-full px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-white text-sm"
-            disabled={user?.role === 'superadmin'}
-          />
+        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm space-y-6">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">User Information</p>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
+              Basic details for this user account.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="name" className="text-sm font-medium text-gray-900 dark:text-white">
+                Name
+              </label>
+              <input
+                id="name"
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+                disabled={user?.role === 'superadmin'}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="role" className="text-sm font-medium text-gray-900 dark:text-white">
+                Role *
+              </label>
+              <select
+                id="role"
+                value={formData.role}
+                onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+                disabled={user?.role === 'superadmin'}
+                required
+              >
+                <option value="admin">Admin</option>
+                <option value="superadmin">Superadmin</option>
+              </select>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Admin: Can manage content. Superadmin: Can manage users and settings.
+              </p>
+            </div>
+          </div>
         </div>
 
-        <div>
-          <label htmlFor="role" className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
-            Role *
-          </label>
-          <select
-            id="role"
-            value={formData.role}
-            onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-            className="w-full px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-white text-sm"
-            disabled={user?.role === 'superadmin'}
-            required
-          >
-            <option value="admin">Admin</option>
-            <option value="superadmin">Superadmin</option>
-          </select>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            Admin: Can manage content. Superadmin: Can manage users and settings.
-          </p>
-        </div>
-
-        <div className="flex gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm flex flex-wrap items-center justify-end gap-3">
           {user?.id && onDelete && user?.role !== 'superadmin' && (
             <button
               type="button"
               onClick={() => setShowDeleteConfirm(true)}
               disabled={loading}
-              className="px-4 py-2 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 mr-auto"
+              className="px-4 py-2 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 cursor-pointer"
             >
               Delete
             </button>
@@ -242,14 +267,14 @@ export default function UserModalForm({ isOpen, onClose, user, onSuccess, onDele
             type="button"
             onClick={handleCancel}
             disabled={loading}
-            className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={!!(loading || user?.role === 'superadmin' || (user?.id && !isDirty))}
-            className="px-4 py-2 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-blue-500/20"
+            className="px-4 py-2 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-blue-500/20 cursor-pointer"
           >
             {loading ? 'Saving...' : 'Save User'}
           </button>

@@ -13,6 +13,18 @@ export default async function EditItemPage({ params }: { params: Promise<{ id: s
   const { id } = await params;
   const item = await prisma.menuItem.findUnique({
     where: { id },
+    include: {
+      ingredients: {
+        include: {
+          ingredient: true,
+        },
+        orderBy: {
+          ingredient: {
+            name: 'asc',
+          },
+        },
+      },
+    },
   });
 
   if (!item) {
@@ -37,8 +49,10 @@ export default async function EditItemPage({ params }: { params: Promise<{ id: s
         modifiers: Array.isArray(modifiers) ? modifiers : [],
         isAvailable: item.isAvailable,
         displayOrder: item.displayOrder,
+        prepTimeMin: item.prepTimeMin,
       }}
       sections={sections}
+      ingredients={item.ingredients}
     />
   );
 }

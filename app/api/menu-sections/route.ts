@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAuth, handleError } from '@/lib/api-helpers';
+import { requireAuth, handleError, getCurrentUser, logActivity } from '@/lib/api-helpers';
 
 export async function GET(req: NextRequest) {
   try {
@@ -40,6 +40,11 @@ export async function POST(req: NextRequest) {
   if (authError) return authError;
 
   try {
+    const user = await getCurrentUser(req);
+    if (!user?.id) {
+      return NextResponse.json({ error: 'User not found' }, { status: 401 });
+    }
+
     const body = await req.json();
     const section = await prisma.menuSection.create({
       data: {
@@ -50,6 +55,16 @@ export async function POST(req: NextRequest) {
         isActive: body.isActive ?? true,
       },
     });
+
+    await logActivity(
+      user.id,
+      'create',
+      'menuSection',
+      section.id,
+      section.name,
+      undefined,
+      `created menu section "${section.name}"`
+    );
 
     return NextResponse.json(section, { status: 201 });
   } catch (error) {

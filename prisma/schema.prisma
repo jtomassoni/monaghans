@@ -205,6 +205,7 @@ model MenuItem {
   isAvailable  Boolean              @default(true)
   displayOrder Int                  @default(0) // For ordering within section
   orderItems   OrderItem[] // Relation to orders
+  posSaleItems POSSaleItem[] // Relation to POS sales
   ingredients  MenuItemIngredient[] // Relation to ingredients
   prepTimeMin  Int? // Prep/cook time in minutes
   createdAt    DateTime             @default(now())
@@ -215,19 +216,21 @@ model MenuItem {
 
 // Ingredient master list
 model Ingredient {
-  id            String               @id @default(cuid())
-  name          String // "Mozzarella Cheese", "Tortilla - 10 inch", "Romaine Lettuce"
-  category      String               @default("Other") // "Dairy", "Grains", "Vegetables", "Proteins", "Condiments", "Other"
-  unit          String // "oz", "lb", "count", "cup", "tsp", "tbsp"
-  costPerUnit   Float // Cost per unit (e.g., $0.15/oz for cheese)
-  supplier      String? // Optional supplier info
-  parLevel      Float? // Minimum stock level to maintain
-  currentStock  Float? // Current inventory (optional for now)
-  notes         String? // Additional notes
-  isActive      Boolean              @default(true)
-  menuItems     MenuItemIngredient[] // Relation to menu items
-  createdAt     DateTime             @default(now())
-  updatedAt     DateTime             @updatedAt
+  id           String               @id @default(cuid())
+  name         String // "Mozzarella Cheese", "Tortilla - 10 inch", "Romaine Lettuce"
+  category     String               @default("Other") // "Dairy", "Grains", "Vegetables", "Proteins", "Condiments", "Other"
+  unit         String // "oz", "lb", "count", "cup", "tsp", "tbsp"
+  costPerUnit  Float // Cost per unit (e.g., $0.15/oz for cheese)
+  supplier     String? // Optional supplier info
+  parLevel     Float? // Minimum stock level to maintain
+  currentStock Float? // Current inventory (optional for now)
+  notes        String? // Additional notes
+  isActive     Boolean              @default(true)
+  menuItems    MenuItemIngredient[] // Relation to menu items
+  supplierProducts SupplierProduct[] // Products from suppliers that match this ingredient
+  purchaseOrderItems PurchaseOrderItem[] // Purchase order items for this ingredient
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
 
   @@index([category])
   @@index([name])
@@ -252,22 +255,22 @@ model MenuItemIngredient {
 
 // Employee management for labor cost tracking
 model Employee {
-  id           String              @id @default(cuid())
+  id           String                 @id @default(cuid())
   name         String
-  email        String              @unique // Required for credential management
+  email        String                 @unique // Required for credential management
   phone        String?
-  pin           String?             @unique // PIN for timeclock access
-  role         String              // "cook", "bartender", "barback"
-  hourlyWage   Float               // Hourly wage in dollars
-  isActive     Boolean             @default(true)
-  deletedAt    DateTime?           // Soft delete timestamp (null = not deleted)
+  pin          String?                @unique // PIN for timeclock access
+  role         String // "cook", "bartender", "barback"
+  hourlyWage   Float // Hourly wage in dollars
+  isActive     Boolean                @default(true)
+  deletedAt    DateTime? // Soft delete timestamp (null = not deleted)
   hireDate     DateTime?
   notes        String?
-  shifts       Shift[]             // Actual worked shifts (clock in/out)
-  schedules    Schedule[]          // Scheduled shifts (planned)
+  shifts       Shift[] // Actual worked shifts (clock in/out)
+  schedules    Schedule[] // Scheduled shifts (planned)
   availability EmployeeAvailability[] // Employee availability entries
-  createdAt    DateTime            @default(now())
-  updatedAt    DateTime            @updatedAt
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
 
   @@index([isActive])
   @@index([role])
@@ -277,20 +280,20 @@ model Employee {
 
 // Scheduled shifts (planned shifts for scheduling)
 model Schedule {
-  id         String    @id @default(cuid())
+  id         String   @id @default(cuid())
   employeeId String
-  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  date       DateTime  // Date of the shift (time component ignored)
-  shiftType  String    // "open" (open to 4pm) or "close" (4pm to close)
-  startTime  DateTime  // Actual start time (accounts for kitchen 1hr early)
-  endTime    DateTime  // Actual end time (accounts for kitchen 1hr early + cleanup)
-  notes      String?   // Schedule notes
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date       DateTime // Date of the shift (time component ignored)
+  shiftType  String // "open" (open to 4pm) or "close" (4pm to close)
+  startTime  DateTime // Actual start time (accounts for kitchen 1hr early)
+  endTime    DateTime // Actual end time (accounts for kitchen 1hr early + cleanup)
+  notes      String? // Schedule notes
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
+  @@unique([employeeId, date, shiftType]) // One employee can't have duplicate shift types on same day
   @@index([employeeId])
   @@index([date])
-  @@unique([employeeId, date, shiftType]) // One employee can't have duplicate shift types on same day
 }
 
 // Shift tracking for labor cost analysis (actual worked time)
@@ -298,11 +301,11 @@ model Shift {
   id         String    @id @default(cuid())
   employeeId String
   employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  scheduleId String?   // Optional link to scheduled shift
+  scheduleId String? // Optional link to scheduled shift
   clockIn    DateTime
   clockOut   DateTime?
   breakMin   Int       @default(0) // Break time in minutes (unpaid)
-  notes      String?   // Shift notes
+  notes      String? // Shift notes
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
@@ -313,52 +316,259 @@ model Shift {
 
 // Shift requirements - defines how many of each role are needed per day/shift
 model ShiftRequirement {
-  id         String    @id @default(cuid())
-  date       DateTime  // Date of the requirement (time component ignored)
-  shiftType  String    // "open" or "close"
-  cooks      Int       @default(0) // Number of cooks needed
-  bartenders Int       @default(0) // Number of bartenders needed
-  barbacks   Int       @default(0) // Number of barbacks needed
-  notes      String?   // Optional notes about this requirement
-  isFilled   Boolean   @default(false) // Whether this shift is marked as filled/complete
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  id         String   @id @default(cuid())
+  date       DateTime // Date of the requirement (time component ignored)
+  shiftType  String // "open" or "close"
+  cooks      Int      @default(0) // Number of cooks needed
+  bartenders Int      @default(0) // Number of bartenders needed
+  barbacks   Int      @default(0) // Number of barbacks needed
+  notes      String? // Optional notes about this requirement
+  isFilled   Boolean  @default(false) // Whether this shift is marked as filled/complete
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  @@index([date])
   @@unique([date, shiftType]) // One requirement per day/shift type
+  @@index([date])
 }
 
 // Weekly schedule template - default requirements for each day of the week
 model WeeklyScheduleTemplate {
-  id         String    @id @default(cuid())
-  name       String    // Template name (e.g., "Standard Week", "Holiday Week")
-  dayOfWeek  Int       // 0-6 (Sunday-Saturday)
-  shiftType  String    // "open" or "close"
-  cooks      Int       @default(0)
-  bartenders Int       @default(0)
-  barbacks   Int       @default(0)
-  notes      String?   // Optional notes
-  isActive   Boolean   @default(true) // Can have multiple templates, one active
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  id         String   @id @default(cuid())
+  name       String // Template name (e.g., "Standard Week", "Holiday Week")
+  dayOfWeek  Int // 0-6 (Sunday-Saturday)
+  shiftType  String // "open" or "close"
+  cooks      Int      @default(0)
+  bartenders Int      @default(0)
+  barbacks   Int      @default(0)
+  notes      String? // Optional notes
+  isActive   Boolean  @default(true) // Can have multiple templates, one active
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  @@index([dayOfWeek, shiftType])
   @@unique([dayOfWeek, shiftType, name]) // Unique combination per template name
+  @@index([dayOfWeek, shiftType])
 }
 
 // Employee availability - monthly availability entries
 model EmployeeAvailability {
-  id         String    @id @default(cuid())
-  employeeId String
-  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  date       DateTime  // Date of availability (time component ignored)
-  shiftType  String?   // "open", "close", or null for all day
+  id          String   @id @default(cuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date        DateTime // Date of availability (time component ignored)
+  shiftType   String? // "open", "close", or null for all day
   isAvailable Boolean  @default(true) // true = available, false = unavailable
-  notes      String?   // Optional notes (e.g., "Doctor appointment")
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  notes       String? // Optional notes (e.g., "Doctor appointment")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
+  @@unique([employeeId, date, shiftType]) // One availability entry per employee/date/shift
   @@index([employeeId])
   @@index([date])
-  @@unique([employeeId, date, shiftType]) // One availability entry per employee/date/shift
+}
+
+// POS Integration - stores connection information for POS systems
+model POSIntegration {
+  id            String    @id @default(cuid())
+  provider      String // "square", "toast", "clover", "lightspeed", "touchbistro", etc.
+  name          String // Display name for this integration
+  isActive      Boolean   @default(true)
+  credentials   String // Encrypted JSON with API keys, tokens, etc.
+  config        String? // JSON with configuration (location IDs, sync settings, etc.)
+  lastSyncAt    DateTime? // Last successful sync timestamp
+  lastSyncError String? // Last sync error message
+  syncFrequency String    @default("daily") // "hourly", "daily", "weekly", "manual"
+  sales         POSSale[] // Imported sales from this POS
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([provider])
+  @@index([isActive])
+}
+
+// POS Sales Data - imported sales transactions from POS systems
+model POSSale {
+  id               String         @id @default(cuid())
+  posIntegrationId String
+  posIntegration   POSIntegration @relation(fields: [posIntegrationId], references: [id], onDelete: Cascade)
+  posTransactionId String // Original transaction ID from POS system
+  posOrderNumber   String? // Order number from POS system
+  saleDate         DateTime // Date/time of sale
+  subtotal         Float          @default(0)
+  tax              Float          @default(0)
+  tip              Float          @default(0)
+  total            Float          @default(0)
+  paymentMethod    String? // "card", "cash", "gift_card", etc.
+  customerCount    Int? // Number of customers/guests
+  serverName       String? // Server/employee name from POS
+  locationId       String? // Location ID if multi-location
+  items            POSSaleItem[] // Items sold in this transaction
+  rawData          String? // JSON with original POS data for reference
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@unique([posIntegrationId, posTransactionId]) // Prevent duplicate imports
+  @@index([posIntegrationId])
+  @@index([saleDate])
+  @@index([posOrderNumber])
+}
+
+// POS Sale Items - individual items from POS transactions
+model POSSaleItem {
+  id         String    @id @default(cuid())
+  posSaleId  String
+  posSale    POSSale   @relation(fields: [posSaleId], references: [id], onDelete: Cascade)
+  posItemId  String? // Item ID from POS system
+  name       String // Item name at time of sale
+  category   String? // Category from POS
+  quantity   Int       @default(1)
+  unitPrice  Float     @default(0)
+  totalPrice Float     @default(0)
+  modifiers  String? // JSON array of modifiers/add-ons
+  menuItemId String? // Link to MenuItem if matched
+  menuItem   MenuItem? @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
+  createdAt  DateTime  @default(now())
+
+  @@index([posSaleId])
+  @@index([menuItemId])
+  @@index([name])
+}
+
+// Supplier Integration Models
+model Supplier {
+  id          String              @id @default(cuid())
+  name        String              @unique // "Sysco", "US Foods", "Costco", etc.
+  provider    String              @unique // "sysco", "usfoods", "costco", "custom"
+  displayName String? // Display name for UI
+  website     String?
+  phone       String?
+  email       String?
+  address     String?
+  notes       String?
+  isActive    Boolean             @default(true)
+  connections SupplierConnection[]
+  products    SupplierProduct[]
+  pricing     SupplierPricing[]
+  orders      PurchaseOrder[]
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@index([provider])
+  @@index([isActive])
+}
+
+// Supplier API Connection - stores credentials and connection info
+model SupplierConnection {
+  id            String    @id @default(cuid())
+  supplierId    String
+  supplier      Supplier  @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  name          String // Display name for this connection (e.g., "Main Account", "Secondary Location")
+  credentials   String // Encrypted JSON with API keys, tokens, account numbers, etc.
+  config        String? // JSON with configuration (location IDs, warehouse codes, etc.)
+  isActive      Boolean   @default(true)
+  lastSyncAt    DateTime? // Last successful catalog sync
+  lastSyncError String? // Last sync error message
+  syncFrequency String    @default("weekly") // "daily", "weekly", "monthly", "manual"
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([supplierId])
+  @@index([isActive])
+}
+
+// Supplier Product Catalog - products available from suppliers
+model SupplierProduct {
+  id              String           @id @default(cuid())
+  supplierId      String
+  supplier        Supplier         @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  supplierSku     String // SKU from supplier
+  name            String
+  description     String?
+  category        String? // Product category
+  unit            String // "lb", "oz", "case", "each", etc.
+  unitSize        String? // e.g., "12/1 lb" for case of 12 one-pound packages
+  currentPrice    Float // Current price per unit
+  lastPriceUpdate DateTime? // When price was last updated
+  isAvailable     Boolean          @default(true)
+  minOrderQty     Float? // Minimum order quantity
+  leadTimeDays    Int? // Typical lead time in days
+  ingredientId    String? // Link to Ingredient if matched
+  ingredient      Ingredient?      @relation(fields: [ingredientId], references: [id], onDelete: SetNull)
+  pricing         SupplierPricing[]
+  orderItems     PurchaseOrderItem[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@unique([supplierId, supplierSku])
+  @@index([supplierId])
+  @@index([ingredientId])
+  @@index([name])
+}
+
+// Supplier Pricing History - tracks price changes over time
+model SupplierPricing {
+  id              String         @id @default(cuid())
+  supplierId      String
+  supplier        Supplier       @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  productId       String
+  product         SupplierProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  price           Float // Price per unit
+  effectiveDate   DateTime // When this price became effective
+  expirationDate  DateTime? // When this price expires (if applicable)
+  notes           String? // Notes about price change
+  createdAt       DateTime       @default(now())
+
+  @@index([supplierId])
+  @@index([productId])
+  @@index([effectiveDate])
+}
+
+// Purchase Orders - orders placed with suppliers
+model PurchaseOrder {
+  id              String            @id @default(cuid())
+  orderNumber     String            @unique // Human-readable PO number (e.g., "PO-2025-001")
+  supplierId      String
+  supplier        Supplier          @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  connectionId    String? // Which supplier connection was used
+  status          String            @default("draft") // "draft", "submitted", "confirmed", "shipped", "received", "cancelled"
+  orderDate       DateTime          @default(now())
+  requestedDate   DateTime? // Requested delivery date
+  receivedDate    DateTime? // Actual received date
+  subtotal        Float             @default(0)
+  tax             Float             @default(0)
+  shipping        Float             @default(0)
+  total           Float             @default(0)
+  notes           String?
+  posOrderId      String? // Order ID from supplier's system (if available)
+  items           PurchaseOrderItem[]
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([supplierId])
+  @@index([status])
+  @@index([orderDate])
+}
+
+// Purchase Order Items - individual items in purchase orders
+model PurchaseOrderItem {
+  id              String         @id @default(cuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder  @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  productId       String?
+  product          SupplierProduct? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  ingredientId    String? // Link to ingredient if product not matched
+  ingredient      Ingredient?    @relation(fields: [ingredientId], references: [id], onDelete: SetNull)
+  name            String // Product name at time of order
+  supplierSku     String? // SKU from supplier
+  quantity        Float // Quantity ordered
+  unit            String // Unit of measure
+  unitPrice       Float // Price per unit
+  totalPrice      Float // Total price for this line item
+  notes           String?
+  receivedQty     Float? // Quantity actually received
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([purchaseOrderId])
+  @@index([productId])
+  @@index([ingredientId])
 }

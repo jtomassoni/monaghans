@@ -13,6 +13,10 @@ import {
   FaPlus,
   FaTrash,
   FaUsers,
+  FaShoppingCart,
+  FaUserCog,
+  FaDollarSign,
+  FaFire,
 } from 'react-icons/fa';
 import QuickActions from '@/components/quick-actions';
 import PreviewSite from '@/components/preview-site';
@@ -33,6 +37,10 @@ interface OverviewContentProps {
     details?: string;
     inactive?: number;
     unpublished?: number;
+    revenue?: number;
+    kitchenOrders?: number;
+    clockedIn?: number;
+    shiftsToday?: number;
   }>;
   upcomingEvents: Array<{
     id: string;
@@ -53,6 +61,18 @@ interface OverviewContentProps {
     };
   }>;
   publishedAnnouncementsCount: number;
+  recentOrders: Array<{
+    id: string;
+    orderNumber: string;
+    status: string;
+    customerName: string;
+    total: number;
+    createdAt: Date | string;
+    formattedDateTime: string;
+  }>;
+  todayRevenue: number;
+  weekRevenue: number;
+  clockedInCount: number;
 }
 
 export default function OverviewContent({
@@ -60,6 +80,10 @@ export default function OverviewContent({
   upcomingEvents,
   recentActivities,
   publishedAnnouncementsCount,
+  recentOrders,
+  todayRevenue,
+  weekRevenue,
+  clockedInCount,
 }: OverviewContentProps) {
   const router = useRouter();
   const [announcementModalOpen, setAnnouncementModalOpen] = useState(false);
@@ -128,6 +152,22 @@ export default function OverviewContent({
     FaUtensils,
     FaBullhorn,
     FaUsers,
+    FaShoppingCart,
+    FaUserCog,
+  };
+
+  // Helper to get status color
+  const getOrderStatusColor = (status: string) => {
+    const statusColors: Record<string, string> = {
+      pending: 'text-yellow-600 dark:text-yellow-400',
+      confirmed: 'text-blue-600 dark:text-blue-400',
+      acknowledged: 'text-purple-600 dark:text-purple-400',
+      preparing: 'text-orange-600 dark:text-orange-400',
+      ready: 'text-green-600 dark:text-green-400',
+      completed: 'text-gray-600 dark:text-gray-400',
+      cancelled: 'text-red-600 dark:text-red-400',
+    };
+    return statusColors[status] || 'text-gray-600 dark:text-gray-400';
   };
 
   return (
@@ -149,7 +189,15 @@ export default function OverviewContent({
                       <Icon className={`w-5 h-5 ${stat.textColor}`} />
                     </div>
                     <div className={`px-3 py-1 rounded-full text-xs font-semibold ${stat.color} text-white border border-white/20`}>
-                      {stat.active} {stat.title === 'Specials & Events' || stat.title === 'Announcements' ? 'Active' : stat.title === 'Menu' ? 'Items' : 'Total'}
+                      {stat.title === 'Orders' ? stat.active : 
+                       stat.title === 'Staff' ? stat.active :
+                       stat.title === 'Specials & Events' || stat.title === 'Announcements' ? stat.active : 
+                       stat.title === 'Menu' ? stat.active : 
+                       stat.total} {stat.title === 'Orders' ? 'Pending' : 
+                                   stat.title === 'Staff' ? 'Clocked In' :
+                                   stat.title === 'Specials & Events' || stat.title === 'Announcements' ? 'Active' : 
+                                   stat.title === 'Menu' ? 'Items' : 
+                                   'Total'}
                     </div>
                   </div>
                   <h3 className="text-base font-bold text-gray-900 dark:text-white mb-0.5 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
@@ -179,8 +227,115 @@ export default function OverviewContent({
             })}
           </div>
 
-          {/* Two Column Layout for Events and Activity */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 flex-shrink-0">
+          {/* Revenue & Quick Stats Row */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 flex-shrink-0">
+            {/* Today's Revenue */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-4">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                  <FaDollarSign className="w-4 h-4 text-green-600 dark:text-green-400" />
+                  Today's Revenue
+                </h3>
+              </div>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                ${todayRevenue.toFixed(2)}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                This week: ${weekRevenue.toFixed(2)}
+              </p>
+            </div>
+
+            {/* Kitchen Status */}
+            <Link
+              href="/admin/orders?status=acknowledged,preparing,ready"
+              className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all duration-200 hover:scale-[1.02] p-4 group"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                  <FaFire className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                  Kitchen Status
+                </h3>
+              </div>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                {stats.find(s => s.title === 'Orders')?.kitchenOrders || 0}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Orders in kitchen
+              </p>
+            </Link>
+
+            {/* Staff Status */}
+            <Link
+              href="/admin/staff?tab=clock"
+              className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all duration-200 hover:scale-[1.02] p-4 group"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                  <FaClock className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                  Staff Status
+                </h3>
+              </div>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                {clockedInCount}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Currently clocked in
+              </p>
+            </Link>
+          </div>
+
+          {/* Three Column Layout for Orders, Events, and Activity */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 flex-shrink-0">
+            {/* Recent Orders */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <FaShoppingCart className="w-4 h-4 text-green-600 dark:text-green-400" />
+                  Recent Orders
+                </h2>
+                <Link
+                  href="/admin/orders"
+                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  View All
+                </Link>
+              </div>
+              {recentOrders.length > 0 ? (
+                <div className="space-y-2">
+                  {recentOrders.map((order: any) => (
+                    <Link
+                      key={order.id}
+                      href={`/admin/orders?order=${order.id}`}
+                      className="block p-2 rounded border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-sm font-semibold text-gray-900 dark:text-white group-hover:text-green-600 dark:group-hover:text-green-400 truncate">
+                              {order.orderNumber}
+                            </h3>
+                            <span className={`text-xs font-medium ${getOrderStatusColor(order.status)}`}>
+                              {order.status}
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+                            {order.customerName} • ${order.total.toFixed(2)}
+                          </p>
+                          <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+                            {order.formattedDateTime}
+                          </p>
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-gray-500 dark:text-gray-400 text-center py-2">
+                  No pending orders
+                </p>
+              )}
+            </div>
+
             {/* Upcoming Events */}
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-4">
               <div className="flex items-center justify-between mb-3">

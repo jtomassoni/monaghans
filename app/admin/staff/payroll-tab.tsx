@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { FaDollarSign, FaClock, FaUsers, FaChartLine } from 'react-icons/fa';
+import { FaDollarSign, FaClock, FaUsers, FaChartLine, FaEdit } from 'react-icons/fa';
 import { calculateHoursWorked, calculateShiftCost } from '@/lib/schedule-helpers';
+import Modal from '@/components/modal';
 
 interface Employee {
   id: string;
@@ -36,6 +37,11 @@ export default function PayrollTab({ employees }: PayrollTabProps) {
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState('7'); // days
   const [filterRole, setFilterRole] = useState<string>('all');
+  const [editingShift, setEditingShift] = useState<Shift | null>(null);
+  const [editClockIn, setEditClockIn] = useState('');
+  const [editClockOut, setEditClockOut] = useState('');
+  const [editBreakMin, setEditBreakMin] = useState(0);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetchShifts();
@@ -141,6 +147,53 @@ export default function PayrollTab({ employees }: PayrollTabProps) {
       minute: '2-digit',
       hour12: true,
     });
+  };
+
+  const formatDateTimeLocal = (date: Date | string) => {
+    const d = new Date(date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  };
+
+  const handleEditShift = (shift: Shift) => {
+    setEditingShift(shift);
+    setEditClockIn(formatDateTimeLocal(shift.clockIn));
+    setEditClockOut(shift.clockOut ? formatDateTimeLocal(shift.clockOut) : '');
+    setEditBreakMin(shift.breakMin);
+  };
+
+  const handleSaveShift = async () => {
+    if (!editingShift) return;
+
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/shifts/${editingShift.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clockIn: editClockIn,
+          clockOut: editClockOut || null,
+          breakMin: editBreakMin,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update shift');
+      }
+
+      // Refresh shifts
+      await fetchShifts();
+      setEditingShift(null);
+    } catch (error: any) {
+      alert(error.message || 'Failed to update shift');
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {
@@ -355,17 +408,27 @@ export default function PayrollTab({ employees }: PayrollTabProps) {
                         </p>
                       )}
                     </div>
-                    <div className="text-left sm:text-right flex-shrink-0">
-                      {hours !== null && (
-                        <p className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white">
-                          {hours.toFixed(2)} hrs
-                        </p>
-                      )}
-                      {cost !== null && (
-                        <p className="text-xs sm:text-sm text-blue-600 dark:text-blue-400">
-                          ${cost.toFixed(2)}
-                        </p>
-                      )}
+                    <div className="flex items-center gap-3">
+                      <div className="text-left sm:text-right flex-shrink-0">
+                        {hours !== null && (
+                          <p className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white">
+                            {hours.toFixed(2)} hrs
+                          </p>
+                        )}
+                        {cost !== null && (
+                          <p className="text-xs sm:text-sm text-blue-600 dark:text-blue-400">
+                            ${cost.toFixed(2)}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => handleEditShift(shift)}
+                        className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded transition flex items-center gap-1"
+                        title="Override shift times"
+                      >
+                        <FaEdit className="w-3 h-3" />
+                        <span className="hidden sm:inline">Edit</span>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -373,6 +436,83 @@ export default function PayrollTab({ employees }: PayrollTabProps) {
             })}
         </div>
       </div>
+
+      {/* Edit Shift Modal */}
+      <Modal
+        isOpen={editingShift !== null}
+        onClose={() => setEditingShift(null)}
+        title="Override Shift Times"
+      >
+        {editingShift && (
+          <div className="space-y-4 p-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Employee
+              </label>
+              <p className="text-sm text-gray-900 dark:text-white">
+                {editingShift.employee.name} ({editingShift.employee.role})
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Clock In *
+              </label>
+              <input
+                type="datetime-local"
+                value={editClockIn}
+                onChange={(e) => setEditClockIn(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Clock Out
+              </label>
+              <input
+                type="datetime-local"
+                value={editClockOut}
+                onChange={(e) => setEditClockOut(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Leave empty if shift is still in progress
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Break Time (minutes)
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={editBreakMin}
+                onChange={(e) => setEditBreakMin(parseInt(e.target.value) || 0)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <button
+                onClick={() => setEditingShift(null)}
+                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg font-medium transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveShift}
+                disabled={saving}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed text-white rounded-lg font-medium transition"
+              >
+                {saving ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

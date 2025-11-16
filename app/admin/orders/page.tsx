@@ -40,7 +40,7 @@ export default async function AdminOrders() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto p-4 sm:p-6 relative z-10">
+      <div className="flex-1 overflow-auto p-2 sm:p-3 relative z-10">
         <div className="max-w-7xl mx-auto">
           <OrdersList initialOrders={orders} />
         </div>

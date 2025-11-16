@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { showToast } from '@/components/toast';
+import { useUnsavedChangesWarning } from '@/lib/use-unsaved-changes-warning';
 
 interface HomepageFormProps {
   initialHero: any;
@@ -78,6 +79,10 @@ export default function HomepageForm({ initialHero, initialAbout, initialGallery
   useEffect(() => {
     setIsGalleryDirty(JSON.stringify(gallery) !== JSON.stringify(initialGalleryRef.current));
   }, [gallery]);
+
+  // Warn user before leaving page with unsaved changes
+  const hasUnsavedChanges = isHeroDirty || isAboutDirty || isGalleryDirty;
+  useUnsavedChangesWarning(hasUnsavedChanges);
 
   async function handleSaveHero() {
     setHeroLoading(true);

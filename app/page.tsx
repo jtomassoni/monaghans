@@ -116,15 +116,62 @@ export default async function HomePage() {
           dtstartDate = startDate;
         }
       } else if (event.recurrenceRule.includes('FREQ=WEEKLY')) {
-        // For weekly events, ensure dtstart represents the correct day of week in Mountain Time
+        // For weekly events, ensure dtstart is on one of the days specified in BYDAY
+        // Extract the target days of week from BYDAY in the RRULE
+        const bydayMatch = event.recurrenceRule.match(/BYDAY=([^;]+)/);
+        const dayMap: Record<string, number> = {
+          'SU': 0, 'MO': 1, 'TU': 2, 'WE': 3, 'TH': 4, 'FR': 5, 'SA': 6
+        };
+        
         // Get the start date components in Mountain Time
         const startMTParts = mtFormatter.formatToParts(startDate);
         const startMTYear = parseInt(startMTParts.find(p => p.type === 'year')!.value);
         const startMTMonth = parseInt(startMTParts.find(p => p.type === 'month')!.value) - 1; // 0-indexed
         const startMTDay = parseInt(startMTParts.find(p => p.type === 'day')!.value);
         
+        // Get the day of the week in Mountain Time (0 = Sunday, 1 = Monday, etc.)
+        const startMTDayOfWeek = new Date(startMTYear, startMTMonth, startMTDay).getDay();
+        
         // Create dtstart at the original time but ensure it represents the correct day in Mountain Time
-        dtstartDate = createMountainTimeDate(startMTYear, startMTMonth, startMTDay, originalHours, originalMinutes, originalSeconds);
+        let candidateDtstart = createMountainTimeDate(startMTYear, startMTMonth, startMTDay, originalHours, originalMinutes, originalSeconds);
+        
+        // If BYDAY is specified, check if the start date's day matches any of the specified days
+        if (bydayMatch) {
+          const bydayStr = bydayMatch[1];
+          const targetDays = bydayStr.split(',').map((d: string) => dayMap[d.trim()]).filter((d: number | undefined): d is number => d !== undefined);
+          
+          // Check if the start date's day of week (in MT) matches any of the target days
+          const startDateMatches = targetDays.includes(startMTDayOfWeek);
+          
+          // For weekly events, RRule uses the day of week from dtstart to determine recurrence
+          // If the start date matches BYDAY, use it as dtstart
+          // If not, we need to find the first occurrence that matches BYDAY on or after the start date
+          if (startDateMatches) {
+            // The start date already matches one of the BYDAY days, use it as-is
+            dtstartDate = candidateDtstart;
+          } else {
+            // The start date doesn't match any of the BYDAY days
+            // Find the first target day that comes on or after the start date
+            const sortedTargetDays = [...targetDays].sort((a, b) => a - b);
+            let targetDay = sortedTargetDays.find(d => d >= startMTDayOfWeek) || sortedTargetDays[0];
+            
+            // Calculate days to add to get to the target day
+            let dayDiff = targetDay - startMTDayOfWeek;
+            if (dayDiff < 0) dayDiff += 7; // Wrap around to next week
+            
+            // Adjust the date to the target day
+            const adjustedDate = new Date(startMTYear, startMTMonth, startMTDay + dayDiff);
+            const adjustedMTYear = adjustedDate.getFullYear();
+            const adjustedMTMonth = adjustedDate.getMonth();
+            const adjustedMTDay = adjustedDate.getDate();
+            
+            // Create dtstart on the target day with the original time
+            dtstartDate = createMountainTimeDate(adjustedMTYear, adjustedMTMonth, adjustedMTDay, originalHours, originalMinutes, originalSeconds);
+          }
+        } else {
+          // No BYDAY specified, use the start date as-is
+          dtstartDate = candidateDtstart;
+        }
       } else {
         dtstartDate = startDate;
       }
@@ -175,8 +222,44 @@ export default async function HomePage() {
               // Use the occurrence date but preserve the original time in Mountain Time
               eventStart = createMountainTimeDate(occurrenceMTYear, occurrenceMTMonth - 1, occurrenceMTDay, originalHours, originalMinutes, originalSeconds);
             }
+          } else if (event.recurrenceRule && event.recurrenceRule.includes('FREQ=WEEKLY')) {
+            // For weekly events, ensure the occurrence appears on the correct day of week in Mountain Time
+            // Get the target days of week from BYDAY
+            const bydayMatch = event.recurrenceRule.match(/BYDAY=([^;]+)/);
+            const dayMap: Record<string, number> = {
+              'SU': 0, 'MO': 1, 'TU': 2, 'WE': 3, 'TH': 4, 'FR': 5, 'SA': 6
+            };
+            
+            // Check what day of week the occurrence represents in Mountain Time
+            const occurrenceMTDayOfWeek = new Date(occurrenceMTYear, occurrenceMTMonth - 1, occurrenceMTDay).getDay();
+            
+            // If BYDAY is specified, check if the occurrence's day matches any of the specified days
+            if (bydayMatch) {
+              const bydayStr = bydayMatch[1];
+              const targetDays = bydayStr.split(',').map((d: string) => dayMap[d.trim()]).filter((d: number | undefined): d is number => d !== undefined);
+              
+              // Check if the occurrence's day of week matches any of the target days
+              if (targetDays.includes(occurrenceMTDayOfWeek)) {
+                // The occurrence is on one of the target days, use it as-is
+                eventStart = createMountainTimeDate(occurrenceMTYear, occurrenceMTMonth - 1, occurrenceMTDay, originalHours, originalMinutes, originalSeconds);
+              } else {
+                // The occurrence is not on a target day (timezone issue), find the nearest target day
+                const sortedTargetDays = [...targetDays].sort((a, b) => a - b);
+                let targetDay = sortedTargetDays.find(d => d >= occurrenceMTDayOfWeek) || sortedTargetDays[0];
+                
+                // Calculate days to add to get to the target day
+                let dayDiff = targetDay - occurrenceMTDayOfWeek;
+                if (dayDiff < 0) dayDiff += 7; // Wrap around to next week
+                
+                const adjustedDay = occurrenceMTDay + dayDiff;
+                eventStart = createMountainTimeDate(occurrenceMTYear, occurrenceMTMonth - 1, adjustedDay, originalHours, originalMinutes, originalSeconds);
+              }
+            } else {
+              // No BYDAY specified, use the occurrence date as-is
+              eventStart = createMountainTimeDate(occurrenceMTYear, occurrenceMTMonth - 1, occurrenceMTDay, originalHours, originalMinutes, originalSeconds);
+            }
           } else {
-            // For weekly and other recurring events, use the occurrence date
+            // For other recurring events, use the occurrence date
             // but preserve the original time components in Mountain Time
             eventStart = createMountainTimeDate(occurrenceMTYear, occurrenceMTMonth - 1, occurrenceMTDay, originalHours, originalMinutes, originalSeconds);
           }
@@ -518,6 +601,8 @@ export default async function HomePage() {
     gallery = gallerySetting ? JSON.parse(gallerySetting.value) : {};
   } catch {}
 
+  const hasHappyHour = happyHour && (happyHour.title || happyHour.description || happyHour.times);
+
   const formatHours = () => {
     const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
     const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -552,7 +637,7 @@ export default async function HomePage() {
   return (
     <main id="main-content" className="min-h-screen bg-[var(--color-background)] text-[var(--color-foreground)] scroll-smooth" role="main" aria-label="Main content">
       {/* Hero Section */}
-      <section aria-label="Hero section" className="relative min-h-screen md:h-screen flex items-center justify-center overflow-y-auto overflow-x-hidden">
+      <section aria-label="Hero section" className="relative min-h-screen overflow-x-hidden">
         <div className="absolute inset-0 z-0">
           <Image
             src="/pics/hero.png"
@@ -564,426 +649,265 @@ export default async function HomePage() {
           />
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/80" />
         </div>
-        
-        <div className="relative z-10 w-full px-3 sm:px-4 md:px-6 lg:px-8 max-w-7xl mx-auto py-12 md:py-16">
-          {/* Main Header */}
-          <div className="text-center mb-8 md:mb-12">
-            <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold mb-4 md:mb-6 text-white drop-shadow-2xl">
-              {hero.title || "Monaghan's"}
-            </h1>
-            <p className="text-2xl md:text-3xl lg:text-4xl mb-3 md:mb-4 text-white/90 font-light">
-              {hero.tagline || "Bar & Grill"}
-            </p>
-            <p className="text-lg md:text-xl lg:text-2xl mb-6 md:mb-8 text-white/80 italic">
-              {hero.subtitle || "Established 1892 • Denver's Second-Oldest Bar • Minority Woman Owned"}
-            </p>
-            
-            {/* Key Info */}
-            <div className="flex flex-wrap justify-center gap-4 md:gap-6 text-sm md:text-base mb-6 md:mb-8">
-              {contact.city && (
-                <div className="flex items-center gap-2 text-white/90">
-                  <svg className="w-5 h-5 text-[var(--color-accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  <span>{contact.city}, CO</span>
-                </div>
-              )}
-              {contact.phone && (
-                <div className="flex items-center gap-2 text-white/90">
-                  <svg className="w-5 h-5 text-[var(--color-accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                  </svg>
-                  <span>{contact.phone}</span>
-                </div>
-              )}
-              {formatHours() !== 'Open Daily' && (
-                <div className="flex items-center gap-2 text-white/90">
-                  <svg className="w-5 h-5 text-[var(--color-accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span>{formatHours().replace('Today: ', '')}</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Announcements - Support 1-3 with optimized layout */}
-          {publishedAnnouncements.length > 0 && (
-            <div className={`mb-6 md:mb-8 max-w-4xl mx-auto animate-fade-in space-y-4 ${publishedAnnouncements.length > 1 ? 'space-y-3' : ''}`}>
-              {publishedAnnouncements.map((announcement, index) => {
-                const announcementWithCTA = announcement as typeof announcement & { ctaText?: string | null; ctaUrl?: string | null };
-                const hasCTA = announcementWithCTA.ctaText && announcementWithCTA.ctaUrl;
-                const isImportant = announcement.title.toLowerCase() !== 'test' && announcement.title.trim().length > 0;
-                const isMultiple = publishedAnnouncements.length > 1;
-                const isFirst = index === 0;
-                
-                // For multiple announcements, use compact style for all except the first (if it's important)
-                const useCompactStyle = isMultiple && (!isFirst || !isImportant);
-                
-                if (useCompactStyle) {
-                  // Compact banner for multiple announcements or less important ones
-                  return (
-                    <div key={announcement.id} className={`bg-gradient-to-r from-yellow-500/20 via-orange-500/20 to-red-500/20 backdrop-blur-sm border border-orange-500/30 rounded-lg p-3 md:p-4 ${hasCTA ? 'pb-5 md:pb-6' : ''}`}>
-                      <div className="flex items-center gap-2 mb-2">
-                        <svg className="w-4 h-4 text-orange-400" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                        </svg>
-                        <span className="text-orange-400 text-xs font-semibold uppercase tracking-wider">Announcement</span>
-                      </div>
-                      <h2 className="text-base md:text-lg font-bold text-white mb-1">{announcement.title}</h2>
-                      {announcement.body && (
-                        <div 
-                          className={`text-xs md:text-sm text-white/90 prose prose-invert prose-sm max-w-none prose-headings:text-white prose-p:text-white/90 prose-p:my-1 ${hasCTA ? 'mb-3 md:mb-4' : ''}`}
-                          dangerouslySetInnerHTML={{ __html: marked(announcement.body) }}
-                        />
-                      )}
-                      {hasCTA && (
-                        <div className="mt-3 md:mt-4 flex justify-center">
-                          <a
-                            href={announcementWithCTA.ctaUrl || '#'}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-400 hover:to-red-400 text-white font-bold text-xs rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
-                          >
-                            <span>{announcementWithCTA.ctaText}</span>
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                            </svg>
-                          </a>
-                        </div>
-                      )}
-                    </div>
-                  );
+        <div className="relative z-10 container mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 flex flex-col h-full justify-center">
+          {/* Compact Grid Layout for Specials, Events, and Announcements */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-10 max-w-6xl mx-auto w-full">
+            {/* Today's Events - Recurring and Ad Hoc */}
+            {todaysEvents.map((event) => {
+              const isRecurring = event.recurrenceRule || (event as any).isRecurringOccurrence;
+              const originalEvent = allEvents.find(e => e.id === event.id);
+              const hasRecurrenceRule = originalEvent?.recurrenceRule;
+              
+              // Try to extract recurrence pattern for display
+              let recurrenceLabel = '';
+              if (hasRecurrenceRule) {
+                try {
+                  const rule = RRule.fromString(hasRecurrenceRule);
+                  if (rule.options.freq === RRule.WEEKLY) {
+                    const byday = rule.options.byweekday;
+                    if (byday && Array.isArray(byday) && byday.length > 0) {
+                      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                      const days = byday.map((d) => {
+                        if (typeof d === 'number') {
+                          return dayNames[d];
+                        } else if (d && typeof d === 'object' && 'weekday' in d) {
+                          return dayNames[(d as { weekday: number }).weekday];
+                        }
+                        return '';
+                      }).filter(Boolean).join(', ');
+                      recurrenceLabel = days ? `Every ${days}` : 'Recurring';
+                    } else {
+                      recurrenceLabel = 'Recurring';
+                    }
+                  } else if (rule.options.freq === RRule.DAILY) {
+                    recurrenceLabel = 'Daily';
+                  } else if (rule.options.freq === RRule.MONTHLY) {
+                    recurrenceLabel = 'Monthly';
+                  } else {
+                    recurrenceLabel = 'Recurring';
+                  }
+                } catch {
+                  recurrenceLabel = 'Recurring';
                 }
-                
-                // Full banner for single important announcement or first of multiple if important
-                return (
-                  <div
-                    key={announcement.id}
-                    className={`relative ${hasCTA ? 'transform hover:scale-[1.01] transition-transform duration-300' : ''}`}
-                  >
-                    <div className="relative bg-gradient-to-r from-yellow-500 via-orange-500 to-red-500 p-0.5 sm:p-1 rounded-lg shadow-2xl">
-                      <div className={`bg-black/90 backdrop-blur-md rounded-md p-4 sm:p-6 md:p-8 ${hasCTA ? 'pb-6 sm:pb-8 md:pb-10' : ''}`}>
-                        <div className="flex items-center gap-2 mb-3">
-                          <svg className="w-5 h-5 text-orange-400 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              }
+              
+              return (
+                <div 
+                  key={`${event.id}-${event.startDateTime}`} 
+                  className="group bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20 hover:bg-white/15 hover:border-white/30 transition-all duration-300 shadow-lg hover:shadow-xl"
+                >
+                  <div className="flex items-start gap-4">
+                    <div className={`p-2.5 ${isRecurring ? 'bg-purple-500/40' : 'bg-purple-500/30'} rounded-xl flex-shrink-0 group-hover:scale-110 transition-transform duration-300`}>
+                      <svg className="w-5 h-5 text-purple-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-purple-200 text-xs font-semibold uppercase tracking-wider">
+                          {isRecurring ? 'Recurring Event' : 'Today\'s Event'}
+                        </span>
+                        {isRecurring && (
+                          <span className="px-2 py-0.5 bg-purple-500/30 border border-purple-400/30 rounded-full text-purple-200 text-[10px] font-medium">
+                            Recurring
+                          </span>
+                        )}
+                      </div>
+                      <h3 className="text-xl font-bold text-white mb-2.5 line-clamp-2 leading-tight">
+                        {event.title}
+                      </h3>
+                      {event.description && (
+                        <p className="text-white/80 text-sm mb-4 line-clamp-2 leading-relaxed">
+                          {event.description}
+                        </p>
+                      )}
+                      <div className="space-y-2">
+                        {recurrenceLabel && (
+                          <div className="flex items-center gap-2 text-purple-200/90 text-xs font-medium">
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            <span>{recurrenceLabel}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2 text-purple-200 text-xs">
+                          <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
-                          <span className="text-orange-400 text-xs sm:text-sm font-bold uppercase tracking-wider">
-                            Announcement
+                          <span className="font-medium">
+                            {new Date(event.startDateTime).toLocaleTimeString('en-US', {
+                              hour: 'numeric',
+                              minute: '2-digit',
+                              timeZone: 'America/Denver',
+                            })}
+                            {event.endDateTime &&
+                              ` - ${new Date(event.endDateTime).toLocaleTimeString('en-US', {
+                                hour: 'numeric',
+                                minute: '2-digit',
+                                timeZone: 'America/Denver',
+                              })}`}
                           </span>
                         </div>
-                        
-                        <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-white mb-3 drop-shadow-lg">
-                          {announcement.title}
-                        </h2>
-                        
-                        {announcement.body && (
-                          <div 
-                            className={`text-sm sm:text-base text-white/95 prose prose-invert max-w-none prose-headings:text-white prose-p:text-white/95 prose-p:my-2 ${hasCTA ? 'mb-6' : 'mb-4'}`}
-                            dangerouslySetInnerHTML={{ __html: marked(announcement.body) }}
-                          />
-                        )}
-
-                        {hasCTA && (
-                          <div className="mt-6 flex justify-center">
-                            <a
-                              href={announcementWithCTA.ctaUrl || '#'}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-400 hover:to-red-400 text-white font-bold text-sm rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
-                            >
-                              <span>{announcementWithCTA.ctaText}</span>
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                              </svg>
-                            </a>
-                          </div>
-                        )}
                       </div>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          )}
+                </div>
+              );
+            })}
 
-          {/* Today's Highlights Section - Dynamic Content */}
-          {(() => {
-            const highlightItems = [
-              ...todaysFoodSpecials,
-              todaysDrinkSpecial,
-            ].filter(Boolean);
-            const hasHappyHour = happyHour && happyHour.enabled;
-            const hasHighlights = highlightItems.length > 0 || todaysEvents.length > 0 || hasHappyHour;
-            
-            if (!hasHighlights) return null;
-            
-            // Calculate total items for grid layout (specials + events)
-            const totalItems = highlightItems.length + todaysEvents.length;
-            
-            return (
-              <div className="mb-8 md:mb-12 max-w-7xl mx-auto">
-                {/* Section Header - Only show if there are highlight items */}
-                {(highlightItems.length > 0 || todaysEvents.length > 0) && (
-                  <div className="text-center mb-6 md:mb-8">
-                    <h2 className="text-3xl md:text-4xl font-bold text-white mb-2">Today&apos;s Highlights</h2>
-                    <div className="w-20 h-0.5 bg-gradient-to-r from-transparent via-white/50 to-transparent mx-auto"></div>
+            {/* Food Specials */}
+            {todaysFoodSpecials.map((special) => (
+              <div key={special.id} className="group bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20 hover:bg-white/15 hover:border-white/30 transition-all duration-300 shadow-lg hover:shadow-xl">
+                <div className="flex items-start gap-4">
+                  <div className="p-2.5 bg-orange-500/30 rounded-xl flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
+                    <svg className="w-5 h-5 text-orange-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
                   </div>
-                )}
-
-                {/* Dynamic Content Grid - Optimized for all combinations */}
-                {(highlightItems.length > 0 || todaysEvents.length > 0) && (() => {
-                  // Optimize grid layout based on total item count
-                  let gridCols: string;
-                  let maxWidth: string;
-                  let cardPadding: string;
-                  
-                  if (totalItems === 1) {
-                    gridCols = 'grid-cols-1';
-                    maxWidth = 'max-w-2xl mx-auto';
-                    cardPadding = 'p-8 md:p-10';
-                  } else if (totalItems === 2) {
-                    gridCols = 'grid-cols-1 md:grid-cols-2';
-                    maxWidth = 'max-w-5xl mx-auto';
-                    cardPadding = 'p-6 md:p-8';
-                  } else if (totalItems === 3) {
-                    gridCols = 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3';
-                    maxWidth = 'max-w-7xl mx-auto';
-                    cardPadding = 'p-6 md:p-8';
-                  } else {
-                    // 4+ items - use responsive grid
-                    gridCols = 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3';
-                    maxWidth = 'max-w-7xl mx-auto';
-                    cardPadding = 'p-6 md:p-8';
-                  }
-                  
-                  return (
-                    <div className={`grid ${gridCols} ${maxWidth} gap-4 md:gap-6 mb-6 md:mb-8`}>
-                      {/* Food Specials - Show all matching food specials */}
-                      {todaysFoodSpecials.map((special) => (
-                        <div key={special.id} className={`relative bg-gradient-to-br from-orange-950/95 via-red-950/95 to-orange-950/95 backdrop-blur-md rounded-2xl ${cardPadding} shadow-2xl overflow-hidden animate-fade-in transition-none border border-orange-500/20`}>
-                          <div className="absolute inset-0 opacity-0">
-                            <div className="absolute top-0 right-0 w-40 h-40 bg-orange-400/20 rounded-full -mr-20 -mt-20 blur-2xl"></div>
-                            <div className="absolute bottom-0 left-0 w-32 h-32 bg-red-400/20 rounded-full -ml-16 -mb-16 blur-2xl"></div>
-                          </div>
-                          <div className="relative z-10">
-                            <div className="flex items-center gap-3 mb-4">
-                              <div className="p-2.5 bg-gradient-to-br from-orange-500/40 to-red-500/40 rounded-xl backdrop-blur-sm">
-                                <svg className="w-6 h-6 text-orange-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                                </svg>
-                              </div>
-                              <span className="text-orange-300 text-xs font-bold uppercase tracking-wider">
-                                Today&apos;s Food Special
-                              </span>
-                            </div>
-                            <h3 className="text-2xl md:text-3xl font-bold text-white mb-3 leading-tight">
-                              {special.title}
-                            </h3>
-                            {special.description && (
-                              <p className="text-sm md:text-base text-white/90 mb-3 leading-relaxed">
-                                {special.description}
-                              </p>
-                            )}
-                            {special.priceNotes && (
-                              <div className="inline-block px-4 py-2 bg-gradient-to-r from-orange-500/30 to-red-500/30 rounded-lg backdrop-blur-sm mb-3">
-                                <p className="text-orange-200 font-bold text-base md:text-lg">
-                                  {special.priceNotes}
-                                </p>
-                              </div>
-                            )}
-                            {special.timeWindow && (
-                              <div className="flex items-center gap-2 text-white/70 text-sm mt-4 pt-4 border-t border-white/10">
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                <span>{special.timeWindow}</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-
-                      {/* Drink Special */}
-                      {todaysDrinkSpecial && (
-                        <div className={`relative bg-gradient-to-br from-blue-950/95 via-indigo-950/95 to-purple-950/95 backdrop-blur-md rounded-2xl ${cardPadding} shadow-2xl overflow-hidden animate-fade-in transition-none border border-blue-500/20`}>
-                          <div className="absolute inset-0 opacity-0">
-                            <div className="absolute top-0 right-0 w-40 h-40 bg-blue-400/20 rounded-full -mr-20 -mt-20 blur-2xl"></div>
-                            <div className="absolute bottom-0 left-0 w-32 h-32 bg-indigo-400/20 rounded-full -ml-16 -mb-16 blur-2xl"></div>
-                          </div>
-                          <div className="relative z-10">
-                            <div className="flex items-center gap-3 mb-4">
-                              <div className="p-2.5 bg-gradient-to-br from-blue-500/40 to-indigo-500/40 rounded-xl backdrop-blur-sm">
-                                <svg className="w-6 h-6 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                                </svg>
-                              </div>
-                              <span className="text-blue-300 text-xs font-bold uppercase tracking-wider">
-                                Today&apos;s Drink Special
-                              </span>
-                            </div>
-                            <h3 className="text-2xl md:text-3xl font-bold text-white mb-3 leading-tight">
-                              {todaysDrinkSpecial.title}
-                            </h3>
-                            {todaysDrinkSpecial.description && (
-                              <p className="text-sm md:text-base text-white/90 mb-3 leading-relaxed">
-                                {todaysDrinkSpecial.description}
-                              </p>
-                            )}
-                            {todaysDrinkSpecial.priceNotes && (
-                              <div className="inline-block px-4 py-2 bg-gradient-to-r from-blue-500/30 to-indigo-500/30 rounded-lg backdrop-blur-sm mb-3">
-                                <p className="text-blue-200 font-bold text-base md:text-lg">
-                                  {todaysDrinkSpecial.priceNotes}
-                                </p>
-                              </div>
-                            )}
-                            {todaysDrinkSpecial.timeWindow && (
-                              <div className="flex items-center gap-2 text-white/70 text-sm mt-4 pt-4 border-t border-white/10">
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                <span>{todaysDrinkSpecial.timeWindow}</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Today's Events - Show all events */}
-                      {todaysEvents.map((event, index) => (
-                        <div key={`${event.id}-${event.startDateTime}-${index}`} className={`relative bg-gradient-to-br from-purple-950/95 via-pink-950/95 to-purple-950/95 backdrop-blur-md rounded-2xl ${cardPadding} shadow-2xl overflow-hidden animate-fade-in transition-none border border-purple-500/20`}>
-                          <div className="absolute inset-0 opacity-0">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-purple-400/20 rounded-full -mr-16 -mt-16 blur-2xl"></div>
-                            <div className="absolute bottom-0 left-0 w-24 h-24 bg-pink-400/20 rounded-full -ml-12 -mb-12 blur-2xl"></div>
-                          </div>
-                          <div className="relative z-10 flex flex-col h-full">
-                            <div className="flex items-center gap-3 mb-4">
-                              <div className="p-2.5 bg-gradient-to-br from-purple-500/40 to-pink-500/40 rounded-xl backdrop-blur-sm">
-                                <svg className="w-6 h-6 text-purple-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                </svg>
-                              </div>
-                              <span className="text-purple-300 text-xs font-bold uppercase tracking-wider">
-                                Today&apos;s Event
-                              </span>
-                            </div>
-                            
-                            <h3 className="text-2xl md:text-3xl font-bold text-white mb-3 leading-tight flex-1">
-                              {event.title}
-                            </h3>
-                            
-                            {event.description && (
-                              <p className="text-sm md:text-base text-white/90 mb-4 leading-relaxed">
-                                {event.description}
-                              </p>
-                            )}
-                            
-                            <div className="flex items-center gap-3 pt-4 mt-auto border-t border-white/10">
-                              <div className="p-2 bg-purple-500/20 rounded-lg">
-                                <svg className="w-5 h-5 text-purple-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                              </div>
-                              <div className="flex-1">
-                                <span className="text-purple-200 font-semibold text-sm md:text-base block">
-                                  {new Date(event.startDateTime).toLocaleTimeString('en-US', {
-                                    hour: 'numeric',
-                                    minute: '2-digit',
-                                    timeZone: 'America/Denver',
-                                  })}
-                                  {event.endDateTime &&
-                                    ` - ${new Date(event.endDateTime).toLocaleTimeString('en-US', {
-                                      hour: 'numeric',
-                                      minute: '2-digit',
-                                      timeZone: 'America/Denver',
-                                    })}`}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })()}
-
-                {/* Happy Hour - Permanent Banner Style */}
-                {hasHappyHour && (
-                  <div className="relative bg-gradient-to-r from-green-950/95 via-emerald-950/95 to-green-950/95 backdrop-blur-md rounded-2xl p-6 md:p-8 shadow-xl overflow-hidden border border-green-500/30 transition-none">
-                    {/* Decorative Pattern */}
-                    <div className="absolute inset-0 opacity-5">
-                      <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.1)_1px,transparent_1px)] bg-[length:20px_20px]"></div>
-                    </div>
-                    <div className="absolute top-0 right-0 w-72 h-72 bg-green-400/5 rounded-full -mr-36 -mt-36 blur-3xl"></div>
-                    <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-400/5 rounded-full -ml-32 -mb-32 blur-3xl"></div>
-                    
-                    <div className="relative z-10">
-                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 md:gap-6">
-                        {/* Left Content */}
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-3">
-                            <div className="p-2.5 bg-green-500/20 rounded-xl backdrop-blur-sm border border-green-400/30">
-                              <svg className="w-6 h-6 text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                            </div>
-                            <div>
-                              <span className="text-green-300/90 text-xs font-semibold uppercase tracking-wider block">
-                                Always Available
-                              </span>
-                              <span className="text-green-200 text-lg font-bold">
-                                Daily Happy Hour
-                              </span>
-                            </div>
-                          </div>
-                          <h3 className="text-2xl md:text-3xl font-bold text-white mb-2">
-                            {happyHour.title || 'Buy One Get One'}
-                          </h3>
-                          {happyHour.description && (
-                            <p className="text-white/90 text-sm md:text-base mb-2 leading-relaxed">
-                              {happyHour.description}
-                            </p>
-                          )}
-                          {happyHour.details && (
-                            <p className="text-white/70 text-xs md:text-sm mt-2">
-                              {happyHour.details}
-                            </p>
-                          )}
-                        </div>
-                        
-                        {/* Right Time Badge */}
-                        {happyHour.times && (
-                          <div className="flex-shrink-0">
-                            <div className="inline-flex flex-col items-center gap-2 px-6 md:px-8 py-5 md:py-6 bg-green-500/20 backdrop-blur-md rounded-2xl border border-green-400/30 shadow-lg">
-                              <svg className="w-7 h-7 md:w-8 md:h-8 text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                              <span className="text-lg md:text-xl font-bold text-green-200 whitespace-nowrap">
-                                {happyHour.times}
-                              </span>
-                              <span className="text-xs text-green-300/80 font-semibold uppercase tracking-wider">
-                                Every Day
-                              </span>
-                            </div>
-                          </div>
-                        )}
+                  <div className="flex-1 min-w-0">
+                    <span className="text-orange-200 text-xs font-semibold uppercase tracking-wider block mb-2">
+                      Food Special
+                    </span>
+                    <h3 className="text-xl font-bold text-white mb-2.5 line-clamp-2 leading-tight">
+                      {special.title}
+                    </h3>
+                    {special.description && (
+                      <p className="text-white/80 text-sm mb-3 line-clamp-2 leading-relaxed">
+                        {special.description}
+                      </p>
+                    )}
+                    {special.priceNotes && (
+                      <p className="text-white/70 text-xs mb-3 font-medium">
+                        {special.priceNotes}
+                      </p>
+                    )}
+                    {special.timeWindow && (
+                      <div className="flex items-center gap-2 text-orange-200 text-xs">
+                        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span className="font-medium">{special.timeWindow}</span>
                       </div>
-                    </div>
-                    
-                    {/* Subtle shine effect */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/3 to-transparent pointer-events-none"></div>
+                    )}
                   </div>
-                )}
+                </div>
               </div>
-            );
-          })()}
+            ))}
+
+            {/* Drink Special */}
+            {todaysDrinkSpecial && (
+              <div className="group bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20 hover:bg-white/15 hover:border-white/30 transition-all duration-300 shadow-lg hover:shadow-xl">
+                <div className="flex items-start gap-4">
+                  <div className="p-2.5 bg-blue-500/30 rounded-xl flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
+                    <svg className="w-5 h-5 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-blue-200 text-xs font-semibold uppercase tracking-wider block mb-2">
+                      Drink Special
+                    </span>
+                    <h3 className="text-xl font-bold text-white mb-2.5 line-clamp-2 leading-tight">
+                      {todaysDrinkSpecial.title}
+                    </h3>
+                    {todaysDrinkSpecial.description && (
+                      <p className="text-white/80 text-sm mb-3 line-clamp-2 leading-relaxed">
+                        {todaysDrinkSpecial.description}
+                      </p>
+                    )}
+                    {todaysDrinkSpecial.priceNotes && (
+                      <p className="text-white/70 text-xs mb-3 font-medium">
+                        {todaysDrinkSpecial.priceNotes}
+                      </p>
+                    )}
+                    {todaysDrinkSpecial.timeWindow && (
+                      <div className="flex items-center gap-2 text-blue-200 text-xs">
+                        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span className="font-medium">{todaysDrinkSpecial.timeWindow}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Announcements */}
+            {publishedAnnouncements.map((announcement) => (
+              <div key={announcement.id} className="group bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20 hover:bg-white/15 hover:border-white/30 transition-all duration-300 shadow-lg hover:shadow-xl">
+                <div className="flex items-start gap-4">
+                  <div className="p-2.5 bg-red-500/30 rounded-xl flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
+                    <svg className="w-5 h-5 text-red-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-red-200 text-xs font-semibold uppercase tracking-wider block mb-2">
+                      Announcement
+                    </span>
+                    <h3 className="text-xl font-bold text-white mb-2.5 line-clamp-2 leading-tight">
+                      {announcement.title}
+                    </h3>
+                    {announcement.body && (
+                      <div className="text-white/80 text-sm mb-4 line-clamp-3 leading-relaxed prose prose-invert max-w-none prose-sm" dangerouslySetInnerHTML={{ __html: marked.parse(announcement.body) }} />
+                    )}
+                    {announcement.ctaText && announcement.ctaUrl && (
+                      <Link href={announcement.ctaUrl} className="inline-block mt-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 rounded-lg text-red-200 text-xs font-semibold transition-all hover:scale-105">
+                        {announcement.ctaText}
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {/* Happy Hour */}
+            {hasHappyHour && (
+              <div className="group bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20 hover:bg-white/15 hover:border-white/30 transition-all duration-300 shadow-lg hover:shadow-xl">
+                <div className="flex items-start gap-4">
+                  <div className="p-2.5 bg-green-500/30 rounded-xl flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
+                    <svg className="w-5 h-5 text-green-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-green-200 text-xs font-semibold uppercase tracking-wider block mb-2">
+                      Always Available
+                    </span>
+                    <h3 className="text-xl font-bold text-white mb-2.5 line-clamp-2 leading-tight">
+                      {happyHour.title || 'Buy One Get One'}
+                    </h3>
+                    {happyHour.description && (
+                      <p className="text-white/80 text-sm mb-3 line-clamp-2 leading-relaxed">
+                        {happyHour.description}
+                      </p>
+                    )}
+                    {happyHour.details && (
+                      <p className="text-white/70 text-xs mb-3 font-medium">
+                        {happyHour.details}
+                      </p>
+                    )}
+                    {happyHour.times && (
+                      <div className="flex items-center gap-2 text-green-200 text-xs">
+                        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span className="font-medium">{happyHour.times}</span>
+                        <span className="text-green-200/70">• Every Day</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
           
           {/* Call to Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+          <div className="flex flex-wrap justify-center gap-3 sm:gap-4 max-w-6xl mx-auto w-full">
             <Link
               href="/menu"
-              className="group px-8 py-4 bg-[var(--color-accent)] hover:bg-[var(--color-accent-dark)] rounded-full text-lg font-semibold transition-all shadow-lg hover:shadow-xl hover:scale-105 flex items-center gap-2"
+              className="group inline-flex w-full items-center justify-center gap-2 rounded-full px-8 py-4 text-base font-semibold transition-all shadow-lg hover:scale-105 hover:shadow-xl bg-[var(--color-accent)] hover:bg-[var(--color-accent-dark)] sm:w-auto sm:text-lg"
             >
               <svg className="w-5 h-5 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -992,7 +916,7 @@ export default async function HomePage() {
             </Link>
             <Link
               href="/menu"
-              className="group px-8 py-4 bg-white/10 backdrop-blur-sm hover:bg-white/20 rounded-full text-lg font-semibold border-2 border-white/30 hover:border-white/50 transition-all hover:scale-105 flex items-center gap-2"
+              className="group inline-flex w-full items-center justify-center gap-2 rounded-full border-2 border-white/30 px-8 py-4 text-base font-semibold transition-all hover:scale-105 bg-white/10 backdrop-blur-sm hover:border-white/50 hover:bg-white/20 sm:w-auto sm:text-lg"
             >
               <svg className="w-5 h-5 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
@@ -1003,7 +927,7 @@ export default async function HomePage() {
         </div>
 
         {/* Scroll Indicator */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 animate-bounce">
+        <div className="pointer-events-none absolute bottom-8 left-1/2 z-10 hidden -translate-x-1/2 animate-bounce sm:block">
           <svg className="w-6 h-6 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
           </svg>

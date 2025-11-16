@@ -7,6 +7,7 @@ import StatusToggle from '@/components/status-toggle';
 import { showToast } from '@/components/toast';
 import ConfirmationDialog from '@/components/confirmation-dialog';
 import DatePicker from '@/components/date-picker';
+import { useUnsavedChangesWarning } from '@/lib/use-unsaved-changes-warning';
 
 interface Special {
   id?: string;
@@ -80,6 +81,9 @@ export default function SpecialForm({ special }: { special?: Special }) {
 
   // Check if form is dirty
   const isDirty = JSON.stringify(formData) !== JSON.stringify(initialFormData);
+  
+  // Warn user before leaving page with unsaved changes
+  useUnsavedChangesWarning(isDirty);
 
   function handleCancel(e: React.MouseEvent) {
     if (isDirty) {

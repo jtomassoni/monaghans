@@ -381,7 +381,7 @@ export default function UnifiedPersonModalForm({
       title={person ? 'Edit Person' : 'New Person'}
     >
       {person && person.user?.role === 'superadmin' && (
-        <div className="mb-4 p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg border border-yellow-300 dark:border-yellow-700">
+        <div className="mb-6 rounded-3xl border border-yellow-300/70 dark:border-yellow-700/60 bg-yellow-100/90 dark:bg-yellow-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm">
           <p className="text-xs text-yellow-800 dark:text-yellow-200 flex items-center gap-2">
             <FaExclamationTriangle className="w-3 h-3" />
             <span>Superadmin users cannot be modified or deleted</span>
@@ -389,18 +389,19 @@ export default function UnifiedPersonModalForm({
         </div>
       )}
 
-
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* Shared Information Section */}
-        <div className="space-y-5">
-          <div className="pb-3 border-b border-gray-200 dark:border-gray-700">
-            <h3 className="text-base font-semibold text-gray-900 dark:text-white">Basic Information</h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Shared details for both account types</p>
+        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm space-y-6">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Basic Information</p>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
+              Shared details for both account types.
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div>
-              <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-900 dark:text-white">
                 Full Name
               </label>
               <input
@@ -411,18 +412,18 @@ export default function UnifiedPersonModalForm({
                   if (createUserAccount) setUserFormData({ ...userFormData, name: value });
                   if (createEmployeeRecord) setEmployeeFormData({ ...employeeFormData, name: value });
                 }}
-                className="w-full px-4 py-2.5 bg-white dark:bg-gray-800/95 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:focus:border-blue-500 transition-all"
+                className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
                 disabled={person?.user?.role === 'superadmin'}
                 placeholder="John Doe"
               />
             </div>
 
-            <div>
-              <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-900 dark:text-white">
                 Email Address <span className="text-red-500">*</span>
               </label>
               {person?.user || person?.employee ? (
-                <div className="px-4 py-2.5 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-700 dark:text-gray-300">
+                <div className="px-4 py-3 bg-gray-50 dark:bg-gray-900/50 border border-gray-200/70 dark:border-gray-700/60 rounded-2xl text-sm text-gray-700 dark:text-gray-300">
                   {person.user?.email || person.employee?.email}
                 </div>
               ) : (
@@ -434,7 +435,7 @@ export default function UnifiedPersonModalForm({
                     if (createUserAccount) setUserFormData({ ...userFormData, email: value });
                     if (createEmployeeRecord) setEmployeeFormData({ ...employeeFormData, email: value });
                   }}
-                  className="w-full px-4 py-2.5 bg-white dark:bg-gray-800/95 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:focus:border-blue-500 transition-all"
+                  className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
                   required
                   placeholder="person@example.com"
                 />
@@ -445,20 +446,22 @@ export default function UnifiedPersonModalForm({
 
         {/* User Account Section */}
         {createUserAccount && (
-          <div className="space-y-5 p-5 bg-gray-50 dark:bg-gray-900/30 rounded-xl border border-gray-200 dark:border-gray-700">
-            <div className="pb-3 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-base font-semibold text-gray-900 dark:text-white">Admin Account</h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Access to admin dashboard and settings</p>
+          <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm space-y-6">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Admin Account</p>
+              <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
+                Access to admin dashboard and settings.
+              </p>
             </div>
 
-            <div>
-              <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-900 dark:text-white">
                 Account Role <span className="text-red-500">*</span>
               </label>
               <select
                 value={userFormData.role}
                 onChange={(e) => setUserFormData({ ...userFormData, role: e.target.value })}
-                className="w-full px-4 py-2.5 bg-white dark:bg-gray-800/95 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:focus:border-blue-500 transition-all"
+                className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
                 disabled={person?.user?.role === 'superadmin'}
                 required={createUserAccount}
               >
@@ -471,12 +474,18 @@ export default function UnifiedPersonModalForm({
             </div>
 
             {person?.user && (
-              <div>
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Account Status</p>
+                  <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
+                    Control whether this user account is active.
+                  </p>
+                </div>
                 <StatusToggle
                   type="active"
                   value={userFormData.isActive}
                   onChange={(value) => setUserFormData({ ...userFormData, isActive: value })}
-                  label="Account Status"
+                  className="shrink-0"
                 />
               </div>
             )}
@@ -485,21 +494,23 @@ export default function UnifiedPersonModalForm({
 
         {/* Staff Record Section */}
         {createEmployeeRecord && (
-          <div className="space-y-5 p-5 bg-gray-50 dark:bg-gray-900/30 rounded-xl border border-gray-200 dark:border-gray-700">
-            <div className="pb-3 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-base font-semibold text-gray-900 dark:text-white">Staff Record</h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Employee information for scheduling and payroll</p>
+          <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm space-y-6">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Staff Record</p>
+              <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
+                Employee information for scheduling and payroll.
+              </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div>
-                <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-900 dark:text-white">
                   Staff Role <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={employeeFormData.role}
                   onChange={(e) => setEmployeeFormData({ ...employeeFormData, role: e.target.value as any })}
-                  className="w-full px-4 py-2.5 bg-white dark:bg-gray-800/95 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:focus:border-blue-500 transition-all"
+                  className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
                   required={createEmployeeRecord}
                 >
                   <option value="cook">Cook</option>
@@ -508,8 +519,8 @@ export default function UnifiedPersonModalForm({
                 </select>
               </div>
 
-              <div>
-                <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-900 dark:text-white">
                   Hourly Wage ($) <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
@@ -520,7 +531,7 @@ export default function UnifiedPersonModalForm({
                     min="0"
                     value={employeeFormData.hourlyWage}
                     onChange={(e) => setEmployeeFormData({ ...employeeFormData, hourlyWage: e.target.value })}
-                    className="w-full pl-8 pr-4 py-2.5 bg-white dark:bg-gray-800/95 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:focus:border-blue-500 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="w-full pl-8 pr-4 py-3 rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     required={createEmployeeRecord}
                     placeholder="0.00"
                   />
@@ -528,37 +539,37 @@ export default function UnifiedPersonModalForm({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div>
-                <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-900 dark:text-white">
                   Phone Number
                 </label>
                 <input
                   type="tel"
                   value={employeeFormData.phone}
                   onChange={(e) => setEmployeeFormData({ ...employeeFormData, phone: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-white dark:bg-gray-800/95 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:focus:border-blue-500 transition-all"
+                  className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
                   placeholder="(555) 123-4567"
                 />
               </div>
 
-              <div>
-                <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-900 dark:text-white">
                   Timeclock PIN
                 </label>
                 <input
                   type="text"
                   value={employeeFormData.pin}
                   onChange={(e) => setEmployeeFormData({ ...employeeFormData, pin: e.target.value.replace(/\D/g, '').slice(0, 4) })}
-                  className="w-full px-4 py-2.5 bg-white dark:bg-gray-800/95 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:focus:border-blue-500 transition-all font-mono text-center tracking-widest"
+                  className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all font-mono text-center tracking-widest"
                   placeholder="0000"
                   maxLength={4}
                 />
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">4-digit PIN for timeclock access</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">4-digit PIN for timeclock access</p>
               </div>
             </div>
 
-            <div>
+            <div className="space-y-2">
               <DatePicker
                 label="Hire Date"
                 value={employeeFormData.hireDate}
@@ -568,38 +579,44 @@ export default function UnifiedPersonModalForm({
             </div>
 
             {person?.employee && (
-              <div>
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Employment Status</p>
+                  <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
+                    Control whether this employee record is active.
+                  </p>
+                </div>
                 <StatusToggle
                   type="active"
                   value={employeeFormData.isActive}
                   onChange={(value) => setEmployeeFormData({ ...employeeFormData, isActive: value })}
-                  label="Employment Status"
+                  className="shrink-0"
                 />
               </div>
             )}
 
-            <div>
-              <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-900 dark:text-white">
                 Notes
               </label>
               <textarea
                 value={employeeFormData.notes}
                 onChange={(e) => setEmployeeFormData({ ...employeeFormData, notes: e.target.value })}
                 rows={3}
-                className="w-full px-4 py-2.5 bg-white dark:bg-gray-800/95 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:focus:border-blue-500 transition-all resize-none"
+                className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all resize-none"
                 placeholder="Additional notes about this employee..."
               />
             </div>
           </div>
         )}
 
-        <div className="flex gap-3 pt-6 border-t border-gray-200 dark:border-gray-700">
+        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm flex flex-wrap items-center justify-end gap-3">
           {canDelete && (
             <button
               type="button"
               onClick={() => setShowDeleteConfirm(true)}
               disabled={loading}
-              className="px-5 py-2.5 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-xl text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm shadow-red-500/20 mr-auto"
+              className="px-4 py-2 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 cursor-pointer"
             >
               Delete
             </button>
@@ -608,14 +625,14 @@ export default function UnifiedPersonModalForm({
             type="button"
             onClick={onClose}
             disabled={loading}
-            className="px-5 py-2.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-xl text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={loading || (person?.user?.role === 'superadmin')}
-            className="px-5 py-2.5 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-xl text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm shadow-blue-500/20"
+            className="px-4 py-2 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-blue-500/20 cursor-pointer"
           >
             {loading ? 'Saving...' : person ? 'Update' : 'Create'}
           </button>

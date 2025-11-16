@@ -6,6 +6,7 @@ import Link from 'next/link';
 import StatusToggle from '@/components/status-toggle';
 import { showToast } from '@/components/toast';
 import ConfirmationDialog from '@/components/confirmation-dialog';
+import { useUnsavedChangesWarning } from '@/lib/use-unsaved-changes-warning';
 
 interface MenuSection {
   id?: string;
@@ -56,6 +57,9 @@ export default function MenuSectionForm({ section }: { section?: MenuSection }) 
 
   // Check if form is dirty
   const isDirty = JSON.stringify(formData) !== JSON.stringify(initialFormData);
+  
+  // Warn user before leaving page with unsaved changes
+  useUnsavedChangesWarning(isDirty);
 
   function handleCancel(e: React.MouseEvent) {
     if (isDirty) {

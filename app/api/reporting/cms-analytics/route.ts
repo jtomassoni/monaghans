@@ -93,6 +93,7 @@ export async function GET(req: NextRequest) {
         id: true,
         name: true,
         email: true,
+        isActive: true,
       },
     });
 
@@ -125,9 +126,14 @@ export async function GET(req: NextRequest) {
       })),
       byUser: activitiesByUser.map(item => {
         const user = userMap.get(item.userId);
+        const userName = user?.name || user?.email || '(deleted user)';
+        const isDeleted = !user;
+        const isInactive = user?.isActive === false;
         return {
           userId: item.userId,
-          userName: user?.name || user?.email || 'Unknown',
+          userName,
+          isDeleted,
+          isInactive,
           activityCount: item._count.id,
         };
       }),

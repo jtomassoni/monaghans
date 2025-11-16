@@ -177,9 +177,9 @@ export default function OrdersList({ initialOrders }: OrdersListProps) {
   const orderStatusOptions = getOrderStatusOptions();
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 items-center">
+      <div className="flex flex-col sm:flex-row gap-2 items-center">
         <div className="flex-1 relative">
           <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
           <input
@@ -212,194 +212,182 @@ export default function OrdersList({ initialOrders }: OrdersListProps) {
           <p className="text-gray-500 dark:text-gray-400">No orders found</p>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-2">
           {filteredOrders.map((order) => {
             return (
               <div
                 key={order.id}
-                className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-shadow overflow-hidden"
+                className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow transition-shadow overflow-hidden"
               >
                 {/* Header Section */}
-                <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-1">
-                        <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                          {order.orderNumber}
-                        </h3>
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(order.status)}`}>
-                          {order.status}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <div className="flex-1 flex items-center gap-2 flex-wrap">
+                      <h3 className="text-base font-bold text-gray-900 dark:text-white">
+                        {order.orderNumber}
+                      </h3>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${getStatusColor(order.status)}`}>
+                        {order.status}
+                      </span>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
                         {formatDate(order.createdAt)}
                       </p>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        • {order.customerName}
+                      </span>
+                      {order.pickupTime && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          • {formatDate(order.pickupTime)}
+                        </span>
+                      )}
+                      {!order.pickupTime && (
+                        <span className="text-xs text-red-600 dark:text-red-400 font-medium">
+                          • ASAP
+                        </span>
+                      )}
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 flex-shrink-0">
                       <button
                         onClick={() => handlePrintPreview(order)}
-                        className="flex items-center gap-2 px-4 py-2.5 text-sm bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white font-semibold transition-all shadow-sm hover:shadow-md"
+                        className="flex items-center gap-1 px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white font-medium transition-all"
                         title="View Print Preview"
                       >
-                        <FaPrint className="w-4 h-4" />
-                        <span className="hidden sm:inline">Print Preview</span>
+                        <FaPrint className="w-3 h-3" />
+                        <span className="hidden sm:inline">Print</span>
                       </button>
-                      <label className="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide whitespace-nowrap">
-                        Update Status
-                      </label>
-                      <div className="relative">
-                        <select
-                          value={order.status}
-                          onChange={(e) => handleStatusUpdate(order.id, e.target.value)}
-                          className={`appearance-none px-4 py-2.5 pr-10 text-sm bg-white dark:bg-gray-700 border-2 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-offset-1 font-semibold min-w-[180px] cursor-pointer transition-all shadow-sm hover:shadow-md ${getStatusBorderColor(order.status)}`}
-                          style={{
-                            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2.5' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
-                            backgroundRepeat: 'no-repeat',
-                            backgroundPosition: 'right 0.75rem center',
-                            backgroundSize: '1em 1em',
-                          }}
-                        >
-                          {/* Chronological order: pending → confirmed → acknowledged → preparing → ready → completed → cancelled */}
-                          {orderStatusOptions
-                            .sort((a, b) => {
-                              const order = ['pending', 'confirmed', 'acknowledged', 'preparing', 'ready', 'completed', 'cancelled'];
-                              return order.indexOf(a.value) - order.indexOf(b.value);
-                            })
-                            .map(option => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                        </select>
-                      </div>
+                      <select
+                        value={order.status}
+                        onChange={(e) => handleStatusUpdate(order.id, e.target.value)}
+                        className={`appearance-none px-2 py-1 pr-7 text-xs bg-white dark:bg-gray-700 border rounded text-gray-900 dark:text-white focus:ring-1 focus:ring-offset-0 font-medium min-w-[120px] cursor-pointer transition-all ${getStatusBorderColor(order.status)}`}
+                        style={{
+                          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+                          backgroundRepeat: 'no-repeat',
+                          backgroundPosition: 'right 0.5rem center',
+                          backgroundSize: '0.75em 0.75em',
+                        }}
+                      >
+                        {/* Chronological order: pending → confirmed → acknowledged → preparing → ready → completed → cancelled */}
+                        {orderStatusOptions
+                          .sort((a, b) => {
+                            const order = ['pending', 'confirmed', 'acknowledged', 'preparing', 'ready', 'completed', 'cancelled'];
+                            return order.indexOf(a.value) - order.indexOf(b.value);
+                          })
+                          .map(option => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                      </select>
                     </div>
                   </div>
                 </div>
 
                 {/* Main Content */}
-                <div className="p-6">
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Left Column */}
-                    <div className="space-y-6">
-                      {/* Customer Information */}
+                <div className="p-3">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    {/* Customer & Payment Info */}
+                    <div className="space-y-2">
                       <div>
-                        <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
+                        <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
                           Customer
                         </h4>
-                        <div className="space-y-1">
-                          <p className="text-base font-semibold text-gray-900 dark:text-white">
+                        <div className="space-y-0.5">
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">
                             {order.customerName}
                           </p>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                          <p className="text-xs text-gray-600 dark:text-gray-400">
                             {order.customerEmail}
                           </p>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                          <p className="text-xs text-gray-600 dark:text-gray-400">
                             {order.customerPhone}
                           </p>
                         </div>
                       </div>
-
-                      {/* Pickup Time */}
                       <div>
-                        <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
-                          Pickup Time
+                        <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                          Payment
                         </h4>
-                        <p className={`text-base font-semibold ${!order.pickupTime ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'}`}>
-                          {order.pickupTime ? formatDate(order.pickupTime) : 'ASAP'}
+                        <p className="text-xs font-medium text-gray-900 dark:text-white capitalize mb-1">
+                          {order.paymentStatus}
                         </p>
-                      </div>
-
-                      {/* Order Items */}
-                      <div>
-                        <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
-                          Items
-                        </h4>
-                        <div className="space-y-3">
-                          {order.items.map((item) => (
-                            <div key={item.id} className="flex items-start justify-between gap-4">
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-900 dark:text-white">
-                                  {item.quantity}x {item.name}
-                                </p>
-                                {item.modifiers && (() => {
-                                  try {
-                                    const modifiers = JSON.parse(item.modifiers);
-                                    if (Array.isArray(modifiers) && modifiers.length > 0) {
-                                      return (
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                          {modifiers.join(', ')}
-                                        </p>
-                                      );
-                                    }
-                                  } catch {}
-                                  return null;
-                                })()}
-                                {item.specialInstructions && (
-                                  <div className="mt-2 flex items-start gap-2 p-2 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700/50 rounded-md">
-                                    <FaStickyNote className="text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" size={12} />
-                                    <p className="text-xs font-medium text-amber-800 dark:text-amber-200 leading-relaxed">
-                                      {item.specialInstructions}
-                                    </p>
-                                  </div>
-                                )}
-                              </div>
-                              <p className="text-sm font-semibold text-gray-900 dark:text-white whitespace-nowrap">
-                                ${(item.price * item.quantity).toFixed(2)}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                        {order.specialInstructions && (
-                          <div className="mt-4 p-3.5 bg-orange-50 dark:bg-orange-900/25 border-2 border-orange-300 dark:border-orange-700/60 rounded-lg shadow-sm">
-                            <div className="flex items-start gap-2.5">
-                              <FaExclamationCircle className="text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" size={14} />
-                              <div className="flex-1">
-                                <p className="text-xs font-semibold text-orange-900 dark:text-orange-200 uppercase tracking-wide mb-1">
-                                  Order Note
-                                </p>
-                                <p className="text-sm font-medium text-orange-800 dark:text-orange-100 leading-relaxed">
-                                  {order.specialInstructions}
-                                </p>
-                              </div>
-                            </div>
+                        <div className="text-xs space-y-0.5">
+                          <div className="flex justify-between">
+                            <span className="text-gray-600 dark:text-gray-400">Subtotal</span>
+                            <span className="text-gray-900 dark:text-white font-medium">
+                              ${order.subtotal.toFixed(2)}
+                            </span>
                           </div>
-                        )}
+                          <div className="flex justify-between">
+                            <span className="text-gray-600 dark:text-gray-400">Tax</span>
+                            <span className="text-gray-900 dark:text-white font-medium">
+                              ${order.tax.toFixed(2)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between pt-0.5 border-t border-gray-200 dark:border-gray-700">
+                            <span className="font-semibold text-gray-900 dark:text-white">Total</span>
+                            <span className="text-sm font-bold text-[var(--color-accent)]">
+                              ${order.total.toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
-                    {/* Right Column */}
-                    <div className="space-y-6">
-                      {/* Payment Information */}
-                      <div>
-                        <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
-                          Payment
-                        </h4>
-                        <div className="space-y-2">
-                          <p className="text-sm font-medium text-gray-900 dark:text-white capitalize">
-                            {order.paymentStatus}
-                          </p>
-                          <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
-                            <div className="flex justify-between items-baseline mb-1">
-                              <span className="text-sm text-gray-600 dark:text-gray-400">Subtotal</span>
-                              <span className="text-sm font-medium text-gray-900 dark:text-white">
-                                ${order.subtotal.toFixed(2)}
-                              </span>
+                    {/* Order Items */}
+                    <div className="lg:col-span-2">
+                      <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                        Items ({order.items.length})
+                      </h4>
+                      <div className="space-y-1.5">
+                        {order.items.map((item) => (
+                          <div key={item.id} className="flex items-start justify-between gap-3 text-xs">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-gray-900 dark:text-white">
+                                {item.quantity}x {item.name}
+                              </p>
+                              {item.modifiers && (() => {
+                                try {
+                                  const modifiers = JSON.parse(item.modifiers);
+                                  if (Array.isArray(modifiers) && modifiers.length > 0) {
+                                    return (
+                                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                        {modifiers.join(', ')}
+                                      </p>
+                                    );
+                                  }
+                                } catch {}
+                                return null;
+                              })()}
+                              {item.specialInstructions && (
+                                <div className="mt-1 flex items-start gap-1.5 p-1.5 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700/50 rounded">
+                                  <FaStickyNote className="text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" size={10} />
+                                  <p className="text-xs font-medium text-amber-800 dark:text-amber-200 leading-relaxed">
+                                    {item.specialInstructions}
+                                  </p>
+                                </div>
+                              )}
                             </div>
-                            <div className="flex justify-between items-baseline mb-1">
-                              <span className="text-sm text-gray-600 dark:text-gray-400">Tax</span>
-                              <span className="text-sm font-medium text-gray-900 dark:text-white">
-                                ${order.tax.toFixed(2)}
-                              </span>
-                            </div>
-                            <div className="flex justify-between items-baseline pt-2 border-t border-gray-200 dark:border-gray-700">
-                              <span className="text-base font-semibold text-gray-900 dark:text-white">Total</span>
-                              <span className="text-xl font-bold text-[var(--color-accent)]">
-                                ${order.total.toFixed(2)}
-                              </span>
+                            <p className="text-xs font-semibold text-gray-900 dark:text-white whitespace-nowrap">
+                              ${(item.price * item.quantity).toFixed(2)}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                      {order.specialInstructions && (
+                        <div className="mt-2 p-2 bg-orange-50 dark:bg-orange-900/25 border border-orange-300 dark:border-orange-700/60 rounded">
+                          <div className="flex items-start gap-2">
+                            <FaExclamationCircle className="text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" size={12} />
+                            <div className="flex-1">
+                              <p className="text-xs font-semibold text-orange-900 dark:text-orange-200 uppercase tracking-wide mb-0.5">
+                                Order Note
+                              </p>
+                              <p className="text-xs font-medium text-orange-800 dark:text-orange-100 leading-relaxed">
+                                {order.specialInstructions}
+                              </p>
                             </div>
                           </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                   </div>
                 </div>

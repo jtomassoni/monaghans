@@ -8,6 +8,7 @@ import { FaExclamationTriangle } from 'react-icons/fa';
 import StatusToggle from '@/components/status-toggle';
 import ConfirmationDialog from '@/components/confirmation-dialog';
 import { getPermissions, canCreateRole, canManageUser } from '@/lib/permissions';
+import { useUnsavedChangesWarning } from '@/lib/use-unsaved-changes-warning';
 
 interface User {
   id?: string;
@@ -82,6 +83,9 @@ export default function UserForm({ user, currentUserRole }: { user?: User; curre
 
   // Check if form is dirty
   const isDirty = JSON.stringify(formData) !== JSON.stringify(initialFormData);
+  
+  // Warn user before leaving page with unsaved changes
+  useUnsavedChangesWarning(isDirty);
 
   function handleCancel(e: React.MouseEvent) {
     if (isDirty) {

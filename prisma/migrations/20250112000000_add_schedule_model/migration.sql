@@ -25,12 +25,3 @@ CREATE UNIQUE INDEX "Schedule_employeeId_date_shiftType_key" ON "Schedule"("empl
 -- AddForeignKey: Schedule employeeId -> Employee id
 ALTER TABLE "Schedule" ADD CONSTRAINT "Schedule_employeeId_fkey" FOREIGN KEY ("employeeId") REFERENCES "Employee"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
--- AlterTable: Add scheduleId to Shift
-ALTER TABLE "Shift" ADD COLUMN "scheduleId" TEXT;
-
--- CreateIndex: Shift scheduleId
-CREATE INDEX "Shift_scheduleId_idx" ON "Shift"("scheduleId");
-
--- CreateIndex: Employee role
-CREATE INDEX "Employee_role_idx" ON "Employee"("role");
-

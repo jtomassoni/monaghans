@@ -118,11 +118,58 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // Future: Add AI-powered insights
-    // - Menu item popularity trends
-    // - Special performance recommendations
-    // - Optimal pricing suggestions
-    // - Inventory optimization opportunities
+    // Add AI-powered insights (basic level - full AI insights available via /api/reporting/ai-insights)
+    try {
+      // Get top menu items by sales
+      const recentOrders = await prisma.order.findMany({
+        where: {
+          status: { in: ['completed', 'ready'] },
+          createdAt: {
+            gte: last7Days,
+          },
+        },
+        include: {
+          items: {
+            include: {
+              menuItem: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+        take: 100,
+      });
+
+      const itemCounts = new Map<string, { name: string; count: number }>();
+      for (const order of recentOrders) {
+        for (const item of order.items) {
+          if (item.menuItemId && item.menuItem) {
+            const existing = itemCounts.get(item.menuItemId) || { name: item.menuItem.name, count: 0 };
+            existing.count += item.quantity;
+            itemCounts.set(item.menuItemId, existing);
+          }
+        }
+      }
+
+      const topItems = Array.from(itemCounts.values())
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 3);
+
+      if (topItems.length > 0 && topItems[0].count >= 10) {
+        insights.push({
+          type: 'opportunity',
+          title: `Top Seller: ${topItems[0].name}`,
+          message: `"${topItems[0].name}" is your top seller with ${topItems[0].count} orders in the last 7 days. Consider featuring it prominently or creating a combo.`,
+          priority: 'medium',
+        });
+      }
+    } catch (error) {
+      // Silently fail - AI insights are optional
+      console.error('Failed to generate AI insights:', error);
+    }
 
     // Sort by priority (high first, then by type)
     const priorityOrder = { high: 0, medium: 1, low: 2 };

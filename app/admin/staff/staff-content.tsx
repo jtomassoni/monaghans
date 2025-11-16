@@ -1,11 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { FaUsers, FaCalendarAlt, FaClock, FaDollarSign } from 'react-icons/fa';
+import { FaUsers, FaCalendarAlt, FaCalendarCheck } from 'react-icons/fa';
 import EmployeesTab from './employees-tab';
 import ScheduleTab from './schedule-tab';
-import ClockInOutTab from './clock-in-out-tab';
-import PayrollTab from './payroll-tab';
+import AvailabilityTab from './availability-tab';
 
 interface Employee {
   id: string;
@@ -54,26 +53,22 @@ interface Shift {
 interface StaffContentProps {
   initialEmployees: Employee[];
   initialSchedules: Schedule[];
-  initialOpenShifts: Shift[];
 }
 
-type TabId = 'employees' | 'schedule' | 'clock' | 'payroll';
+type TabId = 'employees' | 'schedule' | 'availability';
 
 export default function StaffContent({
   initialEmployees,
   initialSchedules,
-  initialOpenShifts,
 }: StaffContentProps) {
   const [activeTab, setActiveTab] = useState<TabId>('employees');
   const [employees, setEmployees] = useState<Employee[]>(initialEmployees);
   const [schedules, setSchedules] = useState<Schedule[]>(initialSchedules);
-  const [openShifts, setOpenShifts] = useState<Shift[]>(initialOpenShifts);
 
   const tabs = [
     { id: 'employees' as TabId, label: 'Employees', icon: FaUsers },
     { id: 'schedule' as TabId, label: 'Schedule', icon: FaCalendarAlt },
-    { id: 'clock' as TabId, label: 'Clock In/Out', icon: FaClock },
-    { id: 'payroll' as TabId, label: 'Payroll', icon: FaDollarSign },
+    { id: 'availability' as TabId, label: 'Availability', icon: FaCalendarCheck },
   ];
 
   return (
@@ -116,15 +111,10 @@ export default function StaffContent({
             onSchedulesChange={setSchedules}
           />
         )}
-        {activeTab === 'clock' && (
-          <ClockInOutTab
+        {activeTab === 'availability' && (
+          <AvailabilityTab
             employees={employees}
-            openShifts={openShifts}
-            onOpenShiftsChange={setOpenShifts}
           />
-        )}
-        {activeTab === 'payroll' && (
-          <PayrollTab employees={employees} />
         )}
       </div>
     </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { RRule } from 'rrule';
 import { showToast } from '@/components/toast';
 import SearchSortFilter, { SortOption, FilterOption } from '@/components/search-sort-filter';
 import ConfirmationDialog from '@/components/confirmation-dialog';
@@ -48,13 +49,40 @@ export default function EventsList({
     setFilteredItems(initialEvents);
   }, [initialEvents]);
 
+  // Helper function to get the next occurrence date for sorting
+  const getNextOccurrenceDate = (event: Event): Date => {
+    if (!event.recurrenceRule) {
+      return new Date(event.startDateTime);
+    }
+    
+    try {
+      const now = new Date();
+      const startDate = new Date(event.startDateTime);
+      
+      // For recurring events, find the next occurrence from now
+      const rule = RRule.fromString(event.recurrenceRule);
+      const ruleOptions = {
+        ...rule.options,
+        dtstart: startDate,
+      };
+      const ruleWithDtstart = new RRule(ruleOptions);
+      
+      // Get the next occurrence after now
+      const nextOccurrence = ruleWithDtstart.after(now, true);
+      return nextOccurrence || startDate; // Fallback to start date if no next occurrence
+    } catch (e) {
+      // If RRule parsing fails, return start date
+      return new Date(event.startDateTime);
+    }
+  };
+
   const sortOptions: SortOption<Event>[] = [
     { 
       label: 'Date (Newest First)', 
       value: 'date', 
       sortFn: (a, b) => {
-        const aDate = new Date(a.startDateTime).getTime();
-        const bDate = new Date(b.startDateTime).getTime();
+        const aDate = getNextOccurrenceDate(a).getTime();
+        const bDate = getNextOccurrenceDate(b).getTime();
         return bDate - aDate;
       }
     },
@@ -62,8 +90,8 @@ export default function EventsList({
       label: 'Date (Oldest First)', 
       value: 'date', 
       sortFn: (a, b) => {
-        const aDate = new Date(a.startDateTime).getTime();
-        const bDate = new Date(b.startDateTime).getTime();
+        const aDate = getNextOccurrenceDate(a).getTime();
+        const bDate = getNextOccurrenceDate(b).getTime();
         return aDate - bDate;
       }
     },

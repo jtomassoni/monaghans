@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { showToast } from '@/components/toast';
+import { useUnsavedChangesWarning } from '@/lib/use-unsaved-changes-warning';
 
 interface SettingsFormProps {
   initialContact: any;
@@ -123,6 +124,10 @@ export default function SettingsForm({ initialContact, initialHours, initialMapE
   useEffect(() => {
     setIsMapDirty(JSON.stringify(mapEmbed) !== JSON.stringify(initialMapEmbedRef.current));
   }, [mapEmbed]);
+
+  // Warn user before leaving page with unsaved changes
+  const hasUnsavedChanges = isContactDirty || isHoursDirty || isSocialDirty || isHappyHourDirty || isMapDirty;
+  useUnsavedChangesWarning(hasUnsavedChanges);
 
   async function handleSaveContact() {
     setContactLoading(true);

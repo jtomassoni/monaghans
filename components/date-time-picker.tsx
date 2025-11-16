@@ -68,7 +68,7 @@ export default function DateTimePicker({ value, onChange, min, max, label, requi
     
     const rect = containerRef.current.getBoundingClientRect();
     const pickerRect = pickerRef.current.getBoundingClientRect();
-    const pickerWidth = pickerRect.width || 700;
+    const pickerWidth = pickerRect.width || 580;
     const pickerHeight = pickerRect.height || 450;
     const padding = 16;
     
@@ -217,12 +217,12 @@ export default function DateTimePicker({ value, onChange, min, max, label, requi
         {isOpen && (
           <div
             ref={pickerRef}
-            className={`absolute z-50 ${positionAbove ? 'bottom-full mb-2' : 'top-full mt-2'} bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl p-4 w-[720px] max-w-full backdrop-blur-sm transition-all duration-200 ease-out`}
+            className={`absolute z-[100] ${positionAbove ? 'bottom-full mb-2' : 'top-full mt-2'} bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl p-3 w-[580px] max-w-[calc(100%-2rem)] backdrop-blur-sm transition-all duration-200 ease-out`}
             style={{ 
-              left: `${horizontalOffset}px`
+              left: `${Math.max(0, Math.min(horizontalOffset, (containerRef.current?.parentElement?.clientWidth || 0) - 580 - 16))}px`
             }}
           >
-            <div className="flex gap-4 min-w-0">
+            <div className="flex gap-3 min-w-0">
               {/* Calendar */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-3">
@@ -303,23 +303,23 @@ export default function DateTimePicker({ value, onChange, min, max, label, requi
               </div>
 
               {/* Time Picker */}
-              <div className="flex-1 border-l border-gray-200 dark:border-gray-700 pl-4 min-w-0">
+              <div className="flex-1 border-l border-gray-200 dark:border-gray-700 pl-3 min-w-0">
                 <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Time</h4>
-                <div className="flex gap-3 mb-3">
+                <div className="flex gap-2 mb-3">
                   {/* Hours - Grid layout, no scrolling needed */}
-                  <div className="flex-1">
-                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 block">Hour</label>
-                    <div className="grid grid-cols-6 gap-1 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-900/50 p-1.5">
+                  <div className="flex-1 min-w-0">
+                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 block">Hour</label>
+                    <div className="grid grid-cols-6 gap-0.5 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900/50 p-0.5">
                       {hours.map((hour) => (
                         <button
                           key={hour}
                           type="button"
                           onClick={() => handleTimeChange(hour, selectedTime.minutes)}
                           className={`
-                            px-1.5 py-1.5 text-xs rounded-lg transition-all duration-200 cursor-pointer
+                            px-0.5 py-1 text-[10px] rounded transition-all duration-200 cursor-pointer
                             ${selectedTime.hours === hour
-                              ? 'bg-blue-600 text-white font-semibold shadow-md shadow-blue-500/50 scale-105'
-                              : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700/50 hover:scale-105'
+                              ? 'bg-blue-600 text-white font-semibold'
+                              : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700/50'
                             }
                           `}
                         >
@@ -330,19 +330,19 @@ export default function DateTimePicker({ value, onChange, min, max, label, requi
                   </div>
 
                   {/* Minutes - Grid layout, no scrolling needed */}
-                  <div className="flex-1">
-                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 block">Minute</label>
-                    <div className="grid grid-cols-4 gap-1 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-900/50 p-1.5">
+                  <div className="flex-1 min-w-0">
+                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 block">Minute</label>
+                    <div className="grid grid-cols-4 gap-0.5 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900/50 p-0.5">
                       {minutes.filter(m => m % 5 === 0).map((minute) => (
                         <button
                           key={minute}
                           type="button"
                           onClick={() => handleTimeChange(selectedTime.hours, minute)}
                           className={`
-                            px-1.5 py-1.5 text-xs rounded-lg transition-all duration-200 cursor-pointer
+                            px-0.5 py-1 text-[10px] rounded transition-all duration-200 cursor-pointer
                             ${selectedTime.minutes === minute
-                              ? 'bg-blue-600 text-white font-semibold shadow-md shadow-blue-500/50 scale-105'
-                              : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700/50 hover:scale-105'
+                              ? 'bg-blue-600 text-white font-semibold'
+                              : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700/50'
                             }
                           `}
                         >

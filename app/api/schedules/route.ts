@@ -81,15 +81,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate shift type
-    const validShiftTypes: ShiftType[] = ['open', 'close'];
-    if (!validShiftTypes.includes(shiftType)) {
-      return NextResponse.json(
-        { error: `Invalid shift type. Must be one of: ${validShiftTypes.join(', ')}` },
-        { status: 400 }
-      );
-    }
-
     // Get employee to check role
     const employee = await prisma.employee.findUnique({
       where: { id: employeeId },
@@ -104,11 +95,26 @@ export async function POST(req: NextRequest) {
 
     // Calculate shift times based on role and shift type
     const scheduleDate = new Date(date);
-    const { startTime, endTime } = await calculateShiftTimes(
-      scheduleDate,
-      shiftType,
-      employee.role as EmployeeRole
-    );
+    let startTime: Date;
+    let endTime: Date;
+    
+    // For known shift types, use calculateShiftTimes; for custom types, use default times
+    if (shiftType === 'open' || shiftType === 'close') {
+      const times = await calculateShiftTimes(
+        scheduleDate,
+        shiftType as ShiftType,
+        employee.role as EmployeeRole
+      );
+      startTime = times.startTime;
+      endTime = times.endTime;
+    } else {
+      // For custom shift types, use default times (9am-5pm for now)
+      // In the future, this could be configurable per shift type
+      startTime = new Date(scheduleDate);
+      startTime.setHours(9, 0, 0, 0);
+      endTime = new Date(scheduleDate);
+      endTime.setHours(17, 0, 0, 0);
+    }
 
     // Check for duplicate schedule
     const existing = await prisma.schedule.findUnique({

@@ -18,7 +18,8 @@ interface Activity {
     name: string | null;
     email: string;
     image: string | null;
-  };
+    isActive: boolean | null;
+  } | null;
 }
 
 interface ActivityLogResponse {
@@ -208,8 +209,18 @@ export default function ActivityLogClient() {
                         </div>
                         <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
                           <span className="font-semibold text-gray-900 dark:text-white">
-                            {activity.user.name || activity.user.email}
+                            {activity.user ? (activity.user.name || activity.user.email) : '(deleted user)'}
                           </span>
+                          {!activity.user && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800">
+                              (deleted)
+                            </span>
+                          )}
+                          {activity.user && activity.user.isActive === false && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-800">
+                              (inactive)
+                            </span>
+                          )}
                           <span className={`px-2 py-0.5 rounded text-xs font-medium ${getActionColor(activity.action)}`}>
                             {activity.action}
                           </span>

@@ -10,9 +10,9 @@ export default async function AdminStaff() {
     redirect('/admin/login');
   }
 
-  // Fetch initial data
+  // Fetch initial data - include all employees (active and inactive)
   const employees = await prisma.employee.findMany({
-    where: { isActive: true },
+    where: { deletedAt: null }, // Only exclude soft-deleted employees
     orderBy: [{ name: 'asc' }],
   });
 
@@ -49,24 +49,6 @@ export default async function AdminStaff() {
     ],
   });
 
-  // Get open shifts (clocked in but not out)
-  const openShifts = await prisma.shift.findMany({
-    where: {
-      clockOut: null,
-    },
-    include: {
-      employee: {
-        select: {
-          id: true,
-          name: true,
-          role: true,
-          hourlyWage: true,
-        },
-      },
-    },
-    orderBy: { clockIn: 'desc' },
-  });
-
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 overflow-hidden relative">
       {/* Decorative background elements */}
@@ -82,7 +64,7 @@ export default async function AdminStaff() {
               Staff & Scheduling
             </h1>
             <p className="text-gray-500 dark:text-gray-400 text-xs hidden sm:block">
-              Manage employees, schedules, and payroll
+              Manage employees and schedules
             </p>
           </div>
         </div>
@@ -94,7 +76,6 @@ export default async function AdminStaff() {
           <StaffContent 
             initialEmployees={employees}
             initialSchedules={schedules}
-            initialOpenShifts={openShifts}
           />
         </div>
       </div>

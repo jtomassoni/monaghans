@@ -68,6 +68,13 @@ interface ScheduleTabProps {
   onSchedulesChange: (schedules: Schedule[]) => void;
 }
 
+interface ShiftTypeConfig {
+  id: string;
+  name: string;
+  label: string;
+  order: number;
+}
+
 export default function ScheduleTab({ employees, schedules, onSchedulesChange }: ScheduleTabProps) {
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -75,11 +82,18 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
   const [deleteConfirmation, setDeleteConfirmation] = useState<Schedule | null>(null);
   const [loading, setLoading] = useState(false);
   
+  // Shift types configuration
+  const [shiftTypes, setShiftTypes] = useState<ShiftTypeConfig[]>([
+    { id: 'open', name: 'open', label: 'Open', order: 0 },
+    { id: 'close', name: 'close', label: 'Close', order: 1 },
+  ]);
+  
   // Requirements and templates state
   const [requirements, setRequirements] = useState<ShiftRequirement[]>([]);
   const [templates, setTemplates] = useState<WeeklyTemplate[]>([]);
   const [isRequirementModalOpen, setIsRequirementModalOpen] = useState(false);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  const [isShiftConfigModalOpen, setIsShiftConfigModalOpen] = useState(false);
   const [editingRequirement, setEditingRequirement] = useState<ShiftRequirement | null>(null);
   const [templateFormData, setTemplateFormData] = useState<Record<string, { cooks: number; bartenders: number; barbacks: number }>>({});
   
@@ -89,19 +103,21 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
   const [formData, setFormData] = useState({
     employeeId: '',
     date: '',
-    shiftType: 'open' as 'open' | 'close',
+    shiftType: 'open' as string,
     notes: '',
   });
 
   const [requirementFormData, setRequirementFormData] = useState({
     date: '',
-    shiftType: 'open' as 'open' | 'close',
+    shiftType: 'open' as string,
     cooks: '',
     bartenders: '',
     barbacks: '',
     notes: '',
     isFilled: false,
   });
+
+  const [shiftConfigFormData, setShiftConfigFormData] = useState<ShiftTypeConfig[]>([]);
 
   // Get start of week (Sunday)
   const getStartOfWeek = (date: Date) => {
@@ -124,6 +140,40 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
   };
 
   const weekDays = getWeekDays();
+
+  // Load shift types configuration
+  useEffect(() => {
+    const loadShiftTypes = async () => {
+      try {
+        const response = await fetch('/api/settings?key=shiftTypes');
+        if (response.ok) {
+          const setting = await response.json();
+          if (setting?.value) {
+            try {
+              const parsed = JSON.parse(setting.value);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                const sorted = parsed.sort((a: ShiftTypeConfig, b: ShiftTypeConfig) => a.order - b.order);
+                setShiftTypes(sorted);
+                setShiftConfigFormData(sorted);
+              }
+            } catch (e) {
+              console.error('Failed to parse shift types:', e);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load shift types:', error);
+      }
+    };
+    loadShiftTypes();
+  }, []);
+
+  // Initialize shift config form data when modal opens
+  useEffect(() => {
+    if (isShiftConfigModalOpen && shiftConfigFormData.length === 0) {
+      setShiftConfigFormData([...shiftTypes]);
+    }
+  }, [isShiftConfigModalOpen]);
 
   // Load requirements and templates
   useEffect(() => {
@@ -192,39 +242,55 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
       
       // Create templates for all days and shifts
       for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {
-        // Open shift: 1 cook, 1 bartender for all days
-        await fetch('/api/weekly-templates', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: defaultName,
-            dayOfWeek,
-            shiftType: 'open',
-            cooks: 1,
-            bartenders: 1,
-            barbacks: 0,
-            isActive: true,
-          }),
-        });
-
-        // Close shift: defaults vary by day
-        const isFridayOrSaturday = dayOfWeek === 5 || dayOfWeek === 6; // Friday = 5, Saturday = 6
-        await fetch('/api/weekly-templates', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: defaultName,
-            dayOfWeek,
-            shiftType: 'close',
-            cooks: isFridayOrSaturday ? 2 : 1,
-            bartenders: 1,
-            barbacks: isFridayOrSaturday ? 1 : 0,
-            isActive: true,
-          }),
-        });
+        for (const shiftTypeConfig of shiftTypes) {
+          // Default staffing based on shift type
+          const isFridayOrSaturday = dayOfWeek === 5 || dayOfWeek === 6; // Friday = 5, Saturday = 6
+          const isCloseShift = shiftTypeConfig.name === 'close';
+          
+          await fetch('/api/weekly-templates', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: defaultName,
+              dayOfWeek,
+              shiftType: shiftTypeConfig.name,
+              cooks: isCloseShift && isFridayOrSaturday ? 2 : 1,
+              bartenders: 1,
+              barbacks: isCloseShift && isFridayOrSaturday ? 1 : 0,
+              isActive: true,
+            }),
+          });
+        }
       }
     } catch (error) {
       console.error('Failed to initialize default templates:', error);
+    }
+  };
+
+  const handleShiftTypesSave = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key: 'shiftTypes',
+          value: shiftConfigFormData,
+          description: 'Shift types configuration for scheduling',
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save shift types');
+      }
+
+      setShiftTypes([...shiftConfigFormData].sort((a, b) => a.order - b.order));
+      setIsShiftConfigModalOpen(false);
+      showToast('Shift types saved successfully', 'success');
+    } catch (error: any) {
+      showToast('Failed to save shift types', 'error', error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -236,13 +302,13 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
 
       // Update or create templates for each day/shift combination
       for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {
-        for (const shiftType of ['open', 'close'] as const) {
-          const key = `${dayOfWeek}-${shiftType}`;
+        for (const shiftTypeConfig of shiftTypes) {
+          const key = `${dayOfWeek}-${shiftTypeConfig.name}`;
           const formData = templateFormData[key] || { cooks: 0, bartenders: 0, barbacks: 0 };
           
           // Find existing template
           const existing = templates.find(
-            t => t.dayOfWeek === dayOfWeek && t.shiftType === shiftType && t.name === defaultName
+            t => t.dayOfWeek === dayOfWeek && t.shiftType === shiftTypeConfig.name && t.name === defaultName
           );
 
           if (existing) {
@@ -267,7 +333,7 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
                 body: JSON.stringify({
                   name: defaultName,
                   dayOfWeek,
-                  shiftType,
+                  shiftType: shiftTypeConfig.name,
                   cooks: formData.cooks,
                   bartenders: formData.bartenders,
                   barbacks: formData.barbacks,
@@ -445,13 +511,13 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
     });
   };
 
-  const handleNew = (date?: Date, shiftType?: 'open' | 'close') => {
+  const handleNew = (date?: Date, shiftType?: string) => {
     const targetDate = date || new Date();
     setEditingSchedule(null);
     setFormData({
       employeeId: '',
       date: targetDate.toISOString().split('T')[0],
-      shiftType: shiftType || 'open',
+      shiftType: shiftType || shiftTypes[0]?.name || 'open',
       notes: '',
     });
     setIsModalOpen(true);
@@ -563,7 +629,7 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
   };
 
   // Handle requirement management
-  const handleRequirementNew = (date: Date, shiftType: 'open' | 'close') => {
+  const handleRequirementNew = (date: Date, shiftType: string) => {
     setEditingRequirement(null);
     
     // Get template defaults for this day/shift
@@ -679,38 +745,45 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
 
   return (
     <>
-      <div className="space-y-4">
+      <div className="space-y-2">
         {/* Week Navigation */}
-        <div className="flex justify-between items-center flex-wrap gap-4">
-          <div className="flex items-center gap-4">
+        <div className="flex justify-between items-center flex-wrap gap-2">
+          <div className="flex items-center gap-2">
             <button
               onClick={goToPreviousWeek}
-              className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition"
+              className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition"
             >
               <FaChevronLeft className="w-4 h-4" />
             </button>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white min-w-[200px] text-center">
+            <h2 className="text-base font-semibold text-gray-900 dark:text-white min-w-[180px] text-center">
               {getStartOfWeek(currentWeek).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} -{' '}
               {new Date(getStartOfWeek(currentWeek).setDate(getStartOfWeek(currentWeek).getDate() + 6)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </h2>
             <button
               onClick={goToNextWeek}
-              className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition"
+              className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition"
             >
               <FaChevronRight className="w-4 h-4" />
             </button>
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setIsTemplateModalOpen(true)}
-              className="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg font-medium transition flex items-center gap-2"
+              onClick={() => setIsShiftConfigModalOpen(true)}
+              className="px-3 py-1.5 text-sm bg-purple-200 dark:bg-purple-700 hover:bg-purple-300 dark:hover:bg-purple-600 text-gray-900 dark:text-white rounded-lg font-medium transition flex items-center gap-1.5"
             >
-              <FaCog className="w-4 h-4" />
+              <FaCog className="w-3.5 h-3.5" />
+              Shift Types
+            </button>
+            <button
+              onClick={() => setIsTemplateModalOpen(true)}
+              className="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg font-medium transition flex items-center gap-1.5"
+            >
+              <FaCog className="w-3.5 h-3.5" />
               Weekly Defaults
             </button>
             <button
               onClick={goToToday}
-              className="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg font-medium transition"
+              className="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg font-medium transition"
             >
               Today
             </button>
@@ -718,18 +791,21 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
         </div>
 
         {/* Calendar Grid */}
-        <div className="grid grid-cols-7 gap-2">
+        <div className="grid grid-cols-7 gap-1.5">
           {weekDays.map((day, dayIndex) => {
             const daySchedules = getSchedulesForDate(day);
             const isToday = day.toISOString().split('T')[0] === today.toISOString().split('T')[0];
             
             // Render function for a shift tile
-            const renderShiftTile = (shiftType: 'open' | 'close', shiftLabel: string) => {
+            const renderShiftTile = (shiftType: string, shiftLabel: string) => {
               const requirement = getRequirementForDate(day, shiftType);
               const template = getTemplateForDay(day.getDay(), shiftType);
               const scheduled = getScheduledCounts(day, shiftType);
               const req = requirement || template;
               const shiftSchedules = daySchedules.filter(s => s.shiftType === shiftType);
+              
+              const shiftHeight = `calc((100vh - 280px) / ${shiftTypes.length})`;
+              const maxShiftHeight = Math.floor(600 / shiftTypes.length);
               
               return (
                 <div
@@ -738,19 +814,24 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
                     isToday
                       ? 'border-blue-500 dark:border-blue-400'
                       : 'border-gray-200 dark:border-gray-700'
-                  } p-3 h-[500px] flex flex-col`}
+                  } p-2 flex flex-col`}
+                  style={{ 
+                    height: shiftHeight,
+                    maxHeight: `${maxShiftHeight}px`,
+                    minHeight: '120px'
+                  }}
                 >
-                  <div className="mb-3 flex-shrink-0">
-                    <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                  <div className="mb-2 flex-shrink-0">
+                    <div className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase">
                       {dayNames[dayIndex]}
                     </div>
-                    <div className={`text-lg font-bold ${isToday ? 'text-blue-600 dark:text-blue-400' : 'text-gray-900 dark:text-white'}`}>
+                    <div className={`text-sm font-bold ${isToday ? 'text-blue-600 dark:text-blue-400' : 'text-gray-900 dark:text-white'}`}>
                       {day.getDate()}
                     </div>
                   </div>
 
-                  <div className="mb-3 flex-shrink-0">
-                    <div className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+                  <div className="mb-2 flex-shrink-0">
+                    <div className="text-[10px] font-medium text-gray-600 dark:text-gray-400 mb-1.5">
                       {shiftLabel}
                     </div>
                     {/* Requirements display - always show, using template as fallback */}
@@ -769,10 +850,10 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
                       const isFilled = requirement?.isFilled ?? false;
 
                       return (
-                        <div className="mb-2 space-y-1">
+                        <div className="mb-1.5 space-y-1">
                           {hasRequirement && (
                             <div
-                              className={`w-full text-xs p-2.5 rounded-lg border-2 transition ${
+                              className={`w-full text-[10px] p-1.5 rounded border transition ${
                                 isFilled
                                   ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-400 dark:border-blue-600'
                                   : isFullyStaffed
@@ -780,9 +861,9 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
                                   : 'bg-orange-50 dark:bg-orange-900/20 border-orange-400 dark:border-orange-600'
                               }`}
                             >
-                              <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center gap-2">
-                                  <span className={`font-semibold text-xs ${
+                              <div className="flex items-center justify-between mb-1">
+                                <div className="flex items-center gap-1">
+                                  <span className={`font-semibold text-[10px] ${
                                     isFilled
                                       ? 'text-blue-700 dark:text-blue-300'
                                       : isFullyStaffed
@@ -792,11 +873,11 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
                                     {isFilled 
                                       ? '✓ Filled' 
                                       : isFullyStaffed 
-                                      ? '✓ Fully Staffed' 
-                                      : '⚠ Needs Staff'}
+                                      ? '✓ Full' 
+                                      : '⚠ Need'}
                                   </span>
-                                  <span className="text-[10px] text-gray-500 dark:text-gray-400">
-                                    {isFromTemplate ? '(Default)' : '(Custom)'}
+                                  <span className="text-[9px] text-gray-500 dark:text-gray-400">
+                                    {isFromTemplate ? '(D)' : '(C)'}
                                   </span>
                                 </div>
                                 {requirement && !isFullyStaffed && (
@@ -805,7 +886,7 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
                                       e.stopPropagation();
                                       handleToggleFilled(requirement);
                                     }}
-                                    className={`px-2 py-0.5 text-[10px] rounded transition ${
+                                    className={`px-1.5 py-0.5 text-[9px] rounded transition ${
                                       isFilled
                                         ? 'bg-blue-600 dark:bg-blue-500 text-white hover:bg-blue-700 dark:hover:bg-blue-600'
                                         : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
@@ -817,24 +898,24 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
                                   </button>
                                 )}
                               </div>
-                              <div className="space-y-1 text-xs">
+                              <div className="space-y-0.5 text-[10px]">
                                 <div className="flex items-center justify-between">
-                                  <span className="text-gray-600 dark:text-gray-400">Cooks:</span>
+                                  <span className="text-gray-600 dark:text-gray-400">C:</span>
                                   <span className={scheduled.cooks >= req.cooks ? 'text-green-600 dark:text-green-400 font-medium' : 'text-orange-600 dark:text-orange-400 font-medium'}>
-                                    {scheduled.cooks} / {req.cooks}
+                                    {scheduled.cooks}/{req.cooks}
                                   </span>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                  <span className="text-gray-600 dark:text-gray-400">Bartenders:</span>
+                                  <span className="text-gray-600 dark:text-gray-400">B:</span>
                                   <span className={scheduled.bartenders >= req.bartenders ? 'text-green-600 dark:text-green-400 font-medium' : 'text-orange-600 dark:text-orange-400 font-medium'}>
-                                    {scheduled.bartenders} / {req.bartenders}
+                                    {scheduled.bartenders}/{req.bartenders}
                                   </span>
                                 </div>
                                 {(req.barbacks > 0 || scheduled.barbacks > 0) && (
                                   <div className="flex items-center justify-between">
-                                    <span className="text-gray-600 dark:text-gray-400">Barbacks:</span>
+                                    <span className="text-gray-600 dark:text-gray-400">BB:</span>
                                     <span className={scheduled.barbacks >= req.barbacks ? 'text-green-600 dark:text-green-400 font-medium' : 'text-orange-600 dark:text-orange-400 font-medium'}>
-                                      {scheduled.barbacks} / {req.barbacks}
+                                      {scheduled.barbacks}/{req.barbacks}
                                     </span>
                                   </div>
                                 )}
@@ -842,9 +923,9 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
                             </div>
                           )}
                           {!hasRequirement && (
-                            <div className="w-full text-xs p-2.5 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                              <div className="text-gray-500 dark:text-gray-400 text-center py-1">
-                                No requirements set
+                            <div className="w-full text-[10px] p-1.5 rounded border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                              <div className="text-gray-500 dark:text-gray-400 text-center py-0.5">
+                                No req
                               </div>
                             </div>
                           )}
@@ -856,38 +937,38 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
                                 handleRequirementNew(day, shiftType);
                               }
                             }}
-                            className="w-full text-xs text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 py-1.5 underline transition"
+                            className="w-full text-[9px] text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 py-1 underline transition"
                             title="Click to edit requirements"
                           >
-                            {requirement ? 'Edit requirements' : hasRequirement ? 'Override default' : 'Set requirements'}
+                            {requirement ? 'Edit' : hasRequirement ? 'Override' : 'Set'}
                           </button>
                         </div>
                       );
                     })()}
                   </div>
 
-                  <div className="flex-1 min-h-0 space-y-2 overflow-y-auto">
+                  <div className="flex-1 min-h-0 space-y-1 overflow-y-auto">
                     {shiftSchedules.map(schedule => (
                       <div
                         key={schedule.id}
-                        className={`p-2 rounded border text-xs ${getRoleColor(schedule.employee.role)} flex-shrink-0`}
+                        className={`p-1.5 rounded border text-[10px] ${getRoleColor(schedule.employee.role)} flex-shrink-0`}
                       >
-                        <div className="font-semibold">{schedule.employee.name}</div>
-                        <div className="text-[10px] opacity-75">
+                        <div className="font-semibold truncate">{schedule.employee.name}</div>
+                        <div className="text-[9px] opacity-75">
                           {formatShiftTime(new Date(schedule.startTime))} - {formatShiftTime(new Date(schedule.endTime))}
                         </div>
-                        <div className="flex gap-1 mt-1">
+                        <div className="flex gap-1 mt-0.5">
                           <button
                             onClick={() => handleEdit(schedule)}
-                            className="text-[10px] hover:underline"
+                            className="text-[9px] hover:underline"
                           >
                             Edit
                           </button>
                           <button
                             onClick={() => setDeleteConfirmation(schedule)}
-                            className="text-[10px] hover:underline text-red-600 dark:text-red-400"
+                            className="text-[9px] hover:underline text-red-600 dark:text-red-400"
                           >
-                            Delete
+                            Del
                           </button>
                         </div>
                       </div>
@@ -896,7 +977,7 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
 
                   <button
                     onClick={() => handleNew(day, shiftType)}
-                    className="w-full text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 py-2 border border-dashed border-gray-300 dark:border-gray-600 rounded hover:border-gray-400 dark:hover:border-gray-500 transition mt-2 flex-shrink-0"
+                    className="w-full text-[10px] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 py-1 border border-dashed border-gray-300 dark:border-gray-600 rounded hover:border-gray-400 dark:hover:border-gray-500 transition mt-1.5 flex-shrink-0"
                   >
                     + Add
                   </button>
@@ -905,9 +986,10 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
             };
 
             return (
-              <div key={dayIndex} className="flex flex-col gap-2">
-                {renderShiftTile('open', 'Open (to 4pm)')}
-                {renderShiftTile('close', 'Close (4pm to close)')}
+              <div key={dayIndex} className="flex flex-col gap-1.5">
+                {shiftTypes.map((shiftTypeConfig) => 
+                  renderShiftTile(shiftTypeConfig.name, shiftTypeConfig.label)
+                )}
               </div>
             );
           })}
@@ -969,12 +1051,13 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
             <select
               value={formData.shiftType}
               onChange={(e) => {
-                setFormData({ ...formData, shiftType: e.target.value as 'open' | 'close', employeeId: '' });
+                setFormData({ ...formData, shiftType: e.target.value, employeeId: '' });
               }}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             >
-              <option value="open">Open (open to 4pm)</option>
-              <option value="close">Close (4pm to close)</option>
+              {shiftTypes.map((st) => (
+                <option key={st.id} value={st.name}>{st.label}</option>
+              ))}
             </select>
           </div>
 
@@ -1052,11 +1135,12 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
             </label>
             <select
               value={requirementFormData.shiftType}
-              onChange={(e) => setRequirementFormData({ ...requirementFormData, shiftType: e.target.value as 'open' | 'close' })}
+              onChange={(e) => setRequirementFormData({ ...requirementFormData, shiftType: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             >
-              <option value="open">Open (open to 4pm)</option>
-              <option value="close">Close (4pm to close)</option>
+              {shiftTypes.map((st) => (
+                <option key={st.id} value={st.name}>{st.label}</option>
+              ))}
             </select>
           </div>
 
@@ -1141,13 +1225,13 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
         }}
         title="Weekly Staff Defaults"
       >
-        <div className="space-y-5">
-          <p className="text-sm text-gray-600 dark:text-gray-400">
+        <div className="space-y-6">
+          <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
             Set default staffing requirements for each day of the week. These defaults are used when no specific requirement is set for a date.
           </p>
 
           {(() => {
-            const updateValue = (dayOfWeek: number, shiftType: 'open' | 'close', role: 'cooks' | 'bartenders' | 'barbacks', value: number) => {
+            const updateValue = (dayOfWeek: number, shiftType: string, role: 'cooks' | 'bartenders' | 'barbacks', value: number) => {
               const key = `${dayOfWeek}-${shiftType}`;
               setTemplateFormData({
                 ...templateFormData,
@@ -1156,64 +1240,58 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
                   cooks: templateFormData[key]?.cooks ?? 0,
                   bartenders: templateFormData[key]?.bartenders ?? 0,
                   barbacks: templateFormData[key]?.barbacks ?? 0,
-                  [role]: Math.max(0, value),
+                  [role]: Math.max(0, Math.min(9, value)),
                 },
               });
             };
 
             const copyDayToOthers = (sourceDayOfWeek: number, targetDays: number[]) => {
-              const sourceOpen = templateFormData[`${sourceDayOfWeek}-open`] || { cooks: 0, bartenders: 0, barbacks: 0 };
-              const sourceClose = templateFormData[`${sourceDayOfWeek}-close`] || { cooks: 0, bartenders: 0, barbacks: 0 };
-              
               const updated = { ...templateFormData };
-              targetDays.forEach(dayOfWeek => {
-                updated[`${dayOfWeek}-open`] = { ...sourceOpen };
-                updated[`${dayOfWeek}-close`] = { ...sourceClose };
+              shiftTypes.forEach(shiftType => {
+                const source = templateFormData[`${sourceDayOfWeek}-${shiftType.name}`] || { cooks: 0, bartenders: 0, barbacks: 0 };
+                targetDays.forEach(dayOfWeek => {
+                  updated[`${dayOfWeek}-${shiftType.name}`] = { ...source };
+                });
               });
               setTemplateFormData(updated);
             };
 
-            const NumberInput = ({ dayOfWeek, shiftType, role, label, fullLabel }: { dayOfWeek: number; shiftType: 'open' | 'close'; role: 'cooks' | 'bartenders' | 'barbacks'; label: string; fullLabel: string }) => {
+            const NumberInput = ({ dayOfWeek, shiftType, role, label, fullLabel }: { dayOfWeek: number; shiftType: string; role: 'cooks' | 'bartenders' | 'barbacks'; label: string; fullLabel: string }) => {
               const key = `${dayOfWeek}-${shiftType}`;
               const value = templateFormData[key]?.[role] ?? 0;
               
+              const roleColors: Record<string, string> = {
+                cooks: 'text-red-700 dark:text-red-300',
+                bartenders: 'text-cyan-700 dark:text-cyan-300',
+                barbacks: 'text-emerald-700 dark:text-emerald-300',
+              };
+              
               return (
-                <div className="flex items-center justify-between gap-3">
-                  <label className="text-xs text-gray-600 dark:text-gray-400 font-medium min-w-[80px]">{label}</label>
-                  <div className="flex items-center bg-white dark:bg-gray-700 rounded border border-gray-300 dark:border-gray-600 overflow-hidden">
-                    <button
-                      type="button"
-                      onClick={() => updateValue(dayOfWeek, shiftType, role, value - 1)}
-                      className="px-2.5 py-1.5 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-600 transition"
-                      tabIndex={-1}
-                      aria-label={`Decrease ${fullLabel}`}
-                    >
-                      <span className="text-sm">−</span>
-                    </button>
-                    <input
-                      type="number"
-                      min="0"
-                      value={value}
-                      onChange={(e) => updateValue(dayOfWeek, shiftType, role, parseInt(e.target.value) || 0)}
-                      className="w-12 px-2 py-1.5 text-sm text-center bg-transparent border-0 focus:ring-0 focus:outline-none text-gray-900 dark:text-white font-medium [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      aria-label={fullLabel}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => updateValue(dayOfWeek, shiftType, role, value + 1)}
-                      className="px-2.5 py-1.5 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-600 transition"
-                      tabIndex={-1}
-                      aria-label={`Increase ${fullLabel}`}
-                    >
-                      <span className="text-sm">+</span>
-                    </button>
-                  </div>
+                <div className="flex items-center justify-between gap-2 py-1">
+                  <label className={`text-xs font-medium ${roleColors[role] || 'text-gray-600 dark:text-gray-400'} flex-shrink-0`}>
+                    {label}
+                  </label>
+                  <select
+                    value={value}
+                    onChange={(e) => {
+                      const parsed = Number(e.target.value);
+                      updateValue(dayOfWeek, shiftType, role, Number.isNaN(parsed) ? 0 : parsed);
+                    }}
+                    className="w-16 px-2 py-1.5 text-sm text-center font-semibold text-gray-900 dark:text-white bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm hover:border-blue-400 dark:hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all"
+                    aria-label={fullLabel}
+                  >
+                    {Array.from({ length: 10 }, (_, i) => (
+                      <option key={i} value={i}>
+                        {i}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               );
             };
 
             return (
-              <div className="grid grid-cols-7 gap-3">
+              <div className="grid grid-cols-7 gap-2.5 overflow-x-auto pb-2">
                 {[
                   { day: 'Sunday', dayOfWeek: 0, short: 'Sun' },
                   { day: 'Monday', dayOfWeek: 1, short: 'Mon' },
@@ -1225,10 +1303,10 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
                 ].map(({ day, dayOfWeek, short }) => (
                   <div
                     key={dayOfWeek}
-                    className="bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 p-3 space-y-3"
+                    className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-800/80 rounded-xl border-2 border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-shadow p-4 space-y-4 min-w-[140px]"
                   >
-                    <div className="flex items-center justify-between pb-2 border-b border-gray-200 dark:border-gray-700">
-                      <h3 className="font-semibold text-sm text-gray-900 dark:text-white">{short}</h3>
+                    <div className="flex items-center justify-between pb-3 border-b-2 border-gray-200 dark:border-gray-700">
+                      <h3 className="font-bold text-sm text-gray-900 dark:text-white tracking-tight">{short}</h3>
                       {dayOfWeek > 0 && (
                         <button
                           type="button"
@@ -1236,7 +1314,7 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
                             const copyFrom = dayOfWeek - 1;
                             copyDayToOthers(copyFrom, [dayOfWeek]);
                           }}
-                          className="text-xs text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition"
+                          className="text-[10px] font-medium px-2 py-0.5 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
                           title={`Copy from ${dayNames[dayOfWeek - 1]}`}
                         >
                           Copy
@@ -1244,28 +1322,19 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
                       )}
                     </div>
 
-                    <div className="space-y-3">
-                      <div className="space-y-2">
-                        <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
-                          Open
+                    <div className="space-y-4">
+                      {shiftTypes.map((shiftTypeConfig, shiftIndex) => (
+                        <div key={shiftTypeConfig.id} className={`space-y-2.5 ${shiftIndex > 0 ? 'pt-4 border-t border-gray-200 dark:border-gray-700' : ''}`}>
+                          <div className="text-[10px] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider bg-gray-100 dark:bg-gray-700/50 px-2 py-1 rounded text-center">
+                            {shiftTypeConfig.label}
+                          </div>
+                          <div className="space-y-1.5 bg-gray-50 dark:bg-gray-900/30 rounded-lg p-2">
+                            <NumberInput dayOfWeek={dayOfWeek} shiftType={shiftTypeConfig.name} role="cooks" label="Cooks" fullLabel={`Cooks for ${shiftTypeConfig.label} shift`} />
+                            <NumberInput dayOfWeek={dayOfWeek} shiftType={shiftTypeConfig.name} role="bartenders" label="Bartenders" fullLabel={`Bartenders for ${shiftTypeConfig.label} shift`} />
+                            <NumberInput dayOfWeek={dayOfWeek} shiftType={shiftTypeConfig.name} role="barbacks" label="Barbacks" fullLabel={`Barbacks for ${shiftTypeConfig.label} shift`} />
+                          </div>
                         </div>
-                        <div className="space-y-2">
-                          <NumberInput dayOfWeek={dayOfWeek} shiftType="open" role="cooks" label="Cooks:" fullLabel="Cooks for Open shift" />
-                          <NumberInput dayOfWeek={dayOfWeek} shiftType="open" role="bartenders" label="Bartenders:" fullLabel="Bartenders for Open shift" />
-                          <NumberInput dayOfWeek={dayOfWeek} shiftType="open" role="barbacks" label="Barbacks:" fullLabel="Barbacks for Open shift" />
-                        </div>
-                      </div>
-
-                      <div className="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                        <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
-                          Close
-                        </div>
-                        <div className="space-y-2">
-                          <NumberInput dayOfWeek={dayOfWeek} shiftType="close" role="cooks" label="Cooks:" fullLabel="Cooks for Close shift" />
-                          <NumberInput dayOfWeek={dayOfWeek} shiftType="close" role="bartenders" label="Bartenders:" fullLabel="Bartenders for Close shift" />
-                          <NumberInput dayOfWeek={dayOfWeek} shiftType="close" role="barbacks" label="Barbacks:" fullLabel="Barbacks for Close shift" />
-                        </div>
-                      </div>
+                      ))}
                     </div>
                   </div>
                 ))}
@@ -1273,22 +1342,163 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
             );
           })()}
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex justify-end gap-3 pt-5 border-t-2 border-gray-200 dark:border-gray-700">
             <button
               onClick={() => {
                 setIsTemplateModalOpen(false);
                 loadTemplates();
               }}
-              className="px-4 py-2 text-sm bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg font-medium transition"
+              className="px-5 py-2.5 text-sm font-semibold bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg transition-colors shadow-sm"
             >
               Cancel
             </button>
             <button
               onClick={handleTemplateSave}
               disabled={loading}
-              className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg font-medium transition"
+              className="px-5 py-2.5 text-sm font-semibold bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors shadow-sm shadow-blue-500/20"
             >
               {loading ? 'Saving...' : 'Save Defaults'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Shift Types Configuration Modal */}
+      <Modal
+        isOpen={isShiftConfigModalOpen}
+        onClose={() => {
+          setIsShiftConfigModalOpen(false);
+          setShiftConfigFormData([...shiftTypes]);
+        }}
+        title="Configure Shift Types"
+      >
+        <div className="space-y-6">
+          <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+            Configure the shift types that appear in your schedule. You can add, remove, or reorder shifts.
+          </p>
+
+          <div className="space-y-3">
+            {(shiftConfigFormData.length > 0 ? shiftConfigFormData : shiftTypes).map((shiftType, index) => (
+              <div 
+                key={shiftType.id} 
+                className="group relative bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-800/80 rounded-xl border-2 border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all p-4"
+              >
+                <div className="flex items-start gap-4">
+                  {/* Order Badge */}
+                  <div className="flex-shrink-0 pt-6">
+                    <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 border-2 border-blue-300 dark:border-blue-700 flex items-center justify-center">
+                      <span className="text-sm font-bold text-blue-700 dark:text-blue-300">{shiftType.order}</span>
+                    </div>
+                  </div>
+
+                  {/* Form Fields */}
+                  <div className="flex-1 grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 uppercase tracking-wide">
+                        Name (ID)
+                      </label>
+                      <input
+                        type="text"
+                        value={shiftType.name}
+                        onChange={(e) => {
+                          const updated = [...(shiftConfigFormData.length > 0 ? shiftConfigFormData : shiftTypes)];
+                          updated[index].name = e.target.value.toLowerCase().replace(/\s+/g, '-');
+                          updated[index].id = updated[index].name;
+                          setShiftConfigFormData(updated);
+                        }}
+                        className="w-full px-3 py-2 text-sm font-medium border-2 border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all shadow-sm"
+                        placeholder="e.g., morning"
+                      />
+                      <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Used internally</p>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 uppercase tracking-wide">
+                        Display Label
+                      </label>
+                      <input
+                        type="text"
+                        value={shiftType.label}
+                        onChange={(e) => {
+                          const updated = [...(shiftConfigFormData.length > 0 ? shiftConfigFormData : shiftTypes)];
+                          updated[index].label = e.target.value;
+                          setShiftConfigFormData(updated);
+                        }}
+                        className="w-full px-3 py-2 text-sm font-medium border-2 border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all shadow-sm"
+                        placeholder="e.g., Morning Shift"
+                      />
+                      <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Shown in schedule</p>
+                    </div>
+                  </div>
+
+                  {/* Order Input & Remove Button */}
+                  <div className="flex-shrink-0 flex flex-col gap-2 pt-6">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 uppercase tracking-wide text-center">
+                        Order
+                      </label>
+                      <input
+                        type="number"
+                        value={shiftType.order}
+                        onChange={(e) => {
+                          const updated = [...(shiftConfigFormData.length > 0 ? shiftConfigFormData : shiftTypes)];
+                          updated[index].order = parseInt(e.target.value) || 0;
+                          setShiftConfigFormData(updated);
+                        }}
+                        className="w-20 px-2 py-2 text-sm text-center font-bold border-2 border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all shadow-sm"
+                      />
+                    </div>
+                    <button
+                      onClick={() => {
+                        const updated = [...(shiftConfigFormData.length > 0 ? shiftConfigFormData : shiftTypes)];
+                        updated.splice(index, 1);
+                        // Reorder remaining items
+                        updated.forEach((st, i) => { st.order = i; });
+                        setShiftConfigFormData(updated);
+                      }}
+                      className="px-3 py-1.5 text-xs font-semibold text-red-600 dark:text-red-400 hover:text-white hover:bg-red-600 dark:hover:bg-red-500 border border-red-300 dark:border-red-700 rounded-lg transition-all shadow-sm"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <button
+            onClick={() => {
+              const newShift: ShiftTypeConfig = {
+                id: `shift-${Date.now()}`,
+                name: `shift-${Date.now()}`,
+                label: 'New Shift',
+                order: (shiftConfigFormData.length > 0 ? shiftConfigFormData : shiftTypes).length,
+              };
+              setShiftConfigFormData([...(shiftConfigFormData.length > 0 ? shiftConfigFormData : shiftTypes), newShift]);
+            }}
+            className="w-full px-4 py-3 text-sm font-semibold border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl text-gray-600 dark:text-gray-400 hover:border-blue-500 dark:hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all"
+          >
+            <span className="flex items-center justify-center gap-2">
+              <FaPlus className="w-4 h-4" />
+              Add Shift Type
+            </span>
+          </button>
+
+          <div className="flex justify-end gap-3 pt-5 border-t-2 border-gray-200 dark:border-gray-700">
+            <button
+              onClick={() => {
+                setIsShiftConfigModalOpen(false);
+                setShiftConfigFormData([...shiftTypes]);
+              }}
+              className="px-5 py-2.5 text-sm font-semibold bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg transition-colors shadow-sm"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleShiftTypesSave}
+              disabled={loading || (shiftConfigFormData.length > 0 ? shiftConfigFormData : shiftTypes).length === 0}
+              className="px-5 py-2.5 text-sm font-semibold bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors shadow-sm shadow-blue-500/20"
+            >
+              {loading ? 'Saving...' : 'Save Shift Types'}
             </button>
           </div>
         </div>

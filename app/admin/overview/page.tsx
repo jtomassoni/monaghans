@@ -14,6 +14,20 @@ export default async function AdminOverview() {
   const nextWeek = new Date(now);
   nextWeek.setDate(now.getDate() + 7);
 
+  // Date ranges for today
+  const startOfToday = new Date(now);
+  startOfToday.setHours(0, 0, 0, 0);
+  const endOfToday = new Date(now);
+  endOfToday.setHours(23, 59, 59, 999);
+
+  // Date ranges for this week
+  const startOfWeek = new Date(now);
+  startOfWeek.setDate(now.getDate() - now.getDay()); // Sunday
+  startOfWeek.setHours(0, 0, 0, 0);
+  const endOfWeek = new Date(startOfWeek);
+  endOfWeek.setDate(startOfWeek.getDate() + 6);
+  endOfWeek.setHours(23, 59, 59, 999);
+
   // Fetch comprehensive data
   const [
     eventsCount,
@@ -29,6 +43,17 @@ export default async function AdminOverview() {
     recentActivities,
     inactiveMenuItems,
     unpublishedAnnouncements,
+    // Orders data
+    todayOrdersCount,
+    pendingOrdersCount,
+    kitchenOrdersCount,
+    todayRevenue,
+    weekRevenue,
+    recentOrders,
+    // Staff data
+    activeEmployeesCount,
+    clockedInCount,
+    todaySchedulesCount,
   ] = await Promise.all([
     prisma.event.count(),
     prisma.event.count({ where: { isActive: true } }),
@@ -75,6 +100,97 @@ export default async function AdminOverview() {
       orderBy: { createdAt: 'desc' },
       take: 5,
     }),
+    // Orders: Today's count
+    prisma.order.count({
+      where: {
+        createdAt: {
+          gte: startOfToday,
+          lte: endOfToday,
+        },
+      },
+    }),
+    // Orders: Pending (not completed or cancelled)
+    prisma.order.count({
+      where: {
+        status: {
+          notIn: ['completed', 'cancelled'],
+        },
+      },
+    }),
+    // Orders: In kitchen (acknowledged, preparing, ready)
+    prisma.order.count({
+      where: {
+        status: {
+          in: ['acknowledged', 'preparing', 'ready'],
+        },
+      },
+    }),
+    // Revenue: Today's total
+    prisma.order.aggregate({
+      where: {
+        createdAt: {
+          gte: startOfToday,
+          lte: endOfToday,
+        },
+        paymentStatus: 'paid',
+      },
+      _sum: {
+        total: true,
+      },
+    }),
+    // Revenue: This week's total
+    prisma.order.aggregate({
+      where: {
+        createdAt: {
+          gte: startOfWeek,
+          lte: endOfWeek,
+        },
+        paymentStatus: 'paid',
+      },
+      _sum: {
+        total: true,
+      },
+    }),
+    // Recent orders (last 5)
+    prisma.order.findMany({
+      where: {
+        status: {
+          notIn: ['completed', 'cancelled'],
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+      select: {
+        id: true,
+        orderNumber: true,
+        status: true,
+        customerName: true,
+        total: true,
+        createdAt: true,
+      },
+    }),
+    // Staff: Active employees
+    prisma.employee.count({
+      where: {
+        isActive: true,
+        deletedAt: null,
+      },
+    }),
+    // Staff: Currently clocked in
+    prisma.shift.count({
+      where: {
+        clockOut: null,
+      },
+    }),
+    // Staff: Today's scheduled shifts
+    prisma.schedule.count({
+      where: {
+        date: {
+          gte: startOfToday,
+          lte: endOfToday,
+        },
+      },
+    }),
   ]);
 
   const formatDate = (date: Date) => {
@@ -109,6 +225,32 @@ export default async function AdminOverview() {
 
   const stats = [
     {
+      title: 'Orders',
+      total: todayOrdersCount,
+      active: pendingOrdersCount,
+      iconName: 'FaShoppingCart',
+      href: '/admin/orders',
+      color: 'bg-green-500/80 dark:bg-green-600/80',
+      bgColor: 'bg-green-50 dark:bg-green-900/20',
+      textColor: 'text-green-600 dark:text-green-400',
+      details: `$${(todayRevenue._sum.total || 0).toFixed(2)} today • ${kitchenOrdersCount} in kitchen`,
+      revenue: todayRevenue._sum.total || 0,
+      kitchenOrders: kitchenOrdersCount,
+    },
+    {
+      title: 'Staff',
+      total: activeEmployeesCount,
+      active: clockedInCount,
+      iconName: 'FaUsers',
+      href: '/admin/staff',
+      color: 'bg-purple-500/80 dark:bg-purple-600/80',
+      bgColor: 'bg-purple-50 dark:bg-purple-900/20',
+      textColor: 'text-purple-600 dark:text-purple-400',
+      details: `${clockedInCount} clocked in • ${todaySchedulesCount} shifts today`,
+      clockedIn: clockedInCount,
+      shiftsToday: todaySchedulesCount,
+    },
+    {
       title: 'Specials & Events',
       total: eventsCount + specialsCount,
       active: activeEventsCount + activeSpecialsCount,
@@ -125,9 +267,9 @@ export default async function AdminOverview() {
       active: menuItemsCount - inactiveMenuItems,
       iconName: 'FaUtensils',
       href: '/admin/menu',
-      color: 'bg-blue-500/80 dark:bg-blue-600/80',
-      bgColor: 'bg-blue-50 dark:bg-blue-900/20',
-      textColor: 'text-blue-600 dark:text-blue-400',
+      color: 'bg-orange-500/80 dark:bg-orange-600/80',
+      bgColor: 'bg-orange-50 dark:bg-orange-900/20',
+      textColor: 'text-orange-600 dark:text-orange-400',
       inactive: inactiveMenuItems,
       details: `${menuSectionsCount} sections • ${menuItemsCount} items`,
     },
@@ -149,7 +291,7 @@ export default async function AdminOverview() {
       title: 'Users',
       total: usersCount,
       active: usersCount,
-      iconName: 'FaUsers',
+      iconName: 'FaUserCog',
       href: '/admin/users',
       color: 'bg-gray-500/80 dark:bg-gray-600/80',
       bgColor: 'bg-gray-50 dark:bg-gray-800',
@@ -157,6 +299,12 @@ export default async function AdminOverview() {
       details: `${usersCount} users`,
     });
   }
+
+  // Format recent orders
+  const formattedRecentOrders = recentOrders.map((order: any) => ({
+    ...order,
+    formattedDateTime: formatDateTime(order.createdAt),
+  }));
 
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 overflow-hidden relative">
@@ -173,7 +321,7 @@ export default async function AdminOverview() {
               Overview
             </h1>
             <p className="text-gray-500 dark:text-gray-400 text-xs hidden sm:block">
-              Dashboard overview and quick insights
+              Real-time operations, orders, staff, and revenue overview
             </p>
           </div>
         </div>
@@ -185,6 +333,10 @@ export default async function AdminOverview() {
         upcomingEvents={formattedUpcomingEvents}
         recentActivities={formattedRecentActivities}
         publishedAnnouncementsCount={publishedAnnouncementsCount}
+        recentOrders={formattedRecentOrders}
+        todayRevenue={todayRevenue._sum.total || 0}
+        weekRevenue={weekRevenue._sum.total || 0}
+        clockedInCount={clockedInCount}
       />
     </div>
   );

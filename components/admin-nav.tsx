@@ -28,7 +28,10 @@ import {
   FaChartLine,
   FaShoppingCart,
   FaTv,
-  FaClock
+  FaClock,
+  FaCashRegister,
+  FaTruck,
+  FaFileInvoiceDollar
 } from 'react-icons/fa';
 import { useTheme } from './theme-provider';
 import { useEffect } from 'react';
@@ -114,6 +117,8 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
         ...(permissions.canManageOrders ? [{ href: '/admin/orders', label: 'Orders', icon: FaShoppingCart }] : []),
         ...(permissions.canAccessKDS ? [{ href: '/admin/kds', label: 'Kitchen Display', icon: FaTv }] : []),
         ...(permissions.canManageStaff ? [{ href: '/admin/staff', label: 'Scheduling', icon: FaClock }] : []),
+        ...(permissions.canAccessAdmin ? [{ href: '/admin/suppliers', label: 'Suppliers', icon: FaTruck }] : []),
+        ...(permissions.canAccessAdmin ? [{ href: '/admin/purchase-orders', label: 'Purchase Orders', icon: FaFileInvoiceDollar }] : []),
       ],
     },
     {
@@ -126,6 +131,7 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
       title: 'Analytics',
       items: [
         ...(permissions.canAccessReporting ? [{ href: '/admin/reporting', label: 'Reporting', icon: FaChartLine }] : []),
+        ...(permissions.canAccessAdmin ? [{ href: '/admin/pos-integrations', label: 'POS Integrations', icon: FaCashRegister }] : []),
       ],
     },
   ].filter(group => group.items.length > 0); // Remove empty groups
@@ -160,6 +166,15 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
     }
     if (href === '/admin/staff') {
       return pathname?.startsWith('/admin/staff');
+    }
+    if (href === '/admin/pos-integrations') {
+      return pathname?.startsWith('/admin/pos-integrations');
+    }
+    if (href === '/admin/suppliers') {
+      return pathname?.startsWith('/admin/suppliers');
+    }
+    if (href === '/admin/purchase-orders') {
+      return pathname?.startsWith('/admin/purchase-orders');
     }
     return pathname?.startsWith(href);
   };

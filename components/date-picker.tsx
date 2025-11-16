@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, isToday } from 'date-fns';
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, isToday, addDays } from 'date-fns';
 import { HiChevronLeft, HiChevronRight } from 'react-icons/hi';
 
 interface DatePickerProps {
@@ -111,7 +111,8 @@ export default function DatePicker({ value, onChange, min, max, label, required,
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
   const calendarStart = startOfWeek(monthStart);
-  const calendarEnd = endOfWeek(monthEnd);
+  // Always show 6 weeks (42 days) for consistent sizing
+  const calendarEnd = addDays(calendarStart, 41); // 42 days total (0-41 inclusive)
   const calendarDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
 
   const handleDateSelect = (day: Date) => {
@@ -157,7 +158,7 @@ export default function DatePicker({ value, onChange, min, max, label, required,
   return (
     <div className="relative">
       {label && (
-        <label className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
+        <label className="block mb-0.5 text-xs font-medium text-gray-700 dark:text-gray-300">
           {label} {required && '*'}
         </label>
       )}
@@ -165,7 +166,7 @@ export default function DatePicker({ value, onChange, min, max, label, required,
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="w-full px-4 py-2.5 bg-white dark:bg-gray-800/95 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white text-sm cursor-pointer hover:border-blue-500 dark:hover:border-blue-500 focus:border-blue-500 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 text-left flex items-center justify-between shadow-sm hover:shadow-md group"
+          className="w-full px-2.5 py-1.5 bg-white dark:bg-gray-800/95 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-sm cursor-pointer hover:border-blue-500 dark:hover:border-blue-500 focus:border-blue-500 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 text-left flex items-center justify-between group"
         >
           <span className={displayValue ? 'font-medium' : 'text-gray-400 dark:text-gray-500'}>
             {displayValue || 'Select date'}

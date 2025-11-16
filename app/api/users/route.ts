@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAuth, handleError } from '@/lib/api-helpers';
+import { requireAuth, handleError, getCurrentUser, logActivity } from '@/lib/api-helpers';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getPermissions, canCreateRole } from '@/lib/permissions';
@@ -49,6 +49,11 @@ export async function POST(req: NextRequest) {
   const { session, permissions } = authResult;
 
   try {
+    const currentUser = await getCurrentUser(req);
+    if (!currentUser?.id) {
+      return NextResponse.json({ error: 'User not found' }, { status: 401 });
+    }
+
     const body = await req.json();
     const targetRole = body.role || 'manager';
     
@@ -76,6 +81,16 @@ export async function POST(req: NextRequest) {
         isActive: body.isActive ?? true,
       },
     });
+
+    await logActivity(
+      currentUser.id,
+      'create',
+      'user',
+      user.id,
+      user.name || user.email,
+      undefined,
+      `created user "${user.name || user.email}" with role "${user.role}"`
+    );
 
     return NextResponse.json(user, { status: 201 });
   } catch (error: any) {

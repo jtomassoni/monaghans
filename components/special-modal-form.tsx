@@ -7,6 +7,7 @@ import { showToast } from '@/components/toast';
 import ConfirmationDialog from '@/components/confirmation-dialog';
 import StatusToggle from '@/components/status-toggle';
 import DatePicker from '@/components/date-picker';
+import { useUnsavedChangesWarning } from '@/lib/use-unsaved-changes-warning';
 
 interface Special {
   id?: string;
@@ -126,6 +127,9 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
 
   // Check if form is dirty
   const isDirty = JSON.stringify(formData) !== JSON.stringify(initialFormData);
+  
+  // Warn user before leaving page with unsaved changes
+  useUnsavedChangesWarning(isDirty && isOpen);
 
   function handleCancel() {
     if (isDirty) {
@@ -276,151 +280,198 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
       onClose={onClose}
       title={special ? 'Edit Special' : 'New Special'}
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <StatusToggle
-          type="active"
-          value={formData.isActive}
-          onChange={(value) => setFormData({ ...formData, isActive: value })}
-          label="Status"
-        />
+      <form onSubmit={handleSubmit} className="space-y-8">
+        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm space-y-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Special Status</p>
+              <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
+                Control whether this special appears on your public menu.
+              </p>
+            </div>
+            <StatusToggle
+              type="active"
+              value={formData.isActive}
+              onChange={(value) => setFormData({ ...formData, isActive: value })}
+              className="shrink-0"
+            />
+          </div>
 
-        <div>
-          <label htmlFor="title" className="block mb-1.5 text-sm font-medium text-gray-900 dark:text-white">
-            Title *
-          </label>
-          <input
-            id="title"
-            type="text"
-            value={formData.title}
-            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-            required
-            className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-white text-sm"
-          />
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="title" className="text-sm font-medium text-gray-900 dark:text-white">
+                Title *
+              </label>
+              <input
+                id="title"
+                type="text"
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                required
+                className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="description" className="text-sm font-medium text-gray-900 dark:text-white">
+                Description
+              </label>
+              <textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                rows={3}
+                className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="priceNotes" className="text-sm font-medium text-gray-900 dark:text-white">
+                Price Notes
+              </label>
+              <input
+                id="priceNotes"
+                type="text"
+                value={formData.priceNotes}
+                onChange={(e) => setFormData({ ...formData, priceNotes: e.target.value })}
+                placeholder="e.g., $3 drafts, Happy hour prices"
+                className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+              />
+            </div>
+          </div>
         </div>
 
-        <div>
-          <label htmlFor="description" className="block mb-1.5 text-sm font-medium text-gray-900 dark:text-white">
-            Description
-          </label>
-          <textarea
-            id="description"
-            value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            rows={2}
-            className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-white text-sm"
-          />
-        </div>
+        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm space-y-6">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Special Type</p>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
+              Select whether this is a food or drink special.
+            </p>
+          </div>
 
-        <div>
-          <label htmlFor="priceNotes" className="block mb-1.5 text-sm font-medium text-gray-900 dark:text-white">
-            Price Notes
-          </label>
-          <input
-            id="priceNotes"
-            type="text"
-            value={formData.priceNotes}
-            onChange={(e) => setFormData({ ...formData, priceNotes: e.target.value })}
-            placeholder="e.g., $3 drafts, Happy hour prices"
-            className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-white text-sm"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="type" className="block mb-1.5 text-sm font-medium text-gray-900 dark:text-white">
-            Type *
-          </label>
-          <select
-            id="type"
-            value={formData.type}
-            onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-            className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-white text-sm"
-            required
-          >
-            {SPECIAL_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {type.charAt(0).toUpperCase() + type.slice(1)}
-              </option>
-            ))}
-          </select>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Select whether this is a food or drink special</p>
+          <div className="space-y-2">
+            <label htmlFor="type" className="text-sm font-medium text-gray-900 dark:text-white">
+              Type *
+            </label>
+            <select
+              id="type"
+              value={formData.type}
+              onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+              className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+              required
+            >
+              {SPECIAL_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {type.charAt(0).toUpperCase() + type.slice(1)}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {formData.type === 'drink' && (
-          <div>
-            <label className="block mb-1.5 text-sm font-medium text-gray-900 dark:text-white">Applies On (optional for date-specific specials)</label>
-            <div className="grid grid-cols-2 gap-2">
-              {WEEKDAYS.map((day) => (
-                <label key={day} className="flex items-center gap-2 cursor-pointer text-sm text-gray-900 dark:text-white">
-                  <input
-                    type="checkbox"
-                    checked={formData.appliesOn.includes(day)}
-                    onChange={() => toggleDay(day)}
-                    className="w-4 h-4"
-                  />
-                  <span>{day}</span>
-                </label>
-              ))}
+          <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm space-y-6">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Weekly Schedule</p>
+              <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
+                Select which days this special applies each week. Leave empty if using start/end dates.
+              </p>
             </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Select which days this special applies. Leave empty if using start/end dates.
+
+            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/70 dark:bg-gray-900/40 p-4 shadow-inner space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Applies On</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {WEEKDAYS.map((day) => {
+                  const isSelected = formData.appliesOn.includes(day);
+                  return (
+                    <label
+                      key={day}
+                      className={`flex items-center justify-center rounded-xl border px-3 py-2 text-xs font-semibold transition-all cursor-pointer ${
+                        isSelected
+                          ? 'border-blue-500 bg-blue-600 text-white shadow-sm shadow-blue-500/30'
+                          : 'border-gray-200/70 dark:border-gray-700/60 text-gray-700 dark:text-gray-200 bg-white/80 dark:bg-gray-900/40 hover:border-blue-400/70'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleDay(day)}
+                        className="sr-only"
+                      />
+                      {day}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm space-y-6">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Timing</p>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
+              Set when this special is available.
             </p>
           </div>
-        )}
 
-        <div>
-          <label htmlFor="timeWindow" className="block mb-1.5 text-sm font-medium text-gray-900 dark:text-white">
-            Time Window
-          </label>
-          <input
-            id="timeWindow"
-            type="text"
-            value={formData.timeWindow}
-            onChange={(e) => setFormData({ ...formData, timeWindow: e.target.value })}
-            placeholder="e.g., 11am-3pm, Happy Hour"
-            className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-white text-sm"
-          />
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="timeWindow" className="text-sm font-medium text-gray-900 dark:text-white">
+                Time Window
+              </label>
+              <input
+                id="timeWindow"
+                type="text"
+                value={formData.timeWindow}
+                onChange={(e) => setFormData({ ...formData, timeWindow: e.target.value })}
+                placeholder="e.g., 11am-3pm, Happy Hour"
+                className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+              />
+            </div>
+
+            {formData.type === 'food' ? (
+              <div className="space-y-2">
+                <DatePicker
+                  label="Date"
+                  value={formData.date}
+                  onChange={(value) => setFormData({ ...formData, date: value, startDate: value, endDate: value })}
+                  required
+                  dateOnly={true}
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400">Select the date this daily special applies</p>
+              </div>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="relative isolate">
+                  <DatePicker
+                    label="Start Date (optional)"
+                    value={formData.startDate}
+                    onChange={(value) => setFormData({ ...formData, startDate: value })}
+                    dateOnly={true}
+                  />
+                </div>
+                <div className="relative isolate">
+                  <DatePicker
+                    label="End Date (optional)"
+                    value={formData.endDate}
+                    onChange={(value) => setFormData({ ...formData, endDate: value })}
+                    min={formData.startDate || undefined}
+                    dateOnly={true}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
-        {formData.type === 'food' ? (
-          <div>
-            <DatePicker
-              label="Date"
-              value={formData.date}
-              onChange={(value) => setFormData({ ...formData, date: value, startDate: value, endDate: value })}
-              required
-              dateOnly={true}
-            />
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Select the date this daily special applies</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <DatePicker
-                label="Start Date (optional)"
-                value={formData.startDate}
-                onChange={(value) => setFormData({ ...formData, startDate: value })}
-                dateOnly={true}
-              />
-            </div>
-            <div>
-              <DatePicker
-                label="End Date (optional)"
-                value={formData.endDate}
-                onChange={(value) => setFormData({ ...formData, endDate: value })}
-                min={formData.startDate || undefined}
-                dateOnly={true}
-              />
-            </div>
-          </div>
-        )}
-
-        <div className="flex gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm flex flex-wrap items-center justify-end gap-3">
           {special?.id && onDelete && (
             <button
               type="button"
               onClick={() => setShowDeleteConfirm(true)}
               disabled={loading}
-              className="px-3 py-1.5 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 mr-auto cursor-pointer"
+              className="px-4 py-2 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 cursor-pointer"
             >
               Delete
             </button>
@@ -429,7 +480,7 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
             type="button"
             onClick={handleCancel}
             disabled={loading}
-            className="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+            className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
           >
             Cancel
           </button>
@@ -441,7 +492,7 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
               (formData.type === 'food' && !formData.date) ||
               (formData.type === 'drink' && formData.appliesOn.length === 0 && !formData.startDate && !formData.endDate)
             }
-            className="px-3 py-1.5 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-blue-500/20 cursor-pointer"
+            className="px-4 py-2 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-blue-500/20 cursor-pointer"
           >
             {loading ? (special?.id ? 'Saving...' : 'Creating...') : (special?.id ? 'Save' : 'Create')}
           </button>
