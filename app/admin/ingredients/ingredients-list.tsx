@@ -227,12 +227,12 @@ export default function IngredientsList({ initialIngredients }: IngredientsListP
 
       {/* Search, Sort, Filter */}
       <SearchSortFilter
-        data={filteredIngredients}
-        onFilteredDataChange={setFilteredIngredients}
+        items={filteredIngredients}
+        onFilteredItemsChange={setFilteredIngredients}
         sortOptions={sortOptions}
         filterOptions={filterOptions}
         searchPlaceholder="Search ingredients..."
-        searchKeys={['name', 'category', 'supplier']}
+        searchFields={['name', 'category', 'supplier']}
       />
 
       {/* Ingredients List */}
