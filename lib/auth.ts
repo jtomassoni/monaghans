@@ -4,32 +4,126 @@ import GoogleProvider from 'next-auth/providers/google';
 import { prisma } from './prisma';
 import { logLoginActivity } from './api-helpers';
 
-// Validate admin credentials are set
-function getAdminCredentials() {
+interface UserCredential {
+  username: string;
+  password: string;
+}
+
+/**
+ * Parse user credentials from environment variable
+ * Format: "username1:password1,username2:password2"
+ * Returns array of {username, password} objects
+ */
+function parseUserCredentials(envVar: string | undefined): UserCredential[] {
+  if (!envVar) return [];
+  
+  return envVar
+    .split(',')
+    .map(pair => {
+      const [username, password] = pair.split(':').map(s => s.trim());
+      if (username && password) {
+        return { username, password };
+      }
+      return null;
+    })
+    .filter((cred): cred is UserCredential => cred !== null);
+}
+
+/**
+ * Get all user credentials for each role level from environment variables
+ * Supports both new format (arrays) and legacy format (single user)
+ */
+function getAllRoleCredentials(): {
+  superadmin: UserCredential[];
+  admin: UserCredential[];
+  owner: UserCredential[];
+  manager: UserCredential[];
+  cook: UserCredential[];
+  bartender: UserCredential[];
+  barback: UserCredential[];
+} {
+  // Parse arrays from env vars
+  const superadminUsers = parseUserCredentials(process.env.SUPERADMIN_USERS);
+  const adminUsers = parseUserCredentials(process.env.ADMIN_USERS);
+  const ownerUsers = parseUserCredentials(process.env.OWNER_USERS);
+  const managerUsers = parseUserCredentials(process.env.MANAGER_USERS);
+  const cookUsers = parseUserCredentials(process.env.COOK_USERS);
+  const bartenderUsers = parseUserCredentials(process.env.BARTENDER_USERS);
+  const barbackUsers = parseUserCredentials(process.env.BARBACK_USERS);
+
+  // Support legacy ADMIN_USERNAME/ADMIN_PASSWORD for backward compatibility
   const adminUsername = process.env.ADMIN_USERNAME || process.env.ADMIN_EMAIL;
   const adminPassword = process.env.ADMIN_PASSWORD;
+  
+  const result = {
+    superadmin: [...superadminUsers],
+    admin: [...adminUsers],
+    owner: [...ownerUsers],
+    manager: [...managerUsers],
+    cook: [...cookUsers],
+    bartender: [...bartenderUsers],
+    barback: [...barbackUsers],
+  };
 
-  // In production, require these to be set
+  // Add legacy admin credentials to superadmin if no new format is set
+  if (adminUsername && adminPassword && superadminUsers.length === 0 && adminUsers.length === 0) {
+    result.superadmin.push({ username: adminUsername, password: adminPassword });
+  }
+
+  // Validate in production
   if (process.env.NODE_ENV === 'production') {
-    if (!adminUsername || !adminPassword) {
+    const hasAnyCredentials = 
+      result.superadmin.length > 0 ||
+      result.admin.length > 0 ||
+      result.owner.length > 0 ||
+      result.manager.length > 0 ||
+      result.cook.length > 0 ||
+      result.bartender.length > 0 ||
+      result.barback.length > 0;
+
+    if (!hasAnyCredentials) {
       throw new Error(
-        'ADMIN_USERNAME (or ADMIN_EMAIL) and ADMIN_PASSWORD must be set in production. ' +
-        'Please configure these environment variables.'
-      );
-    }
-    if (adminPassword === 'changeme' || adminPassword.length < 8) {
-      console.warn(
-        '⚠️  WARNING: Admin password is weak or still using default. ' +
-        'Please set a strong ADMIN_PASSWORD in production.'
+        'At least one role-level user credential must be set in production. ' +
+        'Use format: ROLE_USERS="username1:password1,username2:password2" ' +
+        'or legacy ADMIN_USERNAME/ADMIN_PASSWORD for backward compatibility.'
       );
     }
   }
 
-  // Fallback for development only
-  return {
-    username: adminUsername || 'admin',
-    password: adminPassword || 'changeme',
-  };
+  return result;
+}
+
+/**
+ * Check credentials against a role's user list and return the matched role
+ * Returns the role name if credentials match, null otherwise
+ */
+function checkCredentialsAgainstRoles(
+  username: string,
+  password: string
+): { role: string; matchedUsername: string } | null {
+  const allCredentials = getAllRoleCredentials();
+
+  // Check in order of hierarchy (highest first)
+  const roleOrder: Array<keyof typeof allCredentials> = [
+    'superadmin',
+    'admin',
+    'owner',
+    'manager',
+    'cook',
+    'bartender',
+    'barback',
+  ];
+
+  for (const role of roleOrder) {
+    const users = allCredentials[role];
+    for (const cred of users) {
+      if (cred.username === username && cred.password === password) {
+        return { role, matchedUsername: cred.username };
+      }
+    }
+  }
+
+  return null;
 }
 
 // Simple credentials auth for superadmin
@@ -46,35 +140,54 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        const { username: adminUsername, password: adminPassword } = getAdminCredentials();
-
-        if (credentials.username === adminUsername && credentials.password === adminPassword) {
-          // Check if superadmin user exists, create if not
-          const superadminEmail = adminUsername.includes('@') ? adminUsername : `${adminUsername}@monaghans.local`;
-          let user = await prisma.user.findUnique({
-            where: { email: superadminEmail },
-          });
-
-          if (!user) {
-            user = await prisma.user.create({
-              data: {
-                email: superadminEmail,
-                name: 'Super Admin',
-                role: 'superadmin',
-                isActive: true,
-              },
-            });
-          }
-
-          return {
-            id: user.id,
-            email: user.email,
-            name: user.name || 'Admin',
-            role: user.role,
-          };
+        // Check credentials against all role levels
+        const match = checkCredentialsAgainstRoles(credentials.username, credentials.password);
+        
+        if (!match) {
+          return null;
         }
 
-        return null;
+        // Use username directly (no domain appended if it doesn't contain @)
+        const matchedUsername = match.matchedUsername;
+        const userIdentifier = matchedUsername; // Use as-is, whether it's an email or just a username
+
+        // Check if user exists, create if not
+        let user = await prisma.user.findUnique({
+          where: { email: userIdentifier },
+        });
+
+        if (!user) {
+          // Determine display name based on role
+          const displayName = match.role === 'superadmin' 
+            ? 'Super Admin'
+            : match.role === 'admin'
+            ? 'Admin'
+            : match.role.charAt(0).toUpperCase() + match.role.slice(1);
+
+          user = await prisma.user.create({
+            data: {
+              email: userIdentifier,
+              name: displayName,
+              role: match.role,
+              isActive: true,
+            },
+          });
+        } else {
+          // Update role if it changed (in case env vars were updated)
+          if (user.role !== match.role) {
+            user = await prisma.user.update({
+              where: { id: user.id },
+              data: { role: match.role },
+            });
+          }
+        }
+
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name || match.role.charAt(0).toUpperCase() + match.role.slice(1),
+          role: user.role,
+        };
       },
     }),
     GoogleProvider({
@@ -179,18 +292,47 @@ export const authOptions: NextAuthOptions = {
             const superadminEmail = process.env.SUPERADMIN_EMAIL?.toLowerCase().trim();
             const isSuperadmin = superadminEmail && token.email.toLowerCase() === superadminEmail;
             
-            // Check if email matches admin username pattern (credentials auth)
-            const adminUsername = process.env.ADMIN_USERNAME || process.env.ADMIN_EMAIL;
-            const isCredentialsAdmin = adminUsername && (
-              token.email.toLowerCase() === adminUsername.toLowerCase() ||
-              token.email.toLowerCase() === `${adminUsername.toLowerCase()}@monaghans.local`
-            );
+            // Check if email/username matches any role-level credentials
+            const allCredentials = getAllRoleCredentials();
+            let matchedRole: string | null = null;
+            
+            // Check all role levels to find a match
+            const roleOrder: Array<keyof typeof allCredentials> = [
+              'superadmin',
+              'admin',
+              'owner',
+              'manager',
+              'cook',
+              'bartender',
+              'barback',
+            ];
+            
+            for (const role of roleOrder) {
+              const users = allCredentials[role];
+              for (const cred of users) {
+                // Match username directly (no domain transformation)
+                if (token.email.toLowerCase() === cred.username.toLowerCase()) {
+                  matchedRole = role;
+                  break;
+                }
+              }
+              if (matchedRole) break;
+            }
             
             let role = token.role as string || 'admin';
             if (isSuperadmin) {
               role = 'superadmin';
-            } else if (isCredentialsAdmin) {
-              role = 'superadmin'; // Credentials auth users are superadmins
+            } else if (matchedRole) {
+              role = matchedRole;
+            } else {
+              // Legacy: Check if email matches admin username pattern
+              const adminUsername = process.env.ADMIN_USERNAME || process.env.ADMIN_EMAIL;
+              const isCredentialsAdmin = adminUsername && (
+                token.email.toLowerCase() === adminUsername.toLowerCase()
+              );
+              if (isCredentialsAdmin) {
+                role = 'superadmin'; // Legacy credentials auth users are superadmins
+              }
             }
 
             try {
