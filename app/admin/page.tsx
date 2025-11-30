@@ -10,11 +10,8 @@ export default async function AdminDashboard() {
     redirect('/admin/login');
   }
 
-  // Fetch all active events and specials for the calendar
+  // Fetch all events (including inactive) for both calendar and list views
   const events = await prisma.event.findMany({
-    where: {
-      isActive: true,
-    },
     orderBy: { startDateTime: 'asc' },
   });
 

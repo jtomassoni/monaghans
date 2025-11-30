@@ -26,8 +26,11 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
-  /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 1 : undefined,
+  /* Parallelize tests - use multiple workers in CI for faster execution */
+  /* Default to 4 workers in CI, or use PLAYWRIGHT_WORKERS env var if set */
+  workers: process.env.CI 
+    ? (process.env.PLAYWRIGHT_WORKERS ? parseInt(process.env.PLAYWRIGHT_WORKERS) : 4)
+    : undefined,
   /* Reporter configuration - multiple reporters for better visibility */
   reporter: process.env.CI
     ? [

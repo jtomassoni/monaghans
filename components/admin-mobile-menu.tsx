@@ -23,8 +23,6 @@ import {
   FaShareAlt,
   FaTimes,
   FaChartLine,
-  FaShoppingCart,
-  FaTv,
   FaClock,
   FaDrumstickBite,
   FaWineGlass,
@@ -114,8 +112,6 @@ export default function AdminMobileMenu({
       title: 'Operations',
       items: [
         ...(permissions.canManageMenu ? [{ href: '/admin/menu', label: 'Menu', icon: FaUtensils }] : []),
-        ...(permissions.canManageOrders ? [{ href: '/admin/orders', label: 'Orders', icon: FaShoppingCart }] : []),
-        ...(permissions.canAccessKDS ? [{ href: '/admin/kds', label: 'Kitchen Display', icon: FaTv }] : []),
         ...(permissions.canManageStaff ? [{ href: '/admin/staff', label: 'Scheduling', icon: FaClock }] : []),
       ],
     },

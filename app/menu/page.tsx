@@ -91,7 +91,7 @@ export default async function MenuPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl md:text-4xl font-bold mb-2 text-white">Our Menu</h1>
-          <p className="text-sm text-gray-400">*Prices subject to change • Select items to add to your cart</p>
+          <p className="text-sm text-gray-400">*Prices subject to change</p>
         </div>
 
         {/* Ordering Interface */}

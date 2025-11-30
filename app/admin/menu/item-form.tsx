@@ -389,19 +389,22 @@ export default function MenuItemForm({ item, sections, ingredients = [] }: { ite
   }
 
   return (
-    <div className="min-h-screen bg-[var(--background)] p-8">
-      <div className="max-w-2xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white">{item ? 'Edit Item' : 'New Item'}</h1>
+    <div className="h-screen flex flex-col bg-[var(--background)] overflow-hidden">
+      <div className="flex-shrink-0 px-8 pt-6 pb-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+        <div className="max-w-2xl mx-auto flex justify-between items-center">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{item ? 'Edit Item' : 'New Item'}</h1>
           <Link
             href="/admin/menu"
-            className="px-4 py-2 bg-gray-500 dark:bg-gray-700 hover:bg-gray-600 dark:hover:bg-gray-600 rounded text-white transition-colors"
+            className="px-4 py-2 bg-gray-500 dark:bg-gray-700 hover:bg-gray-600 dark:hover:bg-gray-600 rounded text-white transition-colors text-sm"
           >
             Cancel
           </Link>
         </div>
+      </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6 bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 shadow-md">
+      <div className="flex-1 overflow-y-auto min-h-0">
+        <div className="max-w-2xl mx-auto p-6">
+          <form onSubmit={handleSubmit} className="space-y-4 bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 shadow-md">
           <StatusToggle
             type="available"
             value={formData.isAvailable}
@@ -410,7 +413,7 @@ export default function MenuItemForm({ item, sections, ingredients = [] }: { ite
           />
 
           <div>
-            <label htmlFor="sectionId" className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+            <label htmlFor="sectionId" className="block mb-1.5 text-sm font-medium text-gray-900 dark:text-white">
               Section *
             </label>
             <select
@@ -430,7 +433,7 @@ export default function MenuItemForm({ item, sections, ingredients = [] }: { ite
           </div>
 
           <div>
-            <label htmlFor="name" className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+            <label htmlFor="name" className="block mb-1.5 text-sm font-medium text-gray-900 dark:text-white">
               Item Name *
             </label>
             <input
@@ -444,7 +447,7 @@ export default function MenuItemForm({ item, sections, ingredients = [] }: { ite
           </div>
 
           <div>
-            <label htmlFor="description" className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+            <label htmlFor="description" className="block mb-1.5 text-sm font-medium text-gray-900 dark:text-white">
               Description
             </label>
             <textarea
@@ -456,36 +459,22 @@ export default function MenuItemForm({ item, sections, ingredients = [] }: { ite
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="price" className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
-                Price
-              </label>
-              <input
-                id="price"
-                type="text"
-                value={formData.price}
-                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                placeholder="$14"
-                className="w-full px-4 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-              />
-            </div>
-            <div>
-              <label htmlFor="displayOrder" className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
-                Display Order
-              </label>
-              <input
-                id="displayOrder"
-                type="number"
-                value={formData.displayOrder}
-                onChange={(e) => setFormData({ ...formData, displayOrder: parseInt(e.target.value) || 0 })}
-                className="w-full px-4 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-              />
-            </div>
+          <div>
+            <label htmlFor="price" className="block mb-1.5 text-sm font-medium text-gray-900 dark:text-white">
+              Price
+            </label>
+            <input
+              id="price"
+              type="text"
+              value={formData.price}
+              onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+              placeholder="$14"
+              className="w-full px-4 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+            />
           </div>
 
           <div>
-            <label htmlFor="priceNotes" className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+            <label htmlFor="priceNotes" className="block mb-1.5 text-sm font-medium text-gray-900 dark:text-white">
               Price Notes
             </label>
             <input
@@ -499,7 +488,7 @@ export default function MenuItemForm({ item, sections, ingredients = [] }: { ite
           </div>
 
           <div>
-            <label htmlFor="modifiers" className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+            <label htmlFor="modifiers" className="block mb-1.5 text-sm font-medium text-gray-900 dark:text-white">
               Modifiers (comma-separated)
             </label>
             <input
@@ -514,7 +503,7 @@ export default function MenuItemForm({ item, sections, ingredients = [] }: { ite
           </div>
 
           <div>
-            <label htmlFor="prepTimeMin" className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+            <label htmlFor="prepTimeMin" className="block mb-1.5 text-sm font-medium text-gray-900 dark:text-white">
               Prep Time (minutes)
             </label>
             <input
@@ -530,10 +519,10 @@ export default function MenuItemForm({ item, sections, ingredients = [] }: { ite
           </div>
 
           {/* Ingredients Section */}
-          <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-            <div className="mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Ingredients</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
+          <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
+            <div className="mb-3">
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-1">Ingredients</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
                 Link ingredients to this menu item with quantities for cost tracking.
               </p>
             </div>
@@ -742,47 +731,47 @@ export default function MenuItemForm({ item, sections, ingredients = [] }: { ite
             )}
           </div>
 
-          <div className="flex gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-            {item?.id && (
-              <button
-                type="button"
-                onClick={() => setShowDeleteConfirm(true)}
-                disabled={loading}
-                className="px-4 py-2 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 mr-auto"
+            <div className="flex gap-3 pt-3 border-t border-gray-200 dark:border-gray-700 sticky bottom-0 bg-white dark:bg-gray-800 pb-2 -mb-6 -mx-6 px-6">
+              {item?.id && (
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  disabled={loading}
+                  className="px-4 py-2 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 mr-auto"
+                >
+                  Delete
+                </button>
+              )}
+              <Link
+                href="/admin/menu"
+                onClick={handleCancel}
+                className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
               >
-                Delete
+                Cancel
+              </Link>
+              <button
+                type="submit"
+                disabled={!!(loading || (item?.id && !isDirty))}
+                className="px-4 py-2 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-blue-500/20"
+              >
+                {loading ? (item?.id ? 'Saving...' : 'Creating...') : (item?.id ? 'Save' : 'Create')}
               </button>
-            )}
-            <Link
-              href="/admin/menu"
-              onClick={handleCancel}
-              className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
-            >
-              Cancel
-            </Link>
-            <button
-              type="submit"
-              disabled={!!(loading || (item?.id && !isDirty))}
-              className="px-4 py-2 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-blue-500/20"
-            >
-              {loading ? (item?.id ? 'Saving...' : 'Creating...') : (item?.id ? 'Save' : 'Create')}
-            </button>
-          </div>
-        </form>
-        {item?.id && (
-          <ConfirmationDialog
-            isOpen={showDeleteConfirm}
-            onClose={() => setShowDeleteConfirm(false)}
-            onConfirm={handleDelete}
-            title="Delete Menu Item"
-            message={`Are you sure you want to delete "${item?.name}"? This action cannot be undone.`}
-            confirmText="Delete"
-            cancelText="Cancel"
-            variant="danger"
-          />
-        )}
-        
+            </div>
+          </form>
+        </div>
       </div>
+      {item?.id && (
+        <ConfirmationDialog
+          isOpen={showDeleteConfirm}
+          onClose={() => setShowDeleteConfirm(false)}
+          onConfirm={handleDelete}
+          title="Delete Menu Item"
+          message={`Are you sure you want to delete "${item?.name}"? This action cannot be undone.`}
+          confirmText="Delete"
+          cancelText="Cancel"
+          variant="danger"
+        />
+      )}
     </div>
   );
 }

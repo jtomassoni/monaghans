@@ -1,5 +1,11 @@
 name: E2E Tests
 
+# Parallelization Strategy:
+# - Default: 4 workers running tests in parallel within a single job
+# - Configure via PLAYWRIGHT_WORKERS environment variable (default: 4)
+# - For even more speed, you can enable sharding by uncommenting the matrix strategy below
+#   and splitting tests across multiple CI jobs
+
 on:
   push:
     branches: [main, develop]
@@ -127,8 +133,11 @@ jobs:
           echo "  - Test directory: ./e2e"
           echo "  - Database: ${DATABASE_URL}"
           echo "  - CI Mode: ${CI}"
-          echo "  - Workers: 1 (sequential execution in CI)"
+          echo "  - Workers: ${PLAYWRIGHT_WORKERS:-4} (parallel execution)"
           echo "  - Retries: 2 (on failure)"
+          if [ -n "${SHARD}" ]; then
+            echo "  - Shard: ${SHARD} (shard ${SHARD_INDEX:-1} of ${SHARD_TOTAL:-1})"
+          fi
           echo ""
           echo "📊 Reporters:"
           echo "  - list (detailed console output)"
@@ -140,8 +149,14 @@ jobs:
           echo ""
           
           # Run tests with verbose output
+          # Support sharding if SHARD environment variable is set (format: "1/3" for shard 1 of 3)
           set +e  # Don't exit on error immediately
-          npm run test:e2e -- --reporter=list,html,github
+          if [ -n "${SHARD}" ]; then
+            echo "Running tests with sharding: ${SHARD}"
+            npm run test:e2e -- --reporter=list,html,github --shard=${SHARD}
+          else
+            npm run test:e2e -- --reporter=list,html,github
+          fi
           TEST_EXIT_CODE=$?
           set -e  # Re-enable exit on error
           
@@ -165,6 +180,8 @@ jobs:
           SUPERADMIN_USERS: ${{ secrets.SUPERADMIN_USERS || 'jt:test' }}
           OWNER_USERS: ${{ secrets.OWNER_USERS || 'owner:test' }}
           PLAYWRIGHT_TEST_BASE_URL: "http://localhost:3000"
+          # Parallelization: Use 4 workers by default (can be overridden)
+          PLAYWRIGHT_WORKERS: ${{ vars.PLAYWRIGHT_WORKERS || '4' }}
           # Disable features that might interfere with tests
           ENABLE_ONLINE_ORDERING: "false"
           ENABLE_SOCIAL_POSTING: "false"
@@ -269,4 +286,79 @@ jobs:
           echo "2. Open playwright-report/index.html in a browser"
           echo "3. Review test traces and screenshots"
           echo "::endgroup::"
+
+# ============================================================================
+# OPTIONAL: Advanced Sharding Configuration
+# ============================================================================
+# For even faster test execution, you can split tests across multiple CI jobs
+# using Playwright's built-in sharding. Uncomment the job below and comment
+# out the single e2e-tests job above to enable sharding.
+#
+# Example: With 3 shards, tests will be split across 3 parallel jobs,
+# potentially reducing test time by ~3x (depending on test distribution).
+#
+# Note: Each shard job needs its own database setup, so this uses more CI
+# resources but can significantly speed up test execution for large test suites.
+#
+#   e2e-tests-sharded:
+#     name: E2E Tests (Shard ${{ matrix.shard }})
+#     runs-on: ubuntu-latest
+#     timeout-minutes: 30
+#     strategy:
+#       fail-fast: false
+#       matrix:
+#         shard: [1/3, 2/3, 3/3]  # Adjust number of shards as needed
+#     services:
+#       postgres:
+#         image: postgres:15
+#         env:
+#           POSTGRES_USER: postgres
+#           POSTGRES_PASSWORD: postgres
+#           POSTGRES_DB: monaghans_test
+#         options: >-
+#           --health-cmd pg_isready
+#           --health-interval 10s
+#           --health-timeout 5s
+#           --health-retries 5
+#         ports:
+#           - 5432:5432
+#     steps:
+#       - name: 📥 Checkout code
+#         uses: actions/checkout@v4
+#       - name: 📦 Setup Node.js
+#         uses: actions/setup-node@v4
+#         with:
+#           node-version: '18'
+#           cache: 'npm'
+#       - name: 📥 Install dependencies
+#         run: npm ci
+#       - name: 🔧 Generate Prisma Client
+#         run: npm run db:generate
+#       - name: 🗄️ Setup test database
+#         run: npm run test:setup
+#         env:
+#           DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/monaghans_test?schema=public"
+#           SUPERADMIN_USERS: ${{ secrets.SUPERADMIN_USERS || 'jt:test' }}
+#           OWNER_USERS: ${{ secrets.OWNER_USERS || 'owner:test' }}
+#       - name: 🎭 Install Playwright browsers
+#         run: npx playwright install --with-deps chromium
+#       - name: 🧪 Run E2E tests (Shard ${{ matrix.shard }})
+#         run: npm run test:e2e -- --reporter=list,html,github --shard=${{ matrix.shard }}
+#         env:
+#           CI: true
+#           DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/monaghans_test?schema=public"
+#           NEXTAUTH_URL: "http://localhost:3000"
+#           NEXTAUTH_SECRET: "test-secret-for-ci-only-do-not-use-in-production"
+#           SUPERADMIN_USERS: ${{ secrets.SUPERADMIN_USERS || 'jt:test' }}
+#           OWNER_USERS: ${{ secrets.OWNER_USERS || 'owner:test' }}
+#           PLAYWRIGHT_TEST_BASE_URL: "http://localhost:3000"
+#           PLAYWRIGHT_WORKERS: 2  # Use fewer workers per shard
+#       - name: 📊 Upload test results
+#         if: always()
+#         uses: actions/upload-artifact@v4
+#         with:
+#           name: playwright-report-shard-${{ matrix.shard }}
+#           path: playwright-report/
+#           retention-days: 30
+# ============================================================================
 

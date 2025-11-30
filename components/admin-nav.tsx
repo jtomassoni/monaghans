@@ -25,12 +25,8 @@ import {
   FaBars,
   FaTimes,
   FaChartLine,
-  FaShoppingCart,
-  FaTv,
   FaClock,
   FaCashRegister,
-  FaTruck,
-  FaFileInvoiceDollar,
   FaDrumstickBite,
   FaWineGlass
 } from 'react-icons/fa';
@@ -105,8 +101,7 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
     {
       title: 'Content',
       items: [
-        ...(permissions.canAccessAdmin ? [{ href: '/admin', label: 'Calendar', icon: FaCalendarAlt }] : []),
-        ...(permissions.canManageEvents ? [{ href: '/admin/specials-events', label: 'Events', icon: FaStar }] : []),
+        ...(permissions.canAccessAdmin ? [{ href: '/admin', label: 'Calendar & Events', icon: FaCalendarAlt }] : []),
         ...(permissions.canManageAnnouncements ? [{ href: '/admin/announcements', label: 'Announcements', icon: FaBullhorn }] : []),
         ...(permissions.canAccessAdmin ? [{ href: '/admin/homepage', label: 'Homepage', icon: FaEdit }] : []),
       ],
@@ -122,11 +117,7 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
       title: 'Operations',
       items: [
         ...(permissions.canManageMenu ? [{ href: '/admin/menu', label: 'Menu', icon: FaUtensils }] : []),
-        ...(permissions.canManageOrders ? [{ href: '/admin/orders', label: 'Orders', icon: FaShoppingCart }] : []),
-        ...(permissions.canAccessKDS ? [{ href: '/admin/kds', label: 'Kitchen Display', icon: FaTv }] : []),
         ...(permissions.canManageStaff ? [{ href: '/admin/staff', label: 'Scheduling', icon: FaClock }] : []),
-        ...(permissions.canAccessAdmin ? [{ href: '/admin/suppliers', label: 'Suppliers', icon: FaTruck }] : []),
-        ...(permissions.canAccessAdmin ? [{ href: '/admin/purchase-orders', label: 'Purchase Orders', icon: FaFileInvoiceDollar }] : []),
       ],
     },
     {
@@ -149,9 +140,6 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
     }
     if (href === '/admin/overview') {
       return pathname === '/admin/overview';
-    }
-    if (href === '/admin/specials-events') {
-      return pathname?.startsWith('/admin/specials-events') || pathname?.startsWith('/admin/events');
     }
     if (href === '/admin/food-specials') {
       return pathname?.startsWith('/admin/food-specials');
@@ -182,12 +170,6 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
     }
     if (href === '/admin/pos-integrations') {
       return pathname?.startsWith('/admin/pos-integrations');
-    }
-    if (href === '/admin/suppliers') {
-      return pathname?.startsWith('/admin/suppliers');
-    }
-    if (href === '/admin/purchase-orders') {
-      return pathname?.startsWith('/admin/purchase-orders');
     }
     return pathname?.startsWith(href);
   };

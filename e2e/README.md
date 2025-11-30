@@ -84,3 +84,32 @@ Most tests use the superadmin auth state, while `owner-permissions.spec.ts` test
 
 Test configuration is in `playwright.config.ts` at the root of the project.
 
+## Parallelization
+
+The test suite is configured for parallel execution to speed up test runs:
+
+### Local Development
+- Tests run with full parallelization (all available CPU cores)
+- No worker limit by default
+
+### CI/CD
+- **Default**: 4 workers running tests in parallel within a single job
+- Configure via `PLAYWRIGHT_WORKERS` environment variable
+- Tests are automatically distributed across workers
+
+### Advanced: Sharding (Optional)
+For even faster CI execution, you can enable Playwright sharding to split tests across multiple CI jobs:
+
+1. **Manual sharding**: Use `--shard=1/3` flag when running tests
+   ```bash
+   npm run test:e2e -- --shard=1/3  # Run shard 1 of 3
+   ```
+
+2. **CI sharding**: See the commented example in `.github/workflows/e2e-tests.yml` for matrix-based sharding across multiple jobs
+
+**Performance Impact:**
+- 4 workers: ~4x faster than sequential (default)
+- 3 shards with 2 workers each: ~6x faster than sequential (requires more CI resources)
+
+**Note**: Each shard job needs its own database setup, so sharding uses more CI resources but can significantly reduce test time for large test suites.
+

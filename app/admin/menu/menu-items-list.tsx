@@ -104,8 +104,23 @@ export default function MenuItemsList({ initialItems, sections }: MenuItemsListP
     try {
       const res = await fetch(`/api/menu-items/${deleteConfirmation.id}`, { method: 'DELETE' });
       if (res.ok) {
-        const updatedItems = items.filter((i) => i.id !== deleteConfirmation.id);
-        setItems(updatedItems);
+        // Fetch updated items immediately
+        try {
+          const refreshRes = await fetch('/api/menu-items');
+          if (refreshRes.ok) {
+            const updatedItems = await refreshRes.json();
+            setItems(updatedItems);
+          } else {
+            // Fallback to local update
+            const updatedItems = items.filter((i) => i.id !== deleteConfirmation.id);
+            setItems(updatedItems);
+          }
+        } catch (error) {
+          // Fallback to local update
+          const updatedItems = items.filter((i) => i.id !== deleteConfirmation.id);
+          setItems(updatedItems);
+        }
+        router.refresh();
         showToast('Menu item deleted successfully', 'success');
       } else {
         showToast('Failed to delete menu item', 'error');
@@ -117,13 +132,35 @@ export default function MenuItemsList({ initialItems, sections }: MenuItemsListP
     }
   }
 
-  function handleModalSuccess() {
+  async function handleModalSuccess() {
+    // Fetch updated items immediately
+    try {
+      const res = await fetch('/api/menu-items');
+      if (res.ok) {
+        const updatedItems = await res.json();
+        setItems(updatedItems);
+      }
+    } catch (error) {
+      console.error('Failed to refresh items:', error);
+    }
     router.refresh();
   }
 
-  function handleItemDeleted(itemId: string) {
-    const updatedItems = items.filter((i) => i.id !== itemId);
-    setItems(updatedItems);
+  async function handleItemDeleted(itemId: string) {
+    // Fetch updated items immediately
+    try {
+      const res = await fetch('/api/menu-items');
+      if (res.ok) {
+        const updatedItems = await res.json();
+        setItems(updatedItems);
+      }
+    } catch (error) {
+      console.error('Failed to refresh items:', error);
+      // Fallback to local update
+      const updatedItems = items.filter((i) => i.id !== itemId);
+      setItems(updatedItems);
+    }
+    router.refresh();
     setItemModalOpen(false);
     setEditingItem(null);
   }

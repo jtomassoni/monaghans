@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { showToast } from '@/components/toast';
 import { useUnsavedChangesWarning } from '@/lib/use-unsaved-changes-warning';
+import TimePicker from '@/components/time-picker';
 
 interface HomepageFormProps {
   initialHero: any;
@@ -29,6 +30,7 @@ export default function HomepageForm({ initialHero, initialAbout, initialGallery
     title: initialHero?.title || "Monaghan's",
     tagline: initialHero?.tagline || "Bar & Grill",
     subtitle: initialHero?.subtitle || "Established 1892 • Denver's Second-Oldest Bar • Minority Woman Owned",
+    image: initialHero?.image || '/pics/hero.png',
   };
 
   const initialAboutData = {
@@ -90,7 +92,7 @@ export default function HomepageForm({ initialHero, initialAbout, initialGallery
   useEffect(() => {
     initialHeroRef.current = initialHeroData;
     setIsHeroDirty(false);
-  }, [initialHero?.title, initialHero?.tagline, initialHero?.subtitle]);
+  }, [initialHero?.title, initialHero?.tagline, initialHero?.subtitle, initialHero?.image]);
 
   useEffect(() => {
     initialAboutRef.current = initialAboutData;
@@ -486,6 +488,20 @@ export default function HomepageForm({ initialHero, initialAbout, initialGallery
                     placeholder="Established 1892 • Denver's Second-Oldest Bar • Minority Woman Owned"
                   />
                 </div>
+                <div>
+                  <label htmlFor="heroImage" className="block text-xs text-gray-700 dark:text-gray-300 mb-1 font-medium">Hero Image Path</label>
+                  <input
+                    id="heroImage"
+                    type="text"
+                    value={hero.image || '/pics/hero.png'}
+                    onChange={(e) => setHero({ ...hero, image: e.target.value })}
+                    className="w-full px-2 py-1.5 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white cursor-text focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
+                    placeholder="/pics/hero.png"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Default: /pics/hero.png (leave empty to use dynamic images based on events/specials)
+                  </p>
+                </div>
               </div>
             </div>
           )}
@@ -753,21 +769,17 @@ export default function HomepageForm({ initialHero, initialAbout, initialGallery
                   </button>
                 </div>
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-3">
                 {days.map((day) => (
-                  <div key={day.key} className="grid grid-cols-3 gap-2 items-center">
-                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">{day.label.slice(0, 3)}</label>
-                    <input
-                      type="time"
+                  <div key={day.key} className="grid grid-cols-3 gap-3 items-start">
+                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300 pt-2">{day.label.slice(0, 3)}</label>
+                    <TimePicker
                       value={hours[day.key as keyof typeof hours].open}
-                      onChange={(e) => updateHours(day.key, 'open', e.target.value)}
-                      className="px-2 py-1.5 text-xs bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white cursor-text focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
+                      onChange={(value) => updateHours(day.key, 'open', value)}
                     />
-                    <input
-                      type="time"
+                    <TimePicker
                       value={hours[day.key as keyof typeof hours].close}
-                      onChange={(e) => updateHours(day.key, 'close', e.target.value)}
-                      className="px-2 py-1.5 text-xs bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white cursor-text focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
+                      onChange={(value) => updateHours(day.key, 'close', value)}
                     />
                   </div>
                 ))}

@@ -543,327 +543,335 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
       onClose={onClose}
       title={event?.id ? 'Edit Event' : 'Create Event'}
     >
-      <form onSubmit={handleSubmit} className="space-y-8">
-        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm space-y-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Event Status</p>
-              <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
-                Control whether this event appears on your public calendar.
-              </p>
-            </div>
-            <StatusToggle
-              type="active"
-              value={formData.isActive}
-              onChange={(value) => setFormData({ ...formData, isActive: value })}
-              className="shrink-0"
-            />
-          </div>
-
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label htmlFor="title" className="text-sm font-medium text-gray-900 dark:text-white">
-                Title *
-              </label>
-              <input
-                id="title"
-                type="text"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                required
-                className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="description" className="text-sm font-medium text-gray-900 dark:text-white">
-                Description
-              </label>
-              <textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                rows={3}
-                className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm space-y-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Schedule</p>
-              <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
-                Choose the start and end for this event. All-day events automatically span midnight.
-              </p>
-            </div>
-            <label
-              htmlFor="isAllDay"
-              className="inline-flex items-center gap-3 rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-2.5 text-sm font-medium text-gray-900 dark:text-white shadow-inner cursor-pointer transition-colors hover:border-blue-400/70 focus-within:ring-2 focus-within:ring-blue-500/30"
-            >
-              <input
-                type="checkbox"
-                id="isAllDay"
-                checked={formData.isAllDay}
-                onChange={(e) => handleAllDayChange(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-              All Day Event
-            </label>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="relative isolate">
-              {formData.isAllDay ? (
-                <DatePicker
-                  label="Start Date"
-                  value={formData.startDateTime ? formData.startDateTime.split('T')[0] : ''}
-                  onChange={(value) => handleStartDateTimeChange(value ? `${value}T00:00` : '')}
-                  required
-                  dateOnly={true}
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          {/* Left Column */}
+          <div className="space-y-5">
+            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-5 backdrop-blur-sm space-y-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Event Status</p>
+                  <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                    Control whether this event appears on your public calendar.
+                  </p>
+                </div>
+                <StatusToggle
+                  type="active"
+                  value={formData.isActive}
+                  onChange={(value) => setFormData({ ...formData, isActive: value })}
+                  className="shrink-0"
                 />
-              ) : (
-                <DateTimePicker
-                  label="Start Date & Time"
-                  value={formData.startDateTime || ''}
-                  onChange={handleStartDateTimeChange}
-                  required
-                />
-              )}
-            </div>
-            <div className="relative isolate">
-              {formData.isAllDay ? (
-                <DatePicker
-                  label="End Date"
-                  value={formData.endDateTime ? formData.endDateTime.split('T')[0] : ''}
-                  onChange={(value) => handleEndDateTimeChange(value ? `${value}T23:59` : '')}
-                  min={formData.startDateTime ? formData.startDateTime.split('T')[0] : undefined}
-                  dateOnly={true}
-                />
-              ) : (
-                <DateTimePicker
-                  label="End Date & Time"
-                  value={formData.endDateTime || ''}
-                  onChange={handleEndDateTimeChange}
-                  min={formData.startDateTime || undefined}
-                />
-              )}
-            </div>
-          </div>
-          {dateError && (
-            <p className="text-xs text-red-500 dark:text-red-400 mt-1.5">
-              {dateError}
-            </p>
-          )}
-        </div>
-
-        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm space-y-6">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Repetition</p>
-            <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
-              Define how this event repeats across your calendar.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <label
-              className={`flex items-center gap-2 rounded-2xl border px-4 py-2 text-sm font-medium transition-all cursor-pointer ${
-                recurrenceType === 'none'
-                  ? 'border-blue-500 bg-blue-50 text-blue-600 dark:border-blue-500/80 dark:bg-blue-900/30 dark:text-blue-200 shadow-sm'
-                  : 'border-gray-200/70 dark:border-gray-700/60 text-gray-700 dark:text-gray-200 hover:border-blue-400/70'
-              }`}
-            >
-              <input
-                type="radio"
-                name="recurrence"
-                checked={recurrenceType === 'none'}
-                onChange={() => {
-                  setRecurrenceType('none');
-                  setRecurrenceDays([]);
-                }}
-                className="sr-only"
-              />
-              One-time event
-            </label>
-            <label
-              className={`flex items-center gap-2 rounded-2xl border px-4 py-2 text-sm font-medium transition-all cursor-pointer ${
-                recurrenceType === 'weekly'
-                  ? 'border-blue-500 bg-blue-50 text-blue-600 dark:border-blue-500/80 dark:bg-blue-900/30 dark:text-blue-200 shadow-sm'
-                  : 'border-gray-200/70 dark:border-gray-700/60 text-gray-700 dark:text-gray-200 hover:border-blue-400/70'
-              }`}
-            >
-              <input
-                type="radio"
-                name="recurrence"
-                checked={recurrenceType === 'weekly'}
-                onChange={() => {
-                  setRecurrenceType('weekly');
-                  if (!event?.id) {
-                    const oneYearLater = getOneYearFromNow();
-                    const newEndDateTime = !formData.isAllDay ? addThreeHours(oneYearLater) : formData.endDateTime;
-                    setFormData({ ...formData, startDateTime: oneYearLater, endDateTime: newEndDateTime });
-                  }
-                  if (recurrenceDays.length === 0 && formData.startDateTime) {
-                    const startDate = new Date(formData.startDateTime);
-                    const dayOfWeek = startDate.getDay();
-                    const dayMap: Record<number, string> = {
-                      0: 'Sunday',
-                      1: 'Monday',
-                      2: 'Tuesday',
-                      3: 'Wednesday',
-                      4: 'Thursday',
-                      5: 'Friday',
-                      6: 'Saturday'
-                    };
-                    const dayName = dayMap[dayOfWeek];
-                    if (dayName && WEEKDAYS.includes(dayName)) {
-                      setRecurrenceDays([dayName]);
-                    }
-                  }
-                }}
-                className="sr-only"
-              />
-              Weekly
-            </label>
-            <label
-              className={`flex items-center gap-2 rounded-2xl border px-4 py-2 text-sm font-medium transition-all cursor-pointer ${
-                recurrenceType === 'monthly'
-                  ? 'border-blue-500 bg-blue-50 text-blue-600 dark:border-blue-500/80 dark:bg-blue-900/30 dark:text-blue-200 shadow-sm'
-                  : 'border-gray-200/70 dark:border-gray-700/60 text-gray-700 dark:text-gray-200 hover:border-blue-400/70'
-              }`}
-            >
-              <input
-                type="radio"
-                name="recurrence"
-                checked={recurrenceType === 'monthly'}
-                onChange={() => {
-                  setRecurrenceType('monthly');
-                  if (!event?.id) {
-                    const oneYearLater = getOneYearFromNow();
-                    const newEndDateTime = !formData.isAllDay ? addThreeHours(oneYearLater) : formData.endDateTime;
-                    setFormData({ ...formData, startDateTime: oneYearLater, endDateTime: newEndDateTime });
-                  }
-                  if (formData.startDateTime) {
-                    const startDate = new Date(formData.startDateTime);
-                    const dayOfMonth = startDate.getDate();
-                    setMonthDay(dayOfMonth);
-                  }
-                }}
-                className="sr-only"
-              />
-              Monthly
-            </label>
-          </div>
-
-          {recurrenceType === 'weekly' && (
-            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/70 dark:bg-gray-900/40 p-4 shadow-inner space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Repeat on</p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {WEEKDAYS.map((day) => {
-                  const isSelected = recurrenceDays.includes(day);
-                  return (
-                    <label
-                      key={day}
-                      className={`flex items-center justify-center rounded-xl border px-3 py-2 text-xs font-semibold transition-all cursor-pointer ${
-                        isSelected
-                          ? 'border-blue-500 bg-blue-600 text-white shadow-sm shadow-blue-500/30'
-                          : 'border-gray-200/70 dark:border-gray-700/60 text-gray-700 dark:text-gray-200 bg-white/80 dark:bg-gray-900/40 hover:border-blue-400/70'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => toggleRecurrenceDay(day)}
-                        className="sr-only"
-                      />
-                      {day}
-                    </label>
-                  );
-                })}
               </div>
-              {recurrenceDays.length === 0 && (
-                <p className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
-                  Select at least one day for the recurrence.
+
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <label htmlFor="title" className="text-sm font-medium text-gray-900 dark:text-white">
+                    Title *
+                  </label>
+                  <input
+                    id="title"
+                    type="text"
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    required
+                    className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label htmlFor="description" className="text-sm font-medium text-gray-900 dark:text-white">
+                    Description
+                  </label>
+                  <textarea
+                    id="description"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    rows={2}
+                    className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all resize-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-5 backdrop-blur-sm space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Schedule</p>
+                  <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                    Choose the start and end for this event.
+                  </p>
+                </div>
+                <label
+                  htmlFor="isAllDay"
+                  className="inline-flex items-center gap-2 rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-1.5 text-xs font-medium text-gray-900 dark:text-white shadow-inner cursor-pointer transition-colors hover:border-blue-400/70 focus-within:ring-2 focus-within:ring-blue-500/30"
+                >
+                  <input
+                    type="checkbox"
+                    id="isAllDay"
+                    checked={formData.isAllDay}
+                    onChange={(e) => handleAllDayChange(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  All Day Event
+                </label>
+              </div>
+
+              <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
+                <div className="relative isolate">
+                  {formData.isAllDay ? (
+                    <DatePicker
+                      label="Start Date"
+                      value={formData.startDateTime ? formData.startDateTime.split('T')[0] : ''}
+                      onChange={(value) => handleStartDateTimeChange(value ? `${value}T00:00` : '')}
+                      required
+                      dateOnly={true}
+                    />
+                  ) : (
+                    <DateTimePicker
+                      label="Start Date & Time"
+                      value={formData.startDateTime || ''}
+                      onChange={handleStartDateTimeChange}
+                      required
+                    />
+                  )}
+                </div>
+                <div className="relative isolate">
+                  {formData.isAllDay ? (
+                    <DatePicker
+                      label="End Date"
+                      value={formData.endDateTime ? formData.endDateTime.split('T')[0] : ''}
+                      onChange={(value) => handleEndDateTimeChange(value ? `${value}T23:59` : '')}
+                      min={formData.startDateTime ? formData.startDateTime.split('T')[0] : undefined}
+                      dateOnly={true}
+                    />
+                  ) : (
+                    <DateTimePicker
+                      label="End Date & Time"
+                      value={formData.endDateTime || ''}
+                      onChange={handleEndDateTimeChange}
+                      min={formData.startDateTime || undefined}
+                    />
+                  )}
+                </div>
+              </div>
+              {dateError && (
+                <p className="text-xs text-red-500 dark:text-red-400 mt-1">
+                  {dateError}
                 </p>
               )}
             </div>
-          )}
+          </div>
 
-          {recurrenceType === 'monthly' && (
-            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/70 dark:bg-gray-900/40 p-4 shadow-inner space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Repeat on day</p>
-              <div className="flex flex-wrap items-center gap-3">
-                <select
-                  value={monthDay}
-                  onChange={(e) => setMonthDay(parseInt(e.target.value))}
-                  className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500"
-                >
-                  {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
-                    <option key={day} value={day}>
-                      {day}
-                      {day === 1 || day === 21 || day === 31 ? 'st' : day === 2 || day === 22 ? 'nd' : day === 3 || day === 23 ? 'rd' : 'th'}
-                    </option>
-                  ))}
-                </select>
-                <span className="text-sm text-gray-600 dark:text-gray-300">of each month</span>
+          {/* Right Column */}
+          <div className="space-y-5">
+            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-5 backdrop-blur-sm space-y-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Repetition</p>
+                <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                  Define how this event repeats across your calendar.
+                </p>
               </div>
-              <p className="text-xs text-gray-600 dark:text-gray-300">
-                Event repeats on the {monthDay}
-                {monthDay === 1 || monthDay === 21 || monthDay === 31 ? 'st' : monthDay === 2 || monthDay === 22 ? 'nd' : monthDay === 3 || monthDay === 23 ? 'rd' : 'th'} of every month.
-              </p>
+
+              <div className="flex flex-wrap gap-2">
+                <label
+                  className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-medium transition-all cursor-pointer ${
+                    recurrenceType === 'none'
+                      ? 'border-blue-500 bg-blue-50 text-blue-600 dark:border-blue-500/80 dark:bg-blue-900/30 dark:text-blue-200 shadow-sm'
+                      : 'border-gray-200/70 dark:border-gray-700/60 text-gray-700 dark:text-gray-200 hover:border-blue-400/70'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="recurrence"
+                    checked={recurrenceType === 'none'}
+                    onChange={() => {
+                      setRecurrenceType('none');
+                      setRecurrenceDays([]);
+                    }}
+                    className="sr-only"
+                  />
+                  One-time event
+                </label>
+                <label
+                  className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-medium transition-all cursor-pointer ${
+                    recurrenceType === 'weekly'
+                      ? 'border-blue-500 bg-blue-50 text-blue-600 dark:border-blue-500/80 dark:bg-blue-900/30 dark:text-blue-200 shadow-sm'
+                      : 'border-gray-200/70 dark:border-gray-700/60 text-gray-700 dark:text-gray-200 hover:border-blue-400/70'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="recurrence"
+                    checked={recurrenceType === 'weekly'}
+                    onChange={() => {
+                      setRecurrenceType('weekly');
+                      if (!event?.id) {
+                        const oneYearLater = getOneYearFromNow();
+                        const newEndDateTime = !formData.isAllDay ? addThreeHours(oneYearLater) : formData.endDateTime;
+                        setFormData({ ...formData, startDateTime: oneYearLater, endDateTime: newEndDateTime });
+                      }
+                      if (recurrenceDays.length === 0 && formData.startDateTime) {
+                        const startDate = new Date(formData.startDateTime);
+                        const dayOfWeek = startDate.getDay();
+                        const dayMap: Record<number, string> = {
+                          0: 'Sunday',
+                          1: 'Monday',
+                          2: 'Tuesday',
+                          3: 'Wednesday',
+                          4: 'Thursday',
+                          5: 'Friday',
+                          6: 'Saturday'
+                        };
+                        const dayName = dayMap[dayOfWeek];
+                        if (dayName && WEEKDAYS.includes(dayName)) {
+                          setRecurrenceDays([dayName]);
+                        }
+                      }
+                    }}
+                    className="sr-only"
+                  />
+                  Weekly
+                </label>
+                <label
+                  className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-medium transition-all cursor-pointer ${
+                    recurrenceType === 'monthly'
+                      ? 'border-blue-500 bg-blue-50 text-blue-600 dark:border-blue-500/80 dark:bg-blue-900/30 dark:text-blue-200 shadow-sm'
+                      : 'border-gray-200/70 dark:border-gray-700/60 text-gray-700 dark:text-gray-200 hover:border-blue-400/70'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="recurrence"
+                    checked={recurrenceType === 'monthly'}
+                    onChange={() => {
+                      setRecurrenceType('monthly');
+                      if (!event?.id) {
+                        const oneYearLater = getOneYearFromNow();
+                        const newEndDateTime = !formData.isAllDay ? addThreeHours(oneYearLater) : formData.endDateTime;
+                        setFormData({ ...formData, startDateTime: oneYearLater, endDateTime: newEndDateTime });
+                      }
+                      if (formData.startDateTime) {
+                        const startDate = new Date(formData.startDateTime);
+                        const dayOfMonth = startDate.getDate();
+                        setMonthDay(dayOfMonth);
+                      }
+                    }}
+                    className="sr-only"
+                  />
+                  Monthly
+                </label>
+              </div>
+
+              {recurrenceType === 'weekly' && (
+                <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/70 dark:bg-gray-900/40 p-3 shadow-inner space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Repeat on</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                    {WEEKDAYS.map((day) => {
+                      const isSelected = recurrenceDays.includes(day);
+                      return (
+                        <label
+                          key={day}
+                          className={`flex items-center justify-center rounded-lg border px-2 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+                            isSelected
+                              ? 'border-blue-500 bg-blue-600 text-white shadow-sm shadow-blue-500/30'
+                              : 'border-gray-200/70 dark:border-gray-700/60 text-gray-700 dark:text-gray-200 bg-white/80 dark:bg-gray-900/40 hover:border-blue-400/70'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleRecurrenceDay(day)}
+                            className="sr-only"
+                          />
+                          {day}
+                        </label>
+                      );
+                    })}
+                  </div>
+                  {recurrenceDays.length === 0 && (
+                    <p className="text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                      Select at least one day for the recurrence.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {recurrenceType === 'monthly' && (
+                <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/70 dark:bg-gray-900/40 p-3 shadow-inner space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Repeat on day</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <select
+                      value={monthDay}
+                      onChange={(e) => setMonthDay(parseInt(e.target.value))}
+                      className="rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-2.5 py-1.5 text-xs text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500"
+                    >
+                      {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                        <option key={day} value={day}>
+                          {day}
+                          {day === 1 || day === 21 || day === 31 ? 'st' : day === 2 || day === 22 ? 'nd' : day === 3 || day === 23 ? 'rd' : 'th'}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="text-xs text-gray-600 dark:text-gray-300">of each month</span>
+                  </div>
+                  <p className="text-xs text-gray-600 dark:text-gray-300">
+                    Event repeats on the {monthDay}
+                    {monthDay === 1 || monthDay === 21 || monthDay === 31 ? 'st' : monthDay === 2 || monthDay === 22 ? 'nd' : monthDay === 3 || monthDay === 23 ? 'rd' : 'th'} of every month.
+                  </p>
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
 
-        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm flex flex-wrap items-center justify-end gap-3">
-          {event?.id && (
-            <div className="flex flex-wrap gap-2 mr-auto">
-              {event?.recurrenceRule && occurrenceDate ? (
-                <>
+        <div className="flex flex-wrap items-center justify-end gap-2 shrink-0 pt-4">
+            {event?.id && (
+              <div className="flex flex-wrap gap-2 mr-auto">
+                {event?.recurrenceRule && occurrenceDate ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setShowDeleteConfirm(true)}
+                      disabled={loading}
+                      className="px-3 py-1.5 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 cursor-pointer"
+                    >
+                      Delete This Occurrence
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowDeleteRecurringConfirm(true)}
+                      disabled={loading}
+                      className="px-3 py-1.5 bg-red-700 dark:bg-red-700 hover:bg-red-800 dark:hover:bg-red-600 text-white rounded-lg text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 cursor-pointer"
+                    >
+                      Delete Recurring Event
+                    </button>
+                  </>
+                ) : (
                   <button
                     type="button"
                     onClick={() => setShowDeleteConfirm(true)}
                     disabled={loading}
-                    className="px-4 py-2 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 cursor-pointer"
+                    className="px-3 py-1.5 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 cursor-pointer"
                   >
-                    Delete This Occurrence
+                    Delete
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowDeleteRecurringConfirm(true)}
-                    disabled={loading}
-                    className="px-4 py-2 bg-red-700 dark:bg-red-700 hover:bg-red-800 dark:hover:bg-red-600 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 cursor-pointer"
-                  >
-                    Delete Recurring Event
-                  </button>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setShowDeleteConfirm(true)}
-                  disabled={loading}
-                  className="px-4 py-2 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 cursor-pointer"
-                >
-                  Delete
-                </button>
-              )}
-            </div>
-          )}
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={loading}
-            className="px-4 py-2 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-blue-500/20 cursor-pointer"
-          >
-            {loading ? (event?.id ? 'Saving...' : 'Creating...') : (event?.id ? 'Save' : 'Create')}
-          </button>
+                )}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-3 py-1.5 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-blue-500/20 cursor-pointer"
+            >
+              {loading ? (event?.id ? 'Saving...' : 'Creating...') : (event?.id ? 'Save' : 'Create')}
+            </button>
         </div>
       </form>
       <ConfirmationDialog

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, isToday, addDays } from 'date-fns';
 import { HiChevronLeft, HiChevronRight } from 'react-icons/hi';
 
@@ -33,13 +34,26 @@ export default function DatePicker({ value, onChange, min, max, label, required,
 
   const pickerRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [positionAbove, setPositionAbove] = useState(false);
-  const [horizontalOffset, setHorizontalOffset] = useState(0);
+  const [pickerPosition, setPickerPosition] = useState({ top: 0, left: 0 });
+  const [mounted, setMounted] = useState(false);
+
+  const PICKER_Z_INDEX = 10001;
+  const BACKDROP_Z_INDEX = 10000;
+
+  // Mount check for portal
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Close picker when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (pickerRef.current && !pickerRef.current.contains(event.target as Node)) {
+      if (
+        pickerRef.current && 
+        !pickerRef.current.contains(event.target as Node) &&
+        containerRef.current && 
+        !containerRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false);
       }
     }
@@ -52,47 +66,87 @@ export default function DatePicker({ value, onChange, min, max, label, required,
 
   // Position picker to stay within viewport
   useEffect(() => {
-    if (isOpen && containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      const pickerWidth = 320; // Approximate width of the picker
-      const pickerHeight = 320; // Approximate height of the picker
+    if (!isOpen || !containerRef.current) return;
+
+    const calculatePosition = () => {
+      if (!containerRef.current || !pickerRef.current) return;
       
-      // Check vertical positioning
+      const rect = containerRef.current.getBoundingClientRect();
+      const pickerRect = pickerRef.current.getBoundingClientRect();
+      const pickerWidth = pickerRect.width || 340;
+      const pickerHeight = pickerRect.height || 320;
+      const padding = 16;
+      
       const spaceBelow = window.innerHeight - rect.bottom;
       const spaceAbove = rect.top;
-      const viewportThreshold = window.innerHeight * 0.6; // 60% down the viewport
+      const viewportThreshold = window.innerHeight * 0.6;
       
-      // Position above if:
-      // 1. Not enough space below (less than picker height + buffer)
-      // 2. Input is past 60% down the viewport AND there's enough space above
-      // 3. There's significantly more space above than below
       const shouldPositionAbove = 
         (spaceBelow < pickerHeight + 20 && spaceAbove > pickerHeight) ||
         (rect.bottom > viewportThreshold && spaceAbove > pickerHeight) ||
         (spaceAbove > spaceBelow + 50 && spaceAbove > pickerHeight);
       
-      setPositionAbove(shouldPositionAbove);
-      
-      // Check horizontal positioning
-      let offset = 0;
-      // If picker would overflow on the right, shift it left
-      if (rect.left + pickerWidth > window.innerWidth - 16) {
-        offset = window.innerWidth - rect.left - pickerWidth - 16;
+      let left = rect.left;
+      if (left + pickerWidth > window.innerWidth - padding) {
+        left = window.innerWidth - padding - pickerWidth;
       }
-      // If picker would overflow on the left after offset, shift it right
-      if (rect.left + offset < 16) {
-        offset = 16 - rect.left;
-      }
-      // Ensure we don't go beyond the right edge
-      if (rect.left + offset + pickerWidth > window.innerWidth - 16) {
-        offset = window.innerWidth - 16 - pickerWidth - rect.left;
+      if (left < padding) {
+        left = padding;
       }
       
-      setHorizontalOffset(offset);
-    } else {
-      setPositionAbove(false);
-      setHorizontalOffset(0);
+      const top = shouldPositionAbove 
+        ? rect.top - pickerHeight - 8
+        : rect.bottom + 8;
+      
+      setPickerPosition({ top, left });
+    };
+
+    // Initial position calculation
+    const rect = containerRef.current.getBoundingClientRect();
+    const pickerWidth = 340;
+    const pickerHeight = 320;
+    const padding = 16;
+    
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const viewportThreshold = window.innerHeight * 0.6;
+    
+    const shouldPositionAbove = 
+      (spaceBelow < pickerHeight + 20 && spaceAbove > pickerHeight) ||
+      (rect.bottom > viewportThreshold && spaceAbove > pickerHeight) ||
+      (spaceAbove > spaceBelow + 50 && spaceAbove > pickerHeight);
+    
+    let left = rect.left;
+    if (left + pickerWidth > window.innerWidth - padding) {
+      left = window.innerWidth - padding - pickerWidth;
     }
+    if (left < padding) {
+      left = padding;
+    }
+    
+    const top = shouldPositionAbove 
+      ? rect.top - pickerHeight - 8
+      : rect.bottom + 8;
+    
+    setPickerPosition({ top, left });
+    
+    // Recalculate with actual dimensions after render
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        calculatePosition();
+      });
+    });
+    
+    // Recalculate on resize and scroll
+    const handleResize = () => requestAnimationFrame(calculatePosition);
+    const handleScroll = () => requestAnimationFrame(calculatePosition);
+    
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('scroll', handleScroll, true);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('scroll', handleScroll, true);
+    };
   }, [isOpen]);
 
   const selectedDate = value ? (() => {
@@ -176,12 +230,28 @@ export default function DatePicker({ value, onChange, min, max, label, required,
           </svg>
         </button>
 
-        {isOpen && (
-          <div
-            ref={pickerRef}
-            className={`absolute z-50 ${positionAbove ? 'bottom-full mb-2' : 'top-full mt-2'} bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl p-4 w-[340px] max-w-[calc(100vw-2rem)] backdrop-blur-sm transition-all duration-200 ease-out`}
-            style={{ left: `${horizontalOffset}px` }}
-          >
+        {isOpen && mounted && createPortal(
+          <>
+            {/* Backdrop overlay */}
+            <div 
+              className="fixed inset-0 bg-black/10 dark:bg-black/30"
+              style={{ 
+                zIndex: BACKDROP_Z_INDEX,
+                animation: 'fadeIn 200ms ease-in-out'
+              }}
+              onClick={() => setIsOpen(false)}
+            />
+            <div
+              ref={pickerRef}
+              className="fixed bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl p-4 w-[340px] max-w-[calc(100vw-2rem)] backdrop-blur-sm"
+              style={{ 
+                top: `${pickerPosition.top}px`,
+                left: `${pickerPosition.left}px`,
+                zIndex: PICKER_Z_INDEX,
+                animation: 'fadeIn 200ms ease-in-out'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
             {/* Header with close button */}
             <div className="flex items-center justify-between mb-3 relative">
               <button
@@ -271,6 +341,8 @@ export default function DatePicker({ value, onChange, min, max, label, required,
               </button>
             </div>
           </div>
+          </>,
+          document.body
         )}
       </div>
     </div>

@@ -6,6 +6,8 @@ import CalendarView from '@/components/admin-calendar';
 import EventModalForm from '@/components/event-modal-form';
 import SpecialModalForm from '@/components/special-modal-form';
 import DrinkSpecialModalForm from '@/components/drink-special-modal-form';
+import EventsList from '@/app/admin/specials-events-list';
+import { FaCalendarAlt, FaList } from 'react-icons/fa';
 
 interface CalendarEvent {
   id: string;
@@ -69,6 +71,8 @@ interface DashboardContentProps {
   isSuperadmin: boolean;
 }
 
+type ViewType = 'calendar' | 'list';
+
 export default function DashboardContent({ events: initialEvents, specials, announcements = [], isSuperadmin }: DashboardContentProps) {
   const router = useRouter();
   const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
@@ -78,6 +82,7 @@ export default function DashboardContent({ events: initialEvents, specials, anno
   const [eventOccurrenceDate, setEventOccurrenceDate] = useState<Date | undefined>(undefined);
   const [editingSpecial, setEditingSpecial] = useState<Special | null>(null);
   const [specialType, setSpecialType] = useState<'food' | 'drink'>('food');
+  const [viewType, setViewType] = useState<ViewType>('calendar');
   
   // Track the last initialEvents IDs to prevent unnecessary updates
   const lastInitialEventsIdsRef = useRef<string>(JSON.stringify(initialEvents.map(e => e.id).sort()));
@@ -285,34 +290,93 @@ export default function DashboardContent({ events: initialEvents, specials, anno
         </div>
         {/* Header */}
         <div className="flex-shrink-0 px-4 sm:px-6 py-3 border-b border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm relative z-10">
-          <div className="flex justify-between items-center">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 min-w-0">
+          <div className="flex justify-between items-center gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 min-w-0 flex-1">
               <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-                Calendar
+                Calendar & Events
               </h1>
               <p className="text-gray-500 dark:text-gray-400 text-xs hidden sm:block">
                 Manage events, specials, and scheduled content
               </p>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {/* New Event Button */}
+              <button
+                onClick={() => handleNewEvent()}
+                className="px-4 py-2.5 bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-medium text-sm transition-all duration-200 hover:scale-105 flex items-center justify-center gap-2 border border-blue-400 dark:border-blue-500 touch-manipulation"
+              >
+                <span>➕</span>
+                <span>New Event</span>
+              </button>
+              {/* View Type Toggle - Calendar/List */}
+              <div className="flex gap-0.5 bg-gray-100 dark:bg-gray-800 rounded-lg p-1 border border-gray-200 dark:border-gray-700 flex-shrink-0">
+                <button
+                  onClick={() => setViewType('calendar')}
+                  className={`px-4 py-2 rounded-md transition-all duration-200 flex items-center gap-1.5 text-xs font-medium cursor-pointer active:scale-95 ${
+                    viewType === 'calendar'
+                      ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-gray-700/50'
+                  }`}
+                >
+                  <FaCalendarAlt className="w-3.5 h-3.5 pointer-events-none" />
+                  <span className="pointer-events-none">Calendar</span>
+                </button>
+                <button
+                  onClick={() => setViewType('list')}
+                  className={`px-4 py-2 rounded-md transition-all duration-200 flex items-center gap-1.5 text-xs font-medium cursor-pointer active:scale-95 ${
+                    viewType === 'list'
+                      ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-gray-700/50'
+                  }`}
+                >
+                  <FaList className="w-3.5 h-3.5 pointer-events-none" />
+                  <span className="pointer-events-none">List</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Main Content */}
         <div className="flex-1 flex overflow-hidden min-h-0 relative z-10">
-          {/* Calendar */}
-          <div className="flex-1 overflow-hidden p-3 sm:p-6 pb-3 sm:pb-6 min-h-0 flex flex-col">
-            <CalendarView
-              events={events}
-              specials={specials}
-              announcements={announcements}
-              onEventClick={handleEventClick}
-              onSpecialClick={handleSpecialClick}
-              onNewEvent={handleNewEvent}
-              onEventUpdate={handleModalSuccess}
-              onEventAdded={handleEventAdded}
-              onEventDeleted={handleEventDeleted}
-            />
-          </div>
+          {viewType === 'calendar' ? (
+            /* Calendar View */
+            <div className="flex-1 overflow-hidden p-3 sm:p-6 pb-3 sm:pb-6 min-h-0 flex flex-col">
+              <CalendarView
+                events={events}
+                specials={specials}
+                announcements={announcements}
+                onEventClick={handleEventClick}
+                onSpecialClick={handleSpecialClick}
+                onNewEvent={handleNewEvent}
+                onEventUpdate={handleModalSuccess}
+                onEventAdded={handleEventAdded}
+                onEventDeleted={handleEventDeleted}
+              />
+            </div>
+          ) : (
+            /* List View */
+            <div className="flex-1 overflow-auto p-4 sm:p-6 min-h-0">
+              <div className="max-w-6xl mx-auto">
+                <EventsList 
+                  initialEvents={events.map(e => ({
+                    id: e.id,
+                    title: e.title,
+                    description: e.description,
+                    startDateTime: e.startDateTime,
+                    endDateTime: e.endDateTime,
+                    venueArea: e.venueArea,
+                    recurrenceRule: e.recurrenceRule,
+                    isAllDay: e.isAllDay,
+                    tags: e.tags,
+                    image: e.image,
+                    isActive: e.isActive,
+                  }))}
+                  showNewButtons={true}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

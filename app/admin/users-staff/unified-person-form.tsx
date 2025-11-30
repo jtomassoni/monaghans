@@ -111,7 +111,8 @@ export default function UnifiedPersonModalForm({
   // This allows displaying the current role, but users can only select roles they have permission to create
   const getRolesForSelect = () => {
     const roles = [...availableRoles];
-    if (person?.user?.role && !roles.find(r => r.value === person.user.role)) {
+    const currentRole = person?.user?.role;
+    if (currentRole && !roles.find(r => r.value === currentRole)) {
       // Add current role if it's not already in the list (for display purposes when editing)
       const roleLabels: Record<string, string> = {
         owner: 'Owner',
@@ -120,7 +121,7 @@ export default function UnifiedPersonModalForm({
         bartender: 'Bartender',
         barback: 'Barback',
       };
-      roles.unshift({ value: person.user.role, label: roleLabels[person.user.role] || person.user.role });
+      roles.unshift({ value: currentRole, label: roleLabels[currentRole] || currentRole });
     }
     return roles;
   };

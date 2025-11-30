@@ -177,12 +177,12 @@ export default function MenuSectionModalForm({ isOpen, onClose, section, onSucce
       onClose={onClose}
       title={section ? 'Edit Section' : 'New Section'}
     >
-      <form onSubmit={handleSubmit} className="space-y-8">
-        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-4 backdrop-blur-sm space-y-4">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Section Status</p>
-              <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
+              <p className="mt-1 text-xs text-gray-600 dark:text-gray-300 max-w-sm">
                 Control whether this section appears on your public menu.
               </p>
             </div>
@@ -194,7 +194,7 @@ export default function MenuSectionModalForm({ isOpen, onClose, section, onSucce
             />
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div className="space-y-2">
               <label htmlFor="name" className="text-sm font-medium text-gray-900 dark:text-white">
                 Section Name *
@@ -224,7 +224,7 @@ export default function MenuSectionModalForm({ isOpen, onClose, section, onSucce
           </div>
         </div>
 
-        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm flex flex-wrap items-center justify-end gap-3">
+        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-4 backdrop-blur-sm flex flex-wrap items-center justify-end gap-3 sticky bottom-0 -mx-6 px-6 bg-white dark:bg-gray-800">
           {section?.id && onDelete && (
             <button
               type="button"

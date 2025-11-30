@@ -189,9 +189,17 @@ export default function AdminMenuSections({ initialSections }: { initialSections
     window.dispatchEvent(event);
   }, [reorderMode]);
 
-  const handleModalSuccess = () => {
-    router.refresh();
-    // Refresh sections from server
+  const handleModalSuccess = async () => {
+    // Fetch updated sections immediately
+    try {
+      const res = await fetch('/api/menu-sections');
+      if (res.ok) {
+        const updatedSections = await res.json();
+        setSections(updatedSections);
+      }
+    } catch (error) {
+      console.error('Failed to refresh sections:', error);
+    }
     router.refresh();
   };
 
@@ -205,7 +213,17 @@ export default function AdminMenuSections({ initialSections }: { initialSections
     setEditingSection(null);
   };
 
-  const handleSectionModalSuccess = () => {
+  const handleSectionModalSuccess = async () => {
+    // Fetch updated sections immediately
+    try {
+      const res = await fetch('/api/menu-sections');
+      if (res.ok) {
+        const updatedSections = await res.json();
+        setSections(updatedSections);
+      }
+    } catch (error) {
+      console.error('Failed to refresh sections:', error);
+    }
     router.refresh();
     handleSectionModalClose();
   };
@@ -463,6 +481,16 @@ export default function AdminMenuSections({ initialSections }: { initialSections
                       
                       {/* Right side actions */}
                       <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                        {/* New Item Button - shown when section is expanded */}
+                        {isExpanded && !reorderMode && (
+                          <button
+                            onClick={() => handleAddItem(section.id)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-md text-white font-medium text-xs transition-all duration-200 border border-blue-400 dark:border-blue-500"
+                          >
+                            <FaPlus className="w-3 h-3" />
+                            <span>New Item</span>
+                          </button>
+                        )}
                         {/* Reorder Items Toggle - shown when section is expanded */}
                         {isExpanded && section.items.length > 0 && !reorderMode && (
                           <label className="flex items-center gap-1.5 cursor-pointer px-2 py-1 bg-white dark:bg-gray-800 rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
@@ -507,7 +535,14 @@ export default function AdminMenuSections({ initialSections }: { initialSections
                     <div className="p-3 bg-gray-100/50 dark:bg-gray-700/30">
                       {section.items.length === 0 ? (
                         <div className="text-center py-4">
-                          <p className="text-xs text-gray-600 dark:text-gray-400">No items in this section</p>
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">No items in this section</p>
+                          <button
+                            onClick={() => handleAddItem(section.id)}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-medium text-sm transition-all duration-200 border border-blue-400 dark:border-blue-500"
+                          >
+                            <FaPlus className="w-3 h-3" />
+                            <span>Add Item</span>
+                          </button>
                         </div>
                       ) : (
                         <div>
@@ -666,7 +701,17 @@ export default function AdminMenuSections({ initialSections }: { initialSections
         sections={sections.map(s => ({ id: s.id, name: s.name }))}
         defaultSectionId={defaultSectionId}
         onSuccess={handleModalSuccess}
-        onDelete={(itemId) => {
+        onDelete={async (itemId) => {
+          // Fetch updated sections immediately
+          try {
+            const res = await fetch('/api/menu-sections');
+            if (res.ok) {
+              const updatedSections = await res.json();
+              setSections(updatedSections);
+            }
+          } catch (error) {
+            console.error('Failed to refresh sections:', error);
+          }
           router.refresh();
           setItemModalOpen(false);
           setEditingItem(null);
@@ -686,7 +731,17 @@ export default function AdminMenuSections({ initialSections }: { initialSections
           isActive: editingSection.isActive,
         } : undefined}
         onSuccess={handleSectionModalSuccess}
-        onDelete={(sectionId) => {
+        onDelete={async (sectionId) => {
+          // Fetch updated sections immediately
+          try {
+            const res = await fetch('/api/menu-sections');
+            if (res.ok) {
+              const updatedSections = await res.json();
+              setSections(updatedSections);
+            }
+          } catch (error) {
+            console.error('Failed to refresh sections:', error);
+          }
           router.refresh();
           handleSectionModalClose();
         }}

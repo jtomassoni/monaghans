@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { Suspense } from 'react';
 import DailySpecialsList from '../menu/daily-specials-list';
+import NewFoodSpecialButton from './new-food-special-button';
 
 export default async function AdminFoodSpecials() {
   const session = await getServerSession(authOptions);
@@ -49,6 +50,7 @@ export default async function AdminFoodSpecials() {
               Manage daily food specials
             </p>
           </div>
+          <NewFoodSpecialButton />
         </div>
       </div>
 

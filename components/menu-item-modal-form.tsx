@@ -350,12 +350,12 @@ export default function MenuItemModalForm({
       onClose={handleCancel}
       title={item ? 'Edit Menu Item' : 'New Menu Item'}
     >
-      <form onSubmit={handleSubmit} className="space-y-8">
-        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-4 backdrop-blur-sm space-y-4">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Item Status</p>
-              <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
+              <p className="mt-1 text-xs text-gray-600 dark:text-gray-300 max-w-sm">
                 Control whether this menu item is available for ordering.
               </p>
             </div>
@@ -367,7 +367,7 @@ export default function MenuItemModalForm({
             />
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div className="space-y-2">
               <label htmlFor="sectionId" className="text-sm font-medium text-gray-900 dark:text-white">
                 Section *
@@ -417,40 +417,26 @@ export default function MenuItemModalForm({
           </div>
         </div>
 
-        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm space-y-6">
+        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-4 backdrop-blur-sm space-y-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Pricing</p>
-            <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
+            <p className="mt-1 text-xs text-gray-600 dark:text-gray-300 max-w-sm">
               Set the price and display order for this menu item.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label htmlFor="price" className="text-sm font-medium text-gray-900 dark:text-white">
-                Price
-              </label>
-              <input
-                id="price"
-                type="text"
-                value={formData.price}
-                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                placeholder="$14"
-                className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
-              />
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="displayOrder" className="text-sm font-medium text-gray-900 dark:text-white">
-                Display Order
-              </label>
-              <input
-                id="displayOrder"
-                type="number"
-                value={formData.displayOrder}
-                onChange={(e) => setFormData({ ...formData, displayOrder: parseInt(e.target.value) || 0 })}
-                className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
-              />
-            </div>
+          <div className="space-y-2">
+            <label htmlFor="price" className="text-sm font-medium text-gray-900 dark:text-white">
+              Price
+            </label>
+            <input
+              id="price"
+              type="text"
+              value={formData.price}
+              onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+              placeholder="$14"
+              className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+            />
           </div>
 
           <div className="space-y-2">
@@ -499,10 +485,10 @@ export default function MenuItemModalForm({
           </div>
         </div>
 
-        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm space-y-6">
+        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-4 backdrop-blur-sm space-y-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Ingredients</p>
-            <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
+            <p className="mt-1 text-xs text-gray-600 dark:text-gray-300 max-w-sm">
               Link ingredients to this menu item with quantities for cost tracking.
             </p>
           </div>
@@ -586,7 +572,7 @@ export default function MenuItemModalForm({
           )}
         </div>
 
-        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm flex flex-wrap items-center justify-end gap-3">
+        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-4 backdrop-blur-sm flex flex-wrap items-center justify-end gap-3 sticky bottom-0 -mx-6 px-6 bg-white dark:bg-gray-800">
           {item?.id && onDelete && (
             <button
               type="button"

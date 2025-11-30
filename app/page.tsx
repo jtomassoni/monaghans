@@ -1,8 +1,10 @@
 import Link from 'next/link';
 import Image from 'next/image';
+import React from 'react';
 import { prisma } from '@/lib/prisma';
 import ImageCarousel from '@/components/image-carousel';
 import Footer from '@/components/footer';
+import AnnouncementsHandler from '@/components/announcements-handler';
 import { marked } from 'marked';
 import { getMountainTimeToday, getMountainTimeTomorrow, getMountainTimeWeekday, getMountainTimeNow, getMountainTimeDateString, parseMountainTimeDate } from '@/lib/timezone';
 import { startOfDay, endOfDay, isWithinInterval, format } from 'date-fns';
@@ -634,8 +636,124 @@ export default async function HomePage() {
     return 'Open Daily';
   };
 
+  // Determine hero image based on available content
+  const getHeroImage = () => {
+    // First check if hero image is explicitly set in settings (not empty string)
+    if (hero?.image && hero.image.trim() !== '') {
+      return hero.image;
+    }
+    
+    // Priority: events > drink specials > food specials > default
+    if (todaysEvents.length > 0) {
+      // Check if any event mentions karaoke
+      const hasKaraoke = todaysEvents.some(e => 
+        e.title.toLowerCase().includes('karaoke') || 
+        e.title.toLowerCase().includes('kareoke') ||
+        e.description?.toLowerCase().includes('karaoke') ||
+        e.description?.toLowerCase().includes('kareoke')
+      );
+      if (hasKaraoke) return '/pics/monaghans-kareoke.jpg';
+      return '/pics/monaghans-beer-and-shot.jpg';
+    }
+    if (todaysDrinkSpecial) {
+      return '/pics/monaghans-beer-and-shot.jpg';
+    }
+    if (todaysFoodSpecials.length > 0) {
+      // Check food special type
+      const firstSpecial = todaysFoodSpecials[0];
+      if (firstSpecial.title.toLowerCase().includes('breakfast') || firstSpecial.title.toLowerCase().includes('biscuit')) {
+        return '/pics/monaghans-breakfast-biscut.jpg';
+      }
+      if (firstSpecial.title.toLowerCase().includes('fish') || firstSpecial.title.toLowerCase().includes('taco')) {
+        return '/pics/monaghans-taco-platter.jpg';
+      }
+      return '/pics/monaghans-quesadilla.jpg';
+    }
+    // Default hero image
+    return '/pics/hero.png';
+  };
+
+  // Collect all available content for dynamic display
+  // Note: Announcements are shown as modals, not in the grid
+  const allContent = [
+    ...todaysEvents,
+    ...todaysFoodSpecials,
+    ...(todaysDrinkSpecial ? [todaysDrinkSpecial] : []),
+    ...(hasHappyHour ? [{ type: 'happyHour', title: happyHour.title || 'Buy One Get One', description: happyHour.description }] : []),
+  ];
+
+  // Featured fallback content when there's no events/specials
+  const featuredContent = [
+    {
+      type: 'featured',
+      title: 'Historic Neighborhood Bar',
+      description: 'Denver\'s second-oldest bar since 1892',
+      icon: 'history',
+      color: 'amber',
+    },
+    {
+      type: 'featured',
+      title: 'Daily BOGO Happy Hour',
+      description: 'Buy one, get one on select drinks',
+      icon: 'drink',
+      color: 'green',
+    },
+    {
+      type: 'featured',
+      title: 'Famous Green Chili',
+      description: 'A local favorite you have to try',
+      icon: 'food',
+      color: 'orange',
+    },
+  ];
+
+  // Get hero image card for empty space
+  const getHeroImageCard = () => {
+    if (allContent.length >= 3) return null;
+    
+    // Select an image that's different from the background
+    const heroImage = getHeroImage();
+    const availableImages = [
+      '/pics/monaghans-billiard-room.jpg',
+      '/pics/monaghans-patio.jpg',
+      '/pics/monaghans-billiards.jpg',
+      '/pics/monaghans-breakfast-biscut.jpg',
+      '/pics/monaghans-fish-n-chips.jpg',
+      '/pics/monaghans-quesadilla.jpg',
+      '/pics/monaghans-taco-platter.jpg',
+    ];
+    // Use an image that's different from the background
+    const displayImage = availableImages.find(img => img !== heroImage) || availableImages[0];
+    
+    return (
+      <div className="group bg-white/10 backdrop-blur-md rounded-xl overflow-hidden border border-white/20 hover:bg-white/15 hover:border-white/30 transition-all duration-300 shadow-lg hover:shadow-xl">
+        <div className="relative h-full min-h-[200px] sm:min-h-[240px]">
+          <Image
+            src={displayImage}
+            alt="Monaghan's Bar and Grill"
+            fill
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
+            sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+          <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4">
+            <span className="text-white/90 text-[10px] sm:text-xs font-semibold uppercase tracking-wider block mb-1">
+              Visit Us
+            </span>
+            <h3 className="text-base sm:text-lg font-bold text-white line-clamp-2 leading-tight">
+              Experience Monaghan&apos;s
+            </h3>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <main id="main-content" className="min-h-screen bg-[var(--color-background)] text-[var(--color-foreground)] scroll-smooth" role="main" aria-label="Main content">
+      {/* Announcements Handler - Shows modals for unacknowledged announcements */}
+      <AnnouncementsHandler announcements={publishedAnnouncements} />
+      
       {/* Hero Section */}
       <section aria-label="Hero section" className="relative h-screen overflow-hidden">
         <div className="absolute inset-0 z-0">
@@ -643,14 +761,14 @@ export default async function HomePage() {
             src="/pics/hero.png"
             alt="Monaghan's Bar and Grill"
             fill
-            className="object-cover"
+            className="object-cover transition-opacity duration-500"
             priority
             unoptimized={true}
           />
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/80" />
         </div>
         <div className="relative z-10 container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 flex flex-col h-full justify-center">
-          {/* Compact Grid Layout for Specials, Events, and Announcements */}
+          {/* Compact Grid Layout for Specials and Events */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6 max-w-6xl mx-auto w-full">
             {/* Today's Events - Recurring and Ad Hoc */}
             {todaysEvents.map((event) => {
@@ -694,47 +812,52 @@ export default async function HomePage() {
               return (
                 <div 
                   key={`${event.id}-${event.startDateTime}`} 
-                  className="group bg-white/10 backdrop-blur-md rounded-xl p-3 sm:p-4 border border-white/20 hover:bg-white/15 hover:border-white/30 transition-all duration-300 shadow-lg hover:shadow-xl"
+                  className="group relative bg-gradient-to-br from-purple-900/60 via-purple-800/50 to-indigo-900/60 backdrop-blur-md rounded-2xl p-3 sm:p-4 border-2 border-purple-400/30 hover:border-purple-400/50 transition-all duration-300 shadow-xl hover:shadow-2xl hover:shadow-purple-500/20 overflow-hidden"
                 >
-                  <div className="flex items-start gap-2 sm:gap-3">
-                    <div className={`p-1.5 sm:p-2 ${isRecurring ? 'bg-purple-500/40' : 'bg-purple-500/30'} rounded-lg flex-shrink-0 group-hover:scale-110 transition-transform duration-300`}>
-                      <svg className="w-4 h-4 sm:w-5 sm:h-5 text-purple-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  {/* Decorative pattern overlay */}
+                  <div className="absolute inset-0 opacity-10">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-purple-400/20 rounded-full blur-3xl"></div>
+                    <div className="absolute bottom-0 left-0 w-24 h-24 bg-indigo-400/20 rounded-full blur-2xl"></div>
+                  </div>
+                  <div className="relative flex items-start gap-2 sm:gap-3">
+                    <div className={`p-2 sm:p-2.5 ${isRecurring ? 'bg-purple-500/60' : 'bg-purple-500/50'} rounded-xl flex-shrink-0 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 shadow-lg ring-2 ring-purple-300/30`}>
+                      <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <span className="text-purple-200 text-[10px] sm:text-xs font-semibold uppercase tracking-wider">
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <span className="text-purple-100 text-[10px] sm:text-xs font-bold uppercase tracking-wider">
                           {isRecurring ? 'Recurring Event' : 'Today\'s Event'}
                         </span>
                         {isRecurring && (
-                          <span className="px-1.5 py-0.5 bg-purple-500/30 border border-purple-400/30 rounded-full text-purple-200 text-[9px] font-medium">
+                          <span className="px-2 py-0.5 bg-purple-500/50 border border-purple-300/40 rounded-full text-purple-50 text-[9px] font-bold shadow-sm">
                             Recurring
                           </span>
                         )}
                       </div>
-                      <h3 className="text-base sm:text-lg font-bold text-white mb-1.5 line-clamp-2 leading-tight">
+                      <h3 className="text-base sm:text-lg font-bold text-white mb-1.5 line-clamp-2 leading-tight drop-shadow-sm">
                         {event.title}
                       </h3>
                       {event.description && (
-                        <p className="text-white/80 text-xs sm:text-sm mb-2 line-clamp-2 leading-relaxed">
+                        <p className="text-purple-50/90 text-xs sm:text-sm mb-2 line-clamp-2 leading-relaxed">
                           {event.description}
                         </p>
                       )}
                       <div className="space-y-1">
                         {recurrenceLabel && (
-                          <div className="flex items-center gap-1.5 text-purple-200/90 text-[10px] sm:text-xs font-medium">
+                          <div className="flex items-center gap-1.5 text-purple-100/90 text-[10px] sm:text-xs font-medium">
                             <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                             </svg>
                             <span>{recurrenceLabel}</span>
                           </div>
                         )}
-                        <div className="flex items-center gap-1.5 text-purple-200 text-[10px] sm:text-xs">
+                        <div className="flex items-center gap-1.5 text-purple-100 text-[10px] sm:text-xs font-semibold">
                           <svg className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
-                          <span className="font-medium">
+                          <span>
                             {new Date(event.startDateTime).toLocaleTimeString('en-US', {
                               hour: 'numeric',
                               minute: '2-digit',
@@ -757,36 +880,38 @@ export default async function HomePage() {
 
             {/* Food Specials */}
             {todaysFoodSpecials.map((special) => (
-              <div key={special.id} className="group bg-white/10 backdrop-blur-md rounded-xl p-3 sm:p-4 border border-white/20 hover:bg-white/15 hover:border-white/30 transition-all duration-300 shadow-lg hover:shadow-xl">
-                <div className="flex items-start gap-2 sm:gap-3">
-                  <div className="p-1.5 sm:p-2 bg-orange-500/30 rounded-lg flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
-                    <svg className="w-4 h-4 sm:w-5 sm:h-5 text-orange-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div key={special.id} className="group relative bg-orange-950/80 backdrop-blur-sm rounded-xl p-3 sm:p-4 border-l-4 border-orange-500 hover:border-orange-400 transition-all duration-300 shadow-lg hover:shadow-xl hover:shadow-orange-500/20 overflow-hidden">
+                {/* Diagonal accent stripe */}
+                <div className="absolute top-0 right-0 w-24 h-24 bg-orange-500/10 -rotate-45 translate-x-8 -translate-y-8 group-hover:bg-orange-500/20 transition-colors duration-300"></div>
+                <div className="relative flex items-start gap-2 sm:gap-3">
+                  <div className="p-2 sm:p-2.5 bg-orange-600/70 rounded-lg flex-shrink-0 group-hover:scale-110 group-hover:bg-orange-500/80 transition-all duration-300 shadow-md">
+                    <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                     </svg>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <span className="text-orange-200 text-[10px] sm:text-xs font-semibold uppercase tracking-wider block mb-1">
+                    <span className="text-orange-300 text-[10px] sm:text-xs font-bold uppercase tracking-wider block mb-1.5">
                       Food Special
                     </span>
-                    <h3 className="text-base sm:text-lg font-bold text-white mb-1.5 line-clamp-2 leading-tight">
+                    <h3 className="text-base sm:text-lg font-bold text-white mb-1.5 line-clamp-2 leading-tight drop-shadow-sm">
                       {special.title}
                     </h3>
                     {special.description && (
-                      <p className="text-white/80 text-xs sm:text-sm mb-2 line-clamp-2 leading-relaxed">
+                      <p className="text-orange-50/90 text-xs sm:text-sm mb-2 line-clamp-2 leading-relaxed">
                         {special.description}
                       </p>
                     )}
                     {special.priceNotes && (
-                      <p className="text-white/70 text-[10px] sm:text-xs mb-2 font-medium">
+                      <p className="text-orange-200/80 text-[10px] sm:text-xs mb-2 font-semibold">
                         {special.priceNotes}
                       </p>
                     )}
                     {special.timeWindow && (
-                      <div className="flex items-center gap-1.5 text-orange-200 text-[10px] sm:text-xs">
+                      <div className="flex items-center gap-1.5 text-orange-200 text-[10px] sm:text-xs font-semibold">
                         <svg className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        <span className="font-medium">{special.timeWindow}</span>
+                        <span>{special.timeWindow}</span>
                       </div>
                     )}
                   </div>
@@ -796,111 +921,159 @@ export default async function HomePage() {
 
             {/* Drink Special */}
             {todaysDrinkSpecial && (
-              <div className="group bg-white/10 backdrop-blur-md rounded-xl p-3 sm:p-4 border border-white/20 hover:bg-white/15 hover:border-white/30 transition-all duration-300 shadow-lg hover:shadow-xl">
-                <div className="flex items-start gap-2 sm:gap-3">
-                  <div className="p-1.5 sm:p-2 bg-blue-500/30 rounded-lg flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
-                    <svg className="w-4 h-4 sm:w-5 sm:h-5 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-                    </svg>
+              <div className="group relative bg-slate-900/70 backdrop-blur-md rounded-2xl p-3 sm:p-4 border-2 border-blue-400/40 hover:border-blue-300/60 transition-all duration-300 shadow-xl hover:shadow-2xl hover:shadow-blue-500/30 overflow-hidden">
+                {/* Animated background circles */}
+                <div className="absolute inset-0 opacity-20">
+                  <div className="absolute top-2 right-2 w-20 h-20 bg-blue-500 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500"></div>
+                  <div className="absolute bottom-2 left-2 w-16 h-16 bg-cyan-500 rounded-full blur-xl group-hover:scale-125 transition-transform duration-700"></div>
+                </div>
+                <div className="relative flex flex-col">
+                  <div className="flex items-start gap-2 sm:gap-3 mb-2">
+                    <div className="p-2 sm:p-2.5 bg-blue-500/60 rounded-xl flex-shrink-0 group-hover:scale-110 group-hover:rotate-6 transition-all duration-300 shadow-lg ring-2 ring-blue-400/30">
+                      <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-blue-300 text-[10px] sm:text-xs font-bold uppercase tracking-wider block mb-1.5">
+                        Drink Special
+                      </span>
+                      <h3 className="text-base sm:text-lg font-bold text-white mb-1.5 line-clamp-2 leading-tight drop-shadow-sm">
+                        {todaysDrinkSpecial.title}
+                      </h3>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <span className="text-blue-200 text-[10px] sm:text-xs font-semibold uppercase tracking-wider block mb-1">
-                      Drink Special
-                    </span>
-                    <h3 className="text-base sm:text-lg font-bold text-white mb-1.5 line-clamp-2 leading-tight">
-                      {todaysDrinkSpecial.title}
-                    </h3>
-                    {todaysDrinkSpecial.description && (
-                      <p className="text-white/80 text-xs sm:text-sm mb-2 line-clamp-2 leading-relaxed">
-                        {todaysDrinkSpecial.description}
-                      </p>
-                    )}
-                    {todaysDrinkSpecial.priceNotes && (
-                      <p className="text-white/70 text-[10px] sm:text-xs mb-2 font-medium">
-                        {todaysDrinkSpecial.priceNotes}
-                      </p>
-                    )}
-                    {todaysDrinkSpecial.timeWindow && (
-                      <div className="flex items-center gap-1.5 text-blue-200 text-[10px] sm:text-xs">
-                        <svg className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span className="font-medium">{todaysDrinkSpecial.timeWindow}</span>
-                      </div>
-                    )}
-                  </div>
+                  {todaysDrinkSpecial.description && (
+                    <p className="text-blue-50/90 text-xs sm:text-sm mb-2 line-clamp-2 leading-relaxed ml-0 sm:ml-[3.5rem]">
+                      {todaysDrinkSpecial.description}
+                    </p>
+                  )}
+                  {todaysDrinkSpecial.priceNotes && (
+                    <p className="text-blue-200/80 text-[10px] sm:text-xs mb-2 font-semibold ml-0 sm:ml-[3.5rem]">
+                      {todaysDrinkSpecial.priceNotes}
+                    </p>
+                  )}
+                  {todaysDrinkSpecial.timeWindow && (
+                    <div className="flex items-center gap-1.5 text-blue-200 text-[10px] sm:text-xs font-semibold ml-0 sm:ml-[3.5rem]">
+                      <svg className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span>{todaysDrinkSpecial.timeWindow}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
 
-            {/* Announcements */}
-            {publishedAnnouncements.map((announcement) => (
-              <div key={announcement.id} className="group bg-white/10 backdrop-blur-md rounded-xl p-3 sm:p-4 border border-white/20 hover:bg-white/15 hover:border-white/30 transition-all duration-300 shadow-lg hover:shadow-xl">
-                <div className="flex items-start gap-2 sm:gap-3">
-                  <div className="p-1.5 sm:p-2 bg-red-500/30 rounded-lg flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
-                    <svg className="w-4 h-4 sm:w-5 sm:h-5 text-red-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
-                    </svg>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <span className="text-red-200 text-[10px] sm:text-xs font-semibold uppercase tracking-wider block mb-1">
-                      Announcement
-                    </span>
-                    <h3 className="text-base sm:text-lg font-bold text-white mb-1.5 line-clamp-2 leading-tight">
-                      {announcement.title}
-                    </h3>
-                    {announcement.body && (
-                      <div className="text-white/80 text-xs sm:text-sm mb-2 line-clamp-2 leading-relaxed prose prose-invert max-w-none prose-sm" dangerouslySetInnerHTML={{ __html: marked.parse(announcement.body) }} />
-                    )}
-                    {announcement.ctaText && announcement.ctaUrl && (
-                      <Link href={announcement.ctaUrl} className="inline-block mt-1 px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 rounded-lg text-red-200 text-[10px] sm:text-xs font-semibold transition-all hover:scale-105">
-                        {announcement.ctaText}
-                      </Link>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
+            {/* Announcements are now shown as modals, not in the grid */}
 
-            {/* Happy Hour */}
+            {/* Happy Hour - Distinctive recurring display */}
             {hasHappyHour && (
-              <div className="group bg-white/10 backdrop-blur-md rounded-xl p-3 sm:p-4 border border-white/20 hover:bg-white/15 hover:border-white/30 transition-all duration-300 shadow-lg hover:shadow-xl">
-                <div className="flex items-start gap-2 sm:gap-3">
-                  <div className="p-1.5 sm:p-2 bg-green-500/30 rounded-lg flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
-                    <svg className="w-4 h-4 sm:w-5 sm:h-5 text-green-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <div className="group relative bg-gradient-to-br from-green-600/40 via-green-500/30 to-emerald-600/40 backdrop-blur-md rounded-xl p-3 sm:p-4 border-2 border-green-400/40 hover:border-green-400/60 hover:from-green-600/50 hover:via-green-500/40 hover:to-emerald-600/50 transition-all duration-300 shadow-lg hover:shadow-xl hover:shadow-green-500/20 overflow-hidden">
+                {/* Recurring pattern background decoration */}
+                <div className="absolute inset-0 opacity-5">
+                  <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                    <path d="M0,50 Q25,30 50,50 T100,50" stroke="currentColor" strokeWidth="0.5" fill="none" />
+                    <path d="M0,50 Q25,70 50,50 T100,50" stroke="currentColor" strokeWidth="0.5" fill="none" />
+                  </svg>
+                </div>
+                <div className="relative flex items-start gap-2 sm:gap-3">
+                  <div className="p-1.5 sm:p-2 bg-green-400/40 rounded-lg flex-shrink-0 group-hover:scale-110 transition-transform duration-300 ring-2 ring-green-300/30">
+                    <svg className="w-4 h-4 sm:w-5 sm:h-5 text-green-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <span className="text-green-200 text-[10px] sm:text-xs font-semibold uppercase tracking-wider block mb-1">
-                      Always Available
-                    </span>
-                    <h3 className="text-base sm:text-lg font-bold text-white mb-1.5 line-clamp-2 leading-tight">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-400/30 border border-green-300/40 rounded-full text-green-100 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider">
+                        <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+                        </svg>
+                        Most Days
+                      </span>
+                    </div>
+                    <h3 className="text-base sm:text-lg font-bold text-white mb-1.5 line-clamp-2 leading-tight drop-shadow-sm">
                       {happyHour.title || 'Buy One Get One'}
                     </h3>
                     {happyHour.description && (
-                      <p className="text-white/80 text-xs sm:text-sm mb-2 line-clamp-2 leading-relaxed">
+                      <p className="text-green-50/90 text-xs sm:text-sm mb-2 line-clamp-2 leading-relaxed">
                         {happyHour.description}
                       </p>
                     )}
                     {happyHour.details && (
-                      <p className="text-white/70 text-[10px] sm:text-xs mb-2 font-medium">
+                      <p className="text-green-100/80 text-[10px] sm:text-xs mb-2 font-medium">
                         {happyHour.details}
                       </p>
                     )}
                     {happyHour.times && (
-                      <div className="flex items-center gap-1.5 text-green-200 text-[10px] sm:text-xs">
+                      <div className="flex items-center gap-1.5 text-green-100 text-[10px] sm:text-xs font-medium">
                         <svg className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        <span className="font-medium">{happyHour.times}</span>
-                        <span className="text-green-200/70">• Every Day</span>
+                        <span>{happyHour.times}</span>
                       </div>
                     )}
                   </div>
                 </div>
               </div>
             )}
+
+            {/* Featured Fallback Content - Show when there's not enough content */}
+            {allContent.length < 3 && featuredContent.slice(0, Math.max(0, 3 - allContent.length - 1)).map((featured, idx) => {
+              const colorMap: Record<string, { bg: string; text: string; icon: React.ReactElement }> = {
+                amber: {
+                  bg: 'bg-amber-500/30',
+                  text: 'text-amber-200',
+                  icon: (
+                    <svg className="w-4 h-4 sm:w-5 sm:h-5 text-amber-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  ),
+                },
+                green: {
+                  bg: 'bg-green-500/30',
+                  text: 'text-green-200',
+                  icon: (
+                    <svg className="w-4 h-4 sm:w-5 sm:h-5 text-green-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                    </svg>
+                  ),
+                },
+                orange: {
+                  bg: 'bg-orange-500/30',
+                  text: 'text-orange-200',
+                  icon: (
+                    <svg className="w-4 h-4 sm:w-5 sm:h-5 text-orange-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                  ),
+                },
+              };
+              const colors = colorMap[featured.color] || colorMap.amber;
+              
+              return (
+                <div key={`featured-${idx}`} className="group bg-white/10 backdrop-blur-md rounded-xl p-3 sm:p-4 border border-white/20 hover:bg-white/15 hover:border-white/30 transition-all duration-300 shadow-lg hover:shadow-xl">
+                  <div className="flex items-start gap-2 sm:gap-3">
+                    <div className={`p-1.5 sm:p-2 ${colors.bg} rounded-lg flex-shrink-0 group-hover:scale-110 transition-transform duration-300`}>
+                      {colors.icon}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className={`${colors.text} text-[10px] sm:text-xs font-semibold uppercase tracking-wider block mb-1`}>
+                        Featured
+                      </span>
+                      <h3 className="text-base sm:text-lg font-bold text-white mb-1.5 line-clamp-2 leading-tight">
+                        {featured.title}
+                      </h3>
+                      {featured.description && (
+                        <p className="text-white/80 text-xs sm:text-sm mb-2 line-clamp-2 leading-relaxed">
+                          {featured.description}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
           
           {/* Call to Action Buttons */}

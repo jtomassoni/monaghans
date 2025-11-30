@@ -249,10 +249,9 @@ export default function OrderingInterface({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-w-3xl mx-auto">
                   {section.items.map((item) => (
-                    <button
+                    <div
                       key={item.id}
-                      onClick={() => openItemModal(item)}
-                      className="text-left bg-gray-900/50 backdrop-blur-sm border border-gray-800 p-3 rounded-lg hover:border-[var(--color-accent)] hover:bg-gray-900/70 transition-all cursor-pointer"
+                      className="text-left bg-gray-900/50 backdrop-blur-sm border border-gray-800 p-3 rounded-lg"
                     >
                       <div className="flex justify-between items-start mb-1 gap-2">
                         <h3 className="text-sm font-semibold flex-1 min-w-0 break-words">{item.name}</h3>
@@ -268,7 +267,7 @@ export default function OrderingInterface({
                       {item.priceNotes && (
                         <p className="text-gray-400 text-xs mb-1">{item.priceNotes}</p>
                       )}
-                    </button>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -277,8 +276,8 @@ export default function OrderingInterface({
         </div>
       </div>
 
-      {/* Floating Cart Button */}
-      {cartItemCount > 0 && (
+      {/* Floating Cart Button - Hidden until online ordering is enabled */}
+      {false && cartItemCount > 0 && (
         <button
           onClick={() => setShowCart(true)}
           className="fixed bottom-6 right-6 z-40 bg-[var(--color-accent)] hover:bg-[var(--color-accent-dark)] text-white font-semibold px-6 py-4 rounded-full shadow-lg shadow-[var(--color-accent)]/50 flex items-center gap-3 transition-all duration-200 hover:scale-105 cursor-pointer"
@@ -293,7 +292,8 @@ export default function OrderingInterface({
         </button>
       )}
 
-      {/* Cart Drawer */}
+      {/* Cart Drawer - Hidden until online ordering is enabled */}
+      {false && (
       <div
         className={`fixed inset-0 z-50 transition-opacity duration-300 ${
           showCart ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
@@ -418,8 +418,9 @@ export default function OrderingInterface({
           </div>
         </div>
       </div>
+      )}
 
-      {/* Item Modal */}
+      {/* Item Modal - Hidden until online ordering is enabled */}
       {showItemModal && selectedItem && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
           <div className="bg-gray-900 border border-gray-800 rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
