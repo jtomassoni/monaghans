@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { FaCalendar, FaClock, FaDollarSign, FaCheck, FaTimes, FaEdit } from 'react-icons/fa';
 import Modal from '@/components/modal';
+import { getMountainTimeDateString, compareMountainTimeDates, getMountainTimeToday } from '@/lib/timezone';
 
 interface Employee {
   id: string;
@@ -132,10 +133,13 @@ export default function PortalPage() {
   }, [currentMonth, employee]);
 
   const handleAvailabilityClick = (date: Date, shiftType: 'open' | 'close' | 'all' | null = null) => {
-    const dateStr = date.toISOString().split('T')[0];
+    const dateStr = getMountainTimeDateString(date);
     const existing = availability.find(
-      a => a.date.split('T')[0] === dateStr && 
-      (shiftType === 'all' || shiftType === null ? a.shiftType === null : a.shiftType === shiftType)
+      a => {
+        const availDate = new Date(a.date);
+        return compareMountainTimeDates(availDate, date) && 
+          (shiftType === 'all' || shiftType === null ? a.shiftType === null : a.shiftType === shiftType);
+      }
     );
 
     if (existing) {
@@ -200,12 +204,17 @@ export default function PortalPage() {
   };
 
   const getAvailabilityForDate = (date: Date, shiftType: 'open' | 'close' | null = null) => {
-    const dateStr = date.toISOString().split('T')[0];
     if (shiftType) {
-      return availability.find(a => a.date.split('T')[0] === dateStr && a.shiftType === shiftType);
+      return availability.find(a => {
+        const availDate = new Date(a.date);
+        return compareMountainTimeDates(availDate, date) && a.shiftType === shiftType;
+      });
     }
     // Check for all-day availability
-    return availability.find(a => a.date.split('T')[0] === dateStr && a.shiftType === null);
+    return availability.find(a => {
+      const availDate = new Date(a.date);
+      return compareMountainTimeDates(availDate, date) && a.shiftType === null;
+    });
   };
 
   const getDaysInMonth = () => {
@@ -352,7 +361,7 @@ export default function PortalPage() {
               const openAvail = getAvailabilityForDate(day, 'open');
               const closeAvail = getAvailabilityForDate(day, 'close');
               const allDayAvail = getAvailabilityForDate(day, null);
-              const isToday = day.toISOString().split('T')[0] === new Date().toISOString().split('T')[0];
+              const isToday = compareMountainTimeDates(day, getMountainTimeToday());
 
               return (
                 <div

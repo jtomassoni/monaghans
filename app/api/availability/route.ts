@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, handleError } from '@/lib/api-helpers';
+import { parseMountainTimeDate } from '@/lib/timezone';
 
 /**
  * Employee Availability API
@@ -27,11 +28,15 @@ export async function GET(req: NextRequest) {
     if (startDate || endDate) {
       where.date = {};
       if (startDate) {
-        where.date.gte = new Date(startDate);
+        // Parse as Mountain Time - handle both YYYY-MM-DD and ISO strings
+        const dateStr = startDate.includes('T') ? startDate.split('T')[0] : startDate;
+        where.date.gte = parseMountainTimeDate(dateStr);
       }
       if (endDate) {
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
+        // Parse as Mountain Time - handle both YYYY-MM-DD and ISO strings
+        const dateStr = endDate.includes('T') ? endDate.split('T')[0] : endDate;
+        const end = parseMountainTimeDate(dateStr);
+        end.setUTCHours(23, 59, 59, 999);
         where.date.lte = end;
       }
     }
@@ -106,8 +111,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const availabilityDate = new Date(date);
-    availabilityDate.setHours(0, 0, 0, 0);
+    // Parse date as Mountain Time (handle both YYYY-MM-DD and ISO strings)
+    const dateStr = date.includes('T') ? date.split('T')[0] : date;
+    const availabilityDate = parseMountainTimeDate(dateStr);
 
     // Check for existing availability entry
     const existing = await prisma.employeeAvailability.findUnique({

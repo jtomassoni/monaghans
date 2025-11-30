@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, handleError } from '@/lib/api-helpers';
+import { getMountainTimeDateString, getMountainTimeToday, parseMountainTimeDate } from '@/lib/timezone';
 
 /**
  * Sales Analytics API
@@ -17,11 +18,12 @@ export async function GET(req: NextRequest) {
     const includeOnline = searchParams.get('includeOnline') !== 'false'; // Default true
 
     const days = parseInt(period);
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
-    startDate.setHours(0, 0, 0, 0);
-    const endDate = new Date();
-    endDate.setHours(23, 59, 59, 999);
+    const today = getMountainTimeToday();
+    const startDateStr = getMountainTimeDateString(new Date(today.getTime() - days * 24 * 60 * 60 * 1000));
+    const startDate = parseMountainTimeDate(startDateStr);
+    const endDate = new Date(today);
+    // Set to end of day in Mountain Time (23:59:59.999)
+    endDate.setUTCHours(endDate.getUTCHours() + 23, 59, 59, 999);
 
     // Get online orders
     let onlineOrders: any[] = [];
@@ -196,13 +198,13 @@ export async function GET(req: NextRequest) {
     const dailyTrends: Array<{ date: string; revenue: number; count: number }> = [];
     const currentDate = new Date(startDate);
     while (currentDate <= endDate) {
-      const dateStr = currentDate.toISOString().split('T')[0];
+      const dateStr = getMountainTimeDateString(currentDate);
       let revenue = 0;
       let count = 0;
 
       // Online orders for this date
       const dayOrders = onlineOrders.filter(order => {
-        const orderDate = new Date(order.createdAt).toISOString().split('T')[0];
+        const orderDate = getMountainTimeDateString(order.createdAt);
         return orderDate === dateStr;
       });
       revenue += dayOrders.reduce((sum, o) => sum + o.total, 0);
@@ -210,7 +212,7 @@ export async function GET(req: NextRequest) {
 
       // POS sales for this date
       const daySales = posSales.filter(sale => {
-        const saleDate = new Date(sale.saleDate).toISOString().split('T')[0];
+        const saleDate = getMountainTimeDateString(sale.saleDate);
         return saleDate === dateStr;
       });
       revenue += daySales.reduce((sum, s) => sum + s.total, 0);

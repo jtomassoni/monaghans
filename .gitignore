@@ -40,6 +40,8 @@ next-env.d.ts
 /prisma/migrations/*.sql
 /prisma/dev.db
 /prisma/dev.db-journal
+/prisma/test.db
+/prisma/test.db-journal
 
 # IDE
 .vscode/
@@ -51,3 +53,9 @@ next-env.d.ts
 # uploads (will be in public)
 /public/uploads/*
 !/public/uploads/.gitkeep
+
+# playwright
+/.auth/
+/test-results/
+/playwright-report/
+/playwright/.cache/

@@ -6,6 +6,7 @@ import Modal from '@/components/modal';
 import ConfirmationDialog from '@/components/confirmation-dialog';
 import { formatShiftTime } from '@/lib/schedule-helpers';
 import { showToast } from '@/components/toast';
+import { getMountainTimeDateString, parseMountainTimeDate, compareMountainTimeDates, getMountainTimeToday } from '@/lib/timezone';
 
 interface Employee {
   id: string;
@@ -119,22 +120,41 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
 
   const [shiftConfigFormData, setShiftConfigFormData] = useState<ShiftTypeConfig[]>([]);
 
-  // Get start of week (Sunday)
+  // Get start of week (Sunday) in Mountain Time
   const getStartOfWeek = (date: Date) => {
-    const start = new Date(date);
-    start.setDate(date.getDate() - date.getDay());
-    start.setHours(0, 0, 0, 0);
+    // Get the date string in Mountain Time to normalize it
+    const dateStr = getMountainTimeDateString(date);
+    const parsedDate = parseMountainTimeDate(dateStr);
+    
+    // Get day of week in Mountain Time using Intl API
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Denver',
+      weekday: 'short'
+    });
+    const weekday = formatter.format(parsedDate);
+    const dayIndex = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(weekday);
+    
+    // Calculate days to subtract to get to Sunday (day 0)
+    const daysToSubtract = dayIndex;
+    const start = new Date(parsedDate);
+    start.setUTCDate(parsedDate.getUTCDate() - daysToSubtract);
+    start.setUTCHours(0, 0, 0, 0);
+    
     return start;
   };
 
-  // Get week days
+  // Get week days (all normalized to Mountain Time)
   const getWeekDays = () => {
     const start = getStartOfWeek(currentWeek);
     const days = [];
     for (let i = 0; i < 7; i++) {
+      // Add days using UTC to preserve Mountain Time normalization
       const day = new Date(start);
-      day.setDate(start.getDate() + i);
-      days.push(day);
+      day.setUTCDate(start.getUTCDate() + i);
+      day.setUTCHours(0, 0, 0, 0);
+      // Re-normalize to ensure it's Mountain Time midnight
+      const dateStr = getMountainTimeDateString(day);
+      days.push(parseMountainTimeDate(dateStr));
     }
     return days;
   };
@@ -358,10 +378,10 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
 
   // Get requirement for a specific date and shift type
   const getRequirementForDate = (date: Date, shiftType: string) => {
-    const dateStr = date.toISOString().split('T')[0];
+    const dateStr = getMountainTimeDateString(date);
     return requirements.find(req => {
       const reqDate = new Date(req.date);
-      return reqDate.toISOString().split('T')[0] === dateStr && req.shiftType === shiftType;
+      return compareMountainTimeDates(reqDate, date) && req.shiftType === shiftType;
     });
   };
 
@@ -372,10 +392,9 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
 
   // Get actual scheduled count by role for a date/shift
   const getScheduledCounts = (date: Date, shiftType: string) => {
-    const dateStr = date.toISOString().split('T')[0];
     const daySchedules = schedules.filter(s => {
       const scheduleDate = new Date(s.date);
-      return scheduleDate.toISOString().split('T')[0] === dateStr && s.shiftType === shiftType;
+      return compareMountainTimeDates(scheduleDate, date) && s.shiftType === shiftType;
     });
 
     return {
@@ -400,10 +419,9 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
 
   // Get schedules for a specific date
   const getSchedulesForDate = (date: Date) => {
-    const dateStr = date.toISOString().split('T')[0];
     return schedules.filter(schedule => {
       const scheduleDate = new Date(schedule.date);
-      return scheduleDate.toISOString().split('T')[0] === dateStr;
+      return compareMountainTimeDates(scheduleDate, date);
     });
   };
 
@@ -412,8 +430,7 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
     if (!date) return;
     
     try {
-      const dateObj = new Date(date);
-      dateObj.setHours(0, 0, 0, 0);
+      const dateObj = parseMountainTimeDate(date);
       const endDate = new Date(dateObj);
       endDate.setHours(23, 59, 59, 999);
       
@@ -431,15 +448,12 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
 
   // Check if employee is available for a date/shift
   const isEmployeeAvailable = (employeeId: string, date: string, shiftType: string): boolean => {
-    const dateObj = new Date(date);
-    dateObj.setHours(0, 0, 0, 0);
-    const dateStr = dateObj.toISOString().split('T')[0];
+    const dateObj = parseMountainTimeDate(date);
     
     // Get all availability entries for this employee and date
     const relevantAvailabilities = availabilityEntries.filter(avail => {
       const availDate = new Date(avail.date);
-      const availDateStr = availDate.toISOString().split('T')[0];
-      return avail.employeeId === employeeId && availDateStr === dateStr;
+      return avail.employeeId === employeeId && compareMountainTimeDates(availDate, dateObj);
     });
     
     if (relevantAvailabilities.length === 0) {
@@ -474,16 +488,13 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
 
   // Check if employee is already scheduled for a date/shift
   const isEmployeeScheduled = (employeeId: string, date: string, shiftType: string): boolean => {
-    const dateObj = new Date(date);
-    dateObj.setHours(0, 0, 0, 0);
-    const dateStr = dateObj.toISOString().split('T')[0];
+    const dateObj = parseMountainTimeDate(date);
     
     return schedules.some(schedule => {
       const scheduleDate = new Date(schedule.date);
-      const scheduleDateStr = scheduleDate.toISOString().split('T')[0];
       return (
         schedule.employeeId === employeeId &&
-        scheduleDateStr === dateStr &&
+        compareMountainTimeDates(scheduleDate, dateObj) &&
         schedule.shiftType === shiftType &&
         (!editingSchedule || schedule.id !== editingSchedule.id) // Allow if editing the same schedule
       );
@@ -516,13 +527,13 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
     setEditingSchedule(null);
     setFormData({
       employeeId: '',
-      date: targetDate.toISOString().split('T')[0],
+      date: getMountainTimeDateString(targetDate),
       shiftType: shiftType || shiftTypes[0]?.name || 'open',
       notes: '',
     });
     setIsModalOpen(true);
     // Load availability for the selected date
-    loadAvailability(targetDate.toISOString().split('T')[0]);
+    loadAvailability(getMountainTimeDateString(targetDate));
   };
 
   const handleEdit = (schedule: Schedule) => {
@@ -530,13 +541,13 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
     const scheduleDate = new Date(schedule.date);
     setFormData({
       employeeId: schedule.employeeId,
-      date: scheduleDate.toISOString().split('T')[0],
+      date: getMountainTimeDateString(scheduleDate),
       shiftType: schedule.shiftType as 'open' | 'close',
       notes: schedule.notes || '',
     });
     setIsModalOpen(true);
     // Load availability for the selected date
-    loadAvailability(scheduleDate.toISOString().split('T')[0]);
+    loadAvailability(getMountainTimeDateString(scheduleDate));
   };
 
   const handleSave = async () => {
@@ -637,7 +648,7 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
     const template = getTemplateForDay(dayOfWeek, shiftType);
     
     setRequirementFormData({
-      date: date.toISOString().split('T')[0],
+      date: getMountainTimeDateString(date),
       shiftType,
       cooks: template ? template.cooks.toString() : '',
       bartenders: template ? template.bartenders.toString() : '',
@@ -652,7 +663,7 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
     setEditingRequirement(requirement);
     const reqDate = new Date(requirement.date);
     setRequirementFormData({
-      date: reqDate.toISOString().split('T')[0],
+      date: getMountainTimeDateString(reqDate),
       shiftType: requirement.shiftType as 'open' | 'close',
       cooks: requirement.cooks.toString(),
       bartenders: requirement.bartenders.toString(),
@@ -740,8 +751,7 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
   };
 
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = getMountainTimeToday();
 
   return (
     <>
@@ -794,7 +804,7 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
         <div className="grid grid-cols-7 gap-1.5">
           {weekDays.map((day, dayIndex) => {
             const daySchedules = getSchedulesForDate(day);
-            const isToday = day.toISOString().split('T')[0] === today.toISOString().split('T')[0];
+            const isToday = compareMountainTimeDates(day, today);
             
             // Render function for a shift tile
             const renderShiftTile = (shiftType: string, shiftLabel: string) => {

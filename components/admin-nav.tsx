@@ -139,7 +139,6 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
       title: 'Analytics',
       items: [
         ...(permissions.canAccessReporting ? [{ href: '/admin/reporting', label: 'Reporting', icon: FaChartLine }] : []),
-        ...(permissions.canAccessAdmin ? [{ href: '/admin/pos-integrations', label: 'POS Integrations', icon: FaCashRegister }] : []),
       ],
     },
   ].filter(group => group.items.length > 0); // Remove empty groups

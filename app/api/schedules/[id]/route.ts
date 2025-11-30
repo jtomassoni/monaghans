@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, handleError } from '@/lib/api-helpers';
 import { calculateShiftTimes, type ShiftType, type EmployeeRole } from '@/lib/schedule-helpers';
+import { parseMountainTimeDate } from '@/lib/timezone';
 
 /**
  * Schedule API (single)
@@ -91,7 +92,10 @@ export async function PATCH(
     }
 
     // Determine shift type and date
-    const scheduleDate = date ? new Date(date) : currentSchedule.date;
+    // Parse date as Mountain Time if provided, otherwise use current date
+    const scheduleDate = date 
+      ? parseMountainTimeDate(date.includes('T') ? date.split('T')[0] : date)
+      : currentSchedule.date;
     const shiftTypeToUse = shiftType || currentSchedule.shiftType;
 
     // Validate shift type if provided

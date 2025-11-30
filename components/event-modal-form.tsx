@@ -145,8 +145,20 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
       }
     }
     
-    // Fallback: use UTC-7 (MST) - most common case
-    return new Date(Date.UTC(year, month - 1, day, hours + 7, minutes, 0));
+    // Fallback: detect DST and use appropriate offset
+    // Check if DST is active for this date by creating a test date
+    const testDate = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+    const mtTest = testDate.toLocaleString('en-US', {
+      timeZone: 'America/Denver',
+      timeZoneName: 'short'
+    });
+    
+    // If timezone name contains 'MDT' or 'MST', use appropriate offset
+    // MDT is UTC-6, MST is UTC-7
+    const isDST = mtTest.includes('MDT') || (!mtTest.includes('MST') && month >= 3 && month <= 10);
+    const fallbackOffset = isDST ? 6 : 7;
+    
+    return new Date(Date.UTC(year, month - 1, day, hours + fallbackOffset, minutes, 0));
   };
 
   // Helper function to format date for datetime-local input (Mountain Time displayed as local)

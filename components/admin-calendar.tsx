@@ -26,48 +26,7 @@ import {
 import { FaMicrophone, FaBrain, FaCalendarAlt, FaUtensils, FaBeer, FaTable, FaCalendarWeek, FaDice, FaBullhorn } from 'react-icons/fa';
 import { FaFootball } from 'react-icons/fa6';
 import { HiChevronLeft, HiChevronRight } from 'react-icons/hi';
-
-// Helper function to parse YYYY-MM-DD date strings as Mountain Time (not UTC)
-// This prevents dates from shifting by a day due to timezone conversion
-function parseMountainTimeDate(dateStr: string): Date {
-  const [year, month, day] = dateStr.split('-').map(Number);
-  // Create date as if it's Mountain Time midnight
-  // We'll use Intl to find what UTC time corresponds to MT midnight
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/Denver',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  });
-  
-  // Try different UTC hours to find which one gives us MT midnight
-  for (let offsetHours = 6; offsetHours <= 7; offsetHours++) {
-    const candidate = new Date(Date.UTC(year, month - 1, day, offsetHours, 0, 0));
-    const mtCandidate = candidate.toLocaleString('en-US', { 
-      timeZone: 'America/Denver',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    });
-    
-    const candidateParts = mtCandidate.split(', ');
-    const candidateDate = candidateParts[0];
-    const candidateTime = candidateParts[1];
-    
-    const targetDate = `${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}/${year}`;
-    
-    if (candidateDate === targetDate && candidateTime === '00:00:00') {
-      return candidate;
-    }
-  }
-  
-  // Fallback: use UTC-7 (MST)
-  return new Date(Date.UTC(year, month - 1, day, 7, 0, 0));
-}
+import { parseMountainTimeDate } from '@/lib/timezone';
 
 interface CalendarEvent {
   id: string;
@@ -232,14 +191,16 @@ export default function CalendarView({ events, specials, announcements = [], onE
       const endDate = event.endDateTime ? new Date(event.endDateTime) : null;
 
       if (event.recurrenceRule) {
-        // Debug: Log recurring event processing
-        console.log('Processing recurring event:', {
-          title: event.title,
-          recurrenceRule: event.recurrenceRule,
-          startDate: startDate.toISOString(),
-          rangeStart: rangeStart.toISOString(),
-          rangeEnd: rangeEnd.toISOString(),
-        });
+        // Debug: Log recurring event processing (development only)
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Processing recurring event:', {
+            title: event.title,
+            recurrenceRule: event.recurrenceRule,
+            startDate: startDate.toISOString(),
+            rangeStart: rangeStart.toISOString(),
+            rangeEnd: rangeEnd.toISOString(),
+          });
+        }
         
         try {
           // Parse exceptions if they exist
@@ -426,18 +387,20 @@ export default function CalendarView({ events, specials, announcements = [], onE
           const searchStart = startDate > rangeStart ? (startDate > rangeEnd ? rangeStart : startDate) : rangeStart;
           const occurrences = ruleWithDtstart.between(searchStart, rangeEnd, true).filter(occ => occ >= startDate);
           
-          // Debug logging for recurring events
-          console.log('Recurring event occurrences:', {
-            title: event.title,
-            recurrenceRule: ruleToUse,
-            searchStart: searchStart.toISOString(),
-            rangeEnd: rangeEnd.toISOString(),
-            dtstart: dtstartDate.toISOString(),
-            occurrencesCount: occurrences.length,
-            occurrences: occurrences.map(o => o.toISOString()).slice(0, 5), // First 5 for debugging
-          });
+          // Debug logging for recurring events (development only)
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Recurring event occurrences:', {
+              title: event.title,
+              recurrenceRule: ruleToUse,
+              searchStart: searchStart.toISOString(),
+              rangeEnd: rangeEnd.toISOString(),
+              dtstart: dtstartDate.toISOString(),
+              occurrencesCount: occurrences.length,
+              occurrences: occurrences.map(o => o.toISOString()).slice(0, 5), // First 5 for debugging
+            });
+          }
           
-          if (occurrences.length === 0) {
+          if (occurrences.length === 0 && process.env.NODE_ENV === 'development') {
             console.warn('Recurring event has no occurrences in range:', {
               title: event.title,
               recurrenceRule: ruleToUse,

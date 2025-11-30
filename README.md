@@ -1,6 +1,6 @@
-# Monaghan's Dive Bar Website
+# Monaghan's Restaurant Management System
 
-A simple, fast website for a neighborhood dive bar with an owner-friendly CMS.
+A comprehensive restaurant and bar management platform with scheduling, menu management, ordering, events, specials, and analytics.
 
 ## Quick Start
 
@@ -67,31 +67,33 @@ See `.env.example` for all required environment variables. Key ones:
 - `DATABASE_URL` - Database connection string (SQLite for dev, Postgres for production)
 - `NEXTAUTH_SECRET` - Secret for NextAuth.js (generate with `openssl rand -base64 32`)
 - `NEXTAUTH_URL` - Your app URL (http://localhost:3000 for dev)
-- `ADMIN_USERNAME` or `ADMIN_EMAIL` - **REQUIRED in production** - Username for admin login (can be simple like "jt" or email format)
-- `ADMIN_PASSWORD` - **REQUIRED in production** - Password for admin login (use a strong password!)
+- `SUPERADMIN_USERS` - **REQUIRED in production** - Superadmin credentials in format "username1:password1,username2:password2"
+- `OWNER_USERS` - Owner credentials in format "username1:password1" (optional but recommended)
 
-### Admin Credentials
+### Role-Based User Credentials
 
-The admin panel is accessible at `/admin/login`. To set up admin access:
+The admin panel is accessible at `/admin/login`. The system uses role-based credentials:
 
-1. **Development:** Uses defaults (`admin` / `changeme`) if not set
-2. **Production:** **MUST** set `ADMIN_USERNAME` (or `ADMIN_EMAIL`) and `ADMIN_PASSWORD` environment variables
-   - The system will throw an error if these aren't set in production
-   - A warning will be shown if the password is weak or still using defaults
-   - Use a strong password (at least 8 characters recommended)
-   - Username can be any text - no email format required (e.g., "jt", "admin", "owner")
+**Format:** `ROLE_USERS="username1:password1,username2:password2"`
 
-Example production setup:
+**Available roles:**
+- `SUPERADMIN_USERS` - Full system access (required in production)
+- `OWNER_USERS` - Owner-level access
+- `ADMIN_USERS` - Admin-level access
+- `MANAGER_USERS` - Manager-level access
+- `COOK_USERS`, `BARTENDER_USERS`, `BARBACK_USERS` - Staff-level access
+
+**Example production setup:**
 ```bash
-ADMIN_USERNAME="jt"
-ADMIN_PASSWORD="your-strong-secure-password-here"
+SUPERADMIN_USERS="jt:your-strong-password-here,admin:another-strong-password"
+OWNER_USERS="owner:owner-password"
 ```
 
-Or use `ADMIN_EMAIL` for backwards compatibility:
-```bash
-ADMIN_EMAIL="admin@monaghans.com"
-ADMIN_PASSWORD="your-strong-secure-password-here"
-```
+**Important:**
+- At least one role-level credential must be set in production
+- Use strong passwords (at least 8 characters recommended)
+- Usernames can be any text - no email format required (e.g., "jt", "admin", "owner")
+- Multiple users per role can be defined, separated by commas
 
 ## Deployment
 
@@ -105,8 +107,8 @@ ADMIN_PASSWORD="your-strong-secure-password-here"
      - Option 2: Use external Postgres (e.g., Neon, Supabase, Railway)
    - `NEXTAUTH_SECRET` - Generate with `openssl rand -base64 32`
    - `NEXTAUTH_URL` - Your production URL (e.g., `https://your-domain.vercel.app`)
-   - `ADMIN_USERNAME` or `ADMIN_EMAIL` - **REQUIRED** - Your admin username/login (can be simple like "jt")
-   - `ADMIN_PASSWORD` - **REQUIRED** - Strong password for admin login (change from default!)
+   - `SUPERADMIN_USERS` - **REQUIRED** - Superadmin credentials (format: "username:password" or "user1:pass1,user2:pass2")
+   - `OWNER_USERS` - Owner credentials (optional but recommended)
 4. After first deploy, run migrations:
    ```bash
    npx vercel env pull .env.local
@@ -132,26 +134,83 @@ pg_dump $DATABASE_URL > backup.sql
 
 ## Features
 
-- **CMS Dashboard** - `/admin` - Manage specials, events, announcements
-- **Public Pages** - Home, Menu, Events, About, Contact, Announcements
-- **Accessibility** - WCAG AA compliant, large tap targets, readable fonts
-- **SEO** - Metadata, OG tags, sitemap
-- **Mobile-Optimized** - Responsive layouts with collapsible filters, optimized spacing for mobile devices
-- **Social Media Integration** - Facebook posting with collapsible search/sort/filter controls on mobile
+### Core Functionality
+
+**Content Management**
+- Calendar dashboard with week/month views for events, specials, and announcements
+- Events management with recurring event support (RRULE)
+- Food and drink specials with weekday scheduling
+- Rich text announcements with social media cross-posting
+- Homepage content customization
+
+**Staff & Scheduling**
+- Employee shift scheduling with role-based assignments
+- Shift requirements and weekly schedule templates
+- Auto-generation based on availability and requirements
+- Employee availability tracking and time-off requests
+- Timeclock system with break tracking
+- Payroll and labor cost calculations
+
+**Menu & Operations**
+- Complete menu management with sections, items, modifiers, and ingredients
+- Ingredient tracking with cost analysis and supplier links
+- Food cost and profitability analysis
+- Kitchen display system (KDS) for order management
+- Order management system (backend ready)
+
+**Inventory & Suppliers**
+- Supplier management with product catalogs
+- Purchase order creation and tracking
+- Product-to-ingredient matching
+
+**Analytics & Reporting**
+- Sales analytics and performance metrics
+- Food cost and labor cost reports
+- Profitability analysis by menu item
+- AI-powered menu and schedule optimization recommendations
+- Automated insights and reporting
+
+**Additional Features**
+- Facebook integration for social media posting
+- Role-based access control (superadmin, owner, manager, cook, bartender, barback)
+- User and employee management
+- Activity logging and audit trails
+- Dark mode support
+- Mobile responsive design
+- WCAG AA accessibility compliance
+- SEO optimization
+- Mountain Time (America/Denver) timezone handling
+
+### Coming Soon
+
+The following features have UI and data models but require additional API integrations:
+- Additional POS integrations (Toast, Clover, Lightspeed, TouchBistro)
+- Automated supplier catalog sync (Sysco, US Foods, Costco)
+- Network printer integration
+- Email/SMS order notifications
+- Public online ordering interface
+- Instagram cross-posting
+- Specials performance tracking
 
 ## Tech Stack
 
 - **Framework:** Next.js 14+ (App Router)
 - **Language:** TypeScript
 - **Styling:** Tailwind CSS
-- **Database:** PostgreSQL (Prisma ORM)
+- **Database:** PostgreSQL with Prisma ORM
 - **Authentication:** NextAuth.js
 - **Payments:** Stripe
 - **Deployment:** Vercel
 
-## Contributing
+## Testing
 
-This is a private project. For questions or issues, please contact the repository owner.
+End-to-end tests are available using Playwright. See `e2e/README.md` for details.
+
+```bash
+npm run test:e2e          # Run all tests
+npm run test:e2e:ui       # Run tests in UI mode
+npm run test:e2e:headed   # Run tests with browser visible
+```
 
 ## License
 

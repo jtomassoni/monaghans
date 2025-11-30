@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FaChevronLeft, FaChevronRight, FaSync } from 'react-icons/fa';
+import { parseMountainTimeDate, getMountainTimeDateString, getMountainTimeToday } from '@/lib/timezone';
 
 interface Employee {
   id: string;
@@ -34,16 +35,61 @@ const shiftLabels: Record<'open' | 'close', string> = {
   close: 'Close (4pm to close)',
 };
 
+// Get month start in Mountain Time
 const getMonthStart = (date: Date) => {
-  const start = new Date(date.getFullYear(), date.getMonth(), 1);
-  start.setHours(0, 0, 0, 0);
-  return start;
+  // Get the date components in Mountain Time
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Denver',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  
+  const parts = formatter.formatToParts(date);
+  const year = parseInt(parts.find(p => p.type === 'year')!.value);
+  const month = parseInt(parts.find(p => p.type === 'month')!.value);
+  
+  // Parse the first day of the month in Mountain Time
+  const firstDayStr = `${year}-${String(month).padStart(2, '0')}-01`;
+  return parseMountainTimeDate(firstDayStr);
 };
 
+// Get month end in Mountain Time
 const getMonthEnd = (date: Date) => {
-  const end = new Date(date.getFullYear(), date.getMonth() + 1, 0);
-  end.setHours(23, 59, 59, 999);
-  return end;
+  // Get the date components in Mountain Time
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Denver',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  
+  const parts = formatter.formatToParts(date);
+  const year = parseInt(parts.find(p => p.type === 'year')!.value);
+  const month = parseInt(parts.find(p => p.type === 'month')!.value);
+  
+  // Get the last day of the month by going to the first day of next month and subtracting 1 day
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const nextYear = month === 12 ? year + 1 : year;
+  const firstDayNextMonthStr = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
+  const firstDayNextMonth = parseMountainTimeDate(firstDayNextMonthStr);
+  
+  // Subtract 1 day to get the last day of the current month
+  const lastDay = new Date(firstDayNextMonth.getTime() - 24 * 60 * 60 * 1000);
+  
+  // Get the date string for the last day and parse it, then set to end of day
+  const lastDayStr = getMountainTimeDateString(lastDay);
+  const endDate = parseMountainTimeDate(lastDayStr);
+  
+  // Set to end of day (23:59:59.999) in Mountain Time
+  // Since parseMountainTimeDate returns midnight MT, we need to add almost 24 hours
+  // Use UTC methods to avoid timezone shifts
+  endDate.setUTCHours(endDate.getUTCHours() + 23);
+  endDate.setUTCMinutes(59);
+  endDate.setUTCSeconds(59);
+  endDate.setUTCMilliseconds(999);
+  
+  return endDate;
 };
 
 const shiftSortOrder: Record<string, number> = {
@@ -54,10 +100,8 @@ const shiftSortOrder: Record<string, number> = {
 
 export default function AvailabilityTab({ employees }: AvailabilityTabProps) {
   const [currentMonth, setCurrentMonth] = useState(() => {
-    const now = new Date();
-    now.setDate(1);
-    now.setHours(0, 0, 0, 0);
-    return now;
+    const today = getMountainTimeToday();
+    return getMonthStart(today);
   });
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'available' | 'unavailable'>('all');
@@ -129,19 +173,47 @@ export default function AvailabilityTab({ employees }: AvailabilityTabProps) {
 
   const goToPreviousMonth = () => {
     setCurrentMonth((prev) => {
-      const next = new Date(prev);
-      next.setMonth(prev.getMonth() - 1, 1);
-      next.setHours(0, 0, 0, 0);
-      return next;
+      // Get date components in Mountain Time
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/Denver',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      });
+      
+      const parts = formatter.formatToParts(prev);
+      const year = parseInt(parts.find(p => p.type === 'year')!.value);
+      const month = parseInt(parts.find(p => p.type === 'month')!.value);
+      
+      // Calculate previous month
+      const prevMonth = month === 1 ? 12 : month - 1;
+      const prevYear = month === 1 ? year - 1 : year;
+      
+      const firstDayStr = `${prevYear}-${String(prevMonth).padStart(2, '0')}-01`;
+      return parseMountainTimeDate(firstDayStr);
     });
   };
 
   const goToNextMonth = () => {
     setCurrentMonth((prev) => {
-      const next = new Date(prev);
-      next.setMonth(prev.getMonth() + 1, 1);
-      next.setHours(0, 0, 0, 0);
-      return next;
+      // Get date components in Mountain Time
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/Denver',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      });
+      
+      const parts = formatter.formatToParts(prev);
+      const year = parseInt(parts.find(p => p.type === 'year')!.value);
+      const month = parseInt(parts.find(p => p.type === 'month')!.value);
+      
+      // Calculate next month
+      const nextMonth = month === 12 ? 1 : month + 1;
+      const nextYear = month === 12 ? year + 1 : year;
+      
+      const firstDayStr = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
+      return parseMountainTimeDate(firstDayStr);
     });
   };
 

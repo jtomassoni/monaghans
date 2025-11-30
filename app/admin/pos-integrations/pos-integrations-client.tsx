@@ -230,11 +230,16 @@ export default function POSIntegrationsClient() {
       <div className="flex-shrink-0 px-4 sm:px-6 py-3 pt-16 md:pt-3 border-b border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm relative z-10">
         <div className="flex justify-between items-center">
           <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 min-w-0">
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-              POS Integrations
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+                POS Integrations
+              </h1>
+              <span className="px-2 py-0.5 text-xs font-semibold bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-200 rounded-full">
+                Square Only
+              </span>
+            </div>
             <p className="text-gray-500 dark:text-gray-400 text-xs hidden sm:block">
-              Connect and import sales data from your POS system
+              Connect and import sales data from your POS system. Square integration available now; other providers coming soon.
             </p>
           </div>
           <button
@@ -415,10 +420,17 @@ export default function POSIntegrationsClient() {
               >
                 {POS_PROVIDERS.map(provider => (
                   <option key={provider.value} value={provider.value}>
-                    {provider.label}
+                    {provider.label} {provider.value !== 'square' ? '(Coming Soon)' : ''}
                   </option>
                 ))}
               </select>
+              {formData.provider !== 'square' && (
+                <div className="mt-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                  <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                    <strong>Coming Soon:</strong> {POS_PROVIDERS.find(p => p.value === formData.provider)?.label} integration is not yet available. Only Square is currently supported.
+                  </p>
+                </div>
+              )}
               {providerInfo && (
                 <a
                   href={providerInfo.docs}

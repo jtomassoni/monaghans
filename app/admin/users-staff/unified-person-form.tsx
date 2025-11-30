@@ -9,6 +9,7 @@ import StatusToggle from '@/components/status-toggle';
 import ConfirmationDialog from '@/components/confirmation-dialog';
 import { format } from 'date-fns';
 import DatePicker from '@/components/date-picker';
+import { canCreateRole } from '@/lib/permissions';
 
 interface User {
   id: string;
@@ -80,11 +81,57 @@ export default function UnifiedPersonModalForm({
   const [loading, setLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  // Get available roles based on current user's permissions
+  const getAvailableRoles = () => {
+    const roles: { value: string; label: string }[] = [];
+    
+    if (canCreateRole(currentUserRole, 'owner')) {
+      roles.push({ value: 'owner', label: 'Owner' });
+    }
+    if (canCreateRole(currentUserRole, 'manager')) {
+      roles.push({ value: 'manager', label: 'Manager' });
+    }
+    if (canCreateRole(currentUserRole, 'cook')) {
+      roles.push({ value: 'cook', label: 'Cook' });
+    }
+    if (canCreateRole(currentUserRole, 'bartender')) {
+      roles.push({ value: 'bartender', label: 'Bartender' });
+    }
+    if (canCreateRole(currentUserRole, 'barback')) {
+      roles.push({ value: 'barback', label: 'Barback' });
+    }
+    
+    return roles;
+  };
+
+  const availableRoles = getAvailableRoles();
+  const defaultRole = availableRoles.length > 0 ? availableRoles[0].value : 'manager';
+
+  // When editing, ensure the current role is in the available roles list (even if user can't create it)
+  // This allows displaying the current role, but users can only select roles they have permission to create
+  const getRolesForSelect = () => {
+    const roles = [...availableRoles];
+    if (person?.user?.role && !roles.find(r => r.value === person.user.role)) {
+      // Add current role if it's not already in the list (for display purposes when editing)
+      const roleLabels: Record<string, string> = {
+        owner: 'Owner',
+        manager: 'Manager',
+        cook: 'Cook',
+        bartender: 'Bartender',
+        barback: 'Barback',
+      };
+      roles.unshift({ value: person.user.role, label: roleLabels[person.user.role] || person.user.role });
+    }
+    return roles;
+  };
+
+  const rolesForSelect = getRolesForSelect();
+
   // Form state
   const [userFormData, setUserFormData] = useState({
     email: '',
     name: '',
-    role: 'owner',
+    role: defaultRole,
     isActive: true,
   });
 
@@ -137,7 +184,7 @@ export default function UnifiedPersonModalForm({
         setUserFormData({
           email: person.employee.email,
           name: person.employee.name || '',
-          role: 'owner',
+          role: defaultRole,
           isActive: person.employee.isActive,
         });
         setCreateUserAccount(true);
@@ -162,7 +209,7 @@ export default function UnifiedPersonModalForm({
       setUserFormData({
         email: '',
         name: '',
-        role: 'owner',
+        role: defaultRole,
         isActive: true,
       });
       setEmployeeFormData({
@@ -179,7 +226,7 @@ export default function UnifiedPersonModalForm({
       setCreateUserAccount(true);
       setCreateEmployeeRecord(true);
     }
-  }, [person, isOpen]);
+  }, [person, isOpen, defaultRole]);
 
   // Generate random PIN
   const generateRandomPin = () => {
@@ -454,16 +501,30 @@ export default function UnifiedPersonModalForm({
               </label>
               <select
                 value={userFormData.role}
-                onChange={(e) => setUserFormData({ ...userFormData, role: e.target.value })}
+                onChange={(e) => {
+                  const newRole = e.target.value;
+                  // Only allow selecting roles the user can create (unless it's the current role when editing)
+                  if (availableRoles.find(r => r.value === newRole) || (person?.user && newRole === person.user.role)) {
+                    setUserFormData({ ...userFormData, role: newRole });
+                  }
+                }}
                 className="w-full rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
                 disabled={person?.user?.role === 'superadmin'}
                 required={createUserAccount}
               >
-                <option value="owner">Owner</option>
-                <option value="manager">Manager</option>
-                <option value="cook">Cook</option>
-                <option value="bartender">Bartender</option>
-                <option value="barback">Barback</option>
+                {rolesForSelect.map(role => {
+                  const isAvailable = !!availableRoles.find(r => r.value === role.value);
+                  const isCurrentRole = person?.user?.role === role.value;
+                  return (
+                    <option 
+                      key={role.value} 
+                      value={role.value}
+                      disabled={!isAvailable && !isCurrentRole}
+                    >
+                      {role.label} {isCurrentRole && !isAvailable ? '(current)' : ''}
+                    </option>
+                  );
+                })}
               </select>
             </div>
 

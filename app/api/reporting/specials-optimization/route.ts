@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, handleError } from '@/lib/api-helpers';
+import { getMountainTimeDateString, getMountainTimeToday, parseMountainTimeDate } from '@/lib/timezone';
 import {
   analyzeDrinkSpecialPerformance,
   suggestOptimalSpecials,
@@ -20,11 +21,12 @@ export async function GET(req: NextRequest) {
     const period = searchParams.get('period') || '30'; // days
 
     const days = parseInt(period);
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
-    startDate.setHours(0, 0, 0, 0);
-    const endDate = new Date();
-    endDate.setHours(23, 59, 59, 999);
+    const today = getMountainTimeToday();
+    const startDateStr = getMountainTimeDateString(new Date(today.getTime() - days * 24 * 60 * 60 * 1000));
+    const startDate = parseMountainTimeDate(startDateStr);
+    const endDate = new Date(today);
+    // Set to end of day in Mountain Time (23:59:59.999)
+    endDate.setUTCHours(endDate.getUTCHours() + 23, 59, 59, 999);
 
     // Get all drink specials
     const specials = await prisma.special.findMany({

@@ -14,6 +14,7 @@ import {
   calculateCOGS,
   getProfitabilityStatus,
 } from '@/lib/profitability-helpers';
+import { getMountainTimeDateString, getMountainTimeToday, parseMountainTimeDate } from '@/lib/timezone';
 
 /**
  * Profitability Analytics API
@@ -30,11 +31,12 @@ export async function GET(req: NextRequest) {
     const includeOnline = searchParams.get('includeOnline') !== 'false';
 
     const days = parseInt(period);
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
-    startDate.setHours(0, 0, 0, 0);
-    const endDate = new Date();
-    endDate.setHours(23, 59, 59, 999);
+    const today = getMountainTimeToday();
+    const startDateStr = getMountainTimeDateString(new Date(today.getTime() - days * 24 * 60 * 60 * 1000));
+    const startDate = parseMountainTimeDate(startDateStr);
+    const endDate = new Date(today);
+    // Set to end of day in Mountain Time (23:59:59.999)
+    endDate.setUTCHours(endDate.getUTCHours() + 23, 59, 59, 999);
 
     // Get all menu items with ingredients and prep times
     const menuItems = await prisma.menuItem.findMany({

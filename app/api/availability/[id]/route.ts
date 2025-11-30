@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, handleError } from '@/lib/api-helpers';
+import { parseMountainTimeDate } from '@/lib/timezone';
 
 /**
  * Employee Availability API - Single Entry
@@ -81,9 +82,9 @@ export async function PATCH(
 
     const updateData: any = {};
     if (date) {
-      const availabilityDate = new Date(date);
-      availabilityDate.setHours(0, 0, 0, 0);
-      updateData.date = availabilityDate;
+      // Parse date as Mountain Time (handle both YYYY-MM-DD and ISO strings)
+      const dateStr = date.includes('T') ? date.split('T')[0] : date;
+      updateData.date = parseMountainTimeDate(dateStr);
     }
     if (shiftType !== undefined) updateData.shiftType = shiftType || null;
     if (isAvailable !== undefined) updateData.isAvailable = isAvailable;

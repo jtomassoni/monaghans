@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, handleError } from '@/lib/api-helpers';
+import { parseMountainTimeDate } from '@/lib/timezone';
 
 /**
  * Shift Requirement API (single)
@@ -89,9 +90,9 @@ export async function PATCH(
 
     const updateData: any = {};
     if (date) {
-      const requirementDate = new Date(date);
-      requirementDate.setHours(0, 0, 0, 0);
-      updateData.date = requirementDate;
+      // Parse date as Mountain Time (handle both YYYY-MM-DD and ISO strings)
+      const dateStr = date.includes('T') ? date.split('T')[0] : date;
+      updateData.date = parseMountainTimeDate(dateStr);
     }
     if (shiftType) updateData.shiftType = shiftType;
     if (cooks !== undefined) updateData.cooks = cooks;
@@ -102,8 +103,10 @@ export async function PATCH(
 
     // Check for duplicate if date or shift type changed
     if (date || shiftType) {
-      const requirementDate = date ? new Date(date) : current.date;
-      requirementDate.setHours(0, 0, 0, 0);
+      // Parse date as Mountain Time if provided, otherwise use current date
+      const requirementDate = date 
+        ? parseMountainTimeDate(date.includes('T') ? date.split('T')[0] : date)
+        : current.date;
       const shiftTypeToUse = shiftType || current.shiftType;
 
       const duplicate = await prisma.shiftRequirement.findUnique({

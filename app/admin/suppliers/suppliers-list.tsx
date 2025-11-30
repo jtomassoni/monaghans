@@ -360,9 +360,17 @@ export default function SuppliersList({ initialSuppliers }: SuppliersListProps) 
               {PROVIDERS.map(provider => (
                 <option key={provider} value={provider}>
                   {provider.charAt(0).toUpperCase() + provider.slice(1)}
+                  {provider !== 'custom' ? ' (Coming Soon)' : ''}
                 </option>
               ))}
             </select>
+            {formData.provider !== 'custom' && (
+              <div className="mt-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                  <strong>Coming Soon:</strong> Automated catalog sync for {formData.provider.charAt(0).toUpperCase() + formData.provider.slice(1)} is not yet available. You can manually add products and create purchase orders.
+                </p>
+              </div>
+            )}
           </div>
 
           <div>

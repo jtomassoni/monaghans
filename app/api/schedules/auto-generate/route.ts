@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, handleError } from '@/lib/api-helpers';
 import { calculateShiftTimes, type ShiftType, type EmployeeRole } from '@/lib/schedule-helpers';
+import { getMountainTimeDateString, parseMountainTimeDate } from '@/lib/timezone';
 
 /**
  * Auto-generate schedules based on shift requirements
@@ -22,10 +23,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    start.setHours(0, 0, 0, 0);
-    end.setHours(23, 59, 59, 999);
+    // Parse dates as Mountain Time
+    const start = parseMountainTimeDate(startDate);
+    const end = parseMountainTimeDate(endDate);
+    end.setUTCHours(23, 59, 59, 999);
 
     // Get all active employees grouped by role
     const employees = await prisma.employee.findMany({
@@ -79,7 +80,7 @@ export async function POST(req: NextRequest) {
     // Build a map of existing schedules by date and shift type
     const existingByDateAndShift: Record<string, Record<string, string[]>> = {};
     existingSchedules.forEach(schedule => {
-      const dateStr = schedule.date.toISOString().split('T')[0];
+      const dateStr = getMountainTimeDateString(schedule.date);
       if (!existingByDateAndShift[dateStr]) {
         existingByDateAndShift[dateStr] = {};
       }
@@ -102,7 +103,7 @@ export async function POST(req: NextRequest) {
     // Build availability map: employeeId -> date -> shiftType -> isAvailable
     const availabilityMap: Record<string, Record<string, Record<string, boolean>>> = {};
     availabilityEntries.forEach(avail => {
-      const dateStr = avail.date.toISOString().split('T')[0];
+      const dateStr = getMountainTimeDateString(avail.date);
       if (!availabilityMap[avail.employeeId]) {
         availabilityMap[avail.employeeId] = {};
       }
@@ -120,7 +121,7 @@ export async function POST(req: NextRequest) {
 
     // Helper function to check if employee is available
     const isEmployeeAvailable = (employeeId: string, date: Date, shiftType: string): boolean => {
-      const dateStr = date.toISOString().split('T')[0];
+      const dateStr = getMountainTimeDateString(date);
       const employeeAvail = availabilityMap[employeeId]?.[dateStr];
       
       // If no availability entry exists, assume available (default behavior)
@@ -144,7 +145,7 @@ export async function POST(req: NextRequest) {
 
     // First, add specific requirements
     specificRequirements.forEach(req => {
-      const dateStr = req.date.toISOString().split('T')[0];
+      const dateStr = getMountainTimeDateString(req.date);
       if (!requirementsMap[dateStr]) {
         requirementsMap[dateStr] = {};
       }
@@ -158,15 +159,20 @@ export async function POST(req: NextRequest) {
     // Then, fill in from templates for dates without specific requirements
     const currentDate = new Date(start);
     while (currentDate <= end) {
-      const dateStr = currentDate.toISOString().split('T')[0];
-      const dayOfWeek = currentDate.getDay();
+      const dateStr = getMountainTimeDateString(currentDate);
+      // Get day of week in Mountain Time
+      const dayOfWeek = currentDate.toLocaleDateString('en-US', {
+        weekday: 'long',
+        timeZone: 'America/Denver'
+      });
+      const dayIndex = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].indexOf(dayOfWeek);
 
       if (!requirementsMap[dateStr]) {
         requirementsMap[dateStr] = {};
       }
 
       // Get template entries for this day of week
-      const dayTemplates = weeklyTemplates.filter(t => t.dayOfWeek === dayOfWeek);
+      const dayTemplates = weeklyTemplates.filter(t => t.dayOfWeek === dayIndex);
 
       dayTemplates.forEach(template => {
         // Only use template if no specific requirement exists for this shift type
@@ -201,8 +207,7 @@ export async function POST(req: NextRequest) {
 
     // Process each date
     for (const [dateStr, shiftRequirements] of Object.entries(requirementsMap)) {
-      const date = new Date(dateStr);
-      date.setHours(0, 0, 0, 0);
+      const date = parseMountainTimeDate(dateStr);
 
       for (const [shiftType, reqs] of Object.entries(shiftRequirements)) {
         // Get employees already scheduled for this date/shift

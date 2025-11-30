@@ -1,0 +1,272 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+jobs:
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: monaghans_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 📋 Print environment info
+        run: |
+          echo "::group::🔍 Environment Information"
+          echo "Node version: $(node --version)"
+          echo "npm version: $(npm --version)"
+          echo "OS: $(uname -a)"
+          echo "Working directory: $(pwd)"
+          echo "Git branch: ${{ github.ref }}"
+          echo "Git commit: ${{ github.sha }}"
+          echo "::endgroup::"
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+        env:
+          NODE_OPTIONS: '--max-old-space-size=4096'
+
+      - name: 📥 Install dependencies
+        run: |
+          echo "::group::📦 Installing dependencies"
+          npm ci
+          echo "::endgroup::"
+          echo "✅ Dependencies installed successfully"
+
+      - name: 🔧 Generate Prisma Client
+        run: |
+          echo "::group::🔧 Generating Prisma Client"
+          npm run db:generate
+          echo "::endgroup::"
+          echo "✅ Prisma Client generated"
+
+      - name: 🐘 Install PostgreSQL client
+        run: |
+          echo "::group::🐘 Installing PostgreSQL client"
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+          echo "::endgroup::"
+          echo "✅ PostgreSQL client installed"
+
+      - name: 🗄️ Setup test database
+        run: |
+          echo "::group::🗄️ Setting up test database"
+          echo "Database URL: ${DATABASE_URL}"
+          echo "Superadmin Users: ${SUPERADMIN_USERS}"
+          echo "Owner Users: ${OWNER_USERS}"
+          echo ""
+          echo "Waiting for PostgreSQL to be ready..."
+          until pg_isready -h localhost -p 5432 -U postgres; do
+            echo "Waiting for PostgreSQL..."
+            sleep 1
+          done
+          echo "✅ PostgreSQL is ready"
+          echo ""
+          echo "Running test database setup script..."
+          npm run test:setup
+          echo ""
+          echo "✅ Test database seeded successfully"
+          echo "::endgroup::"
+          echo "✅ Test database setup complete"
+        env:
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/monaghans_test?schema=public"
+          SUPERADMIN_USERS: ${{ secrets.SUPERADMIN_USERS || 'jt:test' }}
+          OWNER_USERS: ${{ secrets.OWNER_USERS || 'owner:test' }}
+          NEXTAUTH_SECRET: "test-secret-for-ci-only-do-not-use-in-production"
+          NEXTAUTH_URL: "http://localhost:3000"
+
+      - name: 🎭 Install Playwright browsers
+        run: |
+          echo "::group::🎭 Installing Playwright browsers"
+          npx playwright install --with-deps chromium
+          echo "::endgroup::"
+          echo "✅ Playwright browsers installed"
+
+      - name: 📝 List test files
+        run: |
+          echo "::group::📝 Test Files to Execute"
+          find ./e2e -name "*.spec.ts" -o -name "*.setup.ts" | sort
+          echo "::endgroup::"
+
+      - name: 🧪 Run E2E tests
+        run: |
+          echo "::group::🧪 Running E2E tests"
+          echo "═══════════════════════════════════════════════════════════"
+          echo "🚀 Starting Playwright E2E Test Execution"
+          echo "═══════════════════════════════════════════════════════════"
+          echo ""
+          echo "📋 Configuration:"
+          echo "  - Base URL: ${PLAYWRIGHT_TEST_BASE_URL:-http://localhost:3000}"
+          echo "  - Test directory: ./e2e"
+          echo "  - Database: ${DATABASE_URL}"
+          echo "  - CI Mode: ${CI}"
+          echo "  - Workers: 1 (sequential execution in CI)"
+          echo "  - Retries: 2 (on failure)"
+          echo ""
+          echo "📊 Reporters:"
+          echo "  - list (detailed console output)"
+          echo "  - html (interactive report)"
+          echo "  - github (GitHub Actions annotations)"
+          echo ""
+          echo "🎬 Starting tests..."
+          echo "═══════════════════════════════════════════════════════════"
+          echo ""
+          
+          # Run tests with verbose output
+          set +e  # Don't exit on error immediately
+          npm run test:e2e -- --reporter=list,html,github
+          TEST_EXIT_CODE=$?
+          set -e  # Re-enable exit on error
+          
+          echo ""
+          echo "═══════════════════════════════════════════════════════════"
+          if [ "${TEST_EXIT_CODE}" -eq 0 ]; then
+            echo "✅ All tests passed!"
+          else
+            echo "❌ Tests failed with exit code: ${TEST_EXIT_CODE}"
+          fi
+          echo "═══════════════════════════════════════════════════════════"
+          echo "::endgroup::"
+          
+          # Exit with the test exit code
+          exit ${TEST_EXIT_CODE}
+        env:
+          CI: true
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/monaghans_test?schema=public"
+          NEXTAUTH_URL: "http://localhost:3000"
+          NEXTAUTH_SECRET: "test-secret-for-ci-only-do-not-use-in-production"
+          SUPERADMIN_USERS: ${{ secrets.SUPERADMIN_USERS || 'jt:test' }}
+          OWNER_USERS: ${{ secrets.OWNER_USERS || 'owner:test' }}
+          PLAYWRIGHT_TEST_BASE_URL: "http://localhost:3000"
+          # Disable features that might interfere with tests
+          ENABLE_ONLINE_ORDERING: "false"
+          ENABLE_SOCIAL_POSTING: "false"
+
+      - name: 📊 Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: 📸 Upload test screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-screenshots
+          path: test-results/**/*.png
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: 🎥 Upload test videos
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-videos
+          path: test-results/**/*.webm
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: 📝 Upload test traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-traces
+          path: test-results/**/*.zip
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: 📋 Print test summary
+        if: always()
+        run: |
+          echo "::group::📋 Test Execution Summary"
+          echo "═══════════════════════════════════════════════════════════"
+          echo "📊 Test Artifacts Summary"
+          echo "═══════════════════════════════════════════════════════════"
+          echo ""
+          
+          # Check HTML report
+          if [ -f "playwright-report/index.html" ]; then
+            REPORT_SIZE=$(du -h playwright-report/index.html | cut -f1)
+            echo "✅ HTML report generated: playwright-report/index.html (${REPORT_SIZE})"
+          else
+            echo "⚠️  HTML report not found"
+          fi
+          
+          # Check test results directory
+          if [ -d "test-results" ]; then
+            echo ""
+            echo "📁 Test results directory contents:"
+            SCREENSHOTS=$(find test-results -type f -name "*.png" 2>/dev/null | wc -l)
+            VIDEOS=$(find test-results -type f -name "*.webm" 2>/dev/null | wc -l)
+            TRACES=$(find test-results -type f -name "*.zip" 2>/dev/null | wc -l)
+            echo "  📸 Screenshots: ${SCREENSHOTS}"
+            echo "  🎥 Videos: ${VIDEOS}"
+            echo "  📝 Traces: ${TRACES}"
+            
+            if [ "${SCREENSHOTS}" -gt 0 ] || [ "${VIDEOS}" -gt 0 ] || [ "${TRACES}" -gt 0 ]; then
+              echo ""
+              echo "📂 Artifact locations:"
+              find test-results -type f \( -name "*.png" -o -name "*.webm" -o -name "*.zip" \) 2>/dev/null | head -10
+            fi
+          else
+            echo "⚠️  Test results directory not found"
+          fi
+          
+          # Check auth state
+          if [ -f ".auth/user.json" ]; then
+            echo ""
+            echo "🔐 Auth state file exists: .auth/user.json"
+          fi
+          
+          echo ""
+          echo "═══════════════════════════════════════════════════════════"
+          echo "::endgroup::"
+
+      - name: 🚨 Print failure details
+        if: failure()
+        run: |
+          echo "::group::🚨 Test Failure Details"
+          echo "Tests failed! Check the logs above for details."
+          echo ""
+          echo "Artifacts uploaded:"
+          echo "- playwright-report: HTML report with detailed test results"
+          echo "- test-screenshots: Screenshots from failed tests"
+          echo "- test-videos: Videos of test execution"
+          echo "- test-traces: Playwright traces for debugging"
+          echo ""
+          echo "To debug locally:"
+          echo "1. Download the playwright-report artifact"
+          echo "2. Open playwright-report/index.html in a browser"
+          echo "3. Review test traces and screenshots"
+          echo "::endgroup::"
+

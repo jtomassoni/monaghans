@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, handleError } from '@/lib/api-helpers';
 import { calculateHoursWorked, calculateShiftCost } from '@/lib/schedule-helpers';
+import { getMountainTimeDateString, getMountainTimeToday, parseMountainTimeDate } from '@/lib/timezone';
 import {
   calculateLaborCostPerItem,
   calculateAverageHourlyWage,
@@ -23,11 +24,12 @@ export async function GET(req: NextRequest) {
     const groupBy = searchParams.get('groupBy') || 'all'; // 'all', 'shift', 'employee', 'menuItem'
 
     const days = parseInt(period);
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
-    startDate.setHours(0, 0, 0, 0);
-    const endDate = new Date();
-    endDate.setHours(23, 59, 59, 999);
+    const today = getMountainTimeToday();
+    const startDateStr = getMountainTimeDateString(new Date(today.getTime() - days * 24 * 60 * 60 * 1000));
+    const startDate = parseMountainTimeDate(startDateStr);
+    const endDate = new Date(today);
+    // Set to end of day in Mountain Time (23:59:59.999)
+    endDate.setUTCHours(endDate.getUTCHours() + 23, 59, 59, 999);
 
     // Get all active employees to calculate average wage
     const employees = await prisma.employee.findMany({
@@ -171,7 +173,7 @@ export async function GET(req: NextRequest) {
     // Initialize all days in period
     const currentDate = new Date(startDate);
     while (currentDate <= endDate) {
-      const dateStr = currentDate.toISOString().split('T')[0];
+      const dateStr = getMountainTimeDateString(currentDate);
       byDay.set(dateStr, {
         date: dateStr,
         shifts: 0,
@@ -185,7 +187,7 @@ export async function GET(req: NextRequest) {
 
     // Add shift data to days
     for (const shift of shiftsWithCosts) {
-      const dateStr = shift.clockIn.toISOString().split('T')[0];
+      const dateStr = getMountainTimeDateString(shift.clockIn);
       const dayData = byDay.get(dateStr);
       if (dayData) {
         dayData.shifts += 1;
@@ -196,7 +198,7 @@ export async function GET(req: NextRequest) {
 
     // Add sales data to days
     for (const order of onlineOrders) {
-      const dateStr = order.createdAt.toISOString().split('T')[0];
+      const dateStr = getMountainTimeDateString(order.createdAt);
       const dayData = byDay.get(dateStr);
       if (dayData) {
         dayData.sales += order.total;
@@ -204,7 +206,7 @@ export async function GET(req: NextRequest) {
     }
 
     for (const sale of posSales) {
-      const dateStr = sale.saleDate.toISOString().split('T')[0];
+      const dateStr = getMountainTimeDateString(sale.saleDate);
       const dayData = byDay.get(dateStr);
       if (dayData) {
         dayData.sales += sale.total;
