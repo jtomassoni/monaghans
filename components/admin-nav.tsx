@@ -367,7 +367,7 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
           {showUserMenu && (
             <div className="absolute bottom-full left-0 right-0 mb-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden z-10 min-w-[120px]">
               <Link
-                href="/portal"
+                href="/admin/profile"
                 onClick={() => {
                   setShowUserMenu(false);
                   closeMobileMenu();
