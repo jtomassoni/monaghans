@@ -67,7 +67,7 @@ See `.env.example` for all required environment variables. Key ones:
 - `DATABASE_URL` - Database connection string (SQLite for dev, Postgres for production)
 - `NEXTAUTH_SECRET` - Secret for NextAuth.js (generate with `openssl rand -base64 32`)
 - `NEXTAUTH_URL` - Your app URL (http://localhost:3000 for dev)
-- `SUPERADMIN_USERS` - **REQUIRED in production** - Superadmin credentials in format "username1:password1,username2:password2"
+- `ADMIN_USERS` - **REQUIRED in production** - Admin credentials in format "username1:password1,username2:password2"
 - `OWNER_USERS` - Owner credentials in format "username1:password1" (optional but recommended)
 
 ### Role-Based User Credentials
@@ -77,15 +77,14 @@ The admin panel is accessible at `/admin/login`. The system uses role-based cred
 **Format:** `ROLE_USERS="username1:password1,username2:password2"`
 
 **Available roles:**
-- `SUPERADMIN_USERS` - Full system access (required in production)
+- `ADMIN_USERS` - Full system access (required in production)
 - `OWNER_USERS` - Owner-level access
-- `ADMIN_USERS` - Admin-level access
 - `MANAGER_USERS` - Manager-level access
 - `COOK_USERS`, `BARTENDER_USERS`, `BARBACK_USERS` - Staff-level access
 
 **Example production setup:**
 ```bash
-SUPERADMIN_USERS="jt:your-strong-password-here,admin:another-strong-password"
+ADMIN_USERS="jt:your-strong-password-here,admin:another-strong-password"
 OWNER_USERS="owner:owner-password"
 ```
 
@@ -107,7 +106,7 @@ OWNER_USERS="owner:owner-password"
      - Option 2: Use external Postgres (e.g., Neon, Supabase, Railway)
    - `NEXTAUTH_SECRET` - Generate with `openssl rand -base64 32`
    - `NEXTAUTH_URL` - Your production URL (e.g., `https://your-domain.vercel.app`)
-   - `SUPERADMIN_USERS` - **REQUIRED** - Superadmin credentials (format: "username:password" or "user1:pass1,user2:pass2")
+   - `ADMIN_USERS` - **REQUIRED** - Admin credentials (format: "username:password" or "user1:pass1,user2:pass2")
    - `OWNER_USERS` - Owner credentials (optional but recommended)
 4. After first deploy, run migrations:
    ```bash
@@ -172,7 +171,7 @@ pg_dump $DATABASE_URL > backup.sql
 
 **Additional Features**
 - Facebook integration for social media posting
-- Role-based access control (superadmin, owner, manager, cook, bartender, barback)
+- Role-based access control (admin, owner, manager, cook, bartender, barback)
 - User and employee management
 - Activity logging and audit trails
 - Dark mode support

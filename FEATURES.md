@@ -80,7 +80,7 @@ Monaghan's is a comprehensive restaurant/bar management system designed for owne
 ### 5. Users / Roles / Auth
 
 - **Status:** Working
-- **Description:** User management with role-based access control. Roles include: superadmin, owner, manager, cook, bartender, barback. NextAuth integration for authentication.
+- **Description:** User management with role-based access control. Roles include: admin, owner, manager, cook, bartender, barback. NextAuth integration for authentication.
 - **Key User Flows:**
   - User login/logout
   - Create/edit/delete users

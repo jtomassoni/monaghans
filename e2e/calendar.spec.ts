@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test.use({ storageState: '.auth/superadmin.json' });
+test.use({ storageState: '.auth/admin.json' });
 
 test.describe('Calendar', () => {
   test('should display calendar on admin dashboard', async ({ page }) => {

@@ -29,16 +29,16 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
       onClick={onClose}
     >
       <div 
-        className={`h-full flex ${title && title.trim() ? 'items-start sm:items-center' : 'items-center'} justify-center px-3 sm:px-6 py-4 sm:py-6 overflow-y-auto overflow-x-visible`}
+        className={`h-full flex ${title && title.trim() ? 'items-start sm:items-center' : 'items-center'} justify-center px-3 sm:px-6 py-2 sm:py-4 overflow-y-auto overflow-x-visible`}
         onClick={onClose}
       >
         <div
-          className={`bg-white dark:bg-gray-800 rounded-lg sm:rounded-lg shadow-xl w-full ${title && title.trim() ? 'max-h-[100vh] sm:max-h-[95vh]' : 'max-h-[90vh]'} max-w-[500px] flex flex-col ${title && title.trim() ? 'mt-0 sm:mt-0' : ''}`}
+          className={`bg-white dark:bg-gray-800 rounded-lg sm:rounded-lg shadow-xl w-full ${title && title.trim() ? 'max-h-[calc(100vh-1rem)] sm:max-h-[calc(100vh-2rem)]' : 'max-h-[90vh]'} max-w-[500px] lg:max-w-[900px] flex flex-col ${title && title.trim() ? 'mt-0 sm:mt-0' : ''}`}
           onClick={(e) => e.stopPropagation()}
         >
         {/* Header - Sticky on mobile to ensure close button is always visible */}
         {title && title.trim() && (
-          <div className="sticky top-0 bg-white dark:bg-gray-800 z-10 flex justify-between items-center px-4 sm:px-6 py-3 border-b border-gray-200 dark:border-gray-700 shrink-0 rounded-t-lg">
+          <div className="sticky top-0 bg-white dark:bg-gray-800 z-10 flex justify-between items-center px-4 sm:px-6 py-2.5 border-b border-gray-200 dark:border-gray-700 shrink-0 rounded-t-lg">
             <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white pr-2">{title}</h2>
             <button
               onClick={onClose}
@@ -64,7 +64,7 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
         )}
 
         {/* Content */}
-        <div className={`flex-1 overflow-y-auto overflow-x-visible ${title && title.trim() ? 'px-4 sm:px-6 py-4 sm:py-5' : 'px-6 sm:px-8 py-6 sm:py-8'}`}>
+        <div className={`flex-1 overflow-y-auto overflow-x-visible ${title && title.trim() ? 'px-4 sm:px-6 py-3 sm:py-4' : 'px-6 sm:px-8 py-6 sm:py-8'}`}>
           <div className="relative">
             {children}
           </div>

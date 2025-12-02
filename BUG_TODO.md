@@ -163,7 +163,7 @@ The following flows should be tested with Playwright E2E tests:
 
 ### Test Data Requirements
 
-- Test users with different roles (superadmin, owner, manager, employee)
+- Test users with different roles (admin, owner, manager, employee)
 - Test employees with different roles (cook, bartender, barback)
 - Test events (one-time and recurring)
 - Test schedules across multiple weeks

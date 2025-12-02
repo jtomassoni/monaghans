@@ -63,14 +63,14 @@ export default defineConfig({
 
   /* Configure projects for major browsers */
   projects: [
-    // Setup project - authenticates both superadmin and owner
+    // Setup project - authenticates both admin and owner
     { name: 'setup', testMatch: /.*\.setup\.ts/ },
     {
       name: 'chromium',
       use: { 
         ...devices['Desktop Chrome'],
-        // Use prepared superadmin auth state (default for most tests)
-        storageState: '.auth/superadmin.json',
+        // Use prepared admin auth state (default for most tests)
+        storageState: '.auth/admin.json',
       },
       dependencies: ['setup'],
     },
@@ -100,7 +100,7 @@ export default defineConfig({
       DATABASE_URL: process.env.DATABASE_URL!,
       NEXTAUTH_URL: process.env.NEXTAUTH_URL || 'http://localhost:3000',
       NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET || 'test-secret-for-ci-only-do-not-use-in-production',
-      SUPERADMIN_USERS: process.env.SUPERADMIN_USERS || 'jt:test',
+      ADMIN_USERS: process.env.ADMIN_USERS || 'jt:test',
       OWNER_USERS: process.env.OWNER_USERS || 'owner:test',
       ENABLE_ONLINE_ORDERING: process.env.ENABLE_ONLINE_ORDERING || 'false',
       ENABLE_SOCIAL_POSTING: process.env.ENABLE_SOCIAL_POSTING || 'false',

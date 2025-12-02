@@ -71,11 +71,17 @@ export function getItemStatus(item: {
     }
     
     // Compare date strings directly (YYYY-MM-DD format)
-    // A date is "past" only if it's before today in Mountain Time
-    if (endDateStr && endDateStr < mtTodayStr) {
-      statuses.push('past');
-    } else if (startDateStr && startDateStr > mtTodayStr) {
-      statuses.push('scheduled');
+    // A date is "past" only if it's before today in Mountain Time (not equal to today)
+    // For single-day specials, use startDate if endDate is not set or equals startDate
+    if (startDateStr) {
+      const effectiveEndDateStr = endDateStr && endDateStr !== startDateStr ? endDateStr : startDateStr;
+      
+      // Only mark as past if the date is strictly before today (not today)
+      if (effectiveEndDateStr < mtTodayStr) {
+        statuses.push('past');
+      } else if (startDateStr > mtTodayStr) {
+        statuses.push('scheduled');
+      }
     }
   }
 

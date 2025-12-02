@@ -76,26 +76,26 @@ async function setupTestDatabase() {
     }
 
     // Get credentials from env vars (defaults for testing)
-    const superadminUsers = parseUserCredentials(process.env.SUPERADMIN_USERS || 'jt:test');
+    const adminUsers = parseUserCredentials(process.env.ADMIN_USERS || 'jt:test');
     const ownerUsers = parseUserCredentials(process.env.OWNER_USERS || 'owner:test');
 
-    // Create superadmin users
-    for (const cred of superadminUsers) {
+    // Create admin users
+    for (const cred of adminUsers) {
       const testUser = await prisma.user.upsert({
         where: { email: cred.username },
         update: {
-          name: 'Test Superadmin',
-          role: 'superadmin',
+          name: 'Test Admin',
+          role: 'admin',
           isActive: true,
         },
         create: {
           email: cred.username,
-          name: 'Test Superadmin',
-          role: 'superadmin',
+          name: 'Test Admin',
+          role: 'admin',
           isActive: true,
         },
       });
-      console.log(`✅ Created superadmin user: ${testUser.email}`);
+      console.log(`✅ Created admin user: ${testUser.email}`);
     }
 
     // Create owner users
@@ -181,7 +181,7 @@ async function setupTestDatabase() {
     console.log('🎉 Test database setup complete!');
     console.log(`🔗 Database URL: ${dbUrl}`);
     console.log('\n📝 Next steps:');
-    console.log('   1. Make sure your .env file has SUPERADMIN_USERS and OWNER_USERS set');
+    console.log('   1. Make sure your .env file has ADMIN_USERS and OWNER_USERS set');
     console.log('   2. Run: npm run test:e2e');
   } catch (error) {
     console.error('❌ Error setting up test database:', error);

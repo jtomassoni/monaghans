@@ -1,7 +1,7 @@
 import { test as setup, expect } from '@playwright/test';
 import path from 'path';
 
-const superadminAuthFile = path.join(__dirname, '../.auth/superadmin.json');
+const adminAuthFile = path.join(__dirname, '../.auth/admin.json');
 const ownerAuthFile = path.join(__dirname, '../.auth/owner.json');
 
 // Helper function to parse credentials from env var
@@ -42,18 +42,18 @@ async function authenticateUser(page: any, username: string, password: string) {
   await expect(page.locator('text=Monaghan\'s')).toBeVisible({ timeout: 10000 });
 }
 
-setup('authenticate as superadmin', async ({ page }) => {
-  // Get first superadmin user from env (default: jt:test)
-  const superadminUsers = parseUserCredentials(process.env.SUPERADMIN_USERS || 'jt:test');
-  if (superadminUsers.length === 0) {
-    throw new Error('SUPERADMIN_USERS must be set with at least one user');
+setup('authenticate as admin', async ({ page }) => {
+  // Get first admin user from env (default: jt:test)
+  const adminUsers = parseUserCredentials(process.env.ADMIN_USERS || 'jt:test');
+  if (adminUsers.length === 0) {
+    throw new Error('ADMIN_USERS must be set with at least one user');
   }
   
-  const { username, password } = superadminUsers[0];
+  const { username, password } = adminUsers[0];
   await authenticateUser(page, username, password);
   
   // Save signed-in state
-  await page.context().storageState({ path: superadminAuthFile });
+  await page.context().storageState({ path: adminAuthFile });
 });
 
 setup('authenticate as owner', async ({ page }) => {

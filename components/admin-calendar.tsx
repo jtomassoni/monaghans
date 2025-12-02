@@ -856,16 +856,17 @@ export default function CalendarView({ events, specials, announcements = [], bus
 
   const getItemColor = (item: CalendarItem) => {
     if (item.eventType === 'special') {
+      // All food specials use the same orange color regardless of active/inactive status
+      // This ensures consistency in the calendar display
+      if (item.type === 'food') {
+        return 'bg-orange-500/80 dark:bg-orange-600/80 border-orange-400 dark:border-orange-500';
+      }
+      // Drink specials keep their blue color logic with inactive distinction
       const isInactive = !item.isActive;
       if (isInactive) {
-        // Inactive specials appear with reduced opacity
-        return item.type === 'food' 
-          ? 'bg-orange-500/40 dark:bg-orange-600/40 border-orange-400/50 dark:border-orange-500/50 opacity-60' 
-          : 'bg-blue-500/40 dark:bg-blue-600/40 border-blue-400/50 dark:border-blue-500/50 opacity-60';
+        return 'bg-blue-500/40 dark:bg-blue-600/40 border-blue-400/50 dark:border-blue-500/50 opacity-60';
       }
-      return item.type === 'food' 
-        ? 'bg-orange-500/80 dark:bg-orange-600/80 border-orange-400 dark:border-orange-500' 
-        : 'bg-blue-500/80 dark:bg-blue-600/80 border-blue-400 dark:border-blue-500';
+      return 'bg-blue-500/80 dark:bg-blue-600/80 border-blue-400 dark:border-blue-500';
     }
     if (item.eventType === 'announcement') {
       return item.isPublished

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import SpecialModalForm from '@/components/special-modal-form';
 import { showToast } from '@/components/toast';
@@ -9,7 +9,7 @@ import StatusBadge from '@/components/status-badge';
 import { getItemStatus } from '@/lib/status-helpers';
 import { getMountainTimeDateString, getMountainTimeToday } from '@/lib/timezone';
 import ConfirmationDialog from '@/components/confirmation-dialog';
-import { FaStar } from 'react-icons/fa';
+import { FaStar, FaSort, FaSortUp, FaSortDown, FaEdit, FaCopy, FaTrash } from 'react-icons/fa';
 
 interface DailySpecial {
   id: string;
@@ -27,6 +27,9 @@ interface DailySpecialsListProps {
   initialSpecials: DailySpecial[];
 }
 
+type SortField = 'title' | 'startDate' | 'type' | 'isActive' | 'priceNotes' | 'timeWindow';
+type SortDirection = 'asc' | 'desc' | null;
+
 export default function DailySpecialsList({ initialSpecials }: DailySpecialsListProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -35,6 +38,7 @@ export default function DailySpecialsList({ initialSpecials }: DailySpecialsList
   const [specialModalOpen, setSpecialModalOpen] = useState(false);
   const [editingSpecial, setEditingSpecial] = useState<DailySpecial | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{ id: string; title: string } | null>(null);
+  const [columnSort, setColumnSort] = useState<{ field: SortField; direction: SortDirection }>({ field: 'startDate', direction: 'asc' });
 
   useEffect(() => {
     setSpecials(initialSpecials);
@@ -195,26 +199,23 @@ export default function DailySpecialsList({ initialSpecials }: DailySpecialsList
 
   const isPast = (item: DailySpecial) => {
     // For daily specials, check if the date has passed (using Mountain Time)
-    const dateToCheck = item.endDate ? new Date(item.endDate) : (item.startDate ? new Date(item.startDate) : null);
+    // Use startDate if endDate is not set or equals startDate (single-day specials)
+    const dateToCheck = item.endDate && item.endDate !== item.startDate 
+      ? item.endDate 
+      : (item.startDate || null);
+    
     if (!dateToCheck) return false;
     
-    // Get today's date in Mountain Time
-    const now = new Date();
-    const mtToday = now.toLocaleDateString('en-US', {
-      timeZone: 'America/Denver',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    });
-    const mtDate = dateToCheck.toLocaleDateString('en-US', {
-      timeZone: 'America/Denver',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    });
+    // Get today's date string in Mountain Time (YYYY-MM-DD format)
+    const mtToday = getMountainTimeToday();
+    const mtTodayStr = getMountainTimeDateString(mtToday);
     
-    // Compare dates in Mountain Time
-    return mtDate < mtToday;
+    // Parse the special's date and get its date string in Mountain Time
+    const specialDate = new Date(dateToCheck);
+    const specialDateStr = getMountainTimeDateString(specialDate);
+    
+    // Only mark as past if the date is strictly before today (not today)
+    return specialDateStr < mtTodayStr;
   };
 
 
@@ -228,6 +229,63 @@ export default function DailySpecialsList({ initialSpecials }: DailySpecialsList
       year: 'numeric',
     });
   };
+
+  const handleColumnSort = (field: SortField) => {
+    setColumnSort((prev) => {
+      if (prev.field === field) {
+        // Cycle through: asc -> desc -> null -> asc
+        if (prev.direction === 'asc') return { field, direction: 'desc' };
+        if (prev.direction === 'desc') return { field, direction: null };
+        return { field, direction: 'asc' };
+      }
+      return { field, direction: 'asc' };
+    });
+  };
+
+  // Apply column sorting to filtered items
+  const displayItems = useMemo(() => {
+    if (!columnSort.direction) return filteredItems;
+    
+    const sorted = [...filteredItems].sort((a, b) => {
+      let aVal: any;
+      let bVal: any;
+
+      switch (columnSort.field) {
+        case 'title':
+          aVal = a.title?.toLowerCase() || '';
+          bVal = b.title?.toLowerCase() || '';
+          break;
+        case 'startDate':
+          aVal = a.startDate ? new Date(a.startDate).getTime() : 0;
+          bVal = b.startDate ? new Date(b.startDate).getTime() : 0;
+          break;
+        case 'type':
+          aVal = a.type?.toLowerCase() || '';
+          bVal = b.type?.toLowerCase() || '';
+          break;
+        case 'isActive':
+          aVal = a.isActive ? 1 : 0;
+          bVal = b.isActive ? 1 : 0;
+          break;
+        case 'priceNotes':
+          aVal = a.priceNotes?.toLowerCase() || '';
+          bVal = b.priceNotes?.toLowerCase() || '';
+          break;
+        case 'timeWindow':
+          aVal = a.timeWindow?.toLowerCase() || '';
+          bVal = b.timeWindow?.toLowerCase() || '';
+          break;
+        default:
+          return 0;
+      }
+
+      if (aVal < bVal) return columnSort.direction === 'asc' ? -1 : 1;
+      if (aVal > bVal) return columnSort.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return sorted;
+  }, [filteredItems, columnSort]);
 
   // Listen for custom event to open new special modal
   useEffect(() => {
@@ -269,7 +327,7 @@ export default function DailySpecialsList({ initialSpecials }: DailySpecialsList
 
       {/* Scrollable Content Area */}
       <div className="flex-1 overflow-y-auto min-h-0">
-        {filteredItems.length === 0 ? (
+        {displayItems.length === 0 ? (
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600 p-12 text-center shadow-md">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-orange-100 dark:bg-orange-900/30 mb-4">
               <FaStar className="w-8 h-8 text-orange-400 dark:text-orange-500" />
@@ -281,106 +339,233 @@ export default function DailySpecialsList({ initialSpecials }: DailySpecialsList
             </p>
           </div>
         ) : (
-          <div className="grid gap-3">
-            {filteredItems.map((item) => (
-              <div
-                key={item.id}
-                className={`group/item relative w-full rounded-lg border shadow-sm hover:shadow-md transition-all duration-200 p-4 flex justify-between items-start gap-4 cursor-pointer ${
-                  isPast(item)
-                    ? 'bg-gray-50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700 opacity-75'
-                    : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
-                }`}
-              >
-                <div
-                  className="flex-1 min-w-0"
-                  onClick={() => handleItemClick(item)}
-                >
-                  <div className="flex items-center gap-2 mb-2 flex-wrap">
-                    <h3 className={`text-sm font-semibold truncate ${
-                      isPast(item) 
-                        ? 'text-gray-500 dark:text-gray-500 line-through' 
-                        : 'text-gray-900 dark:text-white'
-                    }`}>
-                      {item.title}
-                    </h3>
-                    <span className="px-2 py-0.5 text-xs rounded-full font-medium capitalize flex-shrink-0 bg-gray-50 dark:bg-gray-700/50 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-600">
-                      Daily Special
-                    </span>
-                    {item.startDate && (
-                      <span className="px-2 py-0.5 text-xs rounded-full font-medium flex-shrink-0 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 flex items-center gap-1">
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        {formatDate(item.startDate)}
+          <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+            <table className="w-full border-collapse bg-white dark:bg-gray-800">
+              <thead className="bg-gray-50 dark:bg-gray-900/50 sticky top-0 z-10">
+                <tr>
+                  <th
+                    className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    onClick={() => handleColumnSort('title')}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span>Title</span>
+                      {columnSort.field === 'title' ? (
+                        columnSort.direction === 'asc' ? (
+                          <FaSortUp className="w-3 h-3" />
+                        ) : columnSort.direction === 'desc' ? (
+                          <FaSortDown className="w-3 h-3" />
+                        ) : (
+                          <FaSort className="w-3 h-3 opacity-50" />
+                        )
+                      ) : (
+                        <FaSort className="w-3 h-3 opacity-30" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    onClick={() => handleColumnSort('startDate')}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span>Date</span>
+                      {columnSort.field === 'startDate' ? (
+                        columnSort.direction === 'asc' ? (
+                          <FaSortUp className="w-3 h-3" />
+                        ) : columnSort.direction === 'desc' ? (
+                          <FaSortDown className="w-3 h-3" />
+                        ) : (
+                          <FaSort className="w-3 h-3 opacity-50" />
+                        )
+                      ) : (
+                        <FaSort className="w-3 h-3 opacity-30" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    onClick={() => handleColumnSort('type')}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span>Type</span>
+                      {columnSort.field === 'type' ? (
+                        columnSort.direction === 'asc' ? (
+                          <FaSortUp className="w-3 h-3" />
+                        ) : columnSort.direction === 'desc' ? (
+                          <FaSortDown className="w-3 h-3" />
+                        ) : (
+                          <FaSort className="w-3 h-3 opacity-50" />
+                        )
+                      ) : (
+                        <FaSort className="w-3 h-3 opacity-30" />
+                      )}
+                    </div>
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700">
+                    Description
+                  </th>
+                  <th
+                    className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    onClick={() => handleColumnSort('priceNotes')}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span>Price</span>
+                      {columnSort.field === 'priceNotes' ? (
+                        columnSort.direction === 'asc' ? (
+                          <FaSortUp className="w-3 h-3" />
+                        ) : columnSort.direction === 'desc' ? (
+                          <FaSortDown className="w-3 h-3" />
+                        ) : (
+                          <FaSort className="w-3 h-3 opacity-50" />
+                        )
+                      ) : (
+                        <FaSort className="w-3 h-3 opacity-30" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    onClick={() => handleColumnSort('timeWindow')}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span>Time Window</span>
+                      {columnSort.field === 'timeWindow' ? (
+                        columnSort.direction === 'asc' ? (
+                          <FaSortUp className="w-3 h-3" />
+                        ) : columnSort.direction === 'desc' ? (
+                          <FaSortDown className="w-3 h-3" />
+                        ) : (
+                          <FaSort className="w-3 h-3 opacity-50" />
+                        )
+                      ) : (
+                        <FaSort className="w-3 h-3 opacity-30" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    onClick={() => handleColumnSort('isActive')}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span>Status</span>
+                      {columnSort.field === 'isActive' ? (
+                        columnSort.direction === 'asc' ? (
+                          <FaSortUp className="w-3 h-3" />
+                        ) : columnSort.direction === 'desc' ? (
+                          <FaSortDown className="w-3 h-3" />
+                        ) : (
+                          <FaSort className="w-3 h-3 opacity-50" />
+                        )
+                      ) : (
+                        <FaSort className="w-3 h-3 opacity-30" />
+                      )}
+                    </div>
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                {displayItems.map((item) => (
+                  <tr
+                    key={item.id}
+                    className={`hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors ${
+                      isPast(item) ? 'opacity-75' : ''
+                    }`}
+                  >
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`text-sm font-medium cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 ${
+                            isPast(item)
+                              ? 'text-gray-500 dark:text-gray-500 line-through'
+                              : 'text-gray-900 dark:text-white'
+                          }`}
+                          onClick={() => handleItemClick(item)}
+                        >
+                          {item.title}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {item.startDate && (
+                          <span className="text-xs text-gray-600 dark:text-gray-400">
+                            {formatDate(item.startDate)}
+                          </span>
+                        )}
+                        {item.endDate && item.endDate !== item.startDate && (
+                          <span className="text-xs text-gray-500 dark:text-gray-500">
+                            - {formatDate(item.endDate)}
+                          </span>
+                        )}
+                        {!item.startDate && (
+                          <span className="text-xs text-gray-400 dark:text-gray-500">No date</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className="px-2 py-1 text-xs rounded-full font-medium capitalize bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                        {item.type}
                       </span>
-                    )}
-                    {getItemStatus({
-                      isActive: item.isActive,
-                      startDate: item.startDate,
-                      endDate: item.endDate,
-                    }).map((status) => (
-                      <StatusBadge key={status} status={status} />
-                    ))}
-                  </div>
-                  {item.description && (
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-1 line-clamp-1">{item.description}</p>
-                  )}
-                  <div className="text-xs text-gray-500 dark:text-gray-400 space-y-0.5">
-                    {item.priceNotes && (
-                      <p className="truncate font-semibold text-gray-700 dark:text-gray-300">Price: {item.priceNotes}</p>
-                    )}
-                    {item.timeWindow && (
-                      <p className="truncate">Time: {item.timeWindow}</p>
-                    )}
-                    {item.endDate && item.endDate !== item.startDate && (
-                      <p className="truncate">
-                        Ends: {formatDate(item.endDate)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 max-w-xs">
+                        {item.description || '-'}
                       </p>
-                    )}
-                  </div>
-                </div>
-                
-                {/* Edit button - appears centered on hover */}
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 group-hover/item:opacity-100 transition-opacity duration-200">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleItemClick(item);
-                    }}
-                    className="pointer-events-auto px-4 py-2 text-sm bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-medium transition-all duration-200 hover:scale-105 z-10 border border-blue-400 dark:border-blue-500 cursor-pointer"
-                    title="Click anywhere to edit"
-                  >
-                    Edit
-                  </button>
-                </div>
-                
-                {/* Action buttons - always visible */}
-                <div className="flex-shrink-0 z-20 relative flex items-center gap-2">
-                  {item.type === 'food' && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDuplicate(item);
-                      }}
-                      className="px-3 py-1.5 text-xs bg-green-500/90 dark:bg-green-600/90 hover:bg-green-600 dark:hover:bg-green-700 rounded-lg text-white font-medium transition-all duration-200 hover:scale-105 border border-green-400 dark:border-green-500 cursor-pointer"
-                      title="Duplicate special"
-                    >
-                      Duplicate
-                    </button>
-                  )}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete(item);
-                    }}
-                    className="px-3 py-1.5 text-xs bg-red-500/90 dark:bg-red-600/90 hover:bg-red-600 dark:hover:bg-red-700 rounded-lg text-white font-medium transition-all duration-200 hover:scale-105 border border-red-400 dark:border-red-500 cursor-pointer"
-                    title="Delete special"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            ))}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className="text-sm text-gray-900 dark:text-white font-medium">
+                        {item.priceNotes || '-'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                        {item.timeWindow || '-'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {getItemStatus({
+                          isActive: item.isActive,
+                          startDate: item.startDate,
+                          endDate: item.endDate,
+                        }).map((status) => (
+                          <StatusBadge key={status} status={status} />
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => handleItemClick(item)}
+                          className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                          title="Edit"
+                        >
+                          <FaEdit className="w-4 h-4" />
+                        </button>
+                        {item.type === 'food' && (
+                          <button
+                            onClick={() => handleDuplicate(item)}
+                            className="p-2 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
+                            title="Duplicate"
+                          >
+                            <FaCopy className="w-4 h-4" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDelete(item)}
+                          className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                          title="Delete"
+                        >
+                          <FaTrash className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>

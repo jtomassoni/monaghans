@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
-// Test with both superadmin and owner roles
-const roles = ['superadmin', 'owner'] as const;
+// Test with both admin and owner roles
+const roles = ['admin', 'owner'] as const;
 
 for (const role of roles) {
   test.describe(`Menu Management (${role})`, () => {
