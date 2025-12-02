@@ -1,234 +1,214 @@
 # Monaghan's Restaurant Management System
 
-A comprehensive restaurant and bar management platform built with Next.js 16, TypeScript, and PostgreSQL. This project demonstrates complex real-world challenges including timezone handling, recurring event logic, role-based access control, and financial analytics.
+A comprehensive restaurant and bar management platform for owners and managers. Handle scheduling, menu management, online ordering, events, specials, analytics, and more—all in one place.
 
-## What Makes This Interesting
+## Overview
 
-This isn't just another CRUD app. The codebase tackles several non-trivial problems:
+Monaghan's is a full-featured restaurant management system designed to handle all aspects of running a restaurant or bar. From staff scheduling and menu management to online ordering and profitability analysis, everything you need is integrated into a single platform.
 
-- **Timezone Hell**: Consistent Mountain Time (America/Denver) handling across scheduling, events, and reporting, with proper DST transitions. All date operations go through `lib/timezone.ts` to prevent the classic "date shifts by a day" bug.
+## Features
 
-- **Recurring Events with RRULE**: Full RFC 5545 RRULE implementation for events that repeat daily, weekly, monthly, with exceptions and complex patterns. The calendar component (`components/admin-calendar.tsx`) handles expansion and display of recurring instances.
+### Content Management
 
-- **Schedule Auto-Generation**: Constraint-based scheduling algorithm that generates employee shifts based on requirements, availability, and role matching. See `app/api/schedules/auto-generate/route.ts`.
+**Calendar & Events**
+- Week and month calendar views for events, specials, and announcements
+- Create one-time or recurring events (daily, weekly, monthly patterns)
+- Set exceptions for recurring events
+- Organize events by venue area (bar, stage, etc.) and tags
+- Drag-and-drop event editing
 
-- **Financial Analytics**: Multi-dimensional cost analysis combining food costs, labor costs, and sales data to calculate profitability per menu item. Includes AI-powered insights for menu optimization.
+**Specials Management**
+- Food and drink specials with weekday scheduling
+- Set date ranges and time windows (e.g., "Happy Hour 4-6pm")
+- Upload images for specials
+- Display specials on homepage and calendar
 
-- **Flexible Authentication**: Environment variable-based credentials supporting both JSON and colon-separated formats, with automatic user creation and role synchronization. See `lib/auth.ts` for the credential parsing logic.
+**Announcements**
+- Rich text announcements with images
+- Schedule publish and expiry dates
+- Cross-post to Facebook and Instagram
+- Call-to-action buttons
 
-- **Activity Logging**: Comprehensive audit trail system that tracks all user actions with change descriptions. Every API route uses `logActivity()` from `lib/api-helpers.ts`.
+**Homepage Customization**
+- Customize hero section and about content
+- Upload images and manage homepage layout
 
-## Architecture
+### Staff & Scheduling
 
-### Tech Stack
+**Employee Management**
+- Manage employee profiles with roles (cook, bartender, barback)
+- Set hourly wages and PIN codes for timeclock
+- Track hire dates and employment status
 
-- **Next.js 16** (App Router) - Server components, API routes, and React Server Components
-- **TypeScript** - Full type safety throughout
-- **Prisma** - Type-safe database ORM with PostgreSQL
-- **NextAuth.js v4** - JWT-based authentication with custom credential provider
-- **Tailwind CSS 4** - Utility-first styling
-- **Playwright** - E2E testing
+**Shift Scheduling**
+- Create weekly schedules with role-based assignments
+- Set shift requirements (how many of each role needed per day/shift)
+- Create reusable weekly schedule templates
+- Auto-generate schedules based on requirements and availability
+- View schedules in weekly grid format
 
-### Project Structure
+**Availability Tracking**
+- Employees can submit availability and time-off requests
+- View availability by employee and status
+- Availability is checked during schedule generation
 
-```
-app/
-├── admin/              # Admin dashboard (protected routes)
-├── api/                # REST API endpoints (Next.js API routes)
-│   ├── schedules/      # Scheduling CRUD + auto-generation
-│   ├── reporting/      # Analytics endpoints (food cost, labor, profitability)
-│   ├── events/         # Events with RRULE handling
-│   └── ...
-├── [slug]/            # Dynamic public pages
-├── kitchen/           # Kitchen Display System (KDS)
-└── order/             # Online ordering with Stripe
+**Timeclock System**
+- Clock in/out functionality for employees
+- Track break times
+- View clock history and hours worked
+- Edit clock times (admin)
 
-lib/
-├── auth.ts            # NextAuth config with flexible credential parsing
-├── permissions.ts     # Role-based access control helpers
-├── timezone.ts        # Mountain Time utilities (the timezone solution)
-├── schedule-helpers.ts # Shift time calculations, hours worked, labor costs
-├── food-cost-helpers.ts
-├── labor-cost-helpers.ts
-├── profitability-helpers.ts
-└── ai-insights-helpers.ts  # AI-powered menu/schedule optimization
+**Payroll & Labor Costs**
+- Calculate hours worked and labor costs per shift
+- Generate payroll reports by period
+- Filter by role or employee
+- Track labor cost percentages
 
-components/
-├── admin-calendar.tsx  # 1800+ line calendar with recurring event expansion
-├── ordering-interface.tsx  # Online ordering UI
-└── ...
-```
+### Menu & Operations
 
-### Key Patterns
+**Menu Management**
+- Organize menu into sections (appetizers, entrees, drinks, etc.)
+- Create menu items with descriptions, prices, and images
+- Add modifiers (sizes, toppings, etc.)
+- Set item availability (available/unavailable)
+- Track prep times
 
-**1. Timezone Consistency**
-All date operations use `lib/timezone.ts` helpers:
-- `parseMountainTimeDate()` - Parse YYYY-MM-DD strings as Mountain Time (not UTC)
-- `getMountainTimeDateString()` - Get date string in Mountain Time
-- `compareMountainTimeDates()` - Compare dates in Mountain Time
+**Ingredient Tracking**
+- Master ingredient list with categories and units
+- Set ingredient costs and link to suppliers
+- Track par levels
+- Link ingredients to menu items with quantities
 
-This prevents the classic bug where dates shift by a day due to timezone conversion. Every API route that deals with dates uses these helpers.
+**Food Cost Analysis**
+- Calculate food cost per menu item
+- View food cost percentage (food cost / menu price)
+- Generate food cost reports
+- Track ingredient cost changes over time
 
-**2. Recurring Events**
-Events use RRULE strings (RFC 5545) stored in the database. The calendar component expands these into individual instances for display, handling:
-- Daily, weekly, monthly patterns
-- Exceptions (dates to skip)
-- End conditions (never, after N times, until date)
-- Pattern metadata for calendar duplication
+**Kitchen Display System (KDS)**
+- Kitchen-friendly order management interface
+- View orders by status (new, preparing, ready)
+- Update order status
+- Search and filter orders
+- Order timing metrics
 
-See `components/admin-calendar.tsx` for the expansion logic.
+**Order Management**
+- View all orders (pending, in-progress, completed, cancelled)
+- Update order status
+- View order details and customer information
+- Order history and search
 
-**3. Role-Based Access Control**
-Permissions are checked at multiple levels:
-- API routes use `requireAuth()` from `lib/api-helpers.ts`
-- UI components check permissions via `getPermissions()` from `lib/permissions.ts`
-- Middleware protects routes (see `middleware.ts`)
+### Online Ordering
 
-Roles: `admin`, `owner`, `manager`, `cook`, `bartender`, `barback`
+**Customer Interface**
+- Browse menu by sections
+- Add items to cart with modifiers
+- Checkout with customer information
+- Stripe payment processing
+- Order confirmation
 
-**4. Activity Logging**
-Every mutation logs to `ActivityLog` table:
-```typescript
-await logActivity(userId, 'create', 'Event', eventId, {
-  title: event.title,
-  startDateTime: event.startDateTime,
-  // ... change description
-});
-```
+**Order Tracking**
+- Real-time order status updates
+- Kitchen display system integration
+- Order timing metrics
 
-**5. Feature Flags**
-Database-driven feature flags control UI visibility:
-- `boh_connections` - Back of house features
-- `online_ordering` - Online ordering interface
-- `pos_integration` - POS integration features
+### Inventory & Suppliers
 
-See `lib/feature-flags.ts` and `app/api/feature-flags/route.ts`.
+**Supplier Management**
+- Manage supplier database
+- Link products to ingredients
+- Track product catalogs
 
-## Interesting Technical Challenges
+**Purchase Orders**
+- Create and track purchase orders
+- Match supplier products to ingredients
+- Track received quantities
 
-### 1. Timezone Handling
+**Cost Tracking**
+- Track ingredient costs from different suppliers
+- Compare prices across suppliers
+- Calculate true cost per menu item
 
-The system operates in Mountain Time (America/Denver) but runs on servers that could be anywhere. The challenge: ensure dates never shift by a day due to timezone conversion.
+### Analytics & Reporting
 
-**Solution**: Custom timezone utilities in `lib/timezone.ts` that:
-- Parse date strings as Mountain Time (not UTC)
-- Handle DST transitions correctly
-- Use `Intl.DateTimeFormat` with `timeZone: 'America/Denver'` for all formatting
-- Compare dates using Mountain Time date strings, not UTC timestamps
+**Sales Analytics**
+- Track items sold by time of day and day of week
+- Identify best-selling items
+- Identify slow movers
+- Sales trends (daily, weekly, monthly)
+- POS integration (Square) with support for Toast, Clover, Lightspeed, TouchBistro
 
-**Example**:
-```typescript
-// ❌ Wrong: Date shifts by timezone
-const date = new Date('2024-01-15'); // Could be Jan 14 or 15 depending on server TZ
+**Food Cost Reports**
+- Food cost analysis by menu item
+- Food cost trends over time
+- Ingredient cost tracking
 
-// ✅ Right: Always Jan 15 in Mountain Time
-const date = parseMountainTimeDate('2024-01-15');
-```
+**Labor Cost Reports**
+- Labor cost analysis by shift, employee, and menu item
+- Labor cost percentage vs. sales
+- Hours worked tracking
 
-### 2. Recurring Events with Exceptions
+**Profitability Analysis**
+- Profit margins per menu item
+- Prime cost (food cost + labor cost)
+- Contribution margin analysis
+- Identify high-volume, low-margin items
+- Identify low-volume, high-margin items
 
-Events can repeat daily/weekly/monthly, but need to support exceptions (skip specific dates) and complex patterns (e.g., "first Monday of every month").
+**AI-Powered Insights**
+- Automated menu optimization suggestions
+- Scheduling optimization recommendations
+- Predictive analytics for demand forecasting
+- Ingredient ordering suggestions
 
-**Solution**: 
-- Store RRULE strings in database (`recurrenceRule` field)
-- Use `rrule` library to expand instances
-- Store exceptions as JSON array of dates
-- Calendar component expands and displays instances on-the-fly
-- Pattern metadata (`dayOfWeek`, `weekOfMonth`, `monthDay`) enables calendar duplication
+### Additional Features
 
-### 3. Schedule Auto-Generation
+**Social Media Integration**
+- Facebook cross-posting for announcements, events, and specials
+- Post scheduling via queue system
+- Facebook post analytics
 
-Generate employee schedules that satisfy:
-- Shift requirements (how many cooks/bartenders/barbacks per shift)
-- Employee availability
-- Role matching (cook can't fill bartender shift)
-- No double-booking
+**User Management**
+- Role-based access control (admin, owner, manager, cook, bartender, barback)
+- User activity logging
+- Permission-based feature access
 
-**Solution**: Constraint-based algorithm in `app/api/schedules/auto-generate/route.ts`:
-1. Load requirements for date range
-2. Load employee availability
-3. For each unfilled requirement:
-   - Find available employees with matching role
-   - Assign based on fairness (round-robin)
-   - Mark requirement as filled
+**Settings**
+- Business hours and contact information
+- Timezone configuration
+- Shift type configuration
+- Feature flags for enabling/disabling features
 
-### 4. Financial Analytics
+**Accessibility**
+- WCAG AA compliance
+- Keyboard navigation
+- Screen reader support
+- Mobile responsive design
 
-Calculate profitability per menu item by combining:
-- Food costs (sum of ingredient costs × quantities)
-- Labor costs (prep time × average hourly wage)
-- Sales data (from online orders + POS integration)
+**SEO**
+- Sitemap and robots.txt
+- Meta tags and Open Graph tags
 
-**Solution**: Multi-step calculation in `lib/profitability-helpers.ts`:
-1. Calculate food cost per item (from ingredients)
-2. Calculate labor cost per item (from prep time)
-3. Get sales data (quantity sold, revenue)
-4. Calculate profit margin = revenue - food cost - labor cost
-5. Calculate prime cost = food cost + labor cost
-6. Generate insights (high-volume low-margin items, etc.)
+## Tech Stack
 
-### 5. Flexible Authentication
+- Next.js 16 (App Router)
+- TypeScript
+- PostgreSQL with Prisma ORM
+- Tailwind CSS
+- NextAuth.js for authentication
+- Stripe for payments
+- Playwright for e2e testing
 
-Support multiple credential formats and auto-create users from environment variables.
-
-**Solution**: `lib/auth.ts` parses credentials from env vars:
-- Colon-separated: `ADMIN_USERS="user1:pass1,user2:pass2"`
-- JSON single: `ADMIN_USER='{"username":"admin","password":"pass"}'`
-- JSON array: `ADMIN_USERS='[{"username":"admin1","password":"pass1"}]'`
-
-On login, if user doesn't exist in DB, create them with role from env var. On each request, refresh user data from DB to ensure permissions stay current.
-
-## Database Schema Highlights
-
-The Prisma schema (`prisma/schema.prisma`) includes:
-
-- **Events**: RRULE strings, exceptions, pattern metadata
-- **Schedules**: Links employees to shifts with dates/times
-- **Shifts**: Actual clock in/out times (for payroll)
-- **MenuItems** ↔ **Ingredients**: Many-to-many with quantities
-- **Orders** → **OrderItems**: Online ordering with Stripe payment intents
-- **ActivityLog**: Audit trail of all mutations
-- **FeatureFlags**: Database-driven feature toggles
-
-## API Design
-
-RESTful API routes in `app/api/`:
-- `GET /api/schedules?startDate=...&endDate=...` - List schedules with date filtering
-- `POST /api/schedules/auto-generate` - Generate schedules from requirements
-- `GET /api/reporting/profitability?startDate=...&endDate=...` - Profitability analysis
-- `GET /api/events` - Events with recurring expansion
-- All routes use `requireAuth()` middleware
-
-## Testing
-
-E2E tests with Playwright cover:
-- Public pages (homepage, menu, events)
-- Admin features (calendar, events, scheduling)
-- Staff management (scheduling, availability, timeclock)
-- Reporting and analytics
-
-See `e2e/README.md` for test structure and `BUG_TODO.md` for known coverage gaps.
-
-## Quick Start (For Developers)
+## Quick Start
 
 ```bash
 npm install
-cp .env.example .env  # Add DATABASE_URL, NEXTAUTH_SECRET, ADMIN_USERS
+cp .env.example .env  # Configure environment variables
 npm run db:migrate
-npm run db:seed  # Optional
 npm run dev
 ```
 
-See `.env.example` for required environment variables. The system uses PostgreSQL (SQLite works locally but not on Vercel).
-
-## Key Files to Explore
-
-- `lib/timezone.ts` - The timezone solution (read this first)
-- `lib/auth.ts` - Flexible credential parsing and user auto-creation
-- `components/admin-calendar.tsx` - Recurring event expansion and display
-- `app/api/schedules/auto-generate/route.ts` - Schedule generation algorithm
-- `lib/profitability-helpers.ts` - Financial calculations
-- `lib/permissions.ts` - Role-based access control
+See `.env.example` for required environment variables.
 
 ## Documentation
 
