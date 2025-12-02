@@ -16,21 +16,45 @@ export default async function AdminSettings() {
     where: { key: 'timezone' },
   });
 
-  // Get calendar hours setting
-  const calendarHoursSetting = await prisma.setting.findUnique({
-    where: { key: 'calendarHours' },
+  // Get site title setting
+  const siteTitleSetting = await prisma.setting.findUnique({
+    where: { key: 'siteTitle' },
+  });
+
+  // Get contact setting
+  const contactSetting = await prisma.setting.findUnique({
+    where: { key: 'contact' },
+  });
+
+  // Get hours setting
+  const hoursSetting = await prisma.setting.findUnique({
+    where: { key: 'hours' },
+  });
+
+  // Get map setting
+  const mapSetting = await prisma.setting.findUnique({
+    where: { key: 'mapEmbed' },
+  });
+
+  // Get happy hour setting
+  const happyHourSetting = await prisma.setting.findUnique({
+    where: { key: 'happyHour' },
   });
 
   const timezone = timezoneSetting?.value || 'America/Denver';
-  
-  let calendarHours: { startHour: number; endHour: number } | null = null;
-  if (calendarHoursSetting?.value) {
-    try {
-      calendarHours = JSON.parse(calendarHoursSetting.value);
-    } catch {
-      // Invalid JSON, use default
-    }
-  }
+  const siteTitle = siteTitleSetting?.value || "Monaghan's Dive Bar";
+
+  let contact: any = {};
+  let hours: any = {};
+  let mapEmbed: any = {};
+  let happyHour: any = {};
+
+  try {
+    contact = contactSetting ? JSON.parse(contactSetting.value) : {};
+    hours = hoursSetting ? JSON.parse(hoursSetting.value) : {};
+    mapEmbed = mapSetting ? JSON.parse(mapSetting.value) : {};
+    happyHour = happyHourSetting ? JSON.parse(happyHourSetting.value) : {};
+  } catch {}
 
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 overflow-hidden relative">
@@ -57,7 +81,14 @@ export default async function AdminSettings() {
       {/* Main Content - Scrollable */}
       <div className="flex-1 overflow-hidden p-2 sm:p-3 relative z-10">
         <div className="h-full">
-          <SettingsForm initialTimezone={timezone} initialCalendarHours={calendarHours} />
+          <SettingsForm 
+            initialTimezone={timezone} 
+            initialSiteTitle={siteTitle}
+            initialContact={contact}
+            initialHours={hours}
+            initialMapEmbed={mapEmbed}
+            initialHappyHour={happyHour}
+          />
         </div>
       </div>
     </div>

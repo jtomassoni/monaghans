@@ -20,35 +20,15 @@ export default async function AdminHomepage() {
   const gallerySetting = await prisma.setting.findUnique({
     where: { key: 'homepageGallery' },
   });
-  const contactSetting = await prisma.setting.findUnique({
-    where: { key: 'contact' },
-  });
-  const hoursSetting = await prisma.setting.findUnique({
-    where: { key: 'hours' },
-  });
-  const mapSetting = await prisma.setting.findUnique({
-    where: { key: 'mapEmbed' },
-  });
-  const happyHourSetting = await prisma.setting.findUnique({
-    where: { key: 'happyHour' },
-  });
 
   let hero: any = {};
   let about: any = {};
   let gallery: any = {};
-  let contact: any = {};
-  let hours: any = {};
-  let mapEmbed: any = {};
-  let happyHour: any = {};
 
   try {
     hero = heroSetting ? JSON.parse(heroSetting.value) : {};
     about = aboutSetting ? JSON.parse(aboutSetting.value) : {};
     gallery = gallerySetting ? JSON.parse(gallerySetting.value) : {};
-    contact = contactSetting ? JSON.parse(contactSetting.value) : {};
-    hours = hoursSetting ? JSON.parse(hoursSetting.value) : {};
-    mapEmbed = mapSetting ? JSON.parse(mapSetting.value) : {};
-    happyHour = happyHourSetting ? JSON.parse(happyHourSetting.value) : {};
   } catch {}
 
   return (
@@ -79,10 +59,6 @@ export default async function AdminHomepage() {
             initialHero={hero} 
             initialAbout={about} 
             initialGallery={gallery}
-            initialContact={contact}
-            initialHours={hours}
-            initialMapEmbed={mapEmbed}
-            initialHappyHour={happyHour}
           />
         </div>
       </div>

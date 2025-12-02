@@ -139,6 +139,12 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
         ...(permissions.canAccessReporting && featureFlags.reporting_analytics ? [{ href: '/admin/reporting', label: 'Reporting', icon: FaChartLine }] : []),
       ],
     },
+    {
+      title: 'Settings',
+      items: [
+        ...(permissions.canAccessAdmin ? [{ href: '/admin/settings', label: 'Company Settings', icon: FaCog }] : []),
+      ],
+    },
   ].filter(group => group.items.length > 0); // Remove empty groups
 
   const isActive = (href: string) => {
@@ -147,6 +153,9 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
     }
     if (href === '/admin/overview') {
       return pathname === '/admin/overview';
+    }
+    if (href === '/admin/settings') {
+      return pathname === '/admin/settings';
     }
     if (href === '/admin/food-specials') {
       return pathname?.startsWith('/admin/food-specials');
