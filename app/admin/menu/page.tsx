@@ -11,7 +11,7 @@ export default async function AdminMenu() {
     redirect('/admin/login');
   }
 
-  const [sections, specials, drinkSpecials, allItems] = await Promise.all([
+  const [sections, allItems] = await Promise.all([
     prisma.menuSection.findMany({
       include: {
         items: {
@@ -19,18 +19,6 @@ export default async function AdminMenu() {
         },
       },
       orderBy: { displayOrder: 'asc' },
-    }),
-    prisma.special.findMany({
-      where: {
-        type: 'food',
-      },
-      orderBy: { createdAt: 'desc' },
-    }),
-    prisma.special.findMany({
-      where: {
-        type: 'drink',
-      },
-      orderBy: { createdAt: 'desc' },
     }),
     prisma.menuItem.findMany({
       include: {
@@ -45,33 +33,6 @@ export default async function AdminMenu() {
       orderBy: { displayOrder: 'asc' },
     }),
   ]);
-
-  // Transform specials for the component
-  const transformedSpecials = specials.map((special) => ({
-    id: special.id,
-    title: special.title,
-    description: special.description || null,
-    priceNotes: special.priceNotes || null,
-    type: special.type,
-    timeWindow: special.timeWindow || null,
-    startDate: special.startDate?.toISOString() || null,
-    endDate: special.endDate?.toISOString() || null,
-    isActive: special.isActive,
-  }));
-
-  // Transform drink specials for the component
-  const transformedDrinkSpecials = drinkSpecials.map((special) => ({
-    id: special.id,
-    title: special.title,
-    description: special.description || null,
-    priceNotes: special.priceNotes || null,
-    type: special.type,
-    appliesOn: special.appliesOn || null,
-    timeWindow: special.timeWindow || null,
-    startDate: special.startDate?.toISOString() || null,
-    endDate: special.endDate?.toISOString() || null,
-    isActive: special.isActive,
-  }));
 
   // Transform items for the component
   const transformedItems = allItems.map((item) => ({
@@ -112,7 +73,7 @@ export default async function AdminMenu() {
               Menu
             </h1>
             <p className="text-gray-500 dark:text-gray-400 text-xs hidden sm:block">
-              Manage menu sections, items, and daily specials
+              Manage menu sections and items
             </p>
           </div>
         </div>
@@ -124,8 +85,6 @@ export default async function AdminMenu() {
           <Suspense fallback={<div className="text-center py-8 text-gray-500 dark:text-gray-400">Loading...</div>}>
             <MenuTabs 
               sections={sections} 
-              specials={transformedSpecials}
-              drinkSpecials={transformedDrinkSpecials}
               items={transformedItems}
               sectionsForItems={sectionsForItems}
             />

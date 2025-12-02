@@ -14,14 +14,22 @@ export default async function Footer() {
     where: { key: 'hours' },
   });
 
+  const happyHourSetting = await prisma.setting.findUnique({
+    where: { key: 'happyHour' },
+  });
+
   let contact: any = {};
   let social: any = {};
   let hours: any = {};
+  let happyHour: any = {};
   try {
     contact = contactSetting ? JSON.parse(contactSetting.value) : {};
     social = socialSetting ? JSON.parse(socialSetting.value) : {};
     hours = hoursSetting ? JSON.parse(hoursSetting.value) : {};
+    happyHour = happyHourSetting ? JSON.parse(happyHourSetting.value) : {};
   } catch {}
+
+  const hasHappyHour = happyHour && (happyHour.title || happyHour.description || happyHour.times);
 
   // Get today's hours for display
   const today = new Date();
@@ -125,6 +133,36 @@ export default async function Footer() {
                 <p className="text-gray-300 font-medium">
                   {formatTime(todayHours.open)} - {formatTime(todayHours.close)}
                 </p>
+              </div>
+            )}
+            {hasHappyHour && (
+              <div className="mt-4 pt-4 border-t border-gray-800">
+                <div className="flex items-center gap-2 mb-2">
+                  <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  <p className="text-sm text-gray-500">Happy Hour</p>
+                </div>
+                {happyHour.title && (
+                  <p className="text-gray-300 font-semibold mb-1">
+                    {happyHour.title}
+                  </p>
+                )}
+                {happyHour.description && (
+                  <p className="text-gray-400 text-sm mb-1">
+                    {happyHour.description}
+                  </p>
+                )}
+                {happyHour.details && (
+                  <p className="text-gray-400 text-sm mb-1">
+                    {happyHour.details}
+                  </p>
+                )}
+                {happyHour.times && (
+                  <p className="text-gray-300 text-sm font-medium">
+                    {happyHour.times}
+                  </p>
+                )}
               </div>
             )}
           </div>

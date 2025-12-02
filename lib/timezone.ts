@@ -1,7 +1,42 @@
 /**
- * Timezone utilities for Mountain Time (America/Denver)
- * All date/time operations should use Mountain Time since that's where the bar is located
+ * Timezone utilities for company timezone (defaults to Mountain Time - America/Denver)
+ * 
+ * The company timezone can be configured in Admin Settings (/admin/settings).
+ * Currently, these functions use 'America/Denver' as the default, but the setting
+ * is stored in the database and can be retrieved using getCompanyTimezone().
+ * 
+ * Note: Most functions here are synchronous and use the hardcoded default.
+ * For server-side code that needs the configured timezone, use getCompanyTimezone().
  */
+
+/**
+ * Get the company timezone from settings
+ * Falls back to 'America/Denver' if not set
+ * This should be called server-side only (uses Prisma)
+ */
+export async function getCompanyTimezone(): Promise<string> {
+  try {
+    const { prisma } = await import('@/lib/prisma');
+    const setting = await prisma.setting.findUnique({
+      where: { key: 'timezone' },
+    });
+    if (setting?.value) {
+      return setting.value;
+    }
+  } catch (error) {
+    // If Prisma is not available (client-side), fall back to default
+    console.warn('Could not fetch timezone setting, using default');
+  }
+  return 'America/Denver';
+}
+
+/**
+ * Get the company timezone synchronously (for client-side use)
+ * Uses the default timezone. For server-side, use getCompanyTimezone() instead.
+ */
+export function getCompanyTimezoneSync(): string {
+  return 'America/Denver'; // Default, can be overridden by settings
+}
 
 /**
  * Get today's date in Mountain Time (start of day, 00:00:00)

@@ -2,6 +2,7 @@
 
 import { useState, FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { FaTrash, FaTimes, FaSave, FaCheck } from 'react-icons/fa';
 import Modal from '@/components/modal';
 import { showToast } from '@/components/toast';
 import StatusToggle from '@/components/status-toggle';
@@ -224,7 +225,7 @@ export default function MenuSectionModalForm({ isOpen, onClose, section, onSucce
           </div>
         </div>
 
-        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-4 backdrop-blur-sm flex flex-wrap items-center justify-end gap-3 sticky bottom-0 -mx-6 px-6 bg-white dark:bg-gray-800">
+        <div className="flex flex-wrap items-center justify-end gap-3 pt-6 mt-6 border-t border-gray-200 dark:border-gray-700">
           {section?.id && onDelete && (
             <button
               type="button"
@@ -236,26 +237,38 @@ export default function MenuSectionModalForm({ isOpen, onClose, section, onSucce
                 setShowDeleteConfirm(true);
               }}
               disabled={loading || itemCount > 0}
-              className="px-4 py-2 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 cursor-pointer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer"
               title={itemCount > 0 ? `Cannot delete: section contains ${itemCount} menu item${itemCount === 1 ? '' : 's'}` : 'Delete section'}
             >
-              Delete
+              <FaTrash className="w-3.5 h-3.5" />
+              <span>Delete</span>
             </button>
           )}
           <button
             type="button"
             onClick={handleCancel}
             disabled={loading}
-            className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold transition-all duration-200 cursor-pointer"
           >
-            Cancel
+            <FaTimes className="w-3.5 h-3.5" />
+            <span>Cancel</span>
           </button>
           <button
             type="submit"
             disabled={!!(loading || (section?.id && !isDirty))}
-            className="px-4 py-2 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-blue-500/20 cursor-pointer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer"
           >
-            {loading ? (section?.id ? 'Saving...' : 'Creating...') : (section?.id ? 'Save' : 'Create')}
+            {loading ? (
+              <>
+                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <span>{section?.id ? 'Saving...' : 'Creating...'}</span>
+              </>
+            ) : (
+              <>
+                {section?.id ? <FaSave className="w-3.5 h-3.5" /> : <FaCheck className="w-3.5 h-3.5" />}
+                <span>{section?.id ? 'Save' : 'Create'}</span>
+              </>
+            )}
           </button>
         </div>
       </form>

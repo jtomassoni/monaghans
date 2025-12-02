@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { getAllFeatureFlags } from '@/lib/feature-flags';
 import OverviewContent from './overview-content';
 
 export default async function AdminOverview() {
@@ -9,6 +10,18 @@ export default async function AdminOverview() {
   if (!session) {
     redirect('/admin/login');
   }
+
+  // Fetch feature flags to optimize data fetching
+  const featureFlags = await getAllFeatureFlags();
+  const flagsMap = new Map(featureFlags.map(flag => [flag.key, flag.isEnabled]));
+  
+  const isOnlineOrderingEnabled = flagsMap.get('online_ordering') ?? false;
+  const isStaffSchedulingEnabled = flagsMap.get('staff_scheduling') ?? false;
+  const isCalendarsEventsEnabled = flagsMap.get('calendars_events') ?? false;
+  const isSpecialsManagementEnabled = flagsMap.get('specials_management') ?? false;
+  const isMenuManagementEnabled = flagsMap.get('menu_management') ?? false;
+  const isActivityLogEnabled = flagsMap.get('activity_log') ?? false;
+  const isUsersStaffManagementEnabled = flagsMap.get('users_staff_management') ?? false;
 
   const now = new Date();
   const nextWeek = new Date(now);
@@ -28,170 +41,259 @@ export default async function AdminOverview() {
   endOfWeek.setDate(startOfWeek.getDate() + 6);
   endOfWeek.setHours(23, 59, 59, 999);
 
-  // Fetch comprehensive data
-  const [
-    eventsCount,
-    activeEventsCount,
-    specialsCount,
-    activeSpecialsCount,
-    menuSectionsCount,
-    menuItemsCount,
-    announcementsCount,
-    publishedAnnouncementsCount,
-    usersCount,
-    upcomingEvents,
-    recentActivities,
-    inactiveMenuItems,
-    unpublishedAnnouncements,
-    // Orders data
-    todayOrdersCount,
-    pendingOrdersCount,
-    kitchenOrdersCount,
-    todayRevenue,
-    weekRevenue,
-    recentOrders,
-    // Staff data
-    activeEmployeesCount,
-    clockedInCount,
-    todaySchedulesCount,
-  ] = await Promise.all([
-    prisma.event.count(),
-    prisma.event.count({ where: { isActive: true } }),
-    prisma.special.count(),
-    prisma.special.count({ where: { isActive: true } }),
-    prisma.menuSection.count(),
-    prisma.menuItem.count(),
-    prisma.announcement.count(),
-    prisma.announcement.count({ where: { isPublished: true } }),
-    session.user.role === 'superadmin' ? prisma.user.count() : Promise.resolve(0),
-    // Upcoming events (next 7 days, limit to 3 for overview)
-    prisma.event.findMany({
-      where: {
-        isActive: true,
-        startDateTime: {
-          gte: now,
-          lte: nextWeek,
-        },
-      },
-      orderBy: { startDateTime: 'asc' },
-      take: 3,
-    }),
-    // Recent activities (only 3 for overview)
-    (prisma as any).activityLog.findMany({
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
+  // Build promises array conditionally based on feature flags
+  const promises: Promise<any>[] = [];
+  const promiseIndices: Record<string, number> = {};
+
+  // Events & Specials data (if calendars_events or specials_management enabled)
+  if (isCalendarsEventsEnabled || isSpecialsManagementEnabled) {
+    promiseIndices.eventsCount = promises.length;
+    promises.push(prisma.event.count());
+    promiseIndices.activeEventsCount = promises.length;
+    promises.push(prisma.event.count({ where: { isActive: true } }));
+    promiseIndices.specialsCount = promises.length;
+    promises.push(prisma.special.count());
+    promiseIndices.activeSpecialsCount = promises.length;
+    promises.push(prisma.special.count({ where: { isActive: true } }));
+    promiseIndices.upcomingEvents = promises.length;
+    promises.push(
+      prisma.event.findMany({
+        where: {
+          isActive: true,
+          startDateTime: {
+            gte: now,
+            lte: nextWeek,
           },
         },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 3,
-    }),
-    // Inactive menu items
-    prisma.menuItem.count({ where: { isAvailable: false } }),
-    // Unpublished announcements
+        orderBy: { startDateTime: 'asc' },
+        take: 3,
+      })
+    );
+  } else {
+    promiseIndices.eventsCount = -1;
+    promiseIndices.activeEventsCount = -1;
+    promiseIndices.specialsCount = -1;
+    promiseIndices.activeSpecialsCount = -1;
+    promiseIndices.upcomingEvents = -1;
+  }
+
+  // Menu data (if menu_management enabled)
+  if (isMenuManagementEnabled) {
+    promiseIndices.menuSectionsCount = promises.length;
+    promises.push(prisma.menuSection.count());
+    promiseIndices.menuItemsCount = promises.length;
+    promises.push(prisma.menuItem.count());
+    promiseIndices.inactiveMenuItems = promises.length;
+    promises.push(prisma.menuItem.count({ where: { isAvailable: false } }));
+  } else {
+    promiseIndices.menuSectionsCount = -1;
+    promiseIndices.menuItemsCount = -1;
+    promiseIndices.inactiveMenuItems = -1;
+  }
+
+  // Announcements (always fetch - no specific flag)
+  promiseIndices.announcementsCount = promises.length;
+  promises.push(prisma.announcement.count());
+  promiseIndices.publishedAnnouncementsCount = promises.length;
+  promises.push(prisma.announcement.count({ where: { isPublished: true } }));
+  promiseIndices.unpublishedAnnouncements = promises.length;
+  promises.push(
     prisma.announcement.findMany({
       where: {
         isPublished: false,
       },
       orderBy: { createdAt: 'desc' },
       take: 5,
-    }),
-    // Orders: Today's count
-    prisma.order.count({
-      where: {
-        createdAt: {
-          gte: startOfToday,
-          lte: endOfToday,
+    })
+  );
+
+  // Users (if users_staff_management enabled and superadmin)
+  if (isUsersStaffManagementEnabled && session.user.role === 'superadmin') {
+    promiseIndices.usersCount = promises.length;
+    promises.push(prisma.user.count());
+  } else {
+    promiseIndices.usersCount = -1;
+  }
+
+  // Activity log (if activity_log enabled)
+  if (isActivityLogEnabled) {
+    promiseIndices.recentActivities = promises.length;
+    promises.push(
+      (prisma as any).activityLog.findMany({
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
         },
-      },
-    }),
-    // Orders: Pending (not completed or cancelled)
-    prisma.order.count({
-      where: {
-        status: {
-          notIn: ['completed', 'cancelled'],
+        orderBy: { createdAt: 'desc' },
+        take: 3,
+      })
+    );
+  } else {
+    promiseIndices.recentActivities = -1;
+  }
+
+  // Orders data (if online_ordering enabled)
+  if (isOnlineOrderingEnabled) {
+    promiseIndices.todayOrdersCount = promises.length;
+    promises.push(
+      prisma.order.count({
+        where: {
+          createdAt: {
+            gte: startOfToday,
+            lte: endOfToday,
+          },
         },
-      },
-    }),
-    // Orders: In kitchen (acknowledged, preparing, ready)
-    prisma.order.count({
-      where: {
-        status: {
-          in: ['acknowledged', 'preparing', 'ready'],
+      })
+    );
+    promiseIndices.pendingOrdersCount = promises.length;
+    promises.push(
+      prisma.order.count({
+        where: {
+          status: {
+            notIn: ['completed', 'cancelled'],
+          },
         },
-      },
-    }),
-    // Revenue: Today's total
-    prisma.order.aggregate({
-      where: {
-        createdAt: {
-          gte: startOfToday,
-          lte: endOfToday,
+      })
+    );
+    promiseIndices.kitchenOrdersCount = promises.length;
+    promises.push(
+      prisma.order.count({
+        where: {
+          status: {
+            in: ['acknowledged', 'preparing', 'ready'],
+          },
         },
-        paymentStatus: 'paid',
-      },
-      _sum: {
-        total: true,
-      },
-    }),
-    // Revenue: This week's total
-    prisma.order.aggregate({
-      where: {
-        createdAt: {
-          gte: startOfWeek,
-          lte: endOfWeek,
+      })
+    );
+    promiseIndices.todayRevenue = promises.length;
+    promises.push(
+      prisma.order.aggregate({
+        where: {
+          createdAt: {
+            gte: startOfToday,
+            lte: endOfToday,
+          },
+          paymentStatus: 'paid',
         },
-        paymentStatus: 'paid',
-      },
-      _sum: {
-        total: true,
-      },
-    }),
-    // Recent orders (last 5)
-    prisma.order.findMany({
-      where: {
-        status: {
-          notIn: ['completed', 'cancelled'],
+        _sum: {
+          total: true,
         },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 5,
-      select: {
-        id: true,
-        orderNumber: true,
-        status: true,
-        customerName: true,
-        total: true,
-        createdAt: true,
-      },
-    }),
-    // Staff: Active employees
-    prisma.employee.count({
-      where: {
-        isActive: true,
-        deletedAt: null,
-      },
-    }),
-    // Staff: Currently clocked in
-    prisma.shift.count({
-      where: {
-        clockOut: null,
-      },
-    }),
-    // Staff: Today's scheduled shifts
-    prisma.schedule.count({
-      where: {
-        date: {
-          gte: startOfToday,
-          lte: endOfToday,
+      })
+    );
+    promiseIndices.weekRevenue = promises.length;
+    promises.push(
+      prisma.order.aggregate({
+        where: {
+          createdAt: {
+            gte: startOfWeek,
+            lte: endOfWeek,
+          },
+          paymentStatus: 'paid',
         },
-      },
-    }),
-  ]);
+        _sum: {
+          total: true,
+        },
+      })
+    );
+    promiseIndices.recentOrders = promises.length;
+    promises.push(
+      prisma.order.findMany({
+        where: {
+          status: {
+            notIn: ['completed', 'cancelled'],
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+        select: {
+          id: true,
+          orderNumber: true,
+          status: true,
+          customerName: true,
+          total: true,
+          createdAt: true,
+        },
+      })
+    );
+  } else {
+    promiseIndices.todayOrdersCount = -1;
+    promiseIndices.pendingOrdersCount = -1;
+    promiseIndices.kitchenOrdersCount = -1;
+    promiseIndices.todayRevenue = -1;
+    promiseIndices.weekRevenue = -1;
+    promiseIndices.recentOrders = -1;
+  }
+
+  // Staff data (if staff_scheduling enabled)
+  if (isStaffSchedulingEnabled) {
+    promiseIndices.activeEmployeesCount = promises.length;
+    promises.push(
+      prisma.employee.count({
+        where: {
+          isActive: true,
+          deletedAt: null,
+        },
+      })
+    );
+    promiseIndices.clockedInCount = promises.length;
+    promises.push(
+      prisma.shift.count({
+        where: {
+          clockOut: null,
+        },
+      })
+    );
+    promiseIndices.todaySchedulesCount = promises.length;
+    promises.push(
+      prisma.schedule.count({
+        where: {
+          date: {
+            gte: startOfToday,
+            lte: endOfToday,
+          },
+        },
+      })
+    );
+  } else {
+    promiseIndices.activeEmployeesCount = -1;
+    promiseIndices.clockedInCount = -1;
+    promiseIndices.todaySchedulesCount = -1;
+  }
+
+  // Execute all promises
+  const results = await Promise.all(promises);
+
+  // Extract results using indices
+  const getResult = (index: number, defaultValue: any = 0) => 
+    index >= 0 ? results[index] : defaultValue;
+
+  const eventsCount = getResult(promiseIndices.eventsCount);
+  const activeEventsCount = getResult(promiseIndices.activeEventsCount);
+  const specialsCount = getResult(promiseIndices.specialsCount);
+  const activeSpecialsCount = getResult(promiseIndices.activeSpecialsCount);
+  const menuSectionsCount = getResult(promiseIndices.menuSectionsCount);
+  const menuItemsCount = getResult(promiseIndices.menuItemsCount);
+  const announcementsCount = getResult(promiseIndices.announcementsCount);
+  const publishedAnnouncementsCount = getResult(promiseIndices.publishedAnnouncementsCount);
+  const usersCount = getResult(promiseIndices.usersCount);
+  const upcomingEvents = getResult(promiseIndices.upcomingEvents, []);
+  const recentActivities = getResult(promiseIndices.recentActivities, []);
+  const inactiveMenuItems = getResult(promiseIndices.inactiveMenuItems);
+  const unpublishedAnnouncements = getResult(promiseIndices.unpublishedAnnouncements, []);
+  const todayOrdersCount = getResult(promiseIndices.todayOrdersCount);
+  const pendingOrdersCount = getResult(promiseIndices.pendingOrdersCount);
+  const kitchenOrdersCount = getResult(promiseIndices.kitchenOrdersCount);
+  const todayRevenue = getResult(promiseIndices.todayRevenue, { _sum: { total: 0 } });
+  const weekRevenue = getResult(promiseIndices.weekRevenue, { _sum: { total: 0 } });
+  const recentOrders = getResult(promiseIndices.recentOrders, []);
+  const activeEmployeesCount = getResult(promiseIndices.activeEmployeesCount);
+  const clockedInCount = getResult(promiseIndices.clockedInCount);
+  const todaySchedulesCount = getResult(promiseIndices.todaySchedulesCount);
 
   const formatDate = (date: Date) => {
     return new Date(date).toLocaleDateString('en-US', {
@@ -223,8 +325,12 @@ export default async function AdminOverview() {
     formattedDateTime: formatDateTime(activity.createdAt),
   }));
 
-  const stats = [
-    {
+  // Build stats array conditionally based on feature flags
+  const stats = [];
+
+  // Orders stat (only if online_ordering enabled)
+  if (isOnlineOrderingEnabled) {
+    stats.push({
       title: 'Orders',
       total: todayOrdersCount,
       active: pendingOrdersCount,
@@ -236,8 +342,12 @@ export default async function AdminOverview() {
       details: `$${(todayRevenue._sum.total || 0).toFixed(2)} today • ${kitchenOrdersCount} in kitchen`,
       revenue: todayRevenue._sum.total || 0,
       kitchenOrders: kitchenOrdersCount,
-    },
-    {
+    });
+  }
+
+  // Staff stat (only if staff_scheduling enabled)
+  if (isStaffSchedulingEnabled) {
+    stats.push({
       title: 'Staff',
       total: activeEmployeesCount,
       active: clockedInCount,
@@ -249,8 +359,12 @@ export default async function AdminOverview() {
       details: `${clockedInCount} clocked in • ${todaySchedulesCount} shifts today`,
       clockedIn: clockedInCount,
       shiftsToday: todaySchedulesCount,
-    },
-    {
+    });
+  }
+
+  // Specials & Events stat (only if calendars_events or specials_management enabled)
+  if (isCalendarsEventsEnabled || isSpecialsManagementEnabled) {
+    stats.push({
       title: 'Specials & Events',
       total: eventsCount + specialsCount,
       active: activeEventsCount + activeSpecialsCount,
@@ -260,8 +374,12 @@ export default async function AdminOverview() {
       bgColor: 'bg-blue-50 dark:bg-blue-900/20',
       textColor: 'text-blue-600 dark:text-blue-400',
       details: `${eventsCount} events • ${specialsCount} specials`,
-    },
-    {
+    });
+  }
+
+  // Menu stat (only if menu_management enabled)
+  if (isMenuManagementEnabled) {
+    stats.push({
       title: 'Menu',
       total: menuSectionsCount + menuItemsCount,
       active: menuItemsCount - inactiveMenuItems,
@@ -272,21 +390,24 @@ export default async function AdminOverview() {
       textColor: 'text-orange-600 dark:text-orange-400',
       inactive: inactiveMenuItems,
       details: `${menuSectionsCount} sections • ${menuItemsCount} items`,
-    },
-    {
-      title: 'Announcements',
-      total: announcementsCount,
-      active: publishedAnnouncementsCount,
-      iconName: 'FaBullhorn',
-      href: '/admin/announcements',
-      color: 'bg-yellow-500/80 dark:bg-yellow-600/80',
-      bgColor: 'bg-yellow-50 dark:bg-yellow-900/20',
-      textColor: 'text-yellow-600 dark:text-yellow-400',
-      unpublished: unpublishedAnnouncements.length,
-    },
-  ];
+    });
+  }
 
-  if (session.user.role === 'superadmin') {
+  // Announcements stat (always show)
+  stats.push({
+    title: 'Announcements',
+    total: announcementsCount,
+    active: publishedAnnouncementsCount,
+    iconName: 'FaBullhorn',
+    href: '/admin/announcements',
+    color: 'bg-yellow-500/80 dark:bg-yellow-600/80',
+    bgColor: 'bg-yellow-50 dark:bg-yellow-900/20',
+    textColor: 'text-yellow-600 dark:text-yellow-400',
+    unpublished: unpublishedAnnouncements.length,
+  });
+
+  // Users stat (only if users_staff_management enabled and superadmin)
+  if (isUsersStaffManagementEnabled && session.user.role === 'superadmin') {
     stats.push({
       title: 'Users',
       total: usersCount,
@@ -337,6 +458,15 @@ export default async function AdminOverview() {
         todayRevenue={todayRevenue._sum.total || 0}
         weekRevenue={weekRevenue._sum.total || 0}
         clockedInCount={clockedInCount}
+        featureFlags={{
+          online_ordering: isOnlineOrderingEnabled,
+          staff_scheduling: isStaffSchedulingEnabled,
+          calendars_events: isCalendarsEventsEnabled,
+          specials_management: isSpecialsManagementEnabled,
+          menu_management: isMenuManagementEnabled,
+          activity_log: isActivityLogEnabled,
+          users_staff_management: isUsersStaffManagementEnabled,
+        }}
       />
     </div>
   );

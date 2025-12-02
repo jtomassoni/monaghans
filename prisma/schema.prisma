@@ -116,7 +116,7 @@ model User {
   email      String        @unique
   name       String?
   image      String? // Profile image from Google
-  role       String        @default("admin") // "superadmin", "owner", "manager", "cook", "bartender", "barback"
+  role       String        @default("admin") // "admin" or "owner"
   isActive   Boolean       @default(true)
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @updatedAt
@@ -571,4 +571,19 @@ model PurchaseOrderItem {
   @@index([purchaseOrderId])
   @@index([productId])
   @@index([ingredientId])
+}
+
+// Feature Flags - Controls visibility of features in the admin panel
+model FeatureFlag {
+  id          String   @id @default(cuid())
+  key         String   @unique // e.g., "boh_connections", "online_ordering"
+  name        String // Display name for UI
+  description String? // Description of what this feature controls
+  isEnabled   Boolean  @default(false) // Whether the feature is enabled
+  category    String? // Optional category grouping (e.g., "operations", "marketing")
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  @@index([isEnabled])
+  @@index([category])
 }

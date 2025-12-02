@@ -18,17 +18,18 @@ import {
   FaHome,
   FaEdit,
   FaMoon,
-  FaBullhorn,
   FaHistory,
   FaShareAlt,
   FaTimes,
   FaChartLine,
   FaClock,
+  FaCashRegister,
   FaDrumstickBite,
   FaWineGlass,
 } from 'react-icons/fa';
 import { useTheme } from './theme-provider';
 import { getPermissions } from '@/lib/permissions';
+import { useFeatureFlags } from '@/lib/use-feature-flags';
 
 interface AdminMobileMenuProps {
   isOpen: boolean;
@@ -49,6 +50,7 @@ export default function AdminMobileMenu({
   const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
   const [isAnimating, setIsAnimating] = useState(false);
+  const { flags: featureFlags } = useFeatureFlags();
 
   // Handle animation state
   useEffect(() => {
@@ -89,42 +91,46 @@ export default function AdminMobileMenu({
     {
       title: 'Dashboard',
       items: [
-        ...(permissions.canAccessAdmin ? [{ href: '/admin/overview', label: 'Overview', icon: FaHome }] : []),
+        ...(permissions.canAccessAdmin && featureFlags.calendars_events ? [{ href: '/admin/overview', label: 'Overview', icon: FaHome }] : []),
       ],
     },
     {
       title: 'Content',
       items: [
-        ...(permissions.canAccessAdmin ? [{ href: '/admin', label: 'Calendar', icon: FaCalendarAlt }] : []),
-        ...(permissions.canManageEvents ? [{ href: '/admin/specials-events', label: 'Events', icon: FaStar }] : []),
-        ...(permissions.canManageAnnouncements ? [{ href: '/admin/announcements', label: 'Announcements', icon: FaBullhorn }] : []),
-        ...(permissions.canAccessAdmin ? [{ href: '/admin/homepage', label: 'Homepage', icon: FaEdit }] : []),
+        ...(permissions.canAccessAdmin && featureFlags.calendars_events ? [{ href: '/admin', label: 'Calendar', icon: FaCalendarAlt }] : []),
+        ...(permissions.canManageEvents && featureFlags.calendars_events ? [{ href: '/admin/specials-events', label: 'Events', icon: FaStar }] : []),
+        ...(permissions.canAccessAdmin && featureFlags.homepage_management ? [{ href: '/admin/homepage', label: 'Homepage', icon: FaEdit }] : []),
       ],
     },
     {
       title: 'Specials',
       items: [
-        ...(permissions.canManageMenu ? [{ href: '/admin/food-specials', label: 'Food Specials', icon: FaDrumstickBite }] : []),
-        ...(permissions.canManageMenu ? [{ href: '/admin/drink-specials', label: 'Drink Specials', icon: FaWineGlass }] : []),
+        ...(permissions.canManageMenu && featureFlags.specials_management ? [{ href: '/admin/food-specials', label: 'Food Specials', icon: FaDrumstickBite }] : []),
+        ...(permissions.canManageMenu && featureFlags.specials_management ? [{ href: '/admin/drink-specials', label: 'Drink Specials', icon: FaWineGlass }] : []),
       ],
     },
     {
       title: 'Operations',
       items: [
-        ...(permissions.canManageMenu ? [{ href: '/admin/menu', label: 'Menu', icon: FaUtensils }] : []),
-        ...(permissions.canManageStaff ? [{ href: '/admin/staff', label: 'Scheduling', icon: FaClock }] : []),
+        ...(permissions.canManageMenu && featureFlags.menu_management ? [{ href: '/admin/menu', label: 'Menu', icon: FaUtensils }] : []),
+        ...(permissions.canManageStaff && featureFlags.staff_scheduling ? [{ href: '/admin/staff', label: 'Scheduling', icon: FaClock }] : []),
+        ...(permissions.canAccessAdmin && featureFlags.online_ordering ? [{ href: '/admin/orders', label: 'Orders', icon: FaCashRegister }] : []),
+        ...(permissions.canAccessKDS && featureFlags.boh_connections ? [{ href: '/admin/kds', label: 'Kitchen Display', icon: FaUtensils }] : []),
+        ...(permissions.canAccessAdmin && featureFlags.boh_connections ? [{ href: '/admin/pos-integrations', label: 'POS Integrations', icon: FaCashRegister }] : []),
+        ...(permissions.canAccessAdmin && featureFlags.purchase_orders ? [{ href: '/admin/purchase-orders', label: 'Purchase Orders', icon: FaUtensils }] : []),
+        ...(permissions.canAccessAdmin && featureFlags.ingredients_management ? [{ href: '/admin/ingredients', label: 'Ingredients', icon: FaUtensils }] : []),
       ],
     },
     {
       title: 'Marketing',
       items: [
-        ...(permissions.canAccessAdmin ? [{ href: '/admin/social', label: 'Social Media', icon: FaShareAlt }] : []),
+        ...(permissions.canAccessAdmin && featureFlags.social_media ? [{ href: '/admin/social', label: 'Social Media', icon: FaShareAlt }] : []),
       ],
     },
     {
       title: 'Analytics',
       items: [
-        ...(permissions.canAccessReporting ? [{ href: '/admin/reporting', label: 'Reporting', icon: FaChartLine }] : []),
+        ...(permissions.canAccessReporting && featureFlags.reporting_analytics ? [{ href: '/admin/reporting', label: 'Reporting', icon: FaChartLine }] : []),
       ],
     },
   ].filter(group => group.items.length > 0);
@@ -144,9 +150,6 @@ export default function AdminMobileMenu({
     }
     if (href === '/admin/drink-specials') {
       return pathname?.startsWith('/admin/drink-specials');
-    }
-    if (href === '/admin/announcements') {
-      return pathname?.startsWith('/admin/announcements');
     }
     if (href === '/admin/activity') {
       return pathname === '/admin/activity';
@@ -265,7 +268,7 @@ export default function AdminMobileMenu({
           })}
 
           {/* Administration section */}
-          {permissions.canManageUsers && (
+          {permissions.canManageUsers && featureFlags.users_staff_management && (
             <div className="space-y-1 pt-2">
               <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Administration
@@ -305,11 +308,53 @@ export default function AdminMobileMenu({
               })()}
             </div>
           )}
+          
+          {/* Feature Flags - Superadmin only */}
+          {userRole === 'superadmin' && (
+            <div className="space-y-1 pt-2">
+              <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                Administration
+              </div>
+              {(() => {
+                const totalItems = navGroups.reduce((sum, g) => sum + g.items.length, 0) + (permissions.canManageUsers && featureFlags.users_staff_management ? 1 : 0);
+                return (
+                  <Link
+                    href="/admin/feature-flags"
+                    onClick={onClose}
+                    className={`group flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 ease-out relative ${
+                      isActive('/admin/feature-flags')
+                        ? 'bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400'
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-800/50'
+                    } ${
+                      isOpen && isAnimating
+                        ? 'opacity-100 translate-x-0'
+                        : 'opacity-0 -translate-x-4'
+                    }`}
+                    style={{
+                      transitionDelay: `${totalItems * 30}ms`,
+                    }}
+                  >
+                    {isActive('/admin/feature-flags') && (
+                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 dark:bg-blue-400 rounded-r-full" />
+                    )}
+                    <FaCog className={`w-4 h-4 transition-colors flex-shrink-0 ${
+                      isActive('/admin/feature-flags')
+                        ? 'text-blue-600 dark:text-blue-400'
+                        : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300'
+                    }`} />
+                    <span className={`font-medium text-sm flex-1 ${
+                      isActive('/admin/feature-flags') ? 'text-blue-600 dark:text-blue-400' : ''
+                    }`}>Feature Flags</span>
+                  </Link>
+                );
+              })()}
+            </div>
+          )}
         </nav>
 
         {/* Bottom Section */}
         <div className="border-t border-gray-200 dark:border-gray-800 p-2 space-y-0.5 flex-shrink-0">
-          {permissions.canAccessAdmin && (
+          {permissions.canAccessAdmin && featureFlags.activity_log && (
             <Link
               href="/admin/activity"
               onClick={onClose}
@@ -323,7 +368,7 @@ export default function AdminMobileMenu({
                   : 'opacity-0 -translate-x-4'
               }`}
               style={{
-                transitionDelay: `${(navGroups.reduce((sum, g) => sum + g.items.length, 0) + (permissions.canManageUsers ? 1 : 0)) * 30 + 50}ms`,
+                transitionDelay: `${(navGroups.reduce((sum, g) => sum + g.items.length, 0) + (permissions.canManageUsers && featureFlags.users_staff_management ? 1 : 0) + (userRole === 'superadmin' ? 1 : 0)) * 30 + 50}ms`,
               }}
             >
             {isActive('/admin/activity') && (

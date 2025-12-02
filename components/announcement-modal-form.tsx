@@ -116,9 +116,11 @@ interface AnnouncementModalFormProps {
   announcement?: Announcement;
   onSuccess?: () => void;
   onDelete?: (id: string) => void;
+  onAnnouncementAdded?: (announcement: any) => void; // Callback when announcement is created
+  onAnnouncementUpdated?: (announcement: any) => void; // Callback when announcement is updated
 }
 
-export default function AnnouncementModalForm({ isOpen, onClose, announcement, onSuccess, onDelete }: AnnouncementModalFormProps) {
+export default function AnnouncementModalForm({ isOpen, onClose, announcement, onSuccess, onDelete, onAnnouncementAdded, onAnnouncementUpdated }: AnnouncementModalFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -319,11 +321,19 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
       });
 
       if (res.ok) {
-        router.refresh();
+        const announcementData = await res.json();
         showToast(
           announcement?.id ? 'Announcement updated successfully' : 'Announcement created successfully',
           'success'
         );
+        
+        // Call appropriate callback instead of refreshing
+        if (announcement?.id) {
+          onAnnouncementUpdated?.(announcementData);
+        } else {
+          onAnnouncementAdded?.(announcementData);
+        }
+        
         onSuccess?.();
         onClose();
       } else {

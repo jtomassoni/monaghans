@@ -34,7 +34,7 @@ interface EventModalFormProps {
 }
 
 // Helper function to parse RRULE and extract recurrence info
-function parseRRULE(rrule: string | null | undefined): { frequency: 'none' | 'weekly' | 'monthly'; days: string[]; monthDay?: number } {
+function parseRRULE(rrule: string | null | undefined): { frequency: 'none' | 'weekly' | 'monthly'; days: string[]; monthDay?: number; until?: string } {
   if (!rrule) {
     return { frequency: 'none', days: [] };
   }
@@ -42,17 +42,39 @@ function parseRRULE(rrule: string | null | undefined): { frequency: 'none' | 'we
   const freqMatch = rrule.match(/FREQ=(\w+)/);
   const freq = freqMatch ? freqMatch[1].toLowerCase() : 'none';
   
+  // Extract UNTIL date if present (format: UNTIL=20261231T235959Z or UNTIL=20261231)
+  const untilMatch = rrule.match(/UNTIL=([^;]+)/);
+  let untilDate: string | undefined;
+  if (untilMatch) {
+    const untilStr = untilMatch[1];
+    // Handle both formats: 20261231T235959Z and 20261231
+    if (untilStr.includes('T')) {
+      // Parse ISO format: 20261231T235959Z
+      const datePart = untilStr.split('T')[0];
+      const year = datePart.substring(0, 4);
+      const month = datePart.substring(4, 6);
+      const day = datePart.substring(6, 8);
+      untilDate = `${year}-${month}-${day}`;
+    } else {
+      // Parse date-only format: 20261231
+      const year = untilStr.substring(0, 4);
+      const month = untilStr.substring(4, 6);
+      const day = untilStr.substring(6, 8);
+      untilDate = `${year}-${month}-${day}`;
+    }
+  }
+  
   if (freq === 'monthly') {
     // Check for BYMONTHDAY (day of month)
     const monthDayMatch = rrule.match(/BYMONTHDAY=(\d+)/);
     if (monthDayMatch) {
-      return { frequency: 'monthly', days: [], monthDay: parseInt(monthDayMatch[1]) };
+      return { frequency: 'monthly', days: [], monthDay: parseInt(monthDayMatch[1]), until: untilDate };
     }
     // Check for BYDAY (nth weekday of month)
     const bydayMatch = rrule.match(/BYDAY=([^;]+)/);
     if (bydayMatch) {
       // For monthly, we'll just return monthly with empty days (simplified)
-      return { frequency: 'monthly', days: [] };
+      return { frequency: 'monthly', days: [], until: untilDate };
     }
   }
   
@@ -70,18 +92,20 @@ function parseRRULE(rrule: string | null | undefined): { frequency: 'none' | 'we
       };
       return dayMap[d.trim()] || '';
     }).filter(Boolean) : [];
-    return { frequency: 'weekly', days };
+    return { frequency: 'weekly', days, until: untilDate };
   }
 
-  return { frequency: 'none', days: [] };
+  return { frequency: 'none', days: [], until: untilDate };
 }
 
 // Helper function to build RRULE from user selections
-function buildRRULE(frequency: string, days: string[], monthDay?: number): string {
+function buildRRULE(frequency: string, days: string[], monthDay?: number, until?: string): string {
   if (frequency === 'none') {
     return '';
   }
 
+  let rrule = '';
+  
   if (frequency === 'weekly' && days.length > 0) {
     const dayMap: Record<string, string> = {
       'Monday': 'MO',
@@ -93,14 +117,19 @@ function buildRRULE(frequency: string, days: string[], monthDay?: number): strin
       'Sunday': 'SU'
     };
     const byday = days.map(d => dayMap[d] || '').filter(Boolean).join(',');
-    return `FREQ=WEEKLY;BYDAY=${byday}`;
+    rrule = `FREQ=WEEKLY;BYDAY=${byday}`;
+  } else if (frequency === 'monthly' && monthDay) {
+    rrule = `FREQ=MONTHLY;BYMONTHDAY=${monthDay}`;
   }
 
-  if (frequency === 'monthly' && monthDay) {
-    return `FREQ=MONTHLY;BYMONTHDAY=${monthDay}`;
+  // Add UNTIL clause if recurrence end date is specified
+  if (until && rrule) {
+    // Format date as YYYYMMDD (RRULE format)
+    const dateStr = until.replace(/-/g, '');
+    rrule += `;UNTIL=${dateStr}`;
   }
 
-  return '';
+  return rrule;
 }
 
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -245,6 +274,9 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
   const [recurrenceType, setRecurrenceType] = useState<'none' | 'weekly' | 'monthly'>(initialRecurrence.frequency);
   const [recurrenceDays, setRecurrenceDays] = useState<string[]>(initialRecurrence.days);
   const [monthDay, setMonthDay] = useState<number>(initialRecurrence.monthDay || new Date().getDate());
+  // Recurrence date range (start and end dates for the recurrence pattern)
+  const [recurrenceStartDate, setRecurrenceStartDate] = useState<string>('');
+  const [recurrenceEndDate, setRecurrenceEndDate] = useState<string>('');
   
   const [formData, setFormData] = useState({
     title: event?.title || '',
@@ -264,20 +296,23 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
     if (!start) return null;
     if (!end) return null; // End date is optional
     
-    const startDate = new Date(start);
-    const endDate = new Date(end);
-    
     if (isAllDay) {
-      // For all-day events, compare dates only (ignore time)
-      const startDateOnly = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
-      const endDateOnly = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+      // For all-day events, compare date strings directly (YYYY-MM-DD format)
+      // This avoids timezone conversion issues
+      const startDateStr = start.split('T')[0];
+      const endDateStr = end.split('T')[0];
       
-      if (endDateOnly < startDateOnly) {
+      // Compare date strings directly - same day is valid for all-day events
+      if (endDateStr < startDateStr) {
         return 'End date must be on or after start date';
       }
     } else {
-      // For timed events, compare full datetime
-      if (endDate <= startDate) {
+      // For timed events, parse dates as Mountain Time to ensure consistent comparison
+      const startDateMT = parseAsMountainTime(start);
+      const endDateMT = parseAsMountainTime(end);
+      
+      // End must be after start (not equal)
+      if (endDateMT <= startDateMT) {
         return 'End date & time must be after start date & time';
       }
     }
@@ -379,6 +414,16 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
         const startDate = new Date(event.startDateTime);
         setMonthDay(startDate.getDate());
       }
+      // Set recurrence dates from parsed RRULE
+      if (parsed.frequency !== 'none') {
+        // Recurrence starts on the event's start date
+        setRecurrenceStartDate(event.startDateTime ? formatDateTimeLocal(event.startDateTime).split('T')[0] : '');
+        // Recurrence ends on the UNTIL date if specified, otherwise empty (repeats forever)
+        setRecurrenceEndDate(parsed.until || '');
+      } else {
+        setRecurrenceStartDate('');
+        setRecurrenceEndDate('');
+      }
       const newFormData = {
         title: event.title || '',
         description: event.description || '',
@@ -405,12 +450,14 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
       setRecurrenceType('none');
       setRecurrenceDays([]);
       setMonthDay(new Date().getDate());
+      setRecurrenceStartDate('');
+      setRecurrenceEndDate('');
       setFormData({
         title: '',
         description: '',
         startDateTime: todayDateTime,
-        endDateTime: addThreeHours(todayDateTime),
-        isAllDay: false,
+        endDateTime: `${todayDateTime.split('T')[0]}T23:59`, // Default to same day for all-day events
+        isAllDay: true, // Default to all-day for new events
         tags: [],
         isActive: true,
       });
@@ -434,6 +481,32 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
   };
 
   const handleStartDateTimeChange = (value: string) => {
+    // Update recurrence start date if recurrence is enabled
+    if ((recurrenceType === 'weekly' || recurrenceType === 'monthly') && value) {
+      setRecurrenceStartDate(value.split('T')[0]);
+    }
+    // If weekly recurrence is selected and no days are selected, auto-select the day of the new start date
+    if (recurrenceType === 'weekly' && recurrenceDays.length === 0 && value) {
+      const startDateMT = parseAsMountainTime(value);
+      const mtFormatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/Denver',
+        weekday: 'long'
+      });
+      const dayName = mtFormatter.format(startDateMT);
+      const dayMap: Record<string, string> = {
+        'Sunday': 'Sunday',
+        'Monday': 'Monday',
+        'Tuesday': 'Tuesday',
+        'Wednesday': 'Wednesday',
+        'Thursday': 'Thursday',
+        'Friday': 'Friday',
+        'Saturday': 'Saturday'
+      };
+      const mappedDayName = dayMap[dayName];
+      if (mappedDayName && WEEKDAYS.includes(mappedDayName)) {
+        setRecurrenceDays([mappedDayName]);
+      }
+    }
     // If creating a new event (no event.id) and not all-day, auto-update endDateTime to 3 hours later
     const newEndDateTime = !event?.id && value && !formData.isAllDay ? addThreeHours(value) : formData.endDateTime;
     const newFormData = { ...formData, startDateTime: value, endDateTime: newEndDateTime };
@@ -458,12 +531,24 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
   };
 
   const handleAllDayChange = (checked: boolean) => {
-    const newFormData = { ...formData, isAllDay: checked };
+    let updatedEndDateTime = formData.endDateTime;
+    
+    // If switching to all-day, set end date to same day as start (if start exists)
+    if (checked && formData.startDateTime) {
+      const startDate = formData.startDateTime.split('T')[0];
+      updatedEndDateTime = `${startDate}T23:59`;
+    }
+    // If switching from all-day to timed, add 3 hours to start time
+    else if (!checked && formData.startDateTime && !formData.endDateTime) {
+      updatedEndDateTime = addThreeHours(formData.startDateTime);
+    }
+    
+    const newFormData = { ...formData, isAllDay: checked, endDateTime: updatedEndDateTime };
     setFormData(newFormData);
     if (newFormData.startDateTime && newFormData.endDateTime) {
       const error = validateDateTime(newFormData.startDateTime, newFormData.endDateTime, checked);
       setDateError(error);
-      } else {
+    } else {
       setDateError(null);
     }
   };
@@ -487,7 +572,9 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
       const url = event?.id ? `/api/events/${event.id}` : '/api/events';
       const method = event?.id ? 'PUT' : 'POST';
 
-      const recurrenceRule = buildRRULE(recurrenceType, recurrenceDays, recurrenceType === 'monthly' ? monthDay : undefined);
+      // Build recurrence rule with end date if specified
+      const untilDate = recurrenceEndDate ? recurrenceEndDate.replace(/-/g, '') : undefined;
+      const recurrenceRule = buildRRULE(recurrenceType, recurrenceDays, recurrenceType === 'monthly' ? monthDay : undefined, untilDate);
 
       const res = await fetch(url, {
         method,
@@ -639,8 +726,19 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
                   {formData.isAllDay ? (
                     <DatePicker
                       label="End Date"
-                      value={formData.endDateTime ? formData.endDateTime.split('T')[0] : ''}
-                      onChange={(value) => handleEndDateTimeChange(value ? `${value}T23:59` : '')}
+                      value={formData.endDateTime ? formData.endDateTime.split('T')[0] : (formData.startDateTime ? formData.startDateTime.split('T')[0] : '')}
+                      onChange={(value) => {
+                        // For all-day events, use the selected date with end of day time, or same as start if not set
+                        if (value) {
+                          handleEndDateTimeChange(`${value}T23:59`);
+                        } else if (formData.startDateTime) {
+                          // If cleared, default to same as start date
+                          const startDate = formData.startDateTime.split('T')[0];
+                          handleEndDateTimeChange(`${startDate}T23:59`);
+                        } else {
+                          handleEndDateTimeChange('');
+                        }
+                      }}
                       min={formData.startDateTime ? formData.startDateTime.split('T')[0] : undefined}
                       dateOnly={true}
                     />
@@ -666,7 +764,7 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
           <div className="space-y-5">
             <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-5 backdrop-blur-sm space-y-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Repetition</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Recurrence</p>
                 <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
                   Define how this event repeats across your calendar.
                 </p>
@@ -687,6 +785,8 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
                     onChange={() => {
                       setRecurrenceType('none');
                       setRecurrenceDays([]);
+                      setRecurrenceStartDate('');
+                      setRecurrenceEndDate('');
                     }}
                     className="sr-only"
                   />
@@ -705,26 +805,32 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
                     checked={recurrenceType === 'weekly'}
                     onChange={() => {
                       setRecurrenceType('weekly');
-                      if (!event?.id) {
-                        const oneYearLater = getOneYearFromNow();
-                        const newEndDateTime = !formData.isAllDay ? addThreeHours(oneYearLater) : formData.endDateTime;
-                        setFormData({ ...formData, startDateTime: oneYearLater, endDateTime: newEndDateTime });
+                      // Set recurrence start date to the event start date
+                      if (formData.startDateTime) {
+                        setRecurrenceStartDate(formData.startDateTime.split('T')[0]);
                       }
                       if (recurrenceDays.length === 0 && formData.startDateTime) {
-                        const startDate = new Date(formData.startDateTime);
-                        const dayOfWeek = startDate.getDay();
-                        const dayMap: Record<number, string> = {
-                          0: 'Sunday',
-                          1: 'Monday',
-                          2: 'Tuesday',
-                          3: 'Wednesday',
-                          4: 'Thursday',
-                          5: 'Friday',
-                          6: 'Saturday'
+                        // Parse the datetime-local string as Mountain Time to get correct day of week
+                        const startDateMT = parseAsMountainTime(formData.startDateTime);
+                        // Get the day of week in Mountain Time by formatting the date in MT timezone
+                        const mtFormatter = new Intl.DateTimeFormat('en-US', {
+                          timeZone: 'America/Denver',
+                          weekday: 'long'
+                        });
+                        const dayName = mtFormatter.format(startDateMT);
+                        // Map full day name to our day names (they should match, but ensure consistency)
+                        const dayMap: Record<string, string> = {
+                          'Sunday': 'Sunday',
+                          'Monday': 'Monday',
+                          'Tuesday': 'Tuesday',
+                          'Wednesday': 'Wednesday',
+                          'Thursday': 'Thursday',
+                          'Friday': 'Friday',
+                          'Saturday': 'Saturday'
                         };
-                        const dayName = dayMap[dayOfWeek];
-                        if (dayName && WEEKDAYS.includes(dayName)) {
-                          setRecurrenceDays([dayName]);
+                        const mappedDayName = dayMap[dayName];
+                        if (mappedDayName && WEEKDAYS.includes(mappedDayName)) {
+                          setRecurrenceDays([mappedDayName]);
                         }
                       }
                     }}
@@ -745,10 +851,9 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
                     checked={recurrenceType === 'monthly'}
                     onChange={() => {
                       setRecurrenceType('monthly');
-                      if (!event?.id) {
-                        const oneYearLater = getOneYearFromNow();
-                        const newEndDateTime = !formData.isAllDay ? addThreeHours(oneYearLater) : formData.endDateTime;
-                        setFormData({ ...formData, startDateTime: oneYearLater, endDateTime: newEndDateTime });
+                      // Set recurrence start date to the event start date
+                      if (formData.startDateTime) {
+                        setRecurrenceStartDate(formData.startDateTime.split('T')[0]);
                       }
                       if (formData.startDateTime) {
                         const startDate = new Date(formData.startDateTime);
@@ -818,6 +923,49 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
                     Event repeats on the {monthDay}
                     {monthDay === 1 || monthDay === 21 || monthDay === 31 ? 'st' : monthDay === 2 || monthDay === 22 ? 'nd' : monthDay === 3 || monthDay === 23 ? 'rd' : 'th'} of every month.
                   </p>
+                </div>
+              )}
+
+              {(recurrenceType === 'weekly' || recurrenceType === 'monthly') && (
+                <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/70 dark:bg-gray-900/40 p-3 shadow-inner space-y-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400 mb-2">Repeating Settings</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-300 mb-3">
+                      Set when this recurrence pattern starts and stops. This is separate from the event's start/end times above.
+                    </p>
+                  </div>
+                  <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
+                    <div>
+                      <DatePicker
+                        label="Repeat From"
+                        value={recurrenceStartDate || (formData.startDateTime ? formData.startDateTime.split('T')[0] : '')}
+                        onChange={(value) => {
+                          setRecurrenceStartDate(value || '');
+                          // Update event start date if recurrence start is set and event start is empty
+                          if (value && !formData.startDateTime) {
+                            handleStartDateTimeChange(value + 'T00:00');
+                          }
+                        }}
+                        max={recurrenceEndDate || undefined}
+                        required
+                        dateOnly={true}
+                      />
+                    </div>
+                    <div>
+                      <DatePicker
+                        label="Repeat Until"
+                        value={recurrenceEndDate}
+                        onChange={(value) => setRecurrenceEndDate(value || '')}
+                        min={recurrenceStartDate || (formData.startDateTime ? formData.startDateTime.split('T')[0] : undefined)}
+                        dateOnly={true}
+                      />
+                      {!recurrenceEndDate && (
+                        <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
+                          Leave empty to repeat forever
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

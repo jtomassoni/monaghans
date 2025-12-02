@@ -7,6 +7,7 @@ import { showToast } from '@/components/toast';
 import SearchSortFilter, { SortOption, FilterOption } from '@/components/search-sort-filter';
 import StatusBadge from '@/components/status-badge';
 import { getItemStatus } from '@/lib/status-helpers';
+import { getMountainTimeDateString, getMountainTimeToday } from '@/lib/timezone';
 import ConfirmationDialog from '@/components/confirmation-dialog';
 import { FaStar } from 'react-icons/fa';
 
@@ -39,7 +40,32 @@ export default function DailySpecialsList({ initialSpecials }: DailySpecialsList
     setSpecials(initialSpecials);
   }, [initialSpecials]);
 
+  // Get today's date string in Mountain Time for sorting
+  const todayStr = getMountainTimeDateString(getMountainTimeToday());
+
   const sortOptions: SortOption<DailySpecial>[] = [
+    { 
+      label: 'Date (Today First)', 
+      value: 'date-today-first', 
+      sortFn: (a, b) => {
+        const aDateStr = a.startDate ? a.startDate.split('T')[0] : '';
+        const bDateStr = b.startDate ? b.startDate.split('T')[0] : '';
+        
+        // Today's items first
+        const aIsToday = aDateStr === todayStr;
+        const bIsToday = bDateStr === todayStr;
+        if (aIsToday && !bIsToday) return -1;
+        if (!aIsToday && bIsToday) return 1;
+        
+        // Then sort by date (ascending - today, tomorrow, etc.)
+        if (aDateStr && bDateStr) {
+          return aDateStr.localeCompare(bDateStr);
+        }
+        if (aDateStr) return -1;
+        if (bDateStr) return 1;
+        return 0;
+      }
+    },
     { 
       label: 'Date (Newest First)', 
       value: 'date', 
@@ -51,7 +77,7 @@ export default function DailySpecialsList({ initialSpecials }: DailySpecialsList
     },
     { 
       label: 'Date (Oldest First)', 
-      value: 'date', 
+      value: 'date-oldest', 
       sortFn: (a, b) => {
         const aDate = a.startDate ? new Date(a.startDate).getTime() : 0;
         const bDate = b.startDate ? new Date(b.startDate).getTime() : 0;
@@ -101,6 +127,38 @@ export default function DailySpecialsList({ initialSpecials }: DailySpecialsList
   const handleNewItem = () => {
     setEditingSpecial(null);
     setSpecialModalOpen(true);
+  };
+
+  const handleDuplicate = async (item: DailySpecial) => {
+    try {
+      const res = await fetch(`/api/specials/${item.id}`);
+      if (res.ok) {
+        const specialData = await res.json();
+        // Create a duplicate without the ID
+        setEditingSpecial({
+          id: '', // No ID means it's a new special
+          title: `${specialData.title} (Copy)`,
+          description: specialData.description || null,
+          priceNotes: specialData.priceNotes || null,
+          type: specialData.type,
+          timeWindow: specialData.timeWindow || null,
+          startDate: specialData.startDate 
+            ? (typeof specialData.startDate === 'string' 
+                ? specialData.startDate 
+                : new Date(specialData.startDate).toISOString().split('T')[0])
+            : null,
+          endDate: specialData.endDate
+            ? (typeof specialData.endDate === 'string'
+                ? specialData.endDate
+                : new Date(specialData.endDate).toISOString().split('T')[0])
+            : null,
+          isActive: false, // Start as inactive so user can review before activating
+        });
+        setSpecialModalOpen(true);
+      }
+    } catch (error) {
+      showToast('Failed to duplicate special', 'error');
+    }
   };
 
   const handleModalSuccess = () => {
@@ -205,7 +263,7 @@ export default function DailySpecialsList({ initialSpecials }: DailySpecialsList
           searchPlaceholder="Search daily specials..."
           sortOptions={sortOptions}
           filterOptions={filterOptions}
-          defaultSort={sortOptions[0]}
+          defaultSort={sortOptions[0]} // "Date (Today First)"
         />
       </div>
 
@@ -296,8 +354,20 @@ export default function DailySpecialsList({ initialSpecials }: DailySpecialsList
                   </button>
                 </div>
                 
-                {/* Delete button - always visible */}
-                <div className="flex-shrink-0 z-20 relative">
+                {/* Action buttons - always visible */}
+                <div className="flex-shrink-0 z-20 relative flex items-center gap-2">
+                  {item.type === 'food' && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDuplicate(item);
+                      }}
+                      className="px-3 py-1.5 text-xs bg-green-500/90 dark:bg-green-600/90 hover:bg-green-600 dark:hover:bg-green-700 rounded-lg text-white font-medium transition-all duration-200 hover:scale-105 border border-green-400 dark:border-green-500 cursor-pointer"
+                      title="Duplicate special"
+                    >
+                      Duplicate
+                    </button>
+                  )}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();

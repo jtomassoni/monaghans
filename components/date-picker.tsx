@@ -37,8 +37,8 @@ export default function DatePicker({ value, onChange, min, max, label, required,
   const [pickerPosition, setPickerPosition] = useState({ top: 0, left: 0 });
   const [mounted, setMounted] = useState(false);
 
-  const PICKER_Z_INDEX = 10001;
-  const BACKDROP_Z_INDEX = 10000;
+  const PICKER_Z_INDEX = 10050; // Higher than Modal's z-50
+  const BACKDROP_Z_INDEX = 10049;
 
   // Mount check for portal
   useEffect(() => {
@@ -153,13 +153,21 @@ export default function DatePicker({ value, onChange, min, max, label, required,
     const dateStr = value.includes('T') ? value.split('T')[0] : value;
     return parseLocalDate(dateStr);
   })() : null;
-  const minDate = min ? (() => {
-    const dateStr = min.includes('T') ? min.split('T')[0] : min;
-    return parseLocalDate(dateStr);
+  const minDate = min && min.trim() ? (() => {
+    try {
+      const dateStr = min.includes('T') ? min.split('T')[0] : min;
+      return parseLocalDate(dateStr);
+    } catch {
+      return null;
+    }
   })() : null;
-  const maxDate = max ? (() => {
-    const dateStr = max.includes('T') ? max.split('T')[0] : max;
-    return parseLocalDate(dateStr);
+  const maxDate = max && max.trim() ? (() => {
+    try {
+      const dateStr = max.includes('T') ? max.split('T')[0] : max;
+      return parseLocalDate(dateStr);
+    } catch {
+      return null;
+    }
   })() : null;
 
   const monthStart = startOfMonth(currentMonth);
@@ -169,9 +177,29 @@ export default function DatePicker({ value, onChange, min, max, label, required,
   const calendarEnd = addDays(calendarStart, 41); // 42 days total (0-41 inclusive)
   const calendarDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
 
+  // Helper function to normalize dates to midnight for accurate date-only comparison
+  const normalizeDate = (d: Date) => {
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  };
+
+  // Helper function to compare dates (returns -1 if a < b, 0 if a == b, 1 if a > b)
+  const compareDates = (a: Date, b: Date): number => {
+    const normalizedA = normalizeDate(a);
+    const normalizedB = normalizeDate(b);
+    if (normalizedA < normalizedB) return -1;
+    if (normalizedA > normalizedB) return 1;
+    return 0;
+  };
+
   const handleDateSelect = (day: Date) => {
-    if (minDate !== null && day < minDate) return;
-    if (maxDate !== null && day > maxDate) return;
+    // Check min date constraint (day must be >= minDate)
+    if (minDate !== null) {
+      if (compareDates(day, minDate) < 0) return;
+    }
+    // Check max date constraint (day must be <= maxDate)
+    if (maxDate !== null) {
+      if (compareDates(day, maxDate) > 0) return;
+    }
 
     if (dateOnly) {
       const formatted = format(day, "yyyy-MM-dd");
@@ -297,7 +325,10 @@ export default function DatePicker({ value, onChange, min, max, label, required,
               {calendarDays.map((day, idx) => {
                 const isCurrentMonth = isSameMonth(day, currentMonth);
                 const isSelected = selectedDate ? isSameDay(day, selectedDate) : false;
-                const isDisabled = (minDate !== null && day < minDate) || (maxDate !== null && day > maxDate);
+                // Check if date is disabled based on min/max constraints
+                const isDisabled = 
+                  (minDate !== null && compareDates(day, minDate) < 0) || 
+                  (maxDate !== null && compareDates(day, maxDate) > 0);
                 const isCurrentDay = isToday(day);
 
                 return (

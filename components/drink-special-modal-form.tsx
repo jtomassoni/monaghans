@@ -2,6 +2,7 @@
 
 import { useState, FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { FaTrash, FaTimes, FaSave, FaCheck } from 'react-icons/fa';
 import Modal from '@/components/modal';
 import { showToast } from '@/components/toast';
 import ConfirmationDialog from '@/components/confirmation-dialog';
@@ -13,10 +14,10 @@ interface DrinkSpecial {
   id?: string;
   title: string;
   description: string;
-  priceNotes: string;
+  priceNotes?: string; // Optional for backwards compatibility
   type: 'drink';
   appliesOn: string[];
-  timeWindow: string;
+  timeWindow?: string; // Optional for backwards compatibility
   startDate: string;
   endDate: string;
   isActive: boolean;
@@ -39,9 +40,7 @@ export default function DrinkSpecialModalForm({ isOpen, onClose, special, onSucc
   const [formData, setFormData] = useState({
     title: special?.title || '',
     description: special?.description || '',
-    priceNotes: special?.priceNotes || '',
     appliesOn: special?.appliesOn || [],
-    timeWindow: special?.timeWindow || '',
     startDate: special?.startDate || '',
     endDate: special?.endDate || '',
     isActive: special?.isActive ?? true,
@@ -54,9 +53,7 @@ export default function DrinkSpecialModalForm({ isOpen, onClose, special, onSucc
       const newFormData = {
         title: special.title || '',
         description: special.description || '',
-        priceNotes: special.priceNotes || '',
         appliesOn: special.appliesOn || [],
-        timeWindow: special.timeWindow || '',
         startDate: special.startDate || '',
         endDate: special.endDate || '',
         isActive: special.isActive ?? true,
@@ -67,9 +64,7 @@ export default function DrinkSpecialModalForm({ isOpen, onClose, special, onSucc
       const newFormData = {
         title: '',
         description: '',
-        priceNotes: '',
         appliesOn: [],
-        timeWindow: '',
         startDate: '',
         endDate: '',
         isActive: true,
@@ -92,9 +87,7 @@ export default function DrinkSpecialModalForm({ isOpen, onClose, special, onSucc
         const newFormData = {
           title: special.title || '',
           description: special.description || '',
-          priceNotes: special.priceNotes || '',
           appliesOn: special.appliesOn || [],
-          timeWindow: special.timeWindow || '',
           startDate: special.startDate || '',
           endDate: special.endDate || '',
           isActive: special.isActive ?? true,
@@ -105,9 +98,7 @@ export default function DrinkSpecialModalForm({ isOpen, onClose, special, onSucc
         const newFormData = {
           title: '',
           description: '',
-          priceNotes: '',
           appliesOn: [],
-          timeWindow: '',
           startDate: '',
           endDate: '',
           isActive: true,
@@ -133,6 +124,8 @@ export default function DrinkSpecialModalForm({ isOpen, onClose, special, onSucc
       const submitData = {
         ...formData,
         type: 'drink',
+        priceNotes: '', // Set to empty string for drink specials
+        timeWindow: '', // Set to empty string for drink specials
         appliesOn: JSON.stringify(formData.appliesOn),
         startDate: formData.appliesOn.length > 0 ? null : (formData.startDate || null),
         endDate: formData.appliesOn.length > 0 ? null : (formData.endDate || null),
@@ -263,34 +256,6 @@ export default function DrinkSpecialModalForm({ isOpen, onClose, special, onSucc
                 placeholder="Describe the drink special..."
               />
             </div>
-
-            <div className="space-y-2">
-              <label htmlFor="priceNotes" className="text-sm font-medium text-gray-900 dark:text-white">
-                Price Notes
-              </label>
-              <input
-                id="priceNotes"
-                type="text"
-                value={formData.priceNotes}
-                onChange={(e) => setFormData({ ...formData, priceNotes: e.target.value })}
-                placeholder="e.g., $3 drafts, Happy hour prices"
-                className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="timeWindow" className="text-sm font-medium text-gray-900 dark:text-white">
-                Time Window
-              </label>
-              <input
-                id="timeWindow"
-                type="text"
-                value={formData.timeWindow}
-                onChange={(e) => setFormData({ ...formData, timeWindow: e.target.value })}
-                placeholder="e.g., 4pm-9pm, All Day, Happy Hour"
-                className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
-              />
-            </div>
           </div>
         </div>
 
@@ -364,24 +329,26 @@ export default function DrinkSpecialModalForm({ isOpen, onClose, special, onSucc
           </div>
         )}
 
-        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm flex flex-wrap items-center justify-end gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-3 pt-6 mt-6 border-t border-gray-200 dark:border-gray-700">
           {special?.id && onDelete && (
             <button
               type="button"
               onClick={() => setShowDeleteConfirm(true)}
               disabled={loading}
-              className="px-4 py-2 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 cursor-pointer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer"
             >
-              Delete
+              <FaTrash className="w-3.5 h-3.5" />
+              <span>Delete</span>
             </button>
           )}
           <button
             type="button"
             onClick={handleCancel}
             disabled={loading}
-            className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold transition-all duration-200 cursor-pointer"
           >
-            Cancel
+            <FaTimes className="w-3.5 h-3.5" />
+            <span>Cancel</span>
           </button>
           <button
             type="submit"
@@ -391,9 +358,19 @@ export default function DrinkSpecialModalForm({ isOpen, onClose, special, onSucc
               (!hasWeeklyRecurring && !hasDateRange)
             }
             title={!hasWeeklyRecurring && !hasDateRange ? 'Please select weekly days or a date range' : ''}
-            className="px-4 py-2 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-blue-500/20 cursor-pointer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer"
           >
-            {loading ? (special?.id ? 'Saving...' : 'Creating...') : (special?.id ? 'Save' : 'Create')}
+            {loading ? (
+              <>
+                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <span>{special?.id ? 'Saving...' : 'Creating...'}</span>
+              </>
+            ) : (
+              <>
+                {special?.id ? <FaSave className="w-3.5 h-3.5" /> : <FaCheck className="w-3.5 h-3.5" />}
+                <span>{special?.id ? 'Save' : 'Create'}</span>
+              </>
+            )}
           </button>
         </div>
       </form>

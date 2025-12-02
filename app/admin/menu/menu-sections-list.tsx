@@ -432,19 +432,23 @@ export default function AdminMenuSections({ initialSections }: { initialSections
                   onDragOver={(e) => handleDragOver(e, section.id)}
                   onDragEnd={handleDragEnd}
                   onDrop={(e) => handleDrop(e, section.id)}
-                  className={`bg-white dark:bg-gray-800 rounded-lg border transition-all duration-200 overflow-hidden ${
+                  className={`rounded-lg border transition-all duration-200 overflow-hidden ${
                     reorderMode 
-                      ? 'cursor-move border-gray-300 dark:border-gray-600 shadow-sm hover:shadow-md' 
-                      : 'border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md'
+                      ? 'cursor-move border-2 border-blue-400 dark:border-blue-500 shadow-md bg-blue-50/50 dark:bg-blue-900/20' 
+                      : 'border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md bg-white dark:bg-gray-800'
                   } ${
                     draggedSection === section.id ? 'opacity-50' : ''
                   } ${
-                    dragOverSection === section.id ? 'border-blue-500 dark:border-blue-400 ring-2 ring-blue-500 dark:ring-blue-400' : ''
+                    dragOverSection === section.id ? 'border-blue-600 dark:border-blue-400 ring-2 ring-blue-400 dark:ring-blue-500' : ''
                   }`}
                 >
                   {/* Section Header */}
                   <div
-                    className="group/section relative w-full p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200"
+                    className={`group/section relative w-full p-4 border-b transition-all duration-200 ${
+                      reorderMode
+                        ? 'border-blue-300 dark:border-blue-600 bg-blue-100/50 dark:bg-blue-800/30'
+                        : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
                   >
                     <div className="flex justify-between items-start gap-4">
                       <div 
@@ -453,7 +457,7 @@ export default function AdminMenuSections({ initialSections }: { initialSections
                       >
                         <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                           {reorderMode ? (
-                            <div className="flex-shrink-0 text-gray-400 dark:text-gray-500 cursor-move">
+                            <div className="flex-shrink-0 text-blue-600 dark:text-blue-400 cursor-move">
                               <FaGripVertical className="w-4 h-4" />
                             </div>
                           ) : (
@@ -492,13 +496,17 @@ export default function AdminMenuSections({ initialSections }: { initialSections
                           </button>
                         )}
                         {/* Reorder Items Toggle - shown when section is expanded */}
-                        {isExpanded && section.items.length > 0 && !reorderMode && (
-                          <label className="flex items-center gap-1.5 cursor-pointer px-2 py-1 bg-white dark:bg-gray-800 rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        {isExpanded && section.items.length > 1 && !reorderMode && (
+                          <label className={`flex items-center gap-1.5 cursor-pointer px-2 py-1 rounded-md border transition-all duration-200 ${
+                            itemReorderMode === section.id
+                              ? 'bg-purple-50 dark:bg-purple-900/30 border-purple-400 dark:border-purple-500'
+                              : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                          }`}>
                             <input
                               type="checkbox"
                               checked={itemReorderMode === section.id}
                               onChange={() => toggleItemReorderMode(section.id)}
-                              className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 focus:ring-blue-500 dark:focus:ring-blue-400 rounded cursor-pointer"
+                              className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 focus:ring-purple-500 dark:focus:ring-purple-400 rounded cursor-pointer"
                             />
                             <span className="text-xs font-medium text-gray-900 dark:text-white whitespace-nowrap">Reorder Items</span>
                           </label>
@@ -532,7 +540,11 @@ export default function AdminMenuSections({ initialSections }: { initialSections
                         opacity: isExpanded ? 1 : 0,
                       }}
                     >
-                    <div className="p-3 bg-gray-100/50 dark:bg-gray-700/30">
+                    <div className={`p-3 transition-all duration-200 ${
+                      itemReorderMode === section.id
+                        ? 'bg-purple-50/50 dark:bg-purple-900/20'
+                        : 'bg-gray-100/50 dark:bg-gray-700/30'
+                    }`}>
                       {section.items.length === 0 ? (
                         <div className="text-center py-4">
                           <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">No items in this section</p>
@@ -569,14 +581,14 @@ export default function AdminMenuSections({ initialSections }: { initialSections
                                 onDragOver={(e) => handleItemDragOver(e, item.id)}
                                 onDragEnd={handleItemDragEnd}
                                 onDrop={(e) => handleItemDrop(e, item.id, section.id)}
-                                className={`group/item relative bg-white dark:bg-gray-800 rounded-lg border transition-all duration-200 flex flex-col ${
+                                className={`group/item relative rounded-lg border transition-all duration-200 flex flex-col p-4 ${
                                   itemReorderMode === section.id
-                                    ? 'cursor-move border-gray-300 dark:border-gray-600 shadow-sm hover:shadow-md p-4'
-                                    : 'border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md p-4 cursor-pointer'
+                                    ? 'cursor-move border-2 border-purple-400 dark:border-purple-500 shadow-md bg-purple-50/50 dark:bg-purple-900/20'
+                                    : 'border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md bg-white dark:bg-gray-800 cursor-pointer'
                                 } ${
                                   draggedItem === item.id ? 'opacity-50' : ''
                                 } ${
-                                  dragOverItem === item.id ? 'border-blue-500 dark:border-blue-400 ring-2 ring-blue-500 dark:ring-blue-400' : ''
+                                  dragOverItem === item.id ? 'border-purple-600 dark:border-purple-400 ring-2 ring-purple-400 dark:ring-purple-500' : ''
                                 }`}
                               >
                                 <div
@@ -585,7 +597,7 @@ export default function AdminMenuSections({ initialSections }: { initialSections
                                 >
                                   <div className="flex items-center gap-2 mb-2 flex-wrap">
                                     {itemReorderMode === section.id ? (
-                                      <div className="flex-shrink-0 text-gray-400 dark:text-gray-500 cursor-move">
+                                      <div className="flex-shrink-0 text-purple-600 dark:text-purple-400 cursor-move">
                                         <FaGripVertical className="w-4 h-4" />
                                       </div>
                                     ) : null}

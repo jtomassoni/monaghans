@@ -1,28 +1,16 @@
 /**
  * Permission system for role-based access control
  * 
- * Roles (in hierarchy order):
- * - admin: Highest role, full access including creating owner accounts
- * - owner: Can manage managers and below, full admin access
- * - manager: Full admin access, but cannot manage manager accounts
- * - bartender: Can see own schedule and clock in/out
- * - barback: Can see own schedule and clock in/out
- * - cook: Can see own schedule, clock in/out, and access kitchen display
+ * Roles:
+ * - admin: Highest role, full access to all features
+ * - owner: Full admin access (same as admin for now)
  */
 
-export type UserRole = 'superadmin' | 'owner' | 'manager' | 'admin' | 'cook' | 'bartender' | 'barback';
+export type UserRole = 'admin' | 'owner';
 
 export interface Permissions {
   // User management
-  canCreateOwner: boolean;
-  canCreateManager: boolean;
-  canCreateStaff: boolean; // cook, bartender, barback
-  canEditOwner: boolean;
-  canEditManager: boolean;
-  canEditStaff: boolean;
-  canDeleteOwner: boolean;
-  canDeleteManager: boolean;
-  canDeleteStaff: boolean;
+  canManageUsers: boolean;
   
   // Admin features
   canAccessAdmin: boolean;
@@ -32,7 +20,6 @@ export interface Permissions {
   canManageAnnouncements: boolean;
   canManageOrders: boolean;
   canManageStaff: boolean; // Employee management (schedules, payroll, etc.)
-  canManageUsers: boolean; // User account management
   canAccessReporting: boolean;
   canAccessSettings: boolean;
   canAccessKDS: boolean; // Kitchen Display System
@@ -50,17 +37,9 @@ export function getPermissions(role: string | null | undefined): Permissions {
 
   switch (role) {
     case 'admin':
-      // Admin is the highest role with full permissions
+      // Admin has full permissions
       return {
-        canCreateOwner: true,
-        canCreateManager: true,
-        canCreateStaff: true,
-        canEditOwner: true,
-        canEditManager: true,
-        canEditStaff: true,
-        canDeleteOwner: true,
-        canDeleteManager: true,
-        canDeleteStaff: true,
+        canManageUsers: true,
         canAccessAdmin: true,
         canManageMenu: true,
         canManageEvents: true,
@@ -68,35 +47,6 @@ export function getPermissions(role: string | null | undefined): Permissions {
         canManageAnnouncements: true,
         canManageOrders: true,
         canManageStaff: true,
-        canManageUsers: true,
-        canAccessReporting: true,
-        canAccessSettings: true,
-        canAccessKDS: true,
-        canViewOwnSchedule: true,
-        canClockInOut: true,
-        canAccessKitchen: true,
-      };
-    
-    case 'superadmin':
-      // Superadmin kept for compatibility, same as admin
-      return {
-        canCreateOwner: true,
-        canCreateManager: true,
-        canCreateStaff: true,
-        canEditOwner: true,
-        canEditManager: true,
-        canEditStaff: true,
-        canDeleteOwner: true,
-        canDeleteManager: true,
-        canDeleteStaff: true,
-        canAccessAdmin: true,
-        canManageMenu: true,
-        canManageEvents: true,
-        canManageSpecials: true,
-        canManageAnnouncements: true,
-        canManageOrders: true,
-        canManageStaff: true,
-        canManageUsers: true,
         canAccessReporting: true,
         canAccessSettings: true,
         canAccessKDS: true,
@@ -106,43 +56,9 @@ export function getPermissions(role: string | null | undefined): Permissions {
       };
     
     case 'owner':
+      // Owner has full permissions (same as admin)
       return {
-        canCreateOwner: false,
-        canCreateManager: true,
-        canCreateStaff: true,
-        canEditOwner: false,
-        canEditManager: true,
-        canEditStaff: true,
-        canDeleteOwner: false,
-        canDeleteManager: true,
-        canDeleteStaff: true,
-        canAccessAdmin: true,
-        canManageMenu: true,
-        canManageEvents: true,
-        canManageSpecials: true,
-        canManageAnnouncements: true,
-        canManageOrders: true,
-        canManageStaff: true,
         canManageUsers: true,
-        canAccessReporting: true,
-        canAccessSettings: true,
-        canAccessKDS: true,
-        canViewOwnSchedule: true,
-        canClockInOut: true,
-        canAccessKitchen: true,
-      };
-    
-    case 'manager':
-      return {
-        canCreateOwner: false,
-        canCreateManager: false,
-        canCreateStaff: true,
-        canEditOwner: false,
-        canEditManager: false,
-        canEditStaff: true,
-        canDeleteOwner: false,
-        canDeleteManager: false,
-        canDeleteStaff: true,
         canAccessAdmin: true,
         canManageMenu: true,
         canManageEvents: true,
@@ -150,68 +66,12 @@ export function getPermissions(role: string | null | undefined): Permissions {
         canManageAnnouncements: true,
         canManageOrders: true,
         canManageStaff: true,
-        canManageUsers: false, // Cannot manage user accounts
         canAccessReporting: true,
         canAccessSettings: true,
         canAccessKDS: true,
         canViewOwnSchedule: true,
         canClockInOut: true,
         canAccessKitchen: true,
-      };
-    
-    case 'cook':
-      return {
-        canCreateOwner: false,
-        canCreateManager: false,
-        canCreateStaff: false,
-        canEditOwner: false,
-        canEditManager: false,
-        canEditStaff: false,
-        canDeleteOwner: false,
-        canDeleteManager: false,
-        canDeleteStaff: false,
-        canAccessAdmin: false,
-        canManageMenu: false,
-        canManageEvents: false,
-        canManageSpecials: false,
-        canManageAnnouncements: false,
-        canManageOrders: false,
-        canManageStaff: false,
-        canManageUsers: false,
-        canAccessReporting: false,
-        canAccessSettings: false,
-        canAccessKDS: true, // Cooks can access kitchen display
-        canViewOwnSchedule: true,
-        canClockInOut: true,
-        canAccessKitchen: true,
-      };
-    
-    case 'bartender':
-    case 'barback':
-      return {
-        canCreateOwner: false,
-        canCreateManager: false,
-        canCreateStaff: false,
-        canEditOwner: false,
-        canEditManager: false,
-        canEditStaff: false,
-        canDeleteOwner: false,
-        canDeleteManager: false,
-        canDeleteStaff: false,
-        canAccessAdmin: false,
-        canManageMenu: false,
-        canManageEvents: false,
-        canManageSpecials: false,
-        canManageAnnouncements: false,
-        canManageOrders: false,
-        canManageStaff: false,
-        canManageUsers: false,
-        canAccessReporting: false,
-        canAccessSettings: false,
-        canAccessKDS: false,
-        canViewOwnSchedule: true,
-        canClockInOut: true,
-        canAccessKitchen: false,
       };
     
     default:
@@ -222,15 +82,7 @@ export function getPermissions(role: string | null | undefined): Permissions {
 function getDefaultPermissions(): Permissions {
   // Default to no permissions
   return {
-    canCreateOwner: false,
-    canCreateManager: false,
-    canCreateStaff: false,
-    canEditOwner: false,
-    canEditManager: false,
-    canEditStaff: false,
-    canDeleteOwner: false,
-    canDeleteManager: false,
-    canDeleteStaff: false,
+    canManageUsers: false,
     canAccessAdmin: false,
     canManageMenu: false,
     canManageEvents: false,
@@ -238,7 +90,6 @@ function getDefaultPermissions(): Permissions {
     canManageAnnouncements: false,
     canManageOrders: false,
     canManageStaff: false,
-    canManageUsers: false,
     canAccessReporting: false,
     canAccessSettings: false,
     canAccessKDS: false,
@@ -257,23 +108,17 @@ export function canManageUser(
 ): boolean {
   if (!currentUserRole || !targetUserRole) return false;
   
-  const perms = getPermissions(currentUserRole);
-  
-  switch (targetUserRole) {
-    case 'admin':
-    case 'superadmin':
-      return false; // No one can manage admin or superadmin
-    case 'owner':
-      return perms.canEditOwner && perms.canDeleteOwner;
-    case 'manager':
-      return perms.canEditManager && perms.canDeleteManager;
-    case 'cook':
-    case 'bartender':
-    case 'barback':
-      return perms.canEditStaff && perms.canDeleteStaff;
-    default:
-      return false;
+  // Only admin and owner can manage users, and they can only manage other admin/owner users
+  if (currentUserRole !== 'admin' && currentUserRole !== 'owner') {
+    return false;
   }
+  
+  // Admin and owner can manage each other
+  if (targetUserRole === 'admin' || targetUserRole === 'owner') {
+    return true;
+  }
+  
+  return false;
 }
 
 /**
@@ -285,22 +130,11 @@ export function canCreateRole(
 ): boolean {
   if (!currentUserRole) return false;
   
-  const perms = getPermissions(currentUserRole);
-  
-  switch (targetRole) {
-    case 'admin':
-    case 'superadmin':
-      return false; // No one can create admin or superadmin (only via env/config)
-    case 'owner':
-      return perms.canCreateOwner;
-    case 'manager':
-      return perms.canCreateManager;
-    case 'cook':
-    case 'bartender':
-    case 'barback':
-      return perms.canCreateStaff;
-    default:
-      return false;
+  // Only admin and owner can create users
+  if (currentUserRole !== 'admin' && currentUserRole !== 'owner') {
+    return false;
   }
+  
+  // Can only create admin or owner roles
+  return targetRole === 'admin' || targetRole === 'owner';
 }
-

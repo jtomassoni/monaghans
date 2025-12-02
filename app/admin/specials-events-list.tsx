@@ -7,6 +7,9 @@ import { showToast } from '@/components/toast';
 import SearchSortFilter, { SortOption, FilterOption } from '@/components/search-sort-filter';
 import ConfirmationDialog from '@/components/confirmation-dialog';
 import EventModalForm from '@/components/event-modal-form';
+import SpecialModalForm from '@/components/special-modal-form';
+import DrinkSpecialModalForm from '@/components/drink-special-modal-form';
+import AnnouncementModalForm from '@/components/announcement-modal-form';
 import StatusBadge from '@/components/status-badge';
 import { getItemStatus } from '@/lib/status-helpers';
 import DuplicateCalendarModal from '@/components/duplicate-calendar-modal';
@@ -23,109 +26,229 @@ interface Event {
   tags: string[] | null;
   image: string | null;
   isActive: boolean;
+  eventType: 'event';
 }
+
+interface Special {
+  id: string;
+  title: string;
+  description: string | null;
+  priceNotes: string | null;
+  type: 'food' | 'drink';
+  appliesOn: string | null;
+  timeWindow: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  image: string | null;
+  isActive: boolean;
+  eventType: 'special';
+}
+
+interface Announcement {
+  id: string;
+  title: string;
+  body: string;
+  publishAt: string | null;
+  expiresAt: string | null;
+  isPublished: boolean;
+  eventType: 'announcement';
+}
+
+type ListItem = Event | Special | Announcement;
 
 interface EventsListProps {
   initialEvents: Event[];
+  initialSpecials?: Special[];
+  initialAnnouncements?: Announcement[];
   showNewButtons?: boolean;
 }
 
 export default function EventsList({ 
   initialEvents, 
+  initialSpecials = [],
+  initialAnnouncements = [],
   showNewButtons = true 
 }: EventsListProps) {
   const searchParams = useSearchParams();
   const [events, setEvents] = useState(initialEvents);
-  const [filteredItems, setFilteredItems] = useState<Event[]>([]);
+  const [specials, setSpecials] = useState(initialSpecials);
+  const [announcements, setAnnouncements] = useState(initialAnnouncements);
+  const [filteredItems, setFilteredItems] = useState<ListItem[]>([]);
   
   const [eventModalOpen, setEventModalOpen] = useState(false);
+  const [specialModalOpen, setSpecialModalOpen] = useState(false);
+  const [announcementModalOpen, setAnnouncementModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
-  const [deleteConfirmation, setDeleteConfirmation] = useState<{ id: string; title: string } | null>(null);
+  const [editingSpecial, setEditingSpecial] = useState<Special | null>(null);
+  const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
+  const [specialType, setSpecialType] = useState<'food' | 'drink'>('food');
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{ id: string; title: string; type: 'event' | 'special' | 'announcement' } | null>(null);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
 
   useEffect(() => {
     setEvents(initialEvents);
-    // Initialize filteredItems with all events
-    setFilteredItems(initialEvents);
-  }, [initialEvents]);
+    setSpecials(initialSpecials);
+    setAnnouncements(initialAnnouncements);
+  }, [initialEvents, initialSpecials, initialAnnouncements]);
 
-  // Helper function to get the next occurrence date for sorting
-  const getNextOccurrenceDate = (event: Event): Date => {
-    if (!event.recurrenceRule) {
-      return new Date(event.startDateTime);
-    }
-    
-    try {
-      const now = new Date();
-      const startDate = new Date(event.startDateTime);
-      
-      // For recurring events, find the next occurrence from now
-      const rule = RRule.fromString(event.recurrenceRule);
-      const ruleOptions = {
-        ...rule.options,
-        dtstart: startDate,
-      };
-      const ruleWithDtstart = new RRule(ruleOptions);
-      
-      // Get the next occurrence after now
-      const nextOccurrence = ruleWithDtstart.after(now, true);
-      return nextOccurrence || startDate; // Fallback to start date if no next occurrence
-    } catch (e) {
-      // If RRule parsing fails, return start date
-      return new Date(event.startDateTime);
+  // Combine all items for unified list
+  const allItems: ListItem[] = [...events, ...specials, ...announcements];
+
+  useEffect(() => {
+    // Initialize filteredItems with all items whenever items change
+    setFilteredItems(allItems);
+  }, [events, specials, announcements]);
+
+  // Helper function to get date for sorting
+  const getItemDate = (item: ListItem): Date => {
+    if (item.eventType === 'event') {
+      const event = item as Event;
+      if (!event.recurrenceRule) {
+        return new Date(event.startDateTime);
+      }
+      try {
+        const now = new Date();
+        const startDate = new Date(event.startDateTime);
+        const rule = RRule.fromString(event.recurrenceRule);
+        const ruleOptions = {
+          ...rule.options,
+          dtstart: startDate,
+        };
+        const ruleWithDtstart = new RRule(ruleOptions);
+        const nextOccurrence = ruleWithDtstart.after(now, true);
+        return nextOccurrence || startDate;
+      } catch (e) {
+        return new Date(event.startDateTime);
+      }
+    } else if (item.eventType === 'special') {
+      const special = item as Special;
+      return special.startDate ? new Date(special.startDate) : new Date(0);
+    } else {
+      const announcement = item as Announcement;
+      return announcement.publishAt ? new Date(announcement.publishAt) : new Date(0);
     }
   };
 
-  const sortOptions: SortOption<Event>[] = [
+  const sortOptions: SortOption<ListItem>[] = [
+    { 
+      label: 'Next Upcoming First', 
+      value: 'upcoming', 
+      sortFn: (a, b) => {
+        const aDate = getItemDate(a).getTime();
+        const bDate = getItemDate(b).getTime();
+        const now = new Date().getTime();
+        
+        // Both are upcoming (future dates)
+        if (aDate >= now && bDate >= now) {
+          return aDate - bDate; // Ascending: earlier upcoming dates first
+        }
+        // Both are past
+        if (aDate < now && bDate < now) {
+          return bDate - aDate; // Descending: more recent past dates first
+        }
+        // One is upcoming, one is past - upcoming comes first
+        if (aDate >= now) return -1;
+        if (bDate >= now) return 1;
+        return 0;
+      }
+    },
     { 
       label: 'Date (Newest First)', 
       value: 'date', 
       sortFn: (a, b) => {
-        const aDate = getNextOccurrenceDate(a).getTime();
-        const bDate = getNextOccurrenceDate(b).getTime();
+        const aDate = getItemDate(a).getTime();
+        const bDate = getItemDate(b).getTime();
         return bDate - aDate;
       }
     },
     { 
       label: 'Date (Oldest First)', 
-      value: 'date', 
+      value: 'date-oldest', 
       sortFn: (a, b) => {
-        const aDate = getNextOccurrenceDate(a).getTime();
-        const bDate = getNextOccurrenceDate(b).getTime();
+        const aDate = getItemDate(a).getTime();
+        const bDate = getItemDate(b).getTime();
         return aDate - bDate;
       }
     },
     { label: 'Title (A-Z)', value: 'title' },
     { label: 'Title (Z-A)', value: 'title', sortFn: (a, b) => b.title.localeCompare(a.title) },
-  ];
-
-  const filterOptions: FilterOption<Event>[] = [
-    { label: 'Active Only', value: 'active', filterFn: (item) => item.isActive },
-    { label: 'Inactive Only', value: 'inactive', filterFn: (item) => !item.isActive },
-  ];
-
-  const handleItemClick = async (item: Event) => {
-    try {
-      const res = await fetch(`/api/events/${item.id}`);
-      if (res.ok) {
-        const eventData = await res.json();
-        setEditingEvent({
-          id: eventData.id,
-          title: eventData.title,
-          description: eventData.description || '',
-          startDateTime: eventData.startDateTime,
-          endDateTime: eventData.endDateTime || '',
-          venueArea: eventData.venueArea || 'bar',
-          recurrenceRule: eventData.recurrenceRule || '',
-          isAllDay: eventData.isAllDay || false,
-          tags: eventData.tags ? JSON.parse(eventData.tags) : [],
-          image: eventData.image || null,
-          isActive: eventData.isActive,
-        });
-        setEventModalOpen(true);
+    { 
+      label: 'Type', 
+      value: 'type', 
+      sortFn: (a, b) => {
+        const typeOrder = { event: 1, special: 2, announcement: 3 };
+        return typeOrder[a.eventType] - typeOrder[b.eventType];
       }
-    } catch (error) {
-      showToast('Failed to load event', 'error');
+    },
+  ];
+
+  const filterOptions: FilterOption<ListItem>[] = [
+    { label: 'Events Only', value: 'events', filterFn: (item) => item.eventType === 'event' },
+    { label: 'Specials Only', value: 'specials', filterFn: (item) => item.eventType === 'special' },
+    { label: 'Announcements Only', value: 'announcements', filterFn: (item) => item.eventType === 'announcement' },
+    { label: 'Active Only', value: 'active', filterFn: (item) => {
+      if (item.eventType === 'event' || item.eventType === 'special') {
+        return (item as Event | Special).isActive;
+      }
+      return (item as Announcement).isPublished;
+    }},
+    { label: 'Inactive Only', value: 'inactive', filterFn: (item) => {
+      if (item.eventType === 'event' || item.eventType === 'special') {
+        return !(item as Event | Special).isActive;
+      }
+      return !(item as Announcement).isPublished;
+    }},
+  ];
+
+  const handleItemClick = async (item: ListItem) => {
+    if (item.eventType === 'event') {
+      try {
+        const res = await fetch(`/api/events/${item.id}`);
+        if (res.ok) {
+          const eventData = await res.json();
+          setEditingEvent({
+            id: eventData.id,
+            title: eventData.title,
+            description: eventData.description || '',
+            startDateTime: eventData.startDateTime,
+            endDateTime: eventData.endDateTime || '',
+            venueArea: eventData.venueArea || 'bar',
+            recurrenceRule: eventData.recurrenceRule || '',
+            isAllDay: eventData.isAllDay || false,
+            tags: eventData.tags ? JSON.parse(eventData.tags) : [],
+            image: eventData.image || null,
+            isActive: eventData.isActive,
+            eventType: 'event',
+          });
+          setEventModalOpen(true);
+        }
+      } catch (error) {
+        showToast('Failed to load event', 'error');
+      }
+    } else if (item.eventType === 'special') {
+      const special = item as Special;
+      setSpecialType(special.type);
+      setEditingSpecial(special);
+      setSpecialModalOpen(true);
+    } else if (item.eventType === 'announcement') {
+      try {
+        const res = await fetch(`/api/announcements/${item.id}`);
+        if (res.ok) {
+          const announcementData = await res.json();
+          setEditingAnnouncement({
+            id: announcementData.id,
+            title: announcementData.title,
+            body: announcementData.body,
+            publishAt: announcementData.publishAt,
+            expiresAt: announcementData.expiresAt,
+            isPublished: announcementData.isPublished,
+            eventType: 'announcement',
+          });
+          setAnnouncementModalOpen(true);
+        }
+      } catch (error) {
+        showToast('Failed to load announcement', 'error');
+      }
     }
   };
 
@@ -174,17 +297,14 @@ export default function EventsList({
     }
   }, [searchParams]);
 
-  // Check for id query parameter to open event modal
+  // Check for id query parameter to open modal
   useEffect(() => {
-    const eventId = searchParams.get('id');
-    if (eventId && !eventModalOpen) {
-      // Find the event in the list or fetch it
-      const existingEvent = events.find(e => e.id === eventId);
-      if (existingEvent) {
-        handleItemClick(existingEvent);
-      } else {
-        // If not found in list, fetch it
-        handleItemClick({ id: eventId } as Event);
+    const itemId = searchParams.get('id');
+    if (itemId && !eventModalOpen && !specialModalOpen && !announcementModalOpen) {
+      // Find the item in any of the lists
+      const existingItem = allItems.find(item => item.id === itemId);
+      if (existingItem) {
+        handleItemClick(existingItem);
       }
       // Clean up URL by removing the query parameter
       const url = new URL(window.location.href);
@@ -192,28 +312,42 @@ export default function EventsList({
       window.history.replaceState({}, '', url.toString());
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, eventModalOpen]);
+  }, [searchParams, eventModalOpen, specialModalOpen, announcementModalOpen]);
 
   const handleModalSuccess = () => {
     // No longer need to refresh - state is managed locally
   };
 
-  function handleDelete(item: Event) {
-    setDeleteConfirmation({ id: item.id, title: item.title });
+  function handleDelete(item: ListItem) {
+    setDeleteConfirmation({ id: item.id, title: item.title, type: item.eventType });
   }
 
   async function confirmDelete() {
     if (!deleteConfirmation) return;
 
     try {
-      const res = await fetch(`/api/events/${deleteConfirmation.id}`, { method: 'DELETE' });
+      let endpoint = '';
+      if (deleteConfirmation.type === 'event') {
+        endpoint = `/api/events/${deleteConfirmation.id}`;
+      } else if (deleteConfirmation.type === 'special') {
+        endpoint = `/api/specials/${deleteConfirmation.id}`;
+      } else {
+        endpoint = `/api/announcements/${deleteConfirmation.id}`;
+      }
+
+      const res = await fetch(endpoint, { method: 'DELETE' });
       if (res.ok) {
-        const updatedEvents = events.filter((e) => e.id !== deleteConfirmation.id);
-        setEvents(updatedEvents);
-        showToast('Event deleted successfully', 'success');
+        if (deleteConfirmation.type === 'event') {
+          setEvents(events.filter((e) => e.id !== deleteConfirmation.id));
+        } else if (deleteConfirmation.type === 'special') {
+          setSpecials(specials.filter((s) => s.id !== deleteConfirmation.id));
+        } else {
+          setAnnouncements(announcements.filter((a) => a.id !== deleteConfirmation.id));
+        }
+        showToast(`${deleteConfirmation.type === 'event' ? 'Event' : deleteConfirmation.type === 'special' ? 'Special' : 'Announcement'} deleted successfully`, 'success');
       } else {
         const error = await res.json();
-        showToast('Failed to delete event', 'error', error.error || error.details || 'Please try again.');
+        showToast(`Failed to delete ${deleteConfirmation.type}`, 'error', error.error || error.details || 'Please try again.');
       }
     } catch (error) {
       showToast('Delete failed', 'error', error instanceof Error ? error.message : 'An error occurred.');
@@ -222,45 +356,70 @@ export default function EventsList({
     }
   }
 
-  async function handleToggleActive(item: Event) {
-    try {
-      const res = await fetch(`/api/events/${item.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...item, isActive: !item.isActive }),
+  const formatDate = (item: ListItem) => {
+    if (item.eventType === 'event') {
+      const event = item as Event;
+      return new Date(event.startDateTime).toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
       });
-
-      if (res.ok) {
-        setEvents(events.map((e) => (e.id === item.id ? { ...e, isActive: !item.isActive } : e)));
-        showToast(
-          `Event ${!item.isActive ? 'activated' : 'deactivated'} successfully`,
-          'success'
-        );
-      } else {
-        const error = await res.json();
-        showToast('Failed to update event', 'error', error.error || error.details || 'Please try again.');
+    } else if (item.eventType === 'special') {
+      const special = item as Special;
+      if (special.startDate) {
+        return new Date(special.startDate).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+        });
       }
-    } catch (error) {
-      showToast('Update failed', 'error', error instanceof Error ? error.message : 'An error occurred.');
+      return 'No date set';
+    } else {
+      const announcement = item as Announcement;
+      if (announcement.publishAt) {
+        return new Date(announcement.publishAt).toLocaleString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+        });
+      }
+      return 'Not scheduled';
     }
-  }
-
-  const formatDate = (item: Event) => {
-    return new Date(item.startDateTime).toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-    });
   };
 
-  const isPast = (item: Event) => {
-    const endDate = item.endDateTime ? new Date(item.endDateTime) : new Date(item.startDateTime);
-    return endDate < new Date();
+  const isPast = (item: ListItem) => {
+    // Get start of tomorrow (midnight) for comparison
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    
+    if (item.eventType === 'event') {
+      const event = item as Event;
+      const endDate = event.endDateTime ? new Date(event.endDateTime) : new Date(event.startDateTime);
+      // Only mark as past if end date is before tomorrow (i.e., today's events are not past)
+      return endDate < tomorrow;
+    } else if (item.eventType === 'special') {
+      const special = item as Special;
+      if (special.endDate) {
+        // For specials, compare end date to start of tomorrow
+        const endDate = new Date(special.endDate);
+        endDate.setHours(23, 59, 59, 999); // End of the day
+        return endDate < tomorrow;
+      }
+      return false;
+    } else {
+      const announcement = item as Announcement;
+      if (announcement.expiresAt) {
+        // For announcements, compare expiry to start of tomorrow
+        return new Date(announcement.expiresAt) < tomorrow;
+      }
+      return false;
+    }
   };
 
-  const isRecurring = (item: Event) => {
-    return item.recurrenceRule && item.recurrenceRule.trim().length > 0;
+  const isRecurring = (item: ListItem) => {
+    return item.eventType === 'event' && (item as Event).recurrenceRule && (item as Event).recurrenceRule!.trim().length > 0;
   };
 
   // Check if there are any events scheduled at least one year from now
@@ -278,104 +437,123 @@ export default function EventsList({
       <div className="space-y-4">
         {/* Search, Sort, Filter - Always visible */}
         <SearchSortFilter
-          items={events}
+          items={allItems}
           onFilteredItemsChange={setFilteredItems}
-          searchFields={['title', 'description', 'venueArea']}
-          searchPlaceholder="Search events..."
+          searchFields={['title', 'description', 'body', 'venueArea', 'priceNotes']}
+          searchPlaceholder="Search events, specials, and announcements..."
           sortOptions={sortOptions}
           filterOptions={filterOptions}
-          defaultSort={sortOptions[0]}
+          defaultSort={sortOptions[0]} // "Next Upcoming First"
         />
 
-        {/* Events List */}
+        {/* Unified List */}
         {filteredItems.length === 0 ? (
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              {events.length === 0 
-                ? 'No events yet. Create your first one!'
-                : 'No events match your search or filter criteria.'}
+              {allItems.length === 0 
+                ? 'No items yet. Create your first event, special, or announcement!'
+                : 'No items match your search or filter criteria.'}
             </p>
           </div>
         ) : (
           <div className="grid gap-3">
-            {filteredItems.map((item) => (
-              <div
-                key={item.id}
-                className={`group/item relative bg-white dark:bg-gray-800 rounded-lg border shadow-sm hover:shadow-md transition-all duration-200 p-4 flex justify-between items-start gap-4 cursor-pointer ${
-                  isPast(item)
-                    ? 'border-gray-200 dark:border-gray-700 opacity-75'
-                    : 'border-gray-200 dark:border-gray-700'
-                }`}
-              >
+            {filteredItems.map((item) => {
+              const itemType = item.eventType === 'event' ? 'Event' : item.eventType === 'special' ? (item as Special).type === 'food' ? 'Food Special' : 'Drink Special' : 'Announcement';
+              const typeColor = item.eventType === 'event' 
+                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-blue-300 dark:border-blue-600'
+                : item.eventType === 'special'
+                ? (item as Special).type === 'food'
+                  ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 border-orange-300 dark:border-orange-600'
+                  : 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border-purple-300 dark:border-purple-600'
+                : 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400 border-yellow-300 dark:border-yellow-600';
+
+              return (
                 <div
-                  className="flex-1 min-w-0"
-                  onClick={() => handleItemClick(item)}
+                  key={item.id}
+                  className={`group/item relative bg-white dark:bg-gray-800 rounded-lg border shadow-sm hover:shadow-md transition-all duration-200 p-4 flex justify-between items-start gap-4 cursor-pointer ${
+                    isPast(item)
+                      ? 'border-gray-200 dark:border-gray-700 opacity-75'
+                      : 'border-gray-200 dark:border-gray-700'
+                  }`}
                 >
-                  <div className="flex items-center gap-2 mb-2 flex-wrap">
-                    <h3 className={`text-sm font-semibold truncate ${
-                      isPast(item) 
-                        ? 'text-gray-500 dark:text-gray-500 line-through' 
-                        : 'text-gray-900 dark:text-white'
-                    }`}>
-                      {item.title}
-                    </h3>
-                    <span className="px-2 py-0.5 text-xs rounded-full font-medium capitalize flex-shrink-0 bg-gray-50 dark:bg-gray-700/50 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-600">
-                      Event
-                    </span>
-                    {isRecurring(item) && (
-                      <span className="px-2 py-0.5 text-xs rounded-full font-medium flex-shrink-0 bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 border border-teal-200 dark:border-teal-800 flex items-center gap-1">
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        </svg>
-                        Recurring
+                  <div
+                    className="flex-1 min-w-0"
+                    onClick={() => handleItemClick(item)}
+                  >
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                      <h3 className={`text-sm font-semibold truncate ${
+                        isPast(item) 
+                          ? 'text-gray-500 dark:text-gray-500 line-through' 
+                          : 'text-gray-900 dark:text-white'
+                      }`}>
+                        {item.title}
+                      </h3>
+                      <span className={`px-2 py-0.5 text-xs rounded-full font-medium capitalize flex-shrink-0 ${typeColor} border`}>
+                        {itemType}
                       </span>
-                    )}
-                    {getItemStatus(item).map((status) => (
-                      <StatusBadge key={status} status={status} />
-                    ))}
-                  </div>
-                  {item.description && (
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-1 line-clamp-1">{item.description}</p>
-                  )}
-                  <div className="text-xs text-gray-500 dark:text-gray-400 space-y-0.5">
-                    <p className="truncate">Date: {formatDate(item)}</p>
-                    {item.venueArea && (
-                      <p className="truncate">
-                        Venue: <span className="capitalize">{item.venueArea === 'bar' ? 'Bar Area' : item.venueArea === 'stage' ? 'Stage Area' : item.venueArea}</span>
+                      {isRecurring(item) && (
+                        <span className="px-2 py-0.5 text-xs rounded-full font-medium flex-shrink-0 bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 border border-teal-200 dark:border-teal-800 flex items-center gap-1">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                          Recurring
+                        </span>
+                      )}
+                      {getItemStatus(item).map((status) => (
+                        <StatusBadge key={status} status={status} />
+                      ))}
+                    </div>
+                    {((item.eventType === 'event' && (item as Event).description) || 
+                      (item.eventType === 'special' && (item as Special).description) ||
+                      (item.eventType === 'announcement' && (item as Announcement).body)) && (
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1 line-clamp-1">
+                        {item.eventType === 'announcement' 
+                          ? (item as Announcement).body 
+                          : (item.eventType === 'event' 
+                            ? (item as Event).description 
+                            : (item as Special).description)}
                       </p>
                     )}
+                    <div className="text-xs text-gray-500 dark:text-gray-400 space-y-0.5">
+                      <p className="truncate">Date: {formatDate(item)}</p>
+                      {item.eventType === 'event' && (item as Event).venueArea && (
+                        <p className="truncate">
+                          Venue: <span className="capitalize">{(item as Event).venueArea === 'bar' ? 'Bar Area' : (item as Event).venueArea === 'stage' ? 'Stage Area' : (item as Event).venueArea}</span>
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Edit button - appears centered on hover */}
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 group-hover/item:opacity-100 transition-opacity duration-200">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleItemClick(item);
+                      }}
+                      className="pointer-events-auto px-4 py-2 text-sm bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-medium transition-all duration-200 hover:scale-105 z-10 border border-blue-400 dark:border-blue-500 cursor-pointer"
+                      title="Click anywhere to edit"
+                    >
+                      Edit
+                    </button>
+                  </div>
+                  
+                  {/* Delete button - always visible */}
+                  <div className="flex-shrink-0 z-20 relative">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(item);
+                      }}
+                      className="px-3 py-1.5 text-xs bg-red-500/90 dark:bg-red-600/90 hover:bg-red-600 dark:hover:bg-red-700 rounded-lg text-white font-medium transition-all duration-200 hover:scale-105 border border-red-400 dark:border-red-500 cursor-pointer"
+                      title={`Delete ${itemType.toLowerCase()}`}
+                    >
+                      Delete
+                    </button>
                   </div>
                 </div>
-                
-                {/* Edit button - appears centered on hover */}
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 group-hover/item:opacity-100 transition-opacity duration-200">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleItemClick(item);
-                    }}
-                    className="pointer-events-auto px-4 py-2 text-sm bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-medium transition-all duration-200 hover:scale-105 z-10 border border-blue-400 dark:border-blue-500 cursor-pointer"
-                    title="Click anywhere to edit"
-                  >
-                    Edit
-                  </button>
-                </div>
-                
-                {/* Delete button - always visible */}
-                <div className="flex-shrink-0 z-20 relative">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete(item);
-                    }}
-                    className="px-3 py-1.5 text-xs bg-red-500/90 dark:bg-red-600/90 hover:bg-red-600 dark:hover:bg-red-700 rounded-lg text-white font-medium transition-all duration-200 hover:scale-105 border border-red-400 dark:border-red-500 cursor-pointer"
-                    title="Delete event"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -385,14 +563,14 @@ export default function EventsList({
         isOpen={!!deleteConfirmation}
         onClose={() => setDeleteConfirmation(null)}
         onConfirm={confirmDelete}
-        title="Delete Event"
+        title={`Delete ${deleteConfirmation?.type === 'event' ? 'Event' : deleteConfirmation?.type === 'special' ? 'Special' : 'Announcement'}`}
         message={`Are you sure you want to delete "${deleteConfirmation?.title}"? This action cannot be undone.`}
         confirmText="Delete"
         cancelText="Cancel"
         variant="danger"
       />
 
-      {/* Modal */}
+      {/* Event Modal */}
       <EventModalForm
         isOpen={eventModalOpen}
         onClose={() => {
@@ -412,7 +590,6 @@ export default function EventsList({
         } : undefined}
         onSuccess={handleModalSuccess}
         onEventAdded={(newEvent) => {
-          // Add new event to local state
           setEvents(prev => [...prev, {
             id: newEvent.id,
             title: newEvent.title,
@@ -425,10 +602,10 @@ export default function EventsList({
             tags: newEvent.tags ? (typeof newEvent.tags === 'string' ? JSON.parse(newEvent.tags) : newEvent.tags) : null,
             image: newEvent.image || null,
             isActive: newEvent.isActive,
+            eventType: 'event',
           }]);
         }}
         onEventUpdated={(updatedEvent) => {
-          // Update event in local state
           setEvents(prev => prev.map(e => 
             e.id === updatedEvent.id ? {
               ...e,
@@ -446,8 +623,82 @@ export default function EventsList({
           ));
         }}
         onDelete={(eventId) => {
-          // Remove event from local state
           setEvents(prev => prev.filter(e => e.id !== eventId));
+        }}
+      />
+
+      {/* Special Modal */}
+      {specialType === 'drink' ? (
+        <DrinkSpecialModalForm
+          isOpen={specialModalOpen}
+          onClose={() => {
+            setSpecialModalOpen(false);
+            setEditingSpecial(null);
+          }}
+          special={editingSpecial ? {
+            id: editingSpecial.id,
+            title: editingSpecial.title,
+            description: editingSpecial.description || '',
+            priceNotes: editingSpecial.priceNotes || '',
+            type: 'drink' as const,
+            appliesOn: editingSpecial.appliesOn ? JSON.parse(editingSpecial.appliesOn) : [],
+            timeWindow: editingSpecial.timeWindow || '',
+            startDate: editingSpecial.startDate || '',
+            endDate: editingSpecial.endDate || '',
+            isActive: editingSpecial.isActive,
+          } : undefined}
+          onSuccess={handleModalSuccess}
+          onDelete={(specialId) => {
+            setSpecials(prev => prev.filter(s => s.id !== specialId));
+          }}
+        />
+      ) : (
+        <SpecialModalForm
+          isOpen={specialModalOpen}
+          onClose={() => {
+            setSpecialModalOpen(false);
+            setEditingSpecial(null);
+          }}
+          special={editingSpecial ? {
+            id: editingSpecial.id,
+            title: editingSpecial.title,
+            description: editingSpecial.description || '',
+            priceNotes: editingSpecial.priceNotes || '',
+            type: editingSpecial.type,
+            appliesOn: editingSpecial.appliesOn ? JSON.parse(editingSpecial.appliesOn) : [],
+            timeWindow: editingSpecial.timeWindow || '',
+            startDate: editingSpecial.startDate || '',
+            endDate: editingSpecial.endDate || '',
+            isActive: editingSpecial.isActive,
+          } : undefined}
+          defaultType={specialType}
+          onSuccess={handleModalSuccess}
+          onDelete={(specialId) => {
+            setSpecials(prev => prev.filter(s => s.id !== specialId));
+          }}
+        />
+      )}
+
+      {/* Announcement Modal */}
+      <AnnouncementModalForm
+        isOpen={announcementModalOpen}
+        onClose={() => {
+          setAnnouncementModalOpen(false);
+          setEditingAnnouncement(null);
+        }}
+        announcement={editingAnnouncement ? {
+          id: editingAnnouncement.id,
+          title: editingAnnouncement.title,
+          body: editingAnnouncement.body,
+          publishAt: editingAnnouncement.publishAt,
+          expiresAt: editingAnnouncement.expiresAt,
+          isPublished: editingAnnouncement.isPublished,
+          crossPostFacebook: false,
+          crossPostInstagram: false,
+        } : undefined}
+        onSuccess={handleModalSuccess}
+        onDelete={(announcementId) => {
+          setAnnouncements(prev => prev.filter(a => a.id !== announcementId));
         }}
       />
 

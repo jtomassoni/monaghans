@@ -6,6 +6,7 @@ import CalendarView from '@/components/admin-calendar';
 import EventModalForm from '@/components/event-modal-form';
 import SpecialModalForm from '@/components/special-modal-form';
 import DrinkSpecialModalForm from '@/components/drink-special-modal-form';
+import AnnouncementModalForm from '@/components/announcement-modal-form';
 import EventsList from '@/app/admin/specials-events-list';
 import { FaCalendarAlt, FaList } from 'react-icons/fa';
 
@@ -64,16 +65,38 @@ interface CalendarAnnouncement {
   eventType: 'announcement';
 }
 
+interface Announcement {
+  id?: string;
+  title: string;
+  body: string;
+  publishAt: string | null;
+  expiresAt?: string | null;
+  isPublished?: boolean;
+  crossPostFacebook: boolean;
+  crossPostInstagram: boolean;
+  ctaText?: string;
+  ctaUrl?: string;
+}
+
+interface BusinessHours {
+  [key: string]: {
+    open: string; // "10:00"
+    close: string; // "02:00" (next day)
+  };
+}
+
 interface DashboardContentProps {
   events: CalendarEvent[];
   specials: Special[];
   announcements?: CalendarAnnouncement[];
+  businessHours?: BusinessHours;
+  calendarHours?: { startHour: number; endHour: number } | null;
   isSuperadmin: boolean;
 }
 
 type ViewType = 'calendar' | 'list';
 
-export default function DashboardContent({ events: initialEvents, specials, announcements = [], isSuperadmin }: DashboardContentProps) {
+export default function DashboardContent({ events: initialEvents, specials, announcements = [], businessHours, calendarHours, isSuperadmin }: DashboardContentProps) {
   const router = useRouter();
   const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
   const [eventModalOpen, setEventModalOpen] = useState(false);
@@ -83,9 +106,13 @@ export default function DashboardContent({ events: initialEvents, specials, anno
   const [editingSpecial, setEditingSpecial] = useState<Special | null>(null);
   const [specialType, setSpecialType] = useState<'food' | 'drink'>('food');
   const [viewType, setViewType] = useState<ViewType>('calendar');
+  const [announcementModalOpen, setAnnouncementModalOpen] = useState(false);
+  const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
+  const [localAnnouncements, setLocalAnnouncements] = useState<CalendarAnnouncement[]>(announcements);
   
   // Track the last initialEvents IDs to prevent unnecessary updates
   const lastInitialEventsIdsRef = useRef<string>(JSON.stringify(initialEvents.map(e => e.id).sort()));
+  const lastInitialAnnouncementsIdsRef = useRef<string>(JSON.stringify(announcements.map(a => a.id).sort()));
 
   // Update events when initialEvents changes (e.g., from server)
   // Only update if the actual IDs have changed, not just the array reference
@@ -98,6 +125,16 @@ export default function DashboardContent({ events: initialEvents, specials, anno
       setEvents(initialEvents);
     }
   }, [initialEvents]);
+
+  // Update announcements when props change
+  useEffect(() => {
+    const currentInitialIds = JSON.stringify(announcements.map(a => a.id).sort());
+    
+    if (currentInitialIds !== lastInitialAnnouncementsIdsRef.current) {
+      lastInitialAnnouncementsIdsRef.current = currentInitialIds;
+      setLocalAnnouncements(announcements);
+    }
+  }, [announcements]);
 
   const handleEventClick = async (eventId: string, occurrenceDate?: Date) => {
     try {
@@ -280,6 +317,100 @@ export default function DashboardContent({ events: initialEvents, specials, anno
     router.refresh();
   };
 
+  const handleAnnouncementClick = async (announcementId: string) => {
+    try {
+      const res = await fetch(`/api/announcements/${announcementId}`);
+      if (res.ok) {
+        const announcementData = await res.json();
+        setEditingAnnouncement({
+          id: announcementData.id,
+          title: announcementData.title,
+          body: announcementData.body,
+          publishAt: announcementData.publishAt,
+          expiresAt: announcementData.expiresAt,
+          isPublished: announcementData.isPublished,
+          crossPostFacebook: announcementData.crossPostFacebook || false,
+          crossPostInstagram: announcementData.crossPostInstagram || false,
+          ctaText: announcementData.ctaText,
+          ctaUrl: announcementData.ctaUrl,
+        });
+        setAnnouncementModalOpen(true);
+      } else {
+        console.error('Failed to fetch announcement data');
+      }
+    } catch (error) {
+      console.error('Error fetching announcement:', error);
+      // Fallback to local announcement data if API fails
+      const announcement = localAnnouncements.find((a) => a.id === announcementId);
+      if (announcement) {
+        setEditingAnnouncement({
+          id: announcement.id,
+          title: announcement.title,
+          body: announcement.body,
+          publishAt: announcement.publishAt,
+          expiresAt: announcement.expiresAt || null,
+          isPublished: announcement.isPublished,
+          crossPostFacebook: false,
+          crossPostInstagram: false,
+        });
+        setAnnouncementModalOpen(true);
+      }
+    }
+  };
+
+  const handleNewAnnouncement = (date?: Date) => {
+    const announcementDate = date || new Date();
+    const publishAt = new Date(announcementDate);
+    publishAt.setMinutes(0, 0, 0); // Round to top of hour
+    
+    const expiresAt = new Date(publishAt);
+    expiresAt.setHours(expiresAt.getHours() + 24); // Default to 24 hours later
+    
+    setEditingAnnouncement({
+      id: undefined,
+      title: '',
+      body: '',
+      publishAt: formatDateTimeLocal(publishAt),
+      expiresAt: formatDateTimeLocal(expiresAt),
+      isPublished: true,
+      crossPostFacebook: false,
+      crossPostInstagram: false,
+    });
+    setAnnouncementModalOpen(true);
+  };
+
+  const handleAnnouncementAdded = (newAnnouncement: any) => {
+    // Add new announcement to local state
+    setLocalAnnouncements(prev => [...prev, {
+      id: newAnnouncement.id,
+      title: newAnnouncement.title,
+      body: newAnnouncement.body,
+      publishAt: newAnnouncement.publishAt,
+      expiresAt: newAnnouncement.expiresAt,
+      isPublished: newAnnouncement.isPublished,
+      eventType: 'announcement' as const,
+    }]);
+  };
+
+  const handleAnnouncementUpdated = (updatedAnnouncement: any) => {
+    // Update announcement in local state
+    setLocalAnnouncements(prev => prev.map(a => 
+      a.id === updatedAnnouncement.id ? {
+        ...a,
+        title: updatedAnnouncement.title,
+        body: updatedAnnouncement.body,
+        publishAt: updatedAnnouncement.publishAt,
+        expiresAt: updatedAnnouncement.expiresAt,
+        isPublished: updatedAnnouncement.isPublished,
+      } : a
+    ));
+  };
+
+  const handleAnnouncementDeleted = (announcementId: string) => {
+    // Remove announcement from local state
+    setLocalAnnouncements(prev => prev.filter(a => a.id !== announcementId));
+  };
+
   return (
     <>
       <div className="h-screen flex flex-col bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 overflow-hidden relative">
@@ -307,6 +438,14 @@ export default function DashboardContent({ events: initialEvents, specials, anno
               >
                 <span>➕</span>
                 <span>New Event</span>
+              </button>
+              {/* New Announcement Button */}
+              <button
+                onClick={() => handleNewAnnouncement()}
+                className="px-4 py-2.5 bg-yellow-500/90 dark:bg-yellow-600/90 hover:bg-yellow-600 dark:hover:bg-yellow-700 rounded-lg text-white font-medium text-sm transition-all duration-200 hover:scale-105 flex items-center justify-center gap-2 border border-yellow-400 dark:border-yellow-500 touch-manipulation"
+              >
+                <span>📢</span>
+                <span>New Announcement</span>
               </button>
               {/* View Type Toggle - Calendar/List */}
               <div className="flex gap-0.5 bg-gray-100 dark:bg-gray-800 rounded-lg p-1 border border-gray-200 dark:border-gray-700 flex-shrink-0">
@@ -345,10 +484,14 @@ export default function DashboardContent({ events: initialEvents, specials, anno
               <CalendarView
                 events={events}
                 specials={specials}
-                announcements={announcements}
+                announcements={localAnnouncements}
+                businessHours={businessHours}
+                calendarHours={calendarHours}
                 onEventClick={handleEventClick}
                 onSpecialClick={handleSpecialClick}
+                onAnnouncementClick={handleAnnouncementClick}
                 onNewEvent={handleNewEvent}
+                onNewAnnouncement={handleNewAnnouncement}
                 onEventUpdate={handleModalSuccess}
                 onEventAdded={handleEventAdded}
                 onEventDeleted={handleEventDeleted}
@@ -371,6 +514,30 @@ export default function DashboardContent({ events: initialEvents, specials, anno
                     tags: e.tags,
                     image: e.image,
                     isActive: e.isActive,
+                    eventType: 'event' as const,
+                  }))}
+                  initialSpecials={specials.map(s => ({
+                    id: s.id,
+                    title: s.title,
+                    description: s.description,
+                    priceNotes: s.priceNotes,
+                    type: s.type,
+                    appliesOn: s.appliesOn,
+                    timeWindow: s.timeWindow,
+                    startDate: s.startDate,
+                    endDate: s.endDate,
+                    image: s.image,
+                    isActive: s.isActive,
+                    eventType: 'special' as const,
+                  }))}
+                  initialAnnouncements={localAnnouncements.map(a => ({
+                    id: a.id,
+                    title: a.title,
+                    body: a.body,
+                    publishAt: a.publishAt,
+                    expiresAt: a.expiresAt,
+                    isPublished: a.isPublished,
+                    eventType: 'announcement' as const,
                   }))}
                   showNewButtons={true}
                 />
@@ -439,6 +606,19 @@ export default function DashboardContent({ events: initialEvents, specials, anno
           onDelete={handleSpecialDeleted}
         />
       )}
+
+      <AnnouncementModalForm
+        isOpen={announcementModalOpen}
+        onClose={() => {
+          setAnnouncementModalOpen(false);
+          setEditingAnnouncement(null);
+        }}
+        announcement={editingAnnouncement || undefined}
+        onSuccess={handleModalSuccess}
+        onDelete={handleAnnouncementDeleted}
+        onAnnouncementAdded={handleAnnouncementAdded}
+        onAnnouncementUpdated={handleAnnouncementUpdated}
+      />
     </>
   );
 }

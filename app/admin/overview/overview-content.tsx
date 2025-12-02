@@ -73,6 +73,15 @@ interface OverviewContentProps {
   todayRevenue: number;
   weekRevenue: number;
   clockedInCount: number;
+  featureFlags: {
+    online_ordering: boolean;
+    staff_scheduling: boolean;
+    calendars_events: boolean;
+    specials_management: boolean;
+    menu_management: boolean;
+    activity_log: boolean;
+    users_staff_management: boolean;
+  };
 }
 
 export default function OverviewContent({
@@ -84,6 +93,7 @@ export default function OverviewContent({
   todayRevenue,
   weekRevenue,
   clockedInCount,
+  featureFlags,
 }: OverviewContentProps) {
   const router = useRouter();
   const [announcementModalOpen, setAnnouncementModalOpen] = useState(false);
@@ -227,204 +237,229 @@ export default function OverviewContent({
             })}
           </div>
 
-          {/* Revenue & Quick Stats Row */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 flex-shrink-0">
-            {/* Today's Revenue */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-4">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                  <FaDollarSign className="w-4 h-4 text-green-600 dark:text-green-400" />
-                  Today's Revenue
-                </h3>
-              </div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                ${todayRevenue.toFixed(2)}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                This week: ${weekRevenue.toFixed(2)}
-              </p>
-            </div>
-
-            {/* Kitchen Status */}
-            <Link
-              href="/admin/orders?status=acknowledged,preparing,ready"
-              className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all duration-200 hover:scale-[1.02] p-4 group"
-            >
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                  <FaFire className="w-4 h-4 text-orange-600 dark:text-orange-400" />
-                  Kitchen Status
-                </h3>
-              </div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {stats.find(s => s.title === 'Orders')?.kitchenOrders || 0}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Orders in kitchen
-              </p>
-            </Link>
-
-            {/* Staff Status */}
-            <Link
-              href="/admin/staff?tab=clock"
-              className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all duration-200 hover:scale-[1.02] p-4 group"
-            >
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                  <FaClock className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                  Staff Status
-                </h3>
-              </div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {clockedInCount}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Currently clocked in
-              </p>
-            </Link>
-          </div>
-
-          {/* Three Column Layout for Orders, Events, and Activity */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 flex-shrink-0">
-            {/* Recent Orders */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                  <FaShoppingCart className="w-4 h-4 text-green-600 dark:text-green-400" />
-                  Recent Orders
-                </h2>
-                <Link
-                  href="/admin/orders"
-                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
-                >
-                  View All
-                </Link>
-              </div>
-              {recentOrders.length > 0 ? (
-                <div className="space-y-2">
-                  {recentOrders.map((order: any) => (
-                    <Link
-                      key={order.id}
-                      href={`/admin/orders?order=${order.id}`}
-                      className="block p-2 rounded border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-sm font-semibold text-gray-900 dark:text-white group-hover:text-green-600 dark:group-hover:text-green-400 truncate">
-                              {order.orderNumber}
-                            </h3>
-                            <span className={`text-xs font-medium ${getOrderStatusColor(order.status)}`}>
-                              {order.status}
-                            </span>
-                          </div>
-                          <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
-                            {order.customerName} • ${order.total.toFixed(2)}
-                          </p>
-                          <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
-                            {order.formattedDateTime}
-                          </p>
-                        </div>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-gray-500 dark:text-gray-400 text-center py-2">
-                  No pending orders
-                </p>
-              )}
-            </div>
-
-            {/* Upcoming Events */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                  <FaClock className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                  Upcoming Events
-                </h2>
-                <Link
-                  href="/admin/specials-events"
-                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
-                >
-                  View All
-                </Link>
-              </div>
-              {upcomingEvents.length > 0 ? (
-                <div className="space-y-2">
-                  {upcomingEvents.map((event: any) => (
-                    <Link
-                      key={event.id}
-                      href={`/admin/specials-events?id=${event.id}`}
-                      className="block p-2 rounded border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-sm font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 truncate">
-                            {event.title}
-                          </h3>
-                          <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
-                            {event.formattedDateTime}
-                            {event.venueArea && (
-                              <span className="ml-1.5 text-gray-500 dark:text-gray-500">• {event.venueArea}</span>
-                            )}
-                          </p>
-                        </div>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-gray-500 dark:text-gray-400 text-center py-2">
-                  No upcoming events
-                </p>
-              )}
-            </div>
-
-            {/* Recent Activity */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                  <FaEdit className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                  Recent Activity
-                </h2>
-                <Link
-                  href="/admin/activity"
-                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-                >
-                  View All
-                  <FaEdit className="w-2.5 h-2.5" />
-                </Link>
-              </div>
-              <div className="space-y-2">
-                {recentActivities.length > 0 ? (
-                  recentActivities.map((activity: any) => (
-                    <div
-                      key={activity.id}
-                      className="py-1.5 border-b border-gray-100 dark:border-gray-700 last:border-b-0"
-                    >
-                      <div className="flex items-start gap-1.5">
-                        {activity.action === 'create' && <FaPlus className="w-2.5 h-2.5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />}
-                        {activity.action === 'update' && <FaEdit className="w-2.5 h-2.5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />}
-                        {activity.action === 'delete' && <FaTrash className="w-2.5 h-2.5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs text-gray-900 dark:text-white">
-                            <span className="font-semibold">{activity.user.name || activity.user.email}</span>{' '}
-                            <span className="text-gray-600 dark:text-gray-400">{activity.description}</span>
-                          </p>
-                          <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
-                            {activity.formattedDateTime}
-                          </p>
-                        </div>
-                      </div>
+          {/* Revenue & Quick Stats Row - Conditionally render based on feature flags */}
+          {(featureFlags.online_ordering || featureFlags.staff_scheduling) && (
+            <div className={`grid grid-cols-1 ${featureFlags.online_ordering && featureFlags.staff_scheduling ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-3 flex-shrink-0`}>
+              {/* Today's Revenue - Only if online_ordering enabled */}
+              {featureFlags.online_ordering && (
+                <>
+                  <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                        <FaDollarSign className="w-4 h-4 text-green-600 dark:text-green-400" />
+                        Today's Revenue
+                      </h3>
                     </div>
-                  ))
-                ) : (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 py-2">No recent activity</p>
-                )}
-              </div>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                      ${todayRevenue.toFixed(2)}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      This week: ${weekRevenue.toFixed(2)}
+                    </p>
+                  </div>
+
+                  {/* Kitchen Status */}
+                  <Link
+                    href="/admin/orders?status=acknowledged,preparing,ready"
+                    className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all duration-200 hover:scale-[1.02] p-4 group"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                        <FaFire className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                        Kitchen Status
+                      </h3>
+                    </div>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                      {stats.find(s => s.title === 'Orders')?.kitchenOrders || 0}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Orders in kitchen
+                    </p>
+                  </Link>
+                </>
+              )}
+
+              {/* Staff Status - Only if staff_scheduling enabled */}
+              {featureFlags.staff_scheduling && (
+                <Link
+                  href="/admin/staff?tab=clock"
+                  className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all duration-200 hover:scale-[1.02] p-4 group"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                      <FaClock className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                      Staff Status
+                    </h3>
+                  </div>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {clockedInCount}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Currently clocked in
+                  </p>
+                </Link>
+              )}
             </div>
-          </div>
+          )}
+
+          {/* Three Column Layout for Orders, Events, and Activity - Conditionally render */}
+          {(featureFlags.online_ordering || (featureFlags.calendars_events || featureFlags.specials_management) || featureFlags.activity_log) && (
+            <div className={`grid grid-cols-1 ${(() => {
+              const enabledCount = [
+                featureFlags.online_ordering,
+                (featureFlags.calendars_events || featureFlags.specials_management),
+                featureFlags.activity_log
+              ].filter(Boolean).length;
+              if (enabledCount === 1) return 'lg:grid-cols-1';
+              if (enabledCount === 2) return 'lg:grid-cols-2';
+              return 'lg:grid-cols-3';
+            })()} gap-3 flex-shrink-0`}>
+              {/* Recent Orders - Only if online_ordering enabled */}
+              {featureFlags.online_ordering && (
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                      <FaShoppingCart className="w-4 h-4 text-green-600 dark:text-green-400" />
+                      Recent Orders
+                    </h2>
+                    <Link
+                      href="/admin/orders"
+                      className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      View All
+                    </Link>
+                  </div>
+                  {recentOrders.length > 0 ? (
+                    <div className="space-y-2">
+                      {recentOrders.map((order: any) => (
+                        <Link
+                          key={order.id}
+                          href={`/admin/orders?order=${order.id}`}
+                          className="block p-2 rounded border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group"
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <h3 className="text-sm font-semibold text-gray-900 dark:text-white group-hover:text-green-600 dark:group-hover:text-green-400 truncate">
+                                  {order.orderNumber}
+                                </h3>
+                                <span className={`text-xs font-medium ${getOrderStatusColor(order.status)}`}>
+                                  {order.status}
+                                </span>
+                              </div>
+                              <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+                                {order.customerName} • ${order.total.toFixed(2)}
+                              </p>
+                              <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+                                {order.formattedDateTime}
+                              </p>
+                            </div>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 text-center py-2">
+                      No pending orders
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Upcoming Events - Only if calendars_events or specials_management enabled */}
+              {(featureFlags.calendars_events || featureFlags.specials_management) && (
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                      <FaClock className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                      Upcoming Events
+                    </h2>
+                    <Link
+                      href="/admin/specials-events"
+                      className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      View All
+                    </Link>
+                  </div>
+                  {upcomingEvents.length > 0 ? (
+                    <div className="space-y-2">
+                      {upcomingEvents.map((event: any) => (
+                        <Link
+                          key={event.id}
+                          href={`/admin/specials-events?id=${event.id}`}
+                          className="block p-2 rounded border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group"
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-sm font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 truncate">
+                                {event.title}
+                              </h3>
+                              <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+                                {event.formattedDateTime}
+                                {event.venueArea && (
+                                  <span className="ml-1.5 text-gray-500 dark:text-gray-500">• {event.venueArea}</span>
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 text-center py-2">
+                      No upcoming events
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Recent Activity - Only if activity_log enabled */}
+              {featureFlags.activity_log && (
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                      <FaEdit className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                      Recent Activity
+                    </h2>
+                    <Link
+                      href="/admin/activity"
+                      className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                    >
+                      View All
+                      <FaEdit className="w-2.5 h-2.5" />
+                    </Link>
+                  </div>
+                  <div className="space-y-2">
+                    {recentActivities.length > 0 ? (
+                      recentActivities.map((activity: any) => (
+                        <div
+                          key={activity.id}
+                          className="py-1.5 border-b border-gray-100 dark:border-gray-700 last:border-b-0"
+                        >
+                          <div className="flex items-start gap-1.5">
+                            {activity.action === 'create' && <FaPlus className="w-2.5 h-2.5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />}
+                            {activity.action === 'update' && <FaEdit className="w-2.5 h-2.5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />}
+                            {activity.action === 'delete' && <FaTrash className="w-2.5 h-2.5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-gray-900 dark:text-white">
+                                <span className="font-semibold">{activity.user.name || activity.user.email}</span>{' '}
+                                <span className="text-gray-600 dark:text-gray-400">{activity.description}</span>
+                              </p>
+                              <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+                                {activity.formattedDateTime}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 py-2">No recent activity</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Quick Actions and Preview Site - Compact Row */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 flex-shrink-0">

@@ -1,6 +1,7 @@
 'use client';
 
 import { StatusType } from '../components/status-badge';
+import { getMountainTimeDateString, getMountainTimeToday, parseMountainTimeDate } from './timezone';
 
 /**
  * Helper function to determine status based on item properties
@@ -17,6 +18,8 @@ export function getItemStatus(item: {
 }): StatusType[] {
   const statuses: StatusType[] = [];
   const now = new Date();
+  const mtToday = getMountainTimeToday();
+  const mtTodayStr = getMountainTimeDateString(mtToday);
 
   // For items with publish dates (announcements, specials)
   if (item.publishAt !== undefined || item.expiresAt !== undefined) {
@@ -46,21 +49,55 @@ export function getItemStatus(item: {
     }
   }
 
-  // For specials with startDate/endDate
+  // For specials with startDate/endDate (date-only strings like YYYY-MM-DD)
+  // Compare dates in Mountain Time to avoid timezone issues
   if (item.startDate || item.endDate) {
-    const startDate = item.startDate ? new Date(item.startDate) : null;
-    const endDate = item.endDate ? new Date(item.endDate) : null;
+    // Parse dates as Mountain Time dates (not UTC) to prevent day shifts
+    let startDateStr: string | null = null;
+    let endDateStr: string | null = null;
     
-    if (endDate && endDate < now) {
+    if (item.startDate) {
+      const startDateValue = item.startDate as string | Date;
+      startDateStr = typeof startDateValue === 'string' 
+        ? startDateValue.split('T')[0] 
+        : getMountainTimeDateString(startDateValue);
+    }
+    
+    if (item.endDate) {
+      const endDateValue = item.endDate as string | Date;
+      endDateStr = typeof endDateValue === 'string' 
+        ? endDateValue.split('T')[0] 
+        : getMountainTimeDateString(endDateValue);
+    }
+    
+    // Compare date strings directly (YYYY-MM-DD format)
+    // A date is "past" only if it's before today in Mountain Time
+    if (endDateStr && endDateStr < mtTodayStr) {
       statuses.push('past');
-    } else if (startDate && startDate > now) {
+    } else if (startDateStr && startDateStr > mtTodayStr) {
       statuses.push('scheduled');
     }
   }
 
   // Active/Inactive status
+  // For food specials with dates: only show as active if date matches today AND isActive is true
   if (item.isActive !== undefined) {
-    statuses.push(item.isActive ? 'active' : 'inactive');
+    if (item.startDate) {
+      // For date-based specials, only show active if the date is today
+      const startDateValue = item.startDate as string | Date;
+      const startDateStr = typeof startDateValue === 'string' 
+        ? startDateValue.split('T')[0] 
+        : getMountainTimeDateString(startDateValue);
+      
+      if (item.isActive && startDateStr === mtTodayStr) {
+        statuses.push('active');
+      } else {
+        statuses.push('inactive');
+      }
+    } else {
+      // For non-date-based items, use isActive as-is
+      statuses.push(item.isActive ? 'active' : 'inactive');
+    }
   }
 
   // Available/Unavailable status (for menu items)

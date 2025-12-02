@@ -23,7 +23,7 @@ import {
   isSameWeek,
   isWithinInterval
 } from 'date-fns';
-import { FaMicrophone, FaBrain, FaCalendarAlt, FaUtensils, FaBeer, FaTable, FaCalendarWeek, FaDice, FaBullhorn } from 'react-icons/fa';
+import { FaMicrophone, FaBrain, FaCalendarAlt, FaUtensils, FaBeer, FaTable, FaCalendarWeek, FaDice, FaBullhorn, FaClock } from 'react-icons/fa';
 import { FaFootball } from 'react-icons/fa6';
 import { HiChevronLeft, HiChevronRight } from 'react-icons/hi';
 import { parseMountainTimeDate } from '@/lib/timezone';
@@ -69,13 +69,24 @@ interface CalendarAnnouncement {
 
 type CalendarItem = (CalendarEvent | CalendarSpecial | CalendarAnnouncement) & { date: Date };
 
+interface BusinessHours {
+  [key: string]: {
+    open: string; // "10:00"
+    close: string; // "02:00" (next day)
+  };
+}
+
 interface CalendarViewProps {
   events: CalendarEvent[];
   specials: CalendarSpecial[];
   announcements?: CalendarAnnouncement[];
+  businessHours?: BusinessHours;
+  calendarHours?: { startHour: number; endHour: number } | null;
   onEventClick?: (eventId: string, occurrenceDate?: Date) => void;
   onSpecialClick?: (specialId: string) => void;
+  onAnnouncementClick?: (announcementId: string) => void;
   onNewEvent?: (date: Date, isAllDay?: boolean) => void;
+  onNewAnnouncement?: (date: Date) => void;
   onEventUpdate?: () => void;
   onEventAdded?: (event: CalendarEvent) => void;
   onEventDeleted?: (eventId: string) => void; // Callback when event is deleted
@@ -83,7 +94,7 @@ interface CalendarViewProps {
 
 type ViewMode = 'month' | 'week';
 
-export default function CalendarView({ events, specials, announcements = [], onEventClick, onSpecialClick, onNewEvent, onEventUpdate, onEventAdded, onEventDeleted }: CalendarViewProps) {
+export default function CalendarView({ events, specials, announcements = [], businessHours, calendarHours, onEventClick, onSpecialClick, onAnnouncementClick, onNewEvent, onNewAnnouncement, onEventUpdate, onEventAdded, onEventDeleted }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [hoveredDay, setHoveredDay] = useState<Date | null>(null);
   const [hoveredTimeSlot, setHoveredTimeSlot] = useState<{ day: Date; hour: number } | null>(null);
@@ -101,6 +112,9 @@ export default function CalendarView({ events, specials, announcements = [], onE
   const [localEvents, setLocalEvents] = useState<CalendarEvent[]>(events);
   const [newEventIds, setNewEventIds] = useState<Set<string>>(new Set());
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [showHoursConfig, setShowHoursConfig] = useState(false);
+  const [localCalendarHours, setLocalCalendarHours] = useState<{ startHour: number; endHour: number } | null>(calendarHours || null);
+  const hoursConfigRef = useRef<HTMLDivElement>(null);
 
   // Update current time every minute
   useEffect(() => {
@@ -163,11 +177,48 @@ export default function CalendarView({ events, specials, announcements = [], onE
       ) {
         setShowYearPicker(false);
       }
+      if (
+        hoursConfigRef.current && 
+        !hoursConfigRef.current.contains(event.target as Node) &&
+        !(event.target as HTMLElement).closest('[data-hours-trigger]')
+      ) {
+        setShowHoursConfig(false);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Update local calendar hours when prop changes
+  useEffect(() => {
+    setLocalCalendarHours(calendarHours || null);
+  }, [calendarHours]);
+
+  // Save calendar hours setting
+  const handleSaveHours = async () => {
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key: 'calendarHours',
+          value: JSON.stringify(localCalendarHours),
+          description: 'Calendar visible hours range (startHour: 0-23, endHour: 0-26 where 24+ is next day)',
+        }),
+      });
+
+      if (res.ok) {
+        setShowHoursConfig(false);
+        // Refresh the page to get updated calendar hours
+        window.location.reload();
+      } else {
+        console.error('Failed to save calendar hours');
+      }
+    } catch (error) {
+      console.error('Error saving calendar hours:', error);
+    }
+  };
 
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
@@ -181,7 +232,8 @@ export default function CalendarView({ events, specials, announcements = [], onE
   const getAllItems = useMemo(() => {
     const items: CalendarItem[] = [];
     const rangeStart = viewMode === 'week' ? weekStart : calendarStart;
-    const rangeEnd = viewMode === 'week' ? weekEnd : calendarEnd;
+    // Ensure rangeEnd includes the full end day (endOfWeek already does this, but be explicit)
+    const rangeEnd = viewMode === 'week' ? endOfDay(weekEnd) : endOfDay(calendarEnd);
 
     // Process events - use localEvents to ensure we have the latest data
     localEvents.forEach((event) => {
@@ -381,11 +433,19 @@ export default function CalendarView({ events, specials, announcements = [], onE
           
           // Use between with inclusive=true to include start date if it's in range
           // For recurring events, we want to find all occurrences in the visible range
-          // If the event starts in the future (beyond rangeEnd), we won't find any occurrences
-          // If the event starts before rangeStart, we search from rangeStart
-          // If the event starts within the range, we search from startDate
-          const searchStart = startDate > rangeStart ? (startDate > rangeEnd ? rangeStart : startDate) : rangeStart;
-          const occurrences = ruleWithDtstart.between(searchStart, rangeEnd, true).filter(occ => occ >= startDate);
+          // If the event starts in the future (beyond rangeEnd), we still need to search the visible range
+          // to find occurrences that fall within the visible range (even if the event hasn't started yet)
+          // However, we should only show occurrences that are >= the event's start date
+          const searchStart = rangeStart;
+          // Get all occurrences in the visible range
+          const allOccurrences = ruleWithDtstart.between(searchStart, rangeEnd, true);
+          // Filter out occurrences that are before the original start date (to respect the event's start)
+          // Compare at start of day to avoid timezone/time component issues
+          const occurrences = allOccurrences.filter(occ => {
+            const occStartOfDay = startOfDay(occ);
+            const eventStartOfDay = startOfDay(startDate);
+            return occStartOfDay >= eventStartOfDay;
+          });
           
           // Debug logging for recurring events (development only)
           if (process.env.NODE_ENV === 'development') {
@@ -563,9 +623,8 @@ export default function CalendarView({ events, specials, announcements = [], onE
     });
 
     // Process specials (daily specials - food type with dates, and drink specials)
+    // Show all specials (active and inactive) for historical and future reference
     specials.forEach((special) => {
-      if (!special.isActive) return;
-
       // Handle food specials (with dates)
       if (special.type === 'food') {
         // Parse dates as Mountain Time dates (not UTC) to prevent day shifts
@@ -774,6 +833,13 @@ export default function CalendarView({ events, specials, announcements = [], onE
 
   const getItemColor = (item: CalendarItem) => {
     if (item.eventType === 'special') {
+      const isInactive = !item.isActive;
+      if (isInactive) {
+        // Inactive specials appear with reduced opacity
+        return item.type === 'food' 
+          ? 'bg-orange-500/40 dark:bg-orange-600/40 border-orange-400/50 dark:border-orange-500/50 opacity-60' 
+          : 'bg-blue-500/40 dark:bg-blue-600/40 border-blue-400/50 dark:border-blue-500/50 opacity-60';
+      }
       return item.type === 'food' 
         ? 'bg-orange-500/80 dark:bg-orange-600/80 border-orange-400 dark:border-orange-500' 
         : 'bg-blue-500/80 dark:bg-blue-600/80 border-blue-400 dark:border-blue-500';
@@ -1137,8 +1203,12 @@ export default function CalendarView({ events, specials, announcements = [], onE
                               onSpecialClick(item.id);
                             }
                           } else if (item.eventType === 'announcement') {
-                            // Open announcement in new tab or navigate
-                            window.open(`/admin/announcements?id=${item.id}`, '_blank');
+                            // Open announcement modal if handler exists, otherwise navigate
+                            if (onAnnouncementClick) {
+                              onAnnouncementClick(item.id);
+                            } else {
+                              window.open(`/admin/announcements?id=${item.id}`, '_blank');
+                            }
                           }
                         }}
                       >
@@ -1184,10 +1254,110 @@ export default function CalendarView({ events, specials, announcements = [], onE
     );
   };
 
+  // Calculate visible hours based on calendar hours setting or business hours
+  const getVisibleHours = useMemo(() => {
+    // If calendar hours setting is configured, use it (prefer local state for immediate updates)
+    const hoursToUse = localCalendarHours || calendarHours;
+    if (hoursToUse && hoursToUse.startHour !== undefined && hoursToUse.endHour !== undefined) {
+      const hours: number[] = [];
+      const startHour = hoursToUse.startHour;
+      const endHour = hoursToUse.endHour;
+      
+      // If endHour is >= 24, it means we're showing hours into the next day
+      if (endHour >= 24) {
+        // Add hours from startHour to 24 (end of day)
+        for (let hour = startHour; hour < 24; hour++) {
+          hours.push(hour);
+        }
+        // Add hours from 24 to endHour for next day (24 = midnight next day, 25 = 1 AM next day, etc.)
+        for (let hour = 24; hour <= endHour; hour++) {
+          hours.push(hour);
+        }
+      } else {
+        // Normal case: both hours are on the same day
+        if (startHour <= endHour) {
+          // Simple range within same day
+          for (let hour = startHour; hour <= endHour; hour++) {
+            hours.push(hour);
+          }
+        } else {
+          // Wrapped around (e.g., 22 to 2)
+          // Add hours from startHour to 24
+          for (let hour = startHour; hour < 24; hour++) {
+            hours.push(hour);
+          }
+          // Add hours from 0 to endHour
+          for (let hour = 0; hour <= endHour; hour++) {
+            hours.push(hour);
+          }
+        }
+      }
+      
+      return hours;
+    }
+
+    // Fallback to business hours logic if calendar hours not set
+    if (!businessHours || Object.keys(businessHours).length === 0) {
+      // Default: show all 24 hours
+      return Array.from({ length: 24 }, (_, i) => i);
+    }
+
+    // Find the earliest open time and latest close time across all days
+    let earliestOpen = 24;
+    let latestClose = 0;
+    let hasOvernightHours = false;
+    
+    Object.values(businessHours).forEach((dayHours) => {
+      if (!dayHours.open || !dayHours.close) return;
+      
+      const [openHour] = dayHours.open.split(':').map(Number);
+      const [closeHour] = dayHours.close.split(':').map(Number);
+      
+      // If close hour is less than open hour, it's next day (e.g., 02:00)
+      if (closeHour < openHour) {
+        hasOvernightHours = true;
+        latestClose = Math.max(latestClose, closeHour + 24);
+      } else {
+        latestClose = Math.max(latestClose, closeHour);
+      }
+      
+      earliestOpen = Math.min(earliestOpen, openHour);
+    });
+
+    // Add buffer: start 2 hours before open, end 1 hour after close
+    const startHour = Math.max(0, earliestOpen - 2);
+    const endHour = latestClose + 1;
+    
+    // Generate array of visible hours
+    const hours: number[] = [];
+    
+    // Add hours from startHour to 24 (end of day)
+    for (let hour = startHour; hour < 24; hour++) {
+      hours.push(hour);
+    }
+    
+    // If we have overnight hours, add hours from 0 to endHour (wrapped around)
+    if (hasOvernightHours && endHour > 24) {
+      for (let hour = 0; hour <= (endHour - 24); hour++) {
+        hours.push(hour);
+      }
+    } else if (!hasOvernightHours) {
+      // If no overnight hours, just add up to endHour
+      for (let hour = 0; hour <= Math.min(23, endHour); hour++) {
+        if (!hours.includes(hour)) {
+          hours.push(hour);
+        }
+      }
+    }
+    
+    return hours;
+  }, [businessHours, calendarHours, localCalendarHours]);
+
   const renderWeekView = () => {
     const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
     const availableHeight = calendarHeight > 0 ? calendarHeight - 120 : 500;
-    const hourHeight = Math.max(30, Math.floor(availableHeight / 24));
+    const visibleHoursCount = getVisibleHours.length || 24;
+    const hourHeight = Math.max(30, Math.floor(availableHeight / visibleHoursCount));
 
     // Get all-day items for a day (specials, announcements, and all-day events)
     const getAllDayItems = (day: Date): CalendarItem[] => {
@@ -1227,21 +1397,32 @@ export default function CalendarView({ events, specials, announcements = [], onE
         // Only events should be in timedItems after filtering
         const event = item as CalendarEvent;
         const eventDate = new Date(event.startDateTime);
-        const hours = getHours(eventDate);
+        const eventHour = getHours(eventDate);
         const minutes = getMinutes(eventDate);
-        const top = (hours * hourHeight) + (minutes / 60 * hourHeight);
+        
+        // Find the index of this hour in visible hours, or use the closest visible hour
+        const hourIndex = getVisibleHours.findIndex(h => h % 24 === eventHour);
+        if (hourIndex === -1) {
+          // Hour not visible, skip this event (or position at start/end)
+          return null;
+        }
+        
+        const top = (hourIndex * hourHeight) + (minutes / 60 * hourHeight);
         
         let height = hourHeight;
         if (event.endDateTime) {
           const endDate = new Date(event.endDateTime);
           const endHours = getHours(endDate);
           const endMinutes = getMinutes(endDate);
-          const endTop = (endHours * hourHeight) + (endMinutes / 60 * hourHeight);
-          height = Math.max(hourHeight * 0.5, endTop - top);
+          const endHourIndex = getVisibleHours.findIndex(h => h % 24 === endHours);
+          if (endHourIndex !== -1) {
+            const endTop = (endHourIndex * hourHeight) + (endMinutes / 60 * hourHeight);
+            height = Math.max(hourHeight * 0.5, endTop - top);
+          }
         }
         
         return { item, top, height };
-      }).sort((a, b) => a.top - b.top);
+      }).filter((item): item is { item: CalendarItem; top: number; height: number } => item !== null).sort((a, b) => a.top - b.top);
     };
 
     return (
@@ -1359,7 +1540,12 @@ export default function CalendarView({ events, specials, announcements = [], onE
                                 onSpecialClick(item.id);
                               }
                             } else if (item.eventType === 'announcement') {
-                              window.open(`/admin/announcements?id=${item.id}`, '_blank');
+                              // Open announcement modal if handler exists, otherwise navigate
+                              if (onAnnouncementClick) {
+                                onAnnouncementClick(item.id);
+                              } else {
+                                window.open(`/admin/announcements?id=${item.id}`, '_blank');
+                              }
                             }
                           }}
                         >
@@ -1398,18 +1584,21 @@ export default function CalendarView({ events, specials, announcements = [], onE
         </div>
 
         <div className="flex-1 overflow-auto bg-gray-50 dark:bg-gray-900">
-          <div className="flex bg-white dark:bg-gray-800" style={{ minHeight: `${hourHeight * 24}px` }}>
+          <div className="flex bg-white dark:bg-gray-800" style={{ minHeight: `${hourHeight * visibleHoursCount}px` }}>
             {/* Time column */}
             <div className="flex flex-col sticky left-0 bg-white dark:bg-gray-800 border-r border-gray-300 dark:border-gray-700 pr-1.5 pl-1.5 z-10 shadow-sm w-14 flex-shrink-0">
-              {Array.from({ length: 24 }).map((_, hour) => (
-                <div 
-                  key={hour} 
-                  className="text-xs text-gray-600 dark:text-gray-400 font-medium py-1 flex items-center justify-end border-b border-gray-200 dark:border-gray-700"
-                  style={{ minHeight: `${hourHeight}px` }}
-                >
-                  <span className="leading-none tabular-nums">{hour === 0 ? '12 AM' : hour < 12 ? `${hour} AM` : hour === 12 ? '12 PM' : `${hour - 12} PM`}</span>
-                </div>
-              ))}
+              {getVisibleHours.map((hour, index) => {
+                const displayHour = hour % 24;
+                return (
+                  <div 
+                    key={`${hour}-${index}`} 
+                    className="text-xs text-gray-600 dark:text-gray-400 font-medium py-1 flex items-center justify-end border-b border-gray-200 dark:border-gray-700"
+                    style={{ minHeight: `${hourHeight}px` }}
+                  >
+                    <span className="leading-none tabular-nums">{displayHour === 0 ? '12 AM' : displayHour < 12 ? `${displayHour} AM` : displayHour === 12 ? '12 PM' : `${displayHour - 12} PM`}</span>
+                  </div>
+                );
+              })}
             </div>
             
             {/* Day columns */}
@@ -1426,27 +1615,28 @@ export default function CalendarView({ events, specials, announcements = [], onE
                         ? 'bg-blue-50/30 dark:bg-blue-900/20 border-x border-blue-400 dark:border-blue-500' 
                         : 'bg-white dark:bg-gray-800'
                     } ${isDragging ? 'bg-blue-50/50 dark:bg-blue-900/30' : ''}`}
-                    style={{ minHeight: `${hourHeight * 24}px` }}
+                    style={{ minHeight: `${hourHeight * visibleHoursCount}px` }}
                     onDragOver={(e) => handleDragOver(e, day, hourHeight)}
                     onDrop={(e) => handleDrop(e, day, hourHeight)}
                   >
                   {/* Hour dividers with clickable time slots */}
-                  {Array.from({ length: 24 }).map((_, hour) => {
-                    const isHovered = hoveredTimeSlot?.day && isSameDay(day, hoveredTimeSlot.day) && hoveredTimeSlot.hour === hour;
+                  {getVisibleHours.map((hour, index) => {
+                    const displayHour = hour % 24;
+                    const isHovered = hoveredTimeSlot?.day && isSameDay(day, hoveredTimeSlot.day) && hoveredTimeSlot.hour === displayHour;
                     const hourStart = new Date(day);
-                    hourStart.setHours(hour, 0, 0, 0);
+                    hourStart.setHours(displayHour, 0, 0, 0);
                     
                     return (
                       <div
-                        key={hour}
+                        key={`${hour}-${index}`}
                         className={`absolute left-0 right-0 transition-all duration-150 cursor-pointer border-b border-gray-200 dark:border-gray-700 ${
                           isHovered ? 'bg-blue-50/80 dark:bg-blue-900/40' : 'hover:bg-gray-50/70 dark:hover:bg-gray-700/50'
                         }`}
                         style={{ 
-                          top: `${hour * hourHeight}px`,
+                          top: `${index * hourHeight}px`,
                           height: `${hourHeight}px`
                         }}
-                        onMouseEnter={() => setHoveredTimeSlot({ day, hour })}
+                        onMouseEnter={() => setHoveredTimeSlot({ day, hour: displayHour })}
                         onMouseLeave={() => setHoveredTimeSlot(null)}
                         onClick={() => {
                           if (onNewEvent) {
@@ -1466,7 +1656,7 @@ export default function CalendarView({ events, specials, announcements = [], onE
                               }
                             }}
                             className="w-7 h-7 flex items-center justify-center bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-full text-white text-sm font-semibold border border-blue-400 dark:border-blue-500 hover:scale-110 transition-all duration-200 z-20"
-                            title={`Add event at ${hour === 0 ? '12 AM' : hour < 12 ? `${hour} AM` : hour === 12 ? '12 PM' : `${hour - 12} PM`}`}
+                            title={`Add event at ${displayHour === 0 ? '12 AM' : displayHour < 12 ? `${displayHour} AM` : displayHour === 12 ? '12 PM' : `${displayHour - 12} PM`}`}
                           >
                             +
                           </button>
@@ -1476,21 +1666,27 @@ export default function CalendarView({ events, specials, announcements = [], onE
                   })}
                   
                   {/* Current time indicator line */}
-                  {isToday && (
-                    <div
-                      className="absolute left-0 right-0 z-[20] pointer-events-none"
-                      style={{
-                        top: `${(getHours(currentTime) * hourHeight) + (getMinutes(currentTime) / 60 * hourHeight)}px`,
-                      }}
-                    >
-                      <div className="relative">
-                        {/* Red line */}
-                        <div className="absolute left-0 right-0 h-0.5 bg-red-500 dark:bg-red-400 shadow-sm" />
-                        {/* Small dot on the left */}
-                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-red-500 dark:bg-red-400 rounded-full -translate-x-1/2 shadow-sm" />
+                  {isToday && (() => {
+                    const currentHour = getHours(currentTime);
+                    const currentHourIndex = getVisibleHours.findIndex(h => h % 24 === currentHour);
+                    if (currentHourIndex === -1) return null;
+                    return (
+                      <div
+                        key="current-time"
+                        className="absolute left-0 right-0 z-[20] pointer-events-none"
+                        style={{
+                          top: `${(currentHourIndex * hourHeight) + (getMinutes(currentTime) / 60 * hourHeight)}px`,
+                        }}
+                      >
+                        <div className="relative">
+                          {/* Red line */}
+                          <div className="absolute left-0 right-0 h-0.5 bg-red-500 dark:bg-red-400 shadow-sm" />
+                          {/* Small dot on the left */}
+                          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-red-500 dark:bg-red-400 rounded-full -translate-x-1/2 shadow-sm" />
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                   
                   {/* Drag preview */}
                   {dragPreview && isDragging && draggedEvent && isSameDay(dragPreview.day, day) && (
@@ -1725,30 +1921,156 @@ export default function CalendarView({ events, specials, announcements = [], onE
             </button>
           </div>
 
-          {/* View Mode Switcher */}
-          <div className="flex gap-0.5 bg-gray-100 dark:bg-gray-800 rounded-lg p-1 border border-gray-200 dark:border-gray-700 flex-shrink-0">
-            <button
-              onClick={() => setViewMode('month')}
-              className={`px-4 py-2.5 sm:py-2 rounded-md transition-all duration-200 flex items-center gap-1.5 text-xs font-medium cursor-pointer active:scale-95 z-10 relative ${
-                viewMode === 'month'
-                  ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-gray-700/50'
-              }`}
-            >
-              <FaTable className="w-3.5 h-3.5 pointer-events-none" />
-              <span className="pointer-events-none">Month</span>
-            </button>
-            <button
-              onClick={() => setViewMode('week')}
-              className={`px-4 py-2.5 sm:py-2 rounded-md transition-all duration-200 flex items-center gap-1.5 text-xs font-medium cursor-pointer active:scale-95 z-10 relative ${
-                viewMode === 'week'
-                  ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-gray-700/50'
-              }`}
-            >
-              <FaCalendarWeek className="w-3.5 h-3.5 pointer-events-none" />
-              <span className="pointer-events-none">Week</span>
-            </button>
+          {/* View Mode Switcher and Hours Config */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Hours Config Button - Only show in week view */}
+            {viewMode === 'week' && (
+              <div className="relative">
+                <button
+                  data-hours-trigger
+                  onClick={() => setShowHoursConfig(!showHoursConfig)}
+                  className="px-3 py-2 rounded-md transition-all duration-200 flex items-center gap-1.5 text-xs font-medium cursor-pointer active:scale-95 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                  title="Configure visible hours"
+                >
+                  <FaClock className="w-3.5 h-3.5 pointer-events-none" />
+                  <span className="pointer-events-none hidden sm:inline">Visible Hours</span>
+                </button>
+
+                {/* Hours Config Dropdown */}
+                {showHoursConfig && (
+                  <div
+                    ref={hoursConfigRef}
+                    className="absolute top-full right-0 mt-2 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl p-4 min-w-[280px]"
+                  >
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
+                      Calendar Hours
+                    </h3>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-4">
+                      Customize which hours are shown in the calendar
+                    </p>
+                    
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                          Start Hour
+                        </label>
+                        <select
+                          value={localCalendarHours?.startHour ?? 12}
+                          onChange={(e) => setLocalCalendarHours({
+                            startHour: parseInt(e.target.value),
+                            endHour: localCalendarHours?.endHour ?? 26
+                          })}
+                          className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 py-1.5 text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500"
+                        >
+                          {Array.from({ length: 24 }, (_, i) => {
+                            const displayHour = i === 0 ? 12 : i < 12 ? i : i === 12 ? 12 : i - 12;
+                            const period = i < 12 ? 'AM' : 'PM';
+                            return (
+                              <option key={i} value={i}>
+                                {displayHour} {period}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                          End Hour
+                        </label>
+                        <select
+                          value={localCalendarHours?.endHour ?? 26}
+                          onChange={(e) => setLocalCalendarHours({
+                            startHour: localCalendarHours?.startHour ?? 12,
+                            endHour: parseInt(e.target.value)
+                          })}
+                          className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 py-1.5 text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500"
+                        >
+                          {Array.from({ length: 27 }, (_, i) => {
+                            if (i < 24) {
+                              const displayHour = i === 0 ? 12 : i < 12 ? i : i === 12 ? 12 : i - 12;
+                              const period = i < 12 ? 'AM' : 'PM';
+                              return (
+                                <option key={i} value={i}>
+                                  {displayHour} {period}
+                                </option>
+                              );
+                            } else {
+                              const nextDayHour = i - 24;
+                              const displayHour = nextDayHour === 0 ? 12 : nextDayHour;
+                              return (
+                                <option key={i} value={i}>
+                                  {displayHour} AM (next day)
+                                </option>
+                              );
+                            }
+                          })}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={async () => {
+                          setLocalCalendarHours(null);
+                          setShowHoursConfig(false);
+                          // Reset to default (use business hours)
+                          try {
+                            await fetch('/api/settings', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                key: 'calendarHours',
+                                value: '',
+                                description: 'Calendar visible hours range',
+                              }),
+                            });
+                            window.location.reload();
+                          } catch (error) {
+                            console.error('Error resetting calendar hours:', error);
+                          }
+                        }}
+                        className="flex-1 px-3 py-1.5 text-xs bg-gray-500 hover:bg-gray-600 rounded-lg text-white font-medium transition-colors"
+                      >
+                        Reset
+                      </button>
+                      <button
+                        onClick={handleSaveHours}
+                        className="flex-1 px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-medium transition-colors"
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* View Mode Switcher */}
+            <div className="flex gap-0.5 bg-gray-100 dark:bg-gray-800 rounded-lg p-1 border border-gray-200 dark:border-gray-700 flex-shrink-0">
+              <button
+                onClick={() => setViewMode('month')}
+                className={`px-4 py-2.5 sm:py-2 rounded-md transition-all duration-200 flex items-center gap-1.5 text-xs font-medium cursor-pointer active:scale-95 z-10 relative ${
+                  viewMode === 'month'
+                    ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-gray-700/50'
+                }`}
+              >
+                <FaTable className="w-3.5 h-3.5 pointer-events-none" />
+                <span className="pointer-events-none">Month</span>
+              </button>
+              <button
+                onClick={() => setViewMode('week')}
+                className={`px-4 py-2.5 sm:py-2 rounded-md transition-all duration-200 flex items-center gap-1.5 text-xs font-medium cursor-pointer active:scale-95 z-10 relative ${
+                  viewMode === 'week'
+                    ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-gray-700/50'
+                }`}
+              >
+                <FaCalendarWeek className="w-3.5 h-3.5 pointer-events-none" />
+                <span className="pointer-events-none">Week</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>

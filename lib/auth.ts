@@ -1,6 +1,5 @@
 import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import GoogleProvider from 'next-auth/providers/google';
 import { prisma } from './prisma';
 import { logLoginActivity } from './api-helpers';
 
@@ -11,81 +10,68 @@ interface UserCredential {
 
 /**
  * Parse user credentials from environment variable
- * Format: "username1:password1,username2:password2"
+ * Supports JSON object format:
+ * - Single user: ADMIN_USER='{"username":"admin","password":"pass123"}'
+ * - Multiple users: ADMIN_USERS='[{"username":"admin1","password":"pass1"},{"username":"admin2","password":"pass2"}]'
  * Returns array of {username, password} objects
  */
 function parseUserCredentials(envVar: string | undefined): UserCredential[] {
   if (!envVar) return [];
   
-  return envVar
-    .split(',')
-    .map(pair => {
-      const [username, password] = pair.split(':').map(s => s.trim());
-      if (username && password) {
-        return { username, password };
-      }
-      return null;
-    })
-    .filter((cred): cred is UserCredential => cred !== null);
+  try {
+    const parsed = JSON.parse(envVar);
+    
+    // If it's an array, return it directly
+    if (Array.isArray(parsed)) {
+      return parsed.filter((cred): cred is UserCredential => 
+        cred && typeof cred === 'object' && 
+        typeof cred.username === 'string' && 
+        typeof cred.password === 'string'
+      );
+    }
+    
+    // If it's a single object, wrap it in an array
+    if (parsed && typeof parsed === 'object' && 
+        typeof parsed.username === 'string' && 
+        typeof parsed.password === 'string') {
+      return [parsed];
+    }
+    
+    return [];
+  } catch (error) {
+    // Invalid JSON, return empty array
+    console.error('Error parsing user credentials from env var:', error);
+    return [];
+  }
 }
 
 /**
- * Get all user credentials for each role level from environment variables
- * Supports both new format (arrays) and legacy format (single user)
+ * Get all user credentials for admin and owner roles from environment variables
  */
 function getAllRoleCredentials(): {
-  superadmin: UserCredential[];
   admin: UserCredential[];
   owner: UserCredential[];
-  manager: UserCredential[];
-  cook: UserCredential[];
-  bartender: UserCredential[];
-  barback: UserCredential[];
 } {
-  // Parse arrays from env vars
-  const superadminUsers = parseUserCredentials(process.env.SUPERADMIN_USERS);
+  // Parse from env vars - support both singular (ADMIN_USER) and plural (ADMIN_USERS)
+  const adminUser = parseUserCredentials(process.env.ADMIN_USER);
   const adminUsers = parseUserCredentials(process.env.ADMIN_USERS);
+  const ownerUser = parseUserCredentials(process.env.OWNER_USER);
   const ownerUsers = parseUserCredentials(process.env.OWNER_USERS);
-  const managerUsers = parseUserCredentials(process.env.MANAGER_USERS);
-  const cookUsers = parseUserCredentials(process.env.COOK_USERS);
-  const bartenderUsers = parseUserCredentials(process.env.BARTENDER_USERS);
-  const barbackUsers = parseUserCredentials(process.env.BARBACK_USERS);
-
-  // Support legacy ADMIN_USERNAME/ADMIN_PASSWORD for backward compatibility
-  const adminUsername = process.env.ADMIN_USERNAME || process.env.ADMIN_EMAIL;
-  const adminPassword = process.env.ADMIN_PASSWORD;
   
   const result = {
-    superadmin: [...superadminUsers],
-    admin: [...adminUsers],
-    owner: [...ownerUsers],
-    manager: [...managerUsers],
-    cook: [...cookUsers],
-    bartender: [...bartenderUsers],
-    barback: [...barbackUsers],
+    admin: [...adminUser, ...adminUsers],
+    owner: [...ownerUser, ...ownerUsers],
   };
-
-  // Add legacy admin credentials to superadmin if no new format is set
-  if (adminUsername && adminPassword && superadminUsers.length === 0 && adminUsers.length === 0) {
-    result.superadmin.push({ username: adminUsername, password: adminPassword });
-  }
 
   // Validate in production
   if (process.env.NODE_ENV === 'production') {
-    const hasAnyCredentials = 
-      result.superadmin.length > 0 ||
-      result.admin.length > 0 ||
-      result.owner.length > 0 ||
-      result.manager.length > 0 ||
-      result.cook.length > 0 ||
-      result.bartender.length > 0 ||
-      result.barback.length > 0;
+    const hasAnyCredentials = result.admin.length > 0 || result.owner.length > 0;
 
     if (!hasAnyCredentials) {
       throw new Error(
-        'At least one role-level user credential must be set in production. ' +
-        'Use format: ROLE_USERS="username1:password1,username2:password2" ' +
-        'or legacy ADMIN_USERNAME/ADMIN_PASSWORD for backward compatibility.'
+        'At least one user credential must be set in production. ' +
+        'Use format: ADMIN_USER=\'{"username":"admin","password":"pass123"}\' ' +
+        'or ADMIN_USERS=\'[{"username":"admin1","password":"pass1"}]\''
       );
     }
   }
@@ -94,39 +80,31 @@ function getAllRoleCredentials(): {
 }
 
 /**
- * Check credentials against a role's user list and return the matched role
+ * Check credentials against admin and owner roles
  * Returns the role name if credentials match, null otherwise
  */
 function checkCredentialsAgainstRoles(
   username: string,
   password: string
-): { role: string; matchedUsername: string } | null {
+): { role: 'admin' | 'owner'; matchedUsername: string } | null {
   const allCredentials = getAllRoleCredentials();
 
-  // Check in order of hierarchy (highest first)
-  const roleOrder: Array<keyof typeof allCredentials> = [
-    'superadmin',
-    'admin',
-    'owner',
-    'manager',
-    'cook',
-    'bartender',
-    'barback',
-  ];
+  // Check admin first (higher privilege), then owner
+  for (const cred of allCredentials.admin) {
+    if (cred.username === username && cred.password === password) {
+      return { role: 'admin', matchedUsername: cred.username };
+    }
+  }
 
-  for (const role of roleOrder) {
-    const users = allCredentials[role];
-    for (const cred of users) {
-      if (cred.username === username && cred.password === password) {
-        return { role, matchedUsername: cred.username };
-      }
+  for (const cred of allCredentials.owner) {
+    if (cred.username === username && cred.password === password) {
+      return { role: 'owner', matchedUsername: cred.username };
     }
   }
 
   return null;
 }
 
-// Simple credentials auth for superadmin
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
@@ -140,16 +118,15 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        // Check credentials against all role levels
+        // Check credentials against admin and owner roles
         const match = checkCredentialsAgainstRoles(credentials.username, credentials.password);
         
         if (!match) {
           return null;
         }
 
-        // Use username directly (no domain appended if it doesn't contain @)
-        const matchedUsername = match.matchedUsername;
-        const userIdentifier = matchedUsername; // Use as-is, whether it's an email or just a username
+        // Use username directly as identifier
+        const userIdentifier = match.matchedUsername;
 
         // Check if user exists, create if not
         let user = await prisma.user.findUnique({
@@ -158,11 +135,7 @@ export const authOptions: NextAuthOptions = {
 
         if (!user) {
           // Determine display name based on role
-          const displayName = match.role === 'superadmin' 
-            ? 'Super Admin'
-            : match.role === 'admin'
-            ? 'Admin'
-            : match.role.charAt(0).toUpperCase() + match.role.slice(1);
+          const displayName = match.role === 'admin' ? 'Admin' : 'Owner';
 
           user = await prisma.user.create({
             data: {
@@ -185,14 +158,10 @@ export const authOptions: NextAuthOptions = {
         return {
           id: user.id,
           email: user.email,
-          name: user.name || match.role.charAt(0).toUpperCase() + match.role.slice(1),
+          name: user.name || (match.role === 'admin' ? 'Admin' : 'Owner'),
           role: user.role,
         };
       },
-    }),
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID || '',
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
     }),
   ],
   pages: {
@@ -203,47 +172,9 @@ export const authOptions: NextAuthOptions = {
     maxAge: 8 * 60 * 60, // 8 hours in seconds
   },
   callbacks: {
-    async signIn({ user, account, profile }) {
-      // For Google OAuth, check if user exists or create them
-      if (account?.provider === 'google' && user.email) {
-        const superadminEmail = process.env.SUPERADMIN_EMAIL?.toLowerCase().trim();
-        const isSuperadmin = superadminEmail && user.email.toLowerCase() === superadminEmail;
-
-        let dbUser = await prisma.user.findUnique({
-          where: { email: user.email },
-        });
-
-        if (!dbUser) {
-          // Create new user with role based on email match
-          dbUser = await prisma.user.create({
-            data: {
-              email: user.email,
-              name: user.name || null,
-              image: user.image || null,
-              role: isSuperadmin ? 'superadmin' : 'admin',
-              isActive: true,
-            },
-          });
-        } else {
-          // Update existing user to superadmin if email matches (in case env var was added later)
-          if (isSuperadmin && dbUser.role !== 'superadmin') {
-            dbUser = await prisma.user.update({
-              where: { id: dbUser.id },
-              data: { role: 'superadmin' },
-            });
-          }
-        }
-
-        // Only allow active users to sign in
-        if (dbUser.isActive) {
-          // Log login activity
-          await logLoginActivity(dbUser.id, dbUser.email, dbUser.name);
-        }
-        return dbUser.isActive;
-      }
-
+    async signIn({ user, account }) {
       // For credentials, allow sign in (already checked in authorize)
-      // Login activity will be logged in the jwt callback for credentials
+      // Login activity will be logged in the jwt callback
       return true;
     },
     async jwt({ token, user, account }) {
@@ -255,12 +186,12 @@ export const authOptions: NextAuthOptions = {
         // Set token issued at time for session expiration checking
         token.iat = Math.floor(Date.now() / 1000);
         
-        // Log login activity for credentials auth (Google OAuth is logged in signIn callback)
+        // Log login activity for credentials auth
         if (account?.provider === 'credentials' && user.id) {
           await logLoginActivity(user.id, user.email || '', user.name || null);
         }
       } else {
-        // On token refresh, preserve iat if it exists, otherwise set it (for backward compatibility)
+        // On token refresh, preserve iat if it exists, otherwise set it
         if (!token.iat) {
           token.iat = Math.floor(Date.now() / 1000);
         }
@@ -277,7 +208,7 @@ export const authOptions: NextAuthOptions = {
         return token;
       }
 
-      // Refresh user data from DB on every request (for both credentials and Google OAuth)
+      // Refresh user data from DB on every request
       // This ensures the session stays in sync with the database
       if (token.email) {
         try {
@@ -288,58 +219,34 @@ export const authOptions: NextAuthOptions = {
           // If user doesn't exist but we have a valid token, recreate them
           // This handles cases where the database was reset or user was deleted
           if (!dbUser) {
-            // Determine role based on email matching patterns
-            const superadminEmail = process.env.SUPERADMIN_EMAIL?.toLowerCase().trim();
-            const isSuperadmin = superadminEmail && token.email.toLowerCase() === superadminEmail;
-            
             // Check if email/username matches any role-level credentials
             const allCredentials = getAllRoleCredentials();
-            let matchedRole: string | null = null;
+            let matchedRole: 'admin' | 'owner' | null = null;
             
-            // Check all role levels to find a match
-            const roleOrder: Array<keyof typeof allCredentials> = [
-              'superadmin',
-              'admin',
-              'owner',
-              'manager',
-              'cook',
-              'bartender',
-              'barback',
-            ];
+            // Check admin first, then owner
+            for (const cred of allCredentials.admin) {
+              if (token.email.toLowerCase() === cred.username.toLowerCase()) {
+                matchedRole = 'admin';
+                break;
+              }
+            }
             
-            for (const role of roleOrder) {
-              const users = allCredentials[role];
-              for (const cred of users) {
-                // Match username directly (no domain transformation)
+            if (!matchedRole) {
+              for (const cred of allCredentials.owner) {
                 if (token.email.toLowerCase() === cred.username.toLowerCase()) {
-                  matchedRole = role;
+                  matchedRole = 'owner';
                   break;
                 }
               }
-              if (matchedRole) break;
             }
             
-            let role = token.role as string || 'admin';
-            if (isSuperadmin) {
-              role = 'superadmin';
-            } else if (matchedRole) {
-              role = matchedRole;
-            } else {
-              // Legacy: Check if email matches admin username pattern
-              const adminUsername = process.env.ADMIN_USERNAME || process.env.ADMIN_EMAIL;
-              const isCredentialsAdmin = adminUsername && (
-                token.email.toLowerCase() === adminUsername.toLowerCase()
-              );
-              if (isCredentialsAdmin) {
-                role = 'superadmin'; // Legacy credentials auth users are superadmins
-              }
-            }
+            const role = matchedRole || (token.role as 'admin' | 'owner') || 'admin';
 
             try {
               dbUser = await prisma.user.create({
                 data: {
                   email: token.email as string,
-                  name: token.name || 'Admin User',
+                  name: token.name || (role === 'admin' ? 'Admin' : 'Owner'),
                   role: role,
                   isActive: true,
                 },
@@ -356,7 +263,13 @@ export const authOptions: NextAuthOptions = {
             // Verify user is still active
             if (!dbUser.isActive) {
               // User is inactive - invalidate the token by not setting ID
-              // This will cause getCurrentUser to return null
+              token.id = '';
+              return token;
+            }
+            
+            // Only allow admin and owner roles
+            if (dbUser.role !== 'admin' && dbUser.role !== 'owner') {
+              // Invalid role - invalidate token
               token.id = '';
               return token;
             }
@@ -368,7 +281,6 @@ export const authOptions: NextAuthOptions = {
           }
         } catch (error) {
           // If database query fails, log error but don't break the auth flow
-          // Return the token as-is (it might still be valid)
           console.error('Error refreshing user data in JWT callback:', error);
         }
       }
@@ -385,4 +297,3 @@ export const authOptions: NextAuthOptions = {
   },
   secret: process.env.NEXTAUTH_SECRET,
 };
-
