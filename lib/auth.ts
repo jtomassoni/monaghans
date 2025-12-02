@@ -251,7 +251,7 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: 'jwt',
-    maxAge: 8 * 60 * 60, // 8 hours in seconds
+    maxAge: 7 * 24 * 60 * 60, // 7 days (1 week) in seconds
   },
   callbacks: {
     async signIn({ user, account }) {
@@ -279,8 +279,8 @@ export const authOptions: NextAuthOptions = {
         }
       }
 
-      // Check if token has expired (8 hours = 28800 seconds)
-      const maxAge = 8 * 60 * 60; // 8 hours in seconds
+      // Check if token has expired (7 days = 604800 seconds)
+      const maxAge = 7 * 24 * 60 * 60; // 7 days (1 week) in seconds
       const now = Math.floor(Date.now() / 1000);
       const tokenAge = token.iat ? now - (token.iat as number) : 0;
       

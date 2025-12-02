@@ -56,17 +56,29 @@ npx playwright test e2e/homepage.spec.ts
 
 ## Test Structure
 
-- `auth.setup.ts` - Authentication setup that runs before all tests
-- `homepage.spec.ts` - Tests for public homepage
-- `menu.spec.ts` - Tests for menu display page
-- `calendar.spec.ts` - Tests for admin calendar (admin)
-- `events.spec.ts` - Tests for events management (admin)
-- `specials.spec.ts` - Tests for specials management (admin)
-- `announcements.spec.ts` - Tests for announcements management (admin)
-- `menu-management.spec.ts` - Tests for menu management (admin)
-- `scheduling.spec.ts` - Tests for scheduling functionality (admin)
-- `reporting.spec.ts` - Tests for reporting/analytics (admin)
-- `owner-permissions.spec.ts` - Tests for owner role permissions
+### Public Pages
+- `homepage.spec.ts` - Tests for public homepage (content display, navigation, specials, events, announcements)
+- `menu.spec.ts` - Tests for public menu display page (sections, items, prices, filtering)
+
+### Admin Features
+- `calendar.spec.ts` - Tests for admin calendar (navigation, event creation, week/month views)
+- `events.spec.ts` - Tests for events management (CRUD, recurring events, weekly/monthly patterns, editing, deletion)
+- `specials.spec.ts` - Tests for specials management (food/drink specials CRUD, weekday filters, date ranges)
+- `announcements.spec.ts` - Tests for announcements management (CRUD, publish/expiry dates, social media cross-posting)
+- `menu-management.spec.ts` - Tests for menu management (sections, items, modifiers, availability toggles, CRUD)
+- `scheduling.spec.ts` - Tests for scheduling functionality (shift creation/editing, requirements, week navigation, tabs)
+- `availability.spec.ts` - Tests for availability management (viewing, filtering by employee/status, month navigation)
+- `timeclock.spec.ts` - Tests for timeclock functionality (clock in/out interface, shift history, hours calculation, editing)
+- `reporting.spec.ts` - Tests for reporting/analytics (food cost, labor cost, sales, profitability, AI insights, date filtering, export)
+- `homepage-management.spec.ts` - Tests for homepage content management (hero, about section, image upload)
+- `settings.spec.ts` - Tests for settings management (business hours, contact info, timezone, shift types, online ordering toggle)
+- `ingredients.spec.ts` - Tests for ingredients management (CRUD, categories, costs, units, linking to menu items)
+- `orders-kds.spec.ts` - Tests for orders and KDS (order list, status updates, filtering, KDS interface, search)
+- `user-management.spec.ts` - Tests for user management (CRUD, role assignment, activation/deactivation, filtering, search)
+- `owner-permissions.spec.ts` - Tests for owner role permissions (access control, role restrictions)
+
+### Setup
+- `auth.setup.ts` - Authentication setup that runs before all tests (creates admin and owner sessions)
 
 ## Authentication
 
