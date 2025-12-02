@@ -281,7 +281,7 @@ export default function DateTimePicker({ value, onChange, min, max, label, requi
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="w-full px-4 py-3 bg-white dark:bg-gray-800/95 border-2 border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white text-sm cursor-pointer hover:border-blue-500 dark:hover:border-blue-500 focus:border-blue-500 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 text-left flex items-center justify-between shadow-sm hover:shadow-lg group backdrop-blur-sm"
+          className="w-full px-4 py-3 sm:py-2.5 bg-white dark:bg-gray-800/95 border-2 border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white text-base sm:text-sm cursor-pointer hover:border-blue-500 dark:hover:border-blue-500 focus:border-blue-500 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 text-left flex items-center justify-between shadow-sm hover:shadow-lg group backdrop-blur-sm touch-manipulation min-h-[44px]"
         >
           <span className={`flex items-center gap-2 ${displayValue ? 'font-semibold' : 'text-gray-400 dark:text-gray-500'}`}>
             {displayValue ? (

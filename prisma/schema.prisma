@@ -44,6 +44,7 @@ model Event {
   weekOfMonth     Int? // 1-5 (first, second, third, fourth, last) for monthly events
   monthDay        Int? // 1-31 for monthly events on specific day
   patternMetadata String? // JSON object with additional pattern info (e.g., {"frequency": "weekly", "days": ["Monday", "Wednesday"]})
+  lead            PrivateDiningLead? // Link back to lead if created from CRM
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 }
@@ -587,3 +588,56 @@ model FeatureFlag {
   @@index([isEnabled])
   @@index([category])
 }
+
+// Private Dining Leads - CRM for managing private event inquiries
+model PrivateDiningLead {
+  id          String        @id @default(cuid())
+  name        String
+  phone       String
+  email       String
+  groupSize   String // e.g., "25-30 guests"
+  preferredDate DateTime
+  message     String? // Additional details from form
+  status      String        @default("new") // "new", "contacted", "quoted", "booked", "cancelled", "lost"
+  eventId     String?       @unique // Link to Event if event was created from this lead
+  event       Event?        @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  notes       LeadNote[] // Notes added by staff
+  contacts    LeadContact[] // Additional contacts for this lead
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([status])
+  @@index([preferredDate])
+  @@index([createdAt])
+  @@index([email])
+}
+
+// Lead Notes - Staff notes on leads
+model LeadNote {
+  id          String            @id @default(cuid())
+  leadId      String
+  lead        PrivateDiningLead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  content     String
+  createdBy   String? // User ID who created the note
+  createdAt   DateTime          @default(now())
+
+  @@index([leadId])
+  @@index([createdAt])
+}
+
+// Lead Contacts - Additional contacts associated with a lead
+model LeadContact {
+  id          String            @id @default(cuid())
+  leadId      String
+  lead        PrivateDiningLead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  name        String
+  email       String?
+  phone       String?
+  role        String? // e.g., "Event Coordinator", "Bride", "Groom", "Assistant"
+  notes       String? // Additional notes about this contact
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([leadId])
+}
+

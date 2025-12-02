@@ -9,9 +9,9 @@ export default async function FeatureFlagsPage() {
     redirect('/admin/login');
   }
 
-  // Only superadmin can access feature flags
+  // Only admin can access feature flags
   const userRole = session.user.role || 'admin';
-  if (userRole !== 'superadmin') {
+  if (userRole !== 'admin') {
     redirect('/admin');
   }
 
@@ -24,15 +24,18 @@ export default async function FeatureFlagsPage() {
       </div>
       
       {/* Header */}
-      <div className="flex-shrink-0 px-4 sm:px-6 py-1 pt-16 md:pt-2 border-b border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm relative z-10">
+      <div className="flex-shrink-0 px-4 sm:px-6 py-2 sm:py-3 border-b border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm relative z-10">
         <div className="flex justify-between items-center">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2 min-w-0">
-            <h1 className="text-sm sm:text-base font-bold text-gray-900 dark:text-white">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 min-w-0">
+            <h1 className="text-base sm:text-xl font-bold text-gray-900 dark:text-white">
               Feature Flags
             </h1>
-            <p className="text-gray-500 dark:text-gray-400 text-[9px] sm:text-[10px] hidden sm:block">
-              Enable or disable features in the admin panel
+            <p className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm">
+              Toggle features on or off. Changes take effect immediately.
             </p>
+          </div>
+          <div className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+            <span className="text-xs font-semibold text-purple-700 dark:text-purple-300">Admin</span>
           </div>
         </div>
       </div>

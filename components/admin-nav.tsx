@@ -120,6 +120,7 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
         ...(permissions.canManageMenu && featureFlags.menu_management ? [{ href: '/admin/menu', label: 'Menu', icon: FaUtensils }] : []),
         ...(permissions.canManageStaff && featureFlags.staff_scheduling ? [{ href: '/admin/staff', label: 'Scheduling', icon: FaClock }] : []),
         ...(permissions.canAccessAdmin && featureFlags.online_ordering ? [{ href: '/admin/orders', label: 'Orders', icon: FaCashRegister }] : []),
+        ...(permissions.canAccessAdmin ? [{ href: '/admin/private-dining-leads', label: 'Private Dining Leads', icon: FaUsers }] : []),
         ...(permissions.canAccessKDS && featureFlags.boh_connections ? [{ href: '/admin/kds', label: 'Kitchen Display', icon: FaUtensils }] : []),
         ...(permissions.canAccessAdmin && featureFlags.boh_connections ? [{ href: '/admin/pos-integrations', label: 'POS Integrations', icon: FaCashRegister }] : []),
         ...(permissions.canAccessAdmin && featureFlags.purchase_orders ? [{ href: '/admin/purchase-orders', label: 'Purchase Orders', icon: FaUtensils }] : []),
@@ -263,8 +264,8 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
           </div>
         )}
         
-        {/* Feature Flags - Superadmin only */}
-        {userRole === 'superadmin' && (
+        {/* Feature Flags - Admin only */}
+        {userRole === 'admin' && (
           <div className="space-y-1 pt-1">
             {!sidebarCompact && (
               <div className={`px-3 py-1 text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider`}>

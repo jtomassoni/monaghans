@@ -19,7 +19,6 @@ import {
   FaFire,
 } from 'react-icons/fa';
 import QuickActions from '@/components/quick-actions';
-import PreviewSite from '@/components/preview-site';
 import AnnouncementModalForm from '@/components/announcement-modal-form';
 import EventModalForm from '@/components/event-modal-form';
 import SpecialModalForm from '@/components/special-modal-form';
@@ -461,10 +460,9 @@ export default function OverviewContent({
             </div>
           )}
 
-          {/* Quick Actions and Preview Site - Compact Row */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 flex-shrink-0">
+          {/* Quick Actions */}
+          <div className="flex-shrink-0">
             <QuickActions />
-            <PreviewSite />
           </div>
         </div>
       </div>

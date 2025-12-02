@@ -334,17 +334,21 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
 
             <div className="space-y-1.5">
               <label htmlFor="priceNotes" className="text-sm font-medium text-gray-900 dark:text-white">
-                Price {isFoodOnly ? '*' : ''}
+                Price {isFoodOnly ? '(optional)' : ''}
               </label>
               <input
                 id="priceNotes"
                 type="text"
                 value={formData.priceNotes}
                 onChange={(e) => setFormData({ ...formData, priceNotes: e.target.value })}
-                placeholder={isFoodOnly ? "e.g., $12.99, $8.50" : "e.g., $3 drafts, Happy hour prices"}
-                required={isFoodOnly}
+                placeholder={isFoodOnly ? "e.g., $12.99 (or leave empty if prices are in description)" : "e.g., $3 drafts, Happy hour prices"}
                 className={`w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 ${isFoodOnly ? 'px-3 py-2' : 'px-4 py-3'} text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all`}
               />
+              {isFoodOnly && (
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  If your special has multiple prices, you can list them in the Description field instead.
+                </p>
+              )}
             </div>
           </div>
         </div>

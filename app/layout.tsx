@@ -48,11 +48,21 @@ export default function RootLayout({
             __html: `
               (function() {
                 try {
-                  const theme = localStorage.getItem('admin-theme');
-                  if (theme === 'dark') {
+                  const pathname = window.location.pathname;
+                  // Public routes: force dark mode (anything not starting with /admin or /timeclock)
+                  const isPublicRoute = !pathname.startsWith('/admin') && pathname !== '/timeclock';
+                  
+                  if (isPublicRoute) {
+                    // Always force dark mode for public-facing site
                     document.documentElement.classList.add('dark');
                   } else {
-                    document.documentElement.classList.remove('dark');
+                    // Admin routes: use saved theme preference
+                    const theme = localStorage.getItem('admin-theme');
+                    if (theme === 'dark') {
+                      document.documentElement.classList.add('dark');
+                    } else {
+                      document.documentElement.classList.remove('dark');
+                    }
                   }
                 } catch (e) {}
               })();

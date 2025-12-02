@@ -241,16 +241,21 @@ export default function SpecialForm({ special }: { special?: Special }) {
 
           <div>
             <label htmlFor="priceNotes" className="block mb-2">
-              Price Notes
+              Price Notes {formData.type === 'food' ? '(optional)' : ''}
             </label>
             <input
               id="priceNotes"
               type="text"
               value={formData.priceNotes}
               onChange={(e) => setFormData({ ...formData, priceNotes: e.target.value })}
-              placeholder="e.g., $3 drafts, Happy hour prices"
+              placeholder={formData.type === 'food' ? "e.g., $12.99 (or leave empty if prices are in description)" : "e.g., $3 drafts, Happy hour prices"}
               className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded text-white"
             />
+            {formData.type === 'food' && (
+              <p className="text-xs text-gray-400 mt-1">
+                If your special has multiple prices, you can list them in the Description field instead.
+              </p>
+            )}
           </div>
 
           <div>

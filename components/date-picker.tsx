@@ -248,7 +248,7 @@ export default function DatePicker({ value, onChange, min, max, label, required,
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="w-full px-2.5 py-1.5 bg-white dark:bg-gray-800/95 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-sm cursor-pointer hover:border-blue-500 dark:hover:border-blue-500 focus:border-blue-500 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 text-left flex items-center justify-between group"
+          className="w-full px-4 py-3 sm:px-2.5 sm:py-1.5 bg-white dark:bg-gray-800/95 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-base sm:text-sm cursor-pointer hover:border-blue-500 dark:hover:border-blue-500 focus:border-blue-500 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 text-left flex items-center justify-between group touch-manipulation min-h-[44px]"
         >
           <span className={displayValue ? 'font-medium' : 'text-gray-400 dark:text-gray-500'}>
             {displayValue || 'Select date'}

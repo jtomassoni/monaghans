@@ -630,11 +630,11 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
       onClose={onClose}
       title={event?.id ? 'Edit Event' : 'Create Event'}
     >
-      <form onSubmit={handleSubmit} className="space-y-5">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
           {/* Left Column */}
           <div className="space-y-5">
-            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-5 backdrop-blur-sm space-y-4">
+            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-4 sm:p-5 backdrop-blur-sm space-y-3 sm:space-y-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Event Status</p>
@@ -661,7 +661,7 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                     required
-                    className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+                    className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-3 sm:py-2 text-base sm:text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all min-h-[44px] touch-manipulation"
                   />
                 </div>
 
@@ -673,14 +673,14 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
                     id="description"
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    rows={2}
-                    className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all resize-none"
+                    rows={3}
+                    className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-3 sm:py-2 text-base sm:text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all resize-none min-h-[88px] touch-manipulation"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-5 backdrop-blur-sm space-y-4">
+            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-4 sm:p-5 backdrop-blur-sm space-y-3 sm:space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Schedule</p>
@@ -690,14 +690,14 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
                 </div>
                 <label
                   htmlFor="isAllDay"
-                  className="inline-flex items-center gap-2 rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-1.5 text-xs font-medium text-gray-900 dark:text-white shadow-inner cursor-pointer transition-colors hover:border-blue-400/70 focus-within:ring-2 focus-within:ring-blue-500/30"
+                  className="inline-flex items-center gap-2 rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 sm:py-1.5 text-sm sm:text-xs font-medium text-gray-900 dark:text-white shadow-inner cursor-pointer transition-colors hover:border-blue-400/70 focus-within:ring-2 focus-within:ring-blue-500/30 min-h-[44px] touch-manipulation"
                 >
                   <input
                     type="checkbox"
                     id="isAllDay"
                     checked={formData.isAllDay}
                     onChange={(e) => handleAllDayChange(e.target.checked)}
-                    className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    className="h-4 w-4 sm:h-3.5 sm:w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
                   All Day Event
                 </label>
@@ -762,7 +762,7 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
 
           {/* Right Column */}
           <div className="space-y-5">
-            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-5 backdrop-blur-sm space-y-4">
+            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-4 sm:p-5 backdrop-blur-sm space-y-3 sm:space-y-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Recurrence</p>
                 <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
@@ -972,16 +972,16 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-end gap-2 shrink-0 pt-4">
+        <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-end gap-2 shrink-0 pt-4 border-t border-gray-200 dark:border-gray-700">
             {event?.id && (
-              <div className="flex flex-wrap gap-2 mr-auto">
+              <div className="flex flex-col sm:flex-row flex-wrap gap-2 w-full sm:w-auto sm:mr-auto order-3 sm:order-1">
                 {event?.recurrenceRule && occurrenceDate ? (
                   <>
                     <button
                       type="button"
                       onClick={() => setShowDeleteConfirm(true)}
                       disabled={loading}
-                      className="px-3 py-1.5 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 cursor-pointer"
+                      className="px-4 py-3 sm:px-3 sm:py-1.5 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-sm sm:text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 cursor-pointer touch-manipulation min-h-[44px]"
                     >
                       Delete This Occurrence
                     </button>
@@ -989,7 +989,7 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
                       type="button"
                       onClick={() => setShowDeleteRecurringConfirm(true)}
                       disabled={loading}
-                      className="px-3 py-1.5 bg-red-700 dark:bg-red-700 hover:bg-red-800 dark:hover:bg-red-600 text-white rounded-lg text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 cursor-pointer"
+                      className="px-4 py-3 sm:px-3 sm:py-1.5 bg-red-700 dark:bg-red-700 hover:bg-red-800 dark:hover:bg-red-600 text-white rounded-lg text-sm sm:text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 cursor-pointer touch-manipulation min-h-[44px]"
                     >
                       Delete Recurring Event
                     </button>
@@ -999,27 +999,29 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
                     type="button"
                     onClick={() => setShowDeleteConfirm(true)}
                     disabled={loading}
-                    className="px-3 py-1.5 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 cursor-pointer"
+                    className="px-4 py-3 sm:px-3 sm:py-1.5 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-sm sm:text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 cursor-pointer touch-manipulation min-h-[44px]"
                   >
                     Delete
                   </button>
                 )}
               </div>
             )}
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-3 py-1.5 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-blue-500/20 cursor-pointer"
-            >
-              {loading ? (event?.id ? 'Saving...' : 'Creating...') : (event?.id ? 'Save' : 'Create')}
-            </button>
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto order-1 sm:order-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-3 sm:px-3 sm:py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm sm:text-xs font-semibold transition-colors cursor-pointer touch-manipulation min-h-[44px]"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="px-4 py-3 sm:px-3 sm:py-1.5 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-sm sm:text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-blue-500/20 cursor-pointer touch-manipulation min-h-[44px]"
+              >
+                {loading ? (event?.id ? 'Saving...' : 'Creating...') : (event?.id ? 'Save' : 'Create')}
+              </button>
+            </div>
         </div>
       </form>
       <ConfirmationDialog

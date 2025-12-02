@@ -29,15 +29,11 @@ export default function AdminMobileHeader({ onMenuClick }: AdminMobileHeaderProp
     onMenuClick();
   };
 
-  // Don't render until mounted to prevent hydration mismatch
-  if (!mounted) {
-    return null;
-  }
-
+  // Always render to prevent layout shift, but make invisible until mounted
   return (
     <div 
-      className="md:hidden fixed top-0 left-0 right-0 h-14 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 z-[100000] flex items-center shadow-lg" 
-      style={{ zIndex: 100000, pointerEvents: 'auto' }}
+      className={`md:hidden fixed top-0 left-0 h-14 bg-white dark:bg-gray-800 border-b border-r border-gray-200 dark:border-gray-700 z-50 flex items-center shadow-lg ${!mounted ? 'invisible' : ''}`}
+      style={{ zIndex: 50, pointerEvents: mounted ? 'auto' : 'none', width: '56px' }}
       suppressHydrationWarning
     >
       <button
@@ -67,7 +63,7 @@ export default function AdminMobileHeader({ onMenuClick }: AdminMobileHeaderProp
           userSelect: 'none',
           WebkitUserSelect: 'none',
           cursor: 'pointer',
-          zIndex: 100001,
+          zIndex: 51,
           position: 'relative',
           minWidth: '56px',
           minHeight: '56px'

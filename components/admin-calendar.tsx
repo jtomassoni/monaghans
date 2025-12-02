@@ -23,7 +23,7 @@ import {
   isSameWeek,
   isWithinInterval
 } from 'date-fns';
-import { FaMicrophone, FaBrain, FaCalendarAlt, FaUtensils, FaBeer, FaTable, FaCalendarWeek, FaDice, FaBullhorn, FaClock } from 'react-icons/fa';
+import { FaMicrophone, FaBrain, FaCalendarAlt, FaUtensils, FaBeer, FaTable, FaCalendarWeek, FaDice, FaBullhorn, FaClock, FaCalendarDay } from 'react-icons/fa';
 import { FaFootball } from 'react-icons/fa6';
 import { HiChevronLeft, HiChevronRight } from 'react-icons/hi';
 import { parseMountainTimeDate } from '@/lib/timezone';
@@ -92,12 +92,13 @@ interface CalendarViewProps {
   onEventDeleted?: (eventId: string) => void; // Callback when event is deleted
 }
 
-type ViewMode = 'month' | 'week';
+type ViewMode = 'month' | 'week' | 'day';
 
 export default function CalendarView({ events, specials, announcements = [], businessHours, calendarHours, onEventClick, onSpecialClick, onAnnouncementClick, onNewEvent, onNewAnnouncement, onEventUpdate, onEventAdded, onEventDeleted }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [hoveredDay, setHoveredDay] = useState<Date | null>(null);
   const [hoveredTimeSlot, setHoveredTimeSlot] = useState<{ day: Date; hour: number } | null>(null);
+  // Default to 'week' to avoid hydration mismatch - will update in useEffect
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [showYearPicker, setShowYearPicker] = useState(false);
@@ -115,6 +116,16 @@ export default function CalendarView({ events, specials, announcements = [], bus
   const [showHoursConfig, setShowHoursConfig] = useState(false);
   const [localCalendarHours, setLocalCalendarHours] = useState<{ startHour: number; endHour: number } | null>(calendarHours || null);
   const hoursConfigRef = useRef<HTMLDivElement>(null);
+
+  // Set initial view mode based on screen size (after mount to avoid hydration issues)
+  useEffect(() => {
+    // On mobile, default to day view for better UX
+    if (window.innerWidth < 768) {
+      setViewMode('day');
+    } else {
+      setViewMode('week');
+    }
+  }, []);
 
   // Update current time every minute
   useEffect(() => {
@@ -227,13 +238,25 @@ export default function CalendarView({ events, specials, announcements = [], bus
 
   const weekStart = startOfWeek(currentDate);
   const weekEnd = endOfWeek(currentDate);
+  const dayStart = startOfDay(currentDate);
+  const dayEnd = endOfDay(currentDate);
 
   // Generate all calendar items
   const getAllItems = useMemo(() => {
     const items: CalendarItem[] = [];
-    const rangeStart = viewMode === 'week' ? weekStart : calendarStart;
-    // Ensure rangeEnd includes the full end day (endOfWeek already does this, but be explicit)
-    const rangeEnd = viewMode === 'week' ? endOfDay(weekEnd) : endOfDay(calendarEnd);
+    let rangeStart: Date;
+    let rangeEnd: Date;
+    
+    if (viewMode === 'day') {
+      rangeStart = dayStart;
+      rangeEnd = dayEnd;
+    } else if (viewMode === 'week') {
+      rangeStart = weekStart;
+      rangeEnd = endOfDay(weekEnd);
+    } else {
+      rangeStart = calendarStart;
+      rangeEnd = endOfDay(calendarEnd);
+    }
 
     // Process events - use localEvents to ensure we have the latest data
     localEvents.forEach((event) => {
@@ -765,7 +788,7 @@ export default function CalendarView({ events, specials, announcements = [], bus
     });
 
     return items.sort((a, b) => a.date.getTime() - b.date.getTime());
-  }, [localEvents, specials, announcements, currentDate, calendarStart, calendarEnd, weekStart, weekEnd, viewMode]);
+  }, [localEvents, specials, announcements, currentDate, calendarStart, calendarEnd, weekStart, weekEnd, dayStart, dayEnd, viewMode]);
 
   // Group items by date
   const itemsByDate = useMemo(() => {
@@ -887,6 +910,8 @@ export default function CalendarView({ events, specials, announcements = [], bus
       setCurrentDate(direction === 'prev' ? subMonths(currentDate, 1) : addMonths(currentDate, 1));
     } else if (viewMode === 'week') {
       setCurrentDate(direction === 'prev' ? subWeeks(currentDate, 1) : addWeeks(currentDate, 1));
+    } else if (viewMode === 'day') {
+      setCurrentDate(direction === 'prev' ? addDays(currentDate, -1) : addDays(currentDate, 1));
     } else {
       setCurrentDate(direction === 'prev' ? subMonths(currentDate, 1) : addMonths(currentDate, 1));
     }
@@ -1428,23 +1453,23 @@ export default function CalendarView({ events, specials, announcements = [], bus
     return (
       <>
         <div className="flex mb-0 border-b border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800">
-          <div className="w-14 flex-shrink-0 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-widest px-3 py-3 border-r border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900"></div>
+          <div className="w-12 sm:w-14 flex-shrink-0 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-widest px-2 sm:px-3 py-2 sm:py-3 border-r border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900"></div>
           <div className="grid grid-cols-7 flex-1">
             {weekDays.map((day, dayIndex) => {
               const isToday = isSameDay(day, new Date());
               return (
                 <div 
                   key={format(day, 'EEE')} 
-                  className={`text-center py-3 transition-all duration-200 border-r border-gray-300 dark:border-gray-700 last:border-r-0 ${
+                  className={`text-center py-2 sm:py-3 transition-all duration-200 border-r border-gray-300 dark:border-gray-700 last:border-r-0 ${
                     isToday 
                       ? 'bg-blue-50 dark:bg-blue-900/30 border-x border-blue-400 dark:border-blue-500' 
                       : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'
                   }`}
                 >
-                  <div className={`text-xs font-semibold uppercase tracking-wider mb-1 ${
+                  <div className={`text-[10px] sm:text-xs font-semibold uppercase tracking-wider mb-0.5 sm:mb-1 ${
                     isToday ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400'
                   }`}>{format(day, 'EEE')}</div>
-                  <div className={`text-lg font-bold transition-all duration-200 ${
+                  <div className={`text-base sm:text-lg font-bold transition-all duration-200 ${
                     isToday 
                       ? 'text-blue-600 dark:text-blue-400' 
                       : 'text-gray-900 dark:text-white'
@@ -1459,8 +1484,9 @@ export default function CalendarView({ events, specials, announcements = [], bus
 
         {/* All-day events bar */}
         <div className="flex border-b border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-          <div className="w-14 flex-shrink-0 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-widest px-3 py-2 border-r border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex items-center">
-            All Day
+          <div className="w-12 sm:w-14 flex-shrink-0 text-[10px] sm:text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-widest px-2 sm:px-3 py-2 border-r border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex items-center">
+            <span className="hidden sm:inline">All Day</span>
+            <span className="sm:hidden">All</span>
           </div>
           <div className="grid grid-cols-7 flex-1">
             {weekDays.map((day, dayIndex) => {
@@ -1470,11 +1496,11 @@ export default function CalendarView({ events, specials, announcements = [], bus
               return (
                 <div
                   key={format(day, 'yyyy-MM-dd')}
-                  className={`min-h-[60px] p-1.5 border-r border-gray-300 dark:border-gray-700 last:border-r-0 flex flex-col gap-1 relative group ${
+                  className={`min-h-[50px] sm:min-h-[60px] p-1 sm:p-1.5 border-r border-gray-300 dark:border-gray-700 last:border-r-0 flex flex-col gap-0.5 sm:gap-1 relative group ${
                     isToday 
                       ? 'bg-blue-50/30 dark:bg-blue-900/20 border-x border-blue-400 dark:border-blue-500' 
                       : 'bg-white dark:bg-gray-800'
-                  } ${onNewEvent ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors' : ''}`}
+                  } ${onNewEvent ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors touch-manipulation' : ''}`}
                   onClick={() => {
                     if (onNewEvent) {
                       const dayStart = startOfDay(day);
@@ -1525,7 +1551,7 @@ export default function CalendarView({ events, specials, announcements = [], bus
                       return (
                         <div
                           key={`${item.id}-${format(item.date, 'yyyy-MM-dd')}-${itemIdx}`}
-                          className={`text-[10px] px-2 py-1 rounded border shadow-sm cursor-pointer transition-all duration-200 hover:scale-[1.02] hover:shadow-md ${getItemColor(item)} text-white`}
+                          className={`text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 sm:py-1 rounded border shadow-sm cursor-pointer transition-all duration-200 hover:scale-[1.02] hover:shadow-md ${getItemColor(item)} text-white touch-manipulation min-h-[32px] sm:min-h-0 flex items-center`}
                           title={tooltipParts.join('\n')}
                           onClick={(e) => {
                             e.stopPropagation();
@@ -1549,9 +1575,9 @@ export default function CalendarView({ events, specials, announcements = [], bus
                             }
                           }}
                         >
-                          <div className="flex items-center gap-1">
-                            <span className="text-[10px] flex-shrink-0">{getItemIcon(item)}</span>
-                            <span className="flex-1 truncate font-medium">
+                          <div className="flex items-center gap-0.5 sm:gap-1 w-full min-w-0">
+                            <span className="text-[9px] sm:text-[10px] flex-shrink-0">{getItemIcon(item)}</span>
+                            <span className="flex-1 truncate font-medium text-[9px] sm:text-[10px]">
                               {item.title}
                               {isRecurring && <span className="ml-0.5 opacity-75">🔄</span>}
                             </span>
@@ -1586,13 +1612,13 @@ export default function CalendarView({ events, specials, announcements = [], bus
         <div className="flex-1 overflow-auto bg-gray-50 dark:bg-gray-900">
           <div className="flex bg-white dark:bg-gray-800" style={{ minHeight: `${hourHeight * visibleHoursCount}px` }}>
             {/* Time column */}
-            <div className="flex flex-col sticky left-0 bg-white dark:bg-gray-800 border-r border-gray-300 dark:border-gray-700 pr-1.5 pl-1.5 z-10 shadow-sm w-14 flex-shrink-0">
+            <div className="flex flex-col sticky left-0 bg-white dark:bg-gray-800 border-r border-gray-300 dark:border-gray-700 pr-1 sm:pr-1.5 pl-1 sm:pl-1.5 z-10 shadow-sm w-12 sm:w-14 flex-shrink-0">
               {getVisibleHours.map((hour, index) => {
                 const displayHour = hour % 24;
                 return (
                   <div 
                     key={`${hour}-${index}`} 
-                    className="text-xs text-gray-600 dark:text-gray-400 font-medium py-1 flex items-center justify-end border-b border-gray-200 dark:border-gray-700"
+                    className="text-[10px] sm:text-xs text-gray-600 dark:text-gray-400 font-medium py-1 flex items-center justify-end border-b border-gray-200 dark:border-gray-700"
                     style={{ minHeight: `${hourHeight}px` }}
                   >
                     <span className="leading-none tabular-nums">{displayHour === 0 ? '12 AM' : displayHour < 12 ? `${displayHour} AM` : displayHour === 12 ? '12 PM' : `${displayHour - 12} PM`}</span>
@@ -1655,7 +1681,7 @@ export default function CalendarView({ events, specials, announcements = [], bus
                                 onNewEvent(hourStart);
                               }
                             }}
-                            className="w-7 h-7 flex items-center justify-center bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-full text-white text-sm font-semibold border border-blue-400 dark:border-blue-500 hover:scale-110 transition-all duration-200 z-20"
+                            className="w-9 h-9 sm:w-7 sm:h-7 min-h-[44px] sm:min-h-0 flex items-center justify-center bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-full text-white text-base sm:text-sm font-semibold border border-blue-400 dark:border-blue-500 hover:scale-110 transition-all duration-200 z-20 touch-manipulation"
                             title={`Add event at ${displayHour === 0 ? '12 AM' : displayHour < 12 ? `${displayHour} AM` : displayHour === 12 ? '12 PM' : `${displayHour - 12} PM`}`}
                           >
                             +
@@ -1739,13 +1765,13 @@ export default function CalendarView({ events, specials, announcements = [], bus
                         draggable={true}
                         onDragStart={(e) => handleDragStart(e, event)}
                         onDragEnd={handleDragEnd}
-                        className={`absolute left-2 right-2 px-2.5 py-1.5 rounded-md cursor-move transition-all duration-300 hover:scale-[1.02] hover:shadow-lg ${getItemColor(item)} text-white z-10 shadow-md border ${
+                        className={`absolute left-1 sm:left-2 right-1 sm:right-2 px-2 sm:px-2.5 py-1.5 sm:py-1.5 rounded-md cursor-move transition-all duration-300 hover:scale-[1.02] hover:shadow-lg ${getItemColor(item)} text-white z-10 shadow-md border touch-manipulation ${
                           isBeingDragged ? 'opacity-30 scale-95' : 'opacity-100'
                         } ${isNewEvent ? 'animate-in fade-in slide-in-from-top-2 duration-500' : ''}`}
                         style={{
                           top: `${top}px`,
                           height: `${height}px`,
-                          minHeight: `${hourHeight * 0.6}px`,
+                          minHeight: `${Math.max(hourHeight * 0.6, 36)}px`,
                           transition: isBeingDragged ? 'all 0.2s ease-out' : isNewEvent ? 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)' : 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                           animation: isNewEvent ? 'slideInScale 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)' : undefined,
                         }}
@@ -1761,14 +1787,14 @@ export default function CalendarView({ events, specials, announcements = [], bus
                         }}
                       >
                         <div className="flex flex-col gap-0.5 h-full justify-center">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs flex-shrink-0">{getItemIcon(item)}</span>
-                            <span className="text-xs font-medium truncate flex-1 leading-tight">
+                          <div className="flex items-center gap-1 sm:gap-1.5">
+                            <span className="text-[10px] sm:text-xs flex-shrink-0">{getItemIcon(item)}</span>
+                            <span className="text-[10px] sm:text-xs font-medium truncate flex-1 leading-tight">
                               {item.title}
-                              {isRecurring && <span className="ml-1 opacity-75">🔄</span>}
+                              {isRecurring && <span className="ml-0.5 sm:ml-1 opacity-75">🔄</span>}
                             </span>
                           </div>
-                          <div className="flex items-center gap-1 text-[10px] opacity-90">
+                          <div className="flex items-center gap-0.5 sm:gap-1 text-[9px] sm:text-[10px] opacity-90">
                             <span>{format(new Date(event.startDateTime), 'h:mm a')}</span>
                             {event.endDateTime && (
                               <>
@@ -1784,7 +1810,7 @@ export default function CalendarView({ events, specials, announcements = [], bus
                             )}
                           </div>
                           {event.description && height > hourHeight * 0.8 && (
-                            <div className="text-[10px] opacity-80 line-clamp-1 truncate">
+                            <div className="text-[9px] sm:text-[10px] opacity-80 line-clamp-1 truncate">
                               {event.description}
                             </div>
                           )}
@@ -1802,22 +1828,443 @@ export default function CalendarView({ events, specials, announcements = [], bus
     );
   };
 
+  const renderDayView = () => {
+    const day = currentDate;
+    const availableHeight = calendarHeight > 0 ? calendarHeight - 120 : 500;
+    const visibleHoursCount = getVisibleHours.length || 24;
+    const hourHeight = Math.max(30, Math.floor(availableHeight / visibleHoursCount));
+
+    // Get all-day items for the day
+    const getAllDayItems = (day: Date): CalendarItem[] => {
+      const dayKey = format(day, 'yyyy-MM-dd');
+      const allItems = itemsByDate[dayKey] || [];
+      
+      return allItems.filter((item) => {
+        if (item.eventType === 'special' || item.eventType === 'announcement') {
+          return true;
+        }
+        if (item.eventType === 'event') {
+          const event = item as CalendarEvent;
+          return event.isAllDay;
+        }
+        return false;
+      });
+    };
+
+    // Get items for the day with their time positions (excluding all-day items)
+    const getItemsWithPosition = (day: Date) => {
+      const dayKey = format(day, 'yyyy-MM-dd');
+      const allItems = itemsByDate[dayKey] || [];
+      
+      // Filter out all-day items
+      const timedItems = allItems.filter((item) => {
+        if (item.eventType === 'special' || item.eventType === 'announcement') {
+          return false; // These are all-day, exclude from timed view
+        }
+        if (item.eventType === 'event') {
+          const event = item as CalendarEvent;
+          return !event.isAllDay; // Only include timed events
+        }
+        return true;
+      });
+      
+      return timedItems.map((item) => {
+        // Only events should be in timedItems after filtering
+        const event = item as CalendarEvent;
+        const eventDate = new Date(event.startDateTime);
+        const eventHour = getHours(eventDate);
+        const minutes = getMinutes(eventDate);
+        
+        // Find the index of this hour in visible hours, or use the closest visible hour
+        const hourIndex = getVisibleHours.findIndex(h => h % 24 === eventHour);
+        if (hourIndex === -1) {
+          // Hour not visible, skip this event (or position at start/end)
+          return null;
+        }
+        
+        const top = (hourIndex * hourHeight) + (minutes / 60 * hourHeight);
+        
+        let height = hourHeight;
+        if (event.endDateTime) {
+          const endDate = new Date(event.endDateTime);
+          const endHours = getHours(endDate);
+          const endMinutes = getMinutes(endDate);
+          const endHourIndex = getVisibleHours.findIndex(h => h % 24 === endHours);
+          if (endHourIndex !== -1) {
+            const endTop = (endHourIndex * hourHeight) + (endMinutes / 60 * hourHeight);
+            height = Math.max(hourHeight * 0.5, endTop - top);
+          }
+        }
+        
+        return { item, top, height };
+      }).filter((item): item is { item: CalendarItem; top: number; height: number } => item !== null).sort((a, b) => a.top - b.top);
+    };
+
+    const allDayItems = getAllDayItems(day);
+    const itemsWithPosition = getItemsWithPosition(day);
+    const isToday = isSameDay(day, new Date());
+
+    return (
+      <>
+        {/* Day Header */}
+        <div className="flex mb-0 border-b border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800">
+          <div className="w-12 sm:w-14 flex-shrink-0 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-widest px-2 sm:px-3 py-2 sm:py-3 border-r border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900"></div>
+          <div className={`flex-1 text-center py-2 sm:py-3 transition-all duration-200 ${
+            isToday 
+              ? 'bg-blue-50 dark:bg-blue-900/30 border-x border-blue-400 dark:border-blue-500' 
+              : 'bg-white dark:bg-gray-800'
+          }`}>
+            <div className={`text-[10px] sm:text-xs font-semibold uppercase tracking-wider mb-0.5 sm:mb-1 ${
+              isToday ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400'
+            }`}>{format(day, 'EEEE')}</div>
+            <div className={`text-base sm:text-lg font-bold transition-all duration-200 ${
+              isToday 
+                ? 'text-blue-600 dark:text-blue-400' 
+                : 'text-gray-900 dark:text-white'
+            }`}>
+              {format(day, 'd')}
+            </div>
+          </div>
+        </div>
+
+        {/* All-day events bar */}
+        <div className="flex border-b border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+          <div className="w-12 sm:w-14 flex-shrink-0 text-[10px] sm:text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-widest px-2 sm:px-3 py-2 border-r border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex items-center">
+            <span className="hidden sm:inline">All Day</span>
+            <span className="sm:hidden">All</span>
+          </div>
+          <div className={`flex-1 min-h-[50px] sm:min-h-[60px] p-1 sm:p-1.5 border-r border-gray-300 dark:border-gray-700 last:border-r-0 flex flex-col gap-0.5 sm:gap-1 relative group ${
+            isToday 
+              ? 'bg-blue-50/30 dark:bg-blue-900/20 border-x border-blue-400 dark:border-blue-500' 
+              : 'bg-white dark:bg-gray-800'
+          } ${onNewEvent ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors touch-manipulation' : ''}`}
+          onClick={() => {
+            if (onNewEvent) {
+              const dayStart = startOfDay(day);
+              onNewEvent(dayStart, true);
+            }
+          }}
+          >
+            {allDayItems.length === 0 ? (
+              <div className="text-xs text-gray-400 dark:text-gray-600 text-center py-1 flex items-center justify-center h-full">
+                <span className={`${onNewEvent ? 'group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors' : ''}`}>
+                  {onNewEvent ? 'Click to add event' : '—'}
+                </span>
+              </div>
+            ) : (
+              allDayItems.map((item, itemIdx) => {
+                const event = item.eventType === 'event' ? item as CalendarEvent : null;
+                const announcement = item.eventType === 'announcement' ? item as CalendarAnnouncement : null;
+                const isRecurring = event && !!event.recurrenceRule;
+                
+                // Build tooltip
+                const tooltipParts: string[] = [item.title];
+                if (announcement) {
+                  if (announcement.publishAt) {
+                    const publishDate = format(new Date(announcement.publishAt), 'MMM d, yyyy h:mm a');
+                    tooltipParts.push(`Publish: ${publishDate}`);
+                  }
+                  if (announcement.expiresAt) {
+                    const expireDate = format(new Date(announcement.expiresAt), 'MMM d, yyyy h:mm a');
+                    tooltipParts.push(`Expires: ${expireDate}`);
+                  }
+                  tooltipParts.push(`Status: ${announcement.isPublished ? 'Published' : 'Draft'}`);
+                }
+                if (event) {
+                  if (event.description) {
+                    tooltipParts.push(`Description: ${event.description}`);
+                  }
+                  if (event.venueArea && event.venueArea !== 'bar') {
+                    tooltipParts.push(`Venue: ${event.venueArea.charAt(0).toUpperCase() + event.venueArea.slice(1)}`);
+                  }
+                  if (event.tags && event.tags.length > 0) {
+                    tooltipParts.push(`Tags: ${event.tags.join(', ')}`);
+                  }
+                  if (isRecurring) {
+                    tooltipParts.push('🔄 Recurring Event');
+                  }
+                }
+                
+                return (
+                  <div
+                    key={`${item.id}-${format(item.date, 'yyyy-MM-dd')}-${itemIdx}`}
+                    className={`text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 sm:py-1 rounded border shadow-sm cursor-pointer transition-all duration-200 hover:scale-[1.02] hover:shadow-md ${getItemColor(item)} text-white touch-manipulation min-h-[32px] sm:min-h-0 flex items-center`}
+                    title={tooltipParts.join('\n')}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (item.eventType === 'event') {
+                        if (onEventClick) {
+                          const event = item as CalendarEvent;
+                          const occurrenceDate = event.recurrenceRule ? item.date : undefined;
+                          onEventClick(item.id, occurrenceDate);
+                        }
+                      } else if (item.eventType === 'special') {
+                        if (onSpecialClick) {
+                          onSpecialClick(item.id);
+                        }
+                      } else if (item.eventType === 'announcement') {
+                        if (onAnnouncementClick) {
+                          onAnnouncementClick(item.id);
+                        } else {
+                          window.open(`/admin/announcements?id=${item.id}`, '_blank');
+                        }
+                      }
+                    }}
+                  >
+                    <div className="flex items-center gap-0.5 sm:gap-1 w-full min-w-0">
+                      <span className="text-[9px] sm:text-[10px] flex-shrink-0">{getItemIcon(item)}</span>
+                      <span className="flex-1 truncate font-medium text-[9px] sm:text-[10px]">
+                        {item.title}
+                        {isRecurring && <span className="ml-0.5 opacity-75">🔄</span>}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+            
+            {/* Add button on hover when items exist */}
+            {onNewEvent && allDayItems.length > 0 && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const dayStart = startOfDay(day);
+                    onNewEvent(dayStart, true);
+                  }}
+                  className="w-6 h-6 flex items-center justify-center bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-full text-white text-xs font-bold transition-all duration-200 hover:scale-110 border border-blue-400 dark:border-blue-500 pointer-events-auto shadow-lg"
+                  title="Add all-day event"
+                >
+                  +
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-auto bg-gray-50 dark:bg-gray-900">
+          <div className="flex bg-white dark:bg-gray-800" style={{ minHeight: `${hourHeight * visibleHoursCount}px` }}>
+            {/* Time column */}
+            <div className="flex flex-col sticky left-0 bg-white dark:bg-gray-800 border-r border-gray-300 dark:border-gray-700 pr-1 sm:pr-1.5 pl-1 sm:pl-1.5 z-10 shadow-sm w-12 sm:w-14 flex-shrink-0">
+              {getVisibleHours.map((hour, index) => {
+                const displayHour = hour % 24;
+                return (
+                  <div 
+                    key={`${hour}-${index}`} 
+                    className="text-[10px] sm:text-xs text-gray-600 dark:text-gray-400 font-medium py-1 flex items-center justify-end border-b border-gray-200 dark:border-gray-700"
+                    style={{ minHeight: `${hourHeight}px` }}
+                  >
+                    <span className="leading-none tabular-nums">{displayHour === 0 ? '12 AM' : displayHour < 12 ? `${displayHour} AM` : displayHour === 12 ? '12 PM' : `${displayHour - 12} PM`}</span>
+                  </div>
+                );
+              })}
+            </div>
+            
+            {/* Day column */}
+            <div className={`flex-1 relative ${
+              isToday 
+                ? 'bg-blue-50/30 dark:bg-blue-900/20 border-x border-blue-400 dark:border-blue-500' 
+                : 'bg-white dark:bg-gray-800'
+            } ${isDragging ? 'bg-blue-50/50 dark:bg-blue-900/30' : ''}`}
+            style={{ minHeight: `${hourHeight * visibleHoursCount}px` }}
+            onDragOver={(e) => handleDragOver(e, day, hourHeight)}
+            onDrop={(e) => handleDrop(e, day, hourHeight)}
+            >
+              {/* Hour dividers with clickable time slots */}
+              {getVisibleHours.map((hour, index) => {
+                const displayHour = hour % 24;
+                const isHovered = hoveredTimeSlot?.day && isSameDay(day, hoveredTimeSlot.day) && hoveredTimeSlot.hour === displayHour;
+                const hourStart = new Date(day);
+                hourStart.setHours(displayHour, 0, 0, 0);
+                
+                return (
+                  <div
+                    key={`${hour}-${index}`}
+                    className={`absolute left-0 right-0 transition-all duration-150 cursor-pointer border-b border-gray-200 dark:border-gray-700 ${
+                      isHovered ? 'bg-blue-50/80 dark:bg-blue-900/40' : 'hover:bg-gray-50/70 dark:hover:bg-gray-700/50'
+                    }`}
+                    style={{ 
+                      top: `${index * hourHeight}px`,
+                      height: `${hourHeight}px`
+                    }}
+                    onMouseEnter={() => setHoveredTimeSlot({ day, hour: displayHour })}
+                    onMouseLeave={() => setHoveredTimeSlot(null)}
+                    onClick={() => {
+                      if (onNewEvent) {
+                        onNewEvent(hourStart);
+                      }
+                    }}
+                  >
+                    {/* Add button on hover */}
+                    <div className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-200 ${
+                      isHovered ? 'opacity-100 scale-100' : 'opacity-0 scale-75'
+                    }`}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onNewEvent) {
+                            onNewEvent(hourStart);
+                          }
+                        }}
+                        className="w-9 h-9 sm:w-7 sm:h-7 min-h-[44px] sm:min-h-0 flex items-center justify-center bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-full text-white text-base sm:text-sm font-semibold border border-blue-400 dark:border-blue-500 hover:scale-110 transition-all duration-200 z-20 touch-manipulation"
+                        title={`Add event at ${displayHour === 0 ? '12 AM' : displayHour < 12 ? `${displayHour} AM` : displayHour === 12 ? '12 PM' : `${displayHour - 12} PM`}`}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+              
+              {/* Current time indicator line */}
+              {isToday && (() => {
+                const currentHour = getHours(currentTime);
+                const currentHourIndex = getVisibleHours.findIndex(h => h % 24 === currentHour);
+                if (currentHourIndex === -1) return null;
+                return (
+                  <div
+                    key="current-time"
+                    className="absolute left-0 right-0 z-[20] pointer-events-none"
+                    style={{
+                      top: `${(currentHourIndex * hourHeight) + (getMinutes(currentTime) / 60 * hourHeight)}px`,
+                    }}
+                  >
+                    <div className="relative">
+                      {/* Red line */}
+                      <div className="absolute left-0 right-0 h-0.5 bg-red-500 dark:bg-red-400 shadow-sm" />
+                      {/* Small dot on the left */}
+                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-red-500 dark:bg-red-400 rounded-full -translate-x-1/2 shadow-sm" />
+                    </div>
+                  </div>
+                );
+              })()}
+              
+              {/* Drag preview */}
+              {dragPreview && isDragging && draggedEvent && isSameDay(dragPreview.day, day) && (
+                <div
+                  className="absolute left-2 right-2 px-2.5 py-1.5 rounded-md border-2 border-dashed border-blue-500 dark:border-blue-400 bg-blue-100/40 dark:bg-blue-900/40 z-20 pointer-events-none"
+                  style={{
+                    top: `${dragPreview.top}px`,
+                    height: `${draggedEvent.endDateTime ? (new Date(draggedEvent.endDateTime).getTime() - new Date(draggedEvent.startDateTime).getTime()) / (1000 * 60 * 60) * hourHeight : hourHeight}px`,
+                    minHeight: `${hourHeight * 0.6}px`,
+                  }}
+                >
+                  <div className="flex items-center gap-1.5 h-full opacity-70">
+                    <span className="text-xs flex-shrink-0">{getItemIcon(draggedEvent as CalendarItem)}</span>
+                    <span className="text-xs font-medium truncate flex-1 leading-tight text-gray-800 dark:text-gray-200">
+                      {draggedEvent.title}
+                    </span>
+                  </div>
+                </div>
+              )}
+              
+              {/* Events positioned by time */}
+              {itemsWithPosition.map(({ item, top, height }, itemIdx) => {
+                // Only timed events are in itemsWithPosition
+                const event = item as CalendarEvent;
+                const isBeingDragged = draggedEvent && event.id === draggedEvent.id;
+                const isNewEvent = newEventIds.has(event.id);
+                const isRecurring = !!event.recurrenceRule;
+                
+                // Build tooltip with event details
+                const tooltipParts: string[] = [item.title];
+                const startTime = format(new Date(event.startDateTime), 'h:mm a');
+                const endTime = event.endDateTime ? format(new Date(event.endDateTime), 'h:mm a') : null;
+                tooltipParts.push(`Time: ${startTime}${endTime ? ` - ${endTime}` : ''}`);
+                if (event.description) {
+                  tooltipParts.push(`Description: ${event.description}`);
+                }
+                if (event.venueArea && event.venueArea !== 'bar') {
+                  tooltipParts.push(`Venue: ${event.venueArea.charAt(0).toUpperCase() + event.venueArea.slice(1)}`);
+                }
+                if (event.tags && event.tags.length > 0) {
+                  tooltipParts.push(`Tags: ${event.tags.join(', ')}`);
+                }
+                if (isRecurring) {
+                  tooltipParts.push('🔄 Recurring Event');
+                }
+                
+                return (
+                  <div
+                    key={`${item.id}-${format(item.date, 'yyyy-MM-dd')}-${itemIdx}`}
+                    draggable={true}
+                    onDragStart={(e) => handleDragStart(e, event)}
+                    onDragEnd={handleDragEnd}
+                    className={`absolute left-2 right-2 px-2 sm:px-2.5 py-1.5 sm:py-1.5 rounded-md cursor-move transition-all duration-300 hover:scale-[1.02] hover:shadow-lg ${getItemColor(item)} text-white z-10 shadow-md border touch-manipulation ${
+                      isBeingDragged ? 'opacity-30 scale-95' : 'opacity-100'
+                    } ${isNewEvent ? 'animate-in fade-in slide-in-from-top-2 duration-500' : ''}`}
+                    style={{
+                      top: `${top}px`,
+                      height: `${height}px`,
+                      minHeight: `${Math.max(hourHeight * 0.6, 36)}px`,
+                      transition: isBeingDragged ? 'all 0.2s ease-out' : isNewEvent ? 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)' : 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                      animation: isNewEvent ? 'slideInScale 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)' : undefined,
+                    }}
+                    title={tooltipParts.join('\n')}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      // Don't open modal if user was dragging
+                      if (hasDragged) return;
+                      if (onEventClick) {
+                        const occurrenceDate = event.recurrenceRule ? item.date : undefined;
+                        onEventClick(item.id, occurrenceDate);
+                      }
+                    }}
+                  >
+                    <div className="flex flex-col gap-0.5 h-full justify-center">
+                      <div className="flex items-center gap-1 sm:gap-1.5">
+                        <span className="text-[10px] sm:text-xs flex-shrink-0">{getItemIcon(item)}</span>
+                        <span className="text-[10px] sm:text-xs font-medium truncate flex-1 leading-tight">
+                          {item.title}
+                          {isRecurring && <span className="ml-0.5 sm:ml-1 opacity-75">🔄</span>}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-0.5 sm:gap-1 text-[9px] sm:text-[10px] opacity-90">
+                        <span>{format(new Date(event.startDateTime), 'h:mm a')}</span>
+                        {event.endDateTime && (
+                          <>
+                            <span>-</span>
+                            <span>{format(new Date(event.endDateTime), 'h:mm a')}</span>
+                          </>
+                        )}
+                        {event.venueArea && event.venueArea !== 'bar' && (
+                          <>
+                            <span>•</span>
+                            <span className="capitalize truncate">{event.venueArea}</span>
+                          </>
+                        )}
+                      </div>
+                      {event.description && height > hourHeight * 0.8 && (
+                        <div className="text-[9px] sm:text-[10px] opacity-80 line-clamp-1 truncate">
+                          {event.description}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  };
 
   return (
     <div className="flex flex-col h-full min-h-0" ref={calendarRef}>
         {/* Calendar Header */}
-      <div className="mb-3 flex-shrink-0 px-2">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 w-full">
-          {/* Navigation Controls */}
-          <div className="flex items-center gap-2 justify-center flex-1 min-w-0">
+      <div className="mb-2 sm:mb-3 flex-shrink-0 px-1 sm:px-2">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-3 w-full">
+          {/* Navigation Controls - Simplified for Mobile */}
+          <div className="flex items-center gap-1.5 sm:gap-2 justify-center flex-1 min-w-0 w-full sm:w-auto">
             <button
               onClick={() => navigateDate('prev')}
-              className="w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 transition-all duration-200 hover:shadow-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white flex-shrink-0 cursor-pointer active:scale-95 z-10 relative"
+              className="w-9 h-9 sm:w-9 sm:h-9 min-h-[40px] sm:min-h-0 flex items-center justify-center bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 transition-all duration-200 hover:shadow-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white flex-shrink-0 cursor-pointer active:scale-95 z-10 relative touch-manipulation"
               aria-label="Previous"
             >
-              <HiChevronLeft className="w-5 h-5 pointer-events-none" />
+              <HiChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 pointer-events-none" />
             </button>
-            <div className="relative px-2 sm:px-4 min-w-[200px] sm:min-w-[240px] flex items-center justify-center flex-shrink-0">
+            <div className="relative px-2 sm:px-4 min-w-[140px] sm:min-w-[240px] flex items-center justify-center flex-shrink-0">
               {viewMode === 'month' ? (
                 <div className="flex items-center gap-1 sm:gap-2">
                   <button
@@ -1826,7 +2273,7 @@ export default function CalendarView({ events, specials, announcements = [], bus
                       setShowMonthPicker(!showMonthPicker);
                       setShowYearPicker(false);
                     }}
-                    className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer active:scale-95 z-10 relative px-1 py-1"
+                    className="text-base sm:text-xl font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer active:scale-95 z-10 relative px-1 py-1 min-h-[44px] sm:min-h-0 flex items-center touch-manipulation"
                   >
                     {format(currentDate, 'MMMM')}
                   </button>
@@ -1836,14 +2283,19 @@ export default function CalendarView({ events, specials, announcements = [], bus
                       setShowYearPicker(!showYearPicker);
                       setShowMonthPicker(false);
                     }}
-                    className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer active:scale-95 z-10 relative px-1 py-1"
+                    className="text-base sm:text-xl font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer active:scale-95 z-10 relative px-1 py-1 min-h-[44px] sm:min-h-0 flex items-center touch-manipulation"
                   >
                     {format(currentDate, 'yyyy')}
                   </button>
                 </div>
               ) : viewMode === 'week' ? (
-                <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white text-center sm:whitespace-nowrap px-2">
+                <h2 className="text-sm sm:text-xl font-bold text-gray-900 dark:text-white text-center sm:whitespace-nowrap px-1 sm:px-2">
                   {`${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d, yyyy')}`}
+                </h2>
+              ) : viewMode === 'day' ? (
+                <h2 className="text-xs sm:text-xl font-bold text-gray-900 dark:text-white text-center sm:whitespace-nowrap px-1 sm:px-2">
+                  <span className="hidden sm:inline">{format(currentDate, 'EEEE, MMMM d, yyyy')}</span>
+                  <span className="sm:hidden">{format(currentDate, 'EEE, MMM d')}</span>
                 </h2>
               ) : (
                 <button
@@ -1852,7 +2304,7 @@ export default function CalendarView({ events, specials, announcements = [], bus
                     setShowYearPicker(!showYearPicker);
                     setShowMonthPicker(false);
                   }}
-                  className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer active:scale-95 z-10 relative px-1 py-1"
+                  className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer active:scale-95 z-10 relative px-1 py-1 min-h-[44px] sm:min-h-0 flex items-center touch-manipulation"
                 >
                   {format(currentDate, 'yyyy')}
                 </button>
@@ -1908,32 +2360,33 @@ export default function CalendarView({ events, specials, announcements = [], bus
             </div>
             <button
               onClick={() => navigateDate('next')}
-              className="w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 transition-all duration-200 hover:shadow-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white flex-shrink-0 cursor-pointer active:scale-95 z-10 relative"
+              className="w-9 h-9 sm:w-9 sm:h-9 min-h-[40px] sm:min-h-0 flex items-center justify-center bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 transition-all duration-200 hover:shadow-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white flex-shrink-0 cursor-pointer active:scale-95 z-10 relative touch-manipulation"
               aria-label="Next"
             >
-              <HiChevronRight className="w-5 h-5 pointer-events-none" />
+              <HiChevronRight className="w-4 h-4 sm:w-5 sm:h-5 pointer-events-none" />
             </button>
             <button
               onClick={() => setCurrentDate(new Date())}
-              className="px-4 py-2 sm:py-1.5 text-xs bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg transition-all duration-200 hover:scale-105 text-white font-semibold flex-shrink-0 cursor-pointer active:scale-95 z-10 relative border border-blue-400 dark:border-blue-500"
+              className="px-2.5 sm:px-4 py-2 sm:py-1.5 min-h-[40px] sm:min-h-0 text-xs bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg transition-all duration-200 hover:scale-105 text-white font-semibold flex-shrink-0 cursor-pointer active:scale-95 z-10 relative border border-blue-400 dark:border-blue-500 touch-manipulation"
             >
-              Today
+              <span className="hidden sm:inline">Today</span>
+              <span className="sm:hidden">Now</span>
             </button>
           </div>
 
           {/* View Mode Switcher and Hours Config */}
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Hours Config Button - Only show in week view */}
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+            {/* Hours Config Button - Hidden on mobile, only show on desktop */}
             {viewMode === 'week' && (
-              <div className="relative">
+              <div className="relative hidden sm:block">
                 <button
                   data-hours-trigger
                   onClick={() => setShowHoursConfig(!showHoursConfig)}
-                  className="px-3 py-2 rounded-md transition-all duration-200 flex items-center gap-1.5 text-xs font-medium cursor-pointer active:scale-95 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                  className="px-3 py-2 rounded-md transition-all duration-200 flex items-center justify-center gap-1.5 text-xs font-medium cursor-pointer active:scale-95 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white touch-manipulation"
                   title="Configure visible hours"
                 >
                   <FaClock className="w-3.5 h-3.5 pointer-events-none" />
-                  <span className="pointer-events-none hidden sm:inline">Visible Hours</span>
+                  <span className="pointer-events-none">Visible Hours</span>
                 </button>
 
                 {/* Hours Config Dropdown */}
@@ -2046,11 +2499,36 @@ export default function CalendarView({ events, specials, announcements = [], bus
               </div>
             )}
 
-            {/* View Mode Switcher */}
-            <div className="flex gap-0.5 bg-gray-100 dark:bg-gray-800 rounded-lg p-1 border border-gray-200 dark:border-gray-700 flex-shrink-0">
+            {/* View Mode Switcher - Day, Week, Month (Month hidden on mobile) */}
+            <div className="flex gap-0.5 bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5 sm:p-1 border border-gray-200 dark:border-gray-700 flex-shrink-0">
+              {/* Day view - Available on all devices */}
+              <button
+                onClick={() => setViewMode('day')}
+                className={`px-2.5 sm:px-4 py-2 sm:py-2 min-h-[40px] sm:min-h-0 rounded-md transition-all duration-200 flex items-center justify-center gap-1 sm:gap-1.5 text-xs font-semibold cursor-pointer active:scale-95 z-10 relative touch-manipulation ${
+                  viewMode === 'day'
+                    ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-gray-700/50'
+                }`}
+              >
+                <FaCalendarDay className="w-3 h-3 sm:w-3.5 sm:h-3.5 pointer-events-none" />
+                <span className="pointer-events-none">Day</span>
+              </button>
+              {/* Week view - Available on all devices */}
+              <button
+                onClick={() => setViewMode('week')}
+                className={`px-2.5 sm:px-4 py-2 sm:py-2 min-h-[40px] sm:min-h-0 rounded-md transition-all duration-200 flex items-center justify-center gap-1 sm:gap-1.5 text-xs font-semibold cursor-pointer active:scale-95 z-10 relative touch-manipulation ${
+                  viewMode === 'week'
+                    ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-gray-700/50'
+                }`}
+              >
+                <FaCalendarWeek className="w-3 h-3 sm:w-3.5 sm:h-3.5 pointer-events-none" />
+                <span className="pointer-events-none">Week</span>
+              </button>
+              {/* Month view - Desktop only */}
               <button
                 onClick={() => setViewMode('month')}
-                className={`px-4 py-2.5 sm:py-2 rounded-md transition-all duration-200 flex items-center gap-1.5 text-xs font-medium cursor-pointer active:scale-95 z-10 relative ${
+                className={`hidden sm:flex px-4 py-2 rounded-md transition-all duration-200 items-center justify-center gap-1.5 text-xs font-medium cursor-pointer active:scale-95 z-10 relative touch-manipulation ${
                   viewMode === 'month'
                     ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-gray-700/50'
@@ -2058,17 +2536,6 @@ export default function CalendarView({ events, specials, announcements = [], bus
               >
                 <FaTable className="w-3.5 h-3.5 pointer-events-none" />
                 <span className="pointer-events-none">Month</span>
-              </button>
-              <button
-                onClick={() => setViewMode('week')}
-                className={`px-4 py-2.5 sm:py-2 rounded-md transition-all duration-200 flex items-center gap-1.5 text-xs font-medium cursor-pointer active:scale-95 z-10 relative ${
-                  viewMode === 'week'
-                    ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-gray-700/50'
-                }`}
-              >
-                <FaCalendarWeek className="w-3.5 h-3.5 pointer-events-none" />
-                <span className="pointer-events-none">Week</span>
               </button>
             </div>
           </div>
@@ -2079,6 +2546,7 @@ export default function CalendarView({ events, specials, announcements = [], bus
       <div className="flex-1 overflow-auto flex flex-col min-h-0 bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm">
         {viewMode === 'month' && renderMonthView()}
         {viewMode === 'week' && renderWeekView()}
+        {viewMode === 'day' && renderDayView()}
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useLayoutEffect } from 'react';
+import { usePathname } from 'next/navigation';
 
 type Theme = 'light' | 'dark';
 
@@ -12,12 +13,25 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const [theme, setTheme] = useState<Theme>('light');
   const [mounted, setMounted] = useState(false);
 
+  // Check if we're on a public route (not admin or timeclock)
+  // Default to public route if pathname is not available yet
+  const isPublicRoute = !pathname || (!pathname.startsWith('/admin') && pathname !== '/timeclock');
+
   // Use useLayoutEffect to apply theme synchronously before paint
   useLayoutEffect(() => {
-    // Get theme from localStorage on mount
+    // For public routes, always force dark mode
+    if (isPublicRoute) {
+      document.documentElement.classList.add('dark');
+      setTheme('dark');
+      setMounted(true);
+      return;
+    }
+
+    // For admin routes, use saved theme preference
     const savedTheme = localStorage.getItem('admin-theme') as Theme | null;
     const initialTheme = savedTheme || 'light';
     
@@ -32,9 +46,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     // Set state
     setTheme(initialTheme);
     setMounted(true);
-  }, []);
+  }, [isPublicRoute, pathname]);
 
   const toggleTheme = () => {
+    // Only allow theme toggle in admin routes
+    if (isPublicRoute) {
+      return;
+    }
+
     // Determine new theme from current state
     const newTheme: Theme = theme === 'light' ? 'dark' : 'light';
     

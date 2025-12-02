@@ -159,7 +159,7 @@ export default function UserForm({ user, currentUserRole }: { user?: User; curre
   }
 
   async function handleDelete() {
-    if (!user?.id || user?.role === 'admin' || user?.role === 'superadmin' || !canManageUser(currentUserRole, user.role)) return;
+    if (!user?.id || user?.role === 'admin' || !canManageUser(currentUserRole, user.role)) return;
     
     setLoading(true);
     try {
@@ -208,11 +208,11 @@ export default function UserForm({ user, currentUserRole }: { user?: User; curre
                 <p className="text-sm text-gray-400">{user.email}</p>
               </div>
             </div>
-            {(user.role === 'admin' || user.role === 'superadmin' || !canManageUser(currentUserRole, user.role)) && (
+            {(user.role === 'admin' || !canManageUser(currentUserRole, user.role)) && (
               <p className="text-sm text-yellow-400 mt-2 flex items-center gap-2">
                 <FaExclamationTriangle className="w-4 h-4" />
                 <span>
-                  {user.role === 'admin' || user.role === 'superadmin'
+                  {user.role === 'admin'
                     ? 'Admin users cannot be modified or deleted'
                     : 'You do not have permission to modify this user'}
                 </span>
@@ -258,7 +258,7 @@ export default function UserForm({ user, currentUserRole }: { user?: User; curre
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded text-white"
-              disabled={user?.role === 'admin' || user?.role === 'superadmin' || (user && !canManageUser(currentUserRole, user.role))}
+              disabled={user?.role === 'admin' || (user && !canManageUser(currentUserRole, user.role))}
             />
           </div>
 
@@ -271,7 +271,7 @@ export default function UserForm({ user, currentUserRole }: { user?: User; curre
               value={formData.role}
               onChange={(e) => setFormData({ ...formData, role: e.target.value })}
               className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded text-white"
-              disabled={user?.role === 'admin' || user?.role === 'superadmin' || (user && !canManageUser(currentUserRole, user.role))}
+              disabled={user?.role === 'admin' || (user && !canManageUser(currentUserRole, user.role))}
               required
             >
               {availableRoles.map(role => (
@@ -286,7 +286,7 @@ export default function UserForm({ user, currentUserRole }: { user?: User; curre
           </div>
 
           <div className="flex gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-            {user?.id && user?.role !== 'admin' && user?.role !== 'superadmin' && canManageUser(currentUserRole, user.role) && (
+            {user?.id && user?.role !== 'admin' && canManageUser(currentUserRole, user.role) && (
               <button
                 type="button"
                 onClick={() => setShowDeleteConfirm(true)}
@@ -305,14 +305,14 @@ export default function UserForm({ user, currentUserRole }: { user?: User; curre
             </Link>
             <button
               type="submit"
-              disabled={!!(loading || user?.role === 'admin' || user?.role === 'superadmin' || (user && !canManageUser(currentUserRole, user.role)) || (user?.id && !isDirty))}
+              disabled={!!(loading || user?.role === 'admin' || (user && !canManageUser(currentUserRole, user.role)) || (user?.id && !isDirty))}
               className="px-4 py-2 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-blue-500/20"
             >
               {loading ? (user?.id ? 'Saving...' : 'Creating...') : (user?.id ? 'Save' : 'Create')}
             </button>
           </div>
         </form>
-        {user?.id && user?.role !== 'admin' && user?.role !== 'superadmin' && canManageUser(currentUserRole, user.role) && (
+        {user?.id && user?.role !== 'admin' && canManageUser(currentUserRole, user.role) && (
           <ConfirmationDialog
             isOpen={showDeleteConfirm}
             onClose={() => setShowDeleteConfirm(false)}

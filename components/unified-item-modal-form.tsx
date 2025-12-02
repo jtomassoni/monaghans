@@ -704,16 +704,21 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
           <>
               <div>
                 <label htmlFor="priceNotes" className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
-                  Price Notes
+                  Price Notes {currentItemType === 'food' ? '(optional)' : ''}
                 </label>
                 <input
                   id="priceNotes"
                   type="text"
                   value={specialData.priceNotes}
                   onChange={(e) => setSpecialData({ ...specialData, priceNotes: e.target.value })}
-                  placeholder="e.g., $3 drafts, Happy hour prices"
+                  placeholder={currentItemType === 'food' ? "e.g., $12.99 (or leave empty if prices are in description)" : "e.g., $3 drafts, Happy hour prices"}
                   className="w-full px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-white text-sm"
                 />
+                {currentItemType === 'food' && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    If your special has multiple prices, you can list them in the Description field instead.
+                  </p>
+                )}
               </div>
 
             {currentItemType === 'drink' && (

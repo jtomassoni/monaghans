@@ -21,6 +21,8 @@ const handler = async (
     const originalRedirect = authOptions.callbacks?.redirect;
     const dynamicAuthOptions = {
       ...authOptions,
+      // Set the base URL for NextAuth
+      basePath: '/api/auth',
       // Override the callbacks to use the detected baseUrl
       callbacks: {
         ...authOptions.callbacks,
@@ -48,9 +50,17 @@ const handler = async (
       },
     };
 
-    // Use NextAuth's built-in handler for App Router
-    // NextAuth v4 exports handlers directly
-    return NextAuth(dynamicAuthOptions)(req, { params });
+    // Create NextAuth handler
+    const nextAuthHandler = NextAuth(dynamicAuthOptions);
+    
+    // Handle the request - NextAuth v4 expects the handler to be called directly
+    if (req.method === 'GET') {
+      return nextAuthHandler.handlers.GET(req, context);
+    } else if (req.method === 'POST') {
+      return nextAuthHandler.handlers.POST(req, context);
+    }
+    
+    return new Response('Method not allowed', { status: 405 });
   } catch (error) {
     console.error('NextAuth handler error:', error);
     return new Response(

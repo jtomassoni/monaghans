@@ -107,8 +107,8 @@ export default async function AdminOverview() {
     })
   );
 
-  // Users (if users_staff_management enabled and superadmin)
-  if (isUsersStaffManagementEnabled && session.user.role === 'superadmin') {
+  // Users (if users_staff_management enabled and admin)
+  if (isUsersStaffManagementEnabled && session.user.role === 'admin') {
     promiseIndices.usersCount = promises.length;
     promises.push(prisma.user.count());
   } else {
@@ -406,8 +406,8 @@ export default async function AdminOverview() {
     unpublished: unpublishedAnnouncements.length,
   });
 
-  // Users stat (only if users_staff_management enabled and superadmin)
-  if (isUsersStaffManagementEnabled && session.user.role === 'superadmin') {
+  // Users stat (only if users_staff_management enabled and admin)
+  if (isUsersStaffManagementEnabled && session.user.role === 'admin') {
     stats.push({
       title: 'Users',
       total: usersCount,

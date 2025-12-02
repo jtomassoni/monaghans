@@ -10,7 +10,7 @@ export default async function AdminUsers() {
     redirect('/admin/login');
   }
 
-  // Only superadmin and owner can access user management
+  // Only admin and owner can access user management
   const { getPermissions } = await import('@/lib/permissions');
   const permissions = getPermissions(session.user.role);
   if (!permissions.canManageUsers) {

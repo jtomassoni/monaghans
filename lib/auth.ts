@@ -10,14 +10,19 @@ interface UserCredential {
 
 /**
  * Parse user credentials from environment variable
- * Supports JSON object format:
- * - Single user: ADMIN_USER='{"username":"admin","password":"pass123"}'
- * - Multiple users: ADMIN_USERS='[{"username":"admin1","password":"pass1"},{"username":"admin2","password":"pass2"}]'
+ * Supports two formats:
+ * 1. JSON object format:
+ *    - Single user: ADMIN_USER='{"username":"admin","password":"pass123"}'
+ *    - Multiple users: ADMIN_USERS='[{"username":"admin1","password":"pass1"},{"username":"admin2","password":"pass2"}]'
+ * 2. Colon-separated format (for ADMIN_USERS, OWNER_USERS, etc.):
+ *    - Single user: ADMIN_USERS="username:password"
+ *    - Multiple users: ADMIN_USERS="user1:pass1,user2:pass2"
  * Returns array of {username, password} objects
  */
 function parseUserCredentials(envVar: string | undefined): UserCredential[] {
   if (!envVar) return [];
   
+  // First try JSON format
   try {
     const parsed = JSON.parse(envVar);
     
@@ -36,13 +41,26 @@ function parseUserCredentials(envVar: string | undefined): UserCredential[] {
         typeof parsed.password === 'string') {
       return [parsed];
     }
-    
-    return [];
   } catch (error) {
-    // Invalid JSON, return empty array
-    console.error('Error parsing user credentials from env var:', error);
-    return [];
+    // Not JSON, try colon-separated format
+    // Format: "username1:password1,username2:password2"
+    const credentials = envVar
+      .split(',')
+      .map(pair => {
+        const [username, password] = pair.split(':').map(s => s.trim());
+        if (username && password) {
+          return { username, password };
+        }
+        return null;
+      })
+      .filter((cred): cred is UserCredential => cred !== null);
+    
+    if (credentials.length > 0) {
+      return credentials;
+    }
   }
+  
+  return [];
 }
 
 /**
@@ -78,7 +96,8 @@ function getAllRoleCredentials(): {
     if (!hasAnyCredentials) {
       throw new Error(
         'At least one user credential must be set in production. ' +
-        'Use format: ADMIN_USER=\'{"username":"admin","password":"pass123"}\' ' +
+        'Use format: ADMIN_USERS="username:password" or ' +
+        'ADMIN_USER=\'{"username":"admin","password":"pass123"}\' ' +
         'or ADMIN_USERS=\'[{"username":"admin1","password":"pass1"}]\''
       );
     }
@@ -90,6 +109,7 @@ function getAllRoleCredentials(): {
 /**
  * Check credentials against admin and owner roles
  * Returns the role name if credentials match, null otherwise
+ * Checks in order: admin (higher privilege), then owner
  */
 function checkCredentialsAgainstRoles(
   username: string,
@@ -285,7 +305,7 @@ export const authOptions: NextAuthOptions = {
             const allCredentials = getAllRoleCredentials();
             let matchedRole: 'admin' | 'owner' | null = null;
             
-            // Check admin first, then owner
+            // Check admin first (higher privilege), then owner
             for (const cred of allCredentials.admin) {
               if (token.email.toLowerCase() === cred.username.toLowerCase()) {
                 matchedRole = 'admin';

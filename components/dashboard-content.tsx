@@ -91,12 +91,12 @@ interface DashboardContentProps {
   announcements?: CalendarAnnouncement[];
   businessHours?: BusinessHours;
   calendarHours?: { startHour: number; endHour: number } | null;
-  isSuperadmin: boolean;
+  isAdmin: boolean;
 }
 
 type ViewType = 'calendar' | 'list';
 
-export default function DashboardContent({ events: initialEvents, specials, announcements = [], businessHours, calendarHours, isSuperadmin }: DashboardContentProps) {
+export default function DashboardContent({ events: initialEvents, specials, announcements = [], businessHours, calendarHours, isAdmin }: DashboardContentProps) {
   const router = useRouter();
   const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
   const [eventModalOpen, setEventModalOpen] = useState(false);
@@ -419,39 +419,60 @@ export default function DashboardContent({ events: initialEvents, specials, anno
           <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-amber-200/15 dark:from-amber-900/20 to-transparent rounded-full blur-3xl"></div>
           <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-rose-200/15 dark:from-rose-900/20 to-transparent rounded-full blur-3xl"></div>
         </div>
-        {/* Header */}
-        <div className="flex-shrink-0 px-4 sm:px-6 py-3 border-b border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm relative z-10">
-          <div className="flex justify-between items-center gap-4">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 min-w-0 flex-1">
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-                Calendar & Events
-              </h1>
-              <p className="text-gray-500 dark:text-gray-400 text-xs hidden sm:block">
-                Manage events, specials, and scheduled content
-              </p>
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              {/* New Event Button */}
-              <button
-                onClick={() => handleNewEvent()}
-                className="px-4 py-2.5 bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-medium text-sm transition-all duration-200 hover:scale-105 flex items-center justify-center gap-2 border border-blue-400 dark:border-blue-500 touch-manipulation"
-              >
-                <span>➕</span>
-                <span>New Event</span>
-              </button>
-              {/* New Announcement Button */}
-              <button
-                onClick={() => handleNewAnnouncement()}
-                className="px-4 py-2.5 bg-yellow-500/90 dark:bg-yellow-600/90 hover:bg-yellow-600 dark:hover:bg-yellow-700 rounded-lg text-white font-medium text-sm transition-all duration-200 hover:scale-105 flex items-center justify-center gap-2 border border-yellow-400 dark:border-yellow-500 touch-manipulation"
-              >
-                <span>📢</span>
-                <span>New Announcement</span>
-              </button>
-              {/* View Type Toggle - Calendar/List */}
-              <div className="flex gap-0.5 bg-gray-100 dark:bg-gray-800 rounded-lg p-1 border border-gray-200 dark:border-gray-700 flex-shrink-0">
+        {/* Header - Simplified for Mobile */}
+        <div className="flex-shrink-0 px-3 sm:px-6 py-2.5 sm:py-3 border-b border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm relative z-40">
+          <div className="flex items-center justify-between gap-2 min-h-[44px]">
+            {/* Title - Hidden on mobile, shown on desktop */}
+            <h1 className="hidden sm:block text-2xl font-bold text-gray-900 dark:text-white">
+              Calendar & Events
+            </h1>
+            <div className="sm:hidden flex-1"></div>
+            
+            {/* Mobile: Two buttons for Event and Announcement, Desktop: Separate buttons */}
+            <div className="flex items-center gap-1.5 flex-shrink-0" style={{ position: 'relative', zIndex: 60 }}>
+              {/* Mobile: Event and Announcement buttons */}
+              <div className="sm:hidden flex items-center gap-1.5">
+                <button
+                  onClick={() => handleNewEvent()}
+                  className="px-2.5 py-2 min-h-[40px] bg-blue-500 dark:bg-blue-600 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-semibold text-xs transition-all duration-200 active:scale-95 flex items-center justify-center gap-1 touch-manipulation shadow-md"
+                  style={{ zIndex: 61 }}
+                >
+                  <span className="text-sm">➕</span>
+                  <span>Event</span>
+                </button>
+                <button
+                  onClick={() => handleNewAnnouncement()}
+                  className="px-2.5 py-2 min-h-[40px] bg-yellow-500 dark:bg-yellow-600 hover:bg-yellow-600 dark:hover:bg-yellow-700 rounded-lg text-white font-semibold text-xs transition-all duration-200 active:scale-95 flex items-center justify-center gap-1 touch-manipulation shadow-md"
+                  style={{ zIndex: 61 }}
+                >
+                  <span className="text-sm">📢</span>
+                  <span>Announce</span>
+                </button>
+              </div>
+              
+              {/* Desktop: Separate buttons */}
+              <div className="hidden sm:flex items-center gap-2">
+                <button
+                  onClick={() => handleNewEvent()}
+                  className="px-4 py-2.5 bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-medium text-sm transition-all duration-200 hover:scale-105 flex items-center justify-center gap-2 border border-blue-400 dark:border-blue-500 touch-manipulation"
+                >
+                  <span>➕</span>
+                  <span>New Event</span>
+                </button>
+                <button
+                  onClick={() => handleNewAnnouncement()}
+                  className="px-4 py-2.5 bg-yellow-500/90 dark:bg-yellow-600/90 hover:bg-yellow-600 dark:hover:bg-yellow-700 rounded-lg text-white font-medium text-sm transition-all duration-200 hover:scale-105 flex items-center justify-center gap-2 border border-yellow-400 dark:border-yellow-500 touch-manipulation"
+                >
+                  <span>📢</span>
+                  <span>New Announcement</span>
+                </button>
+              </div>
+              
+              {/* View Type Toggle - Hidden on mobile, shown on desktop */}
+              <div className="hidden sm:flex gap-0.5 bg-gray-100 dark:bg-gray-800 rounded-lg p-1 border border-gray-200 dark:border-gray-700 flex-shrink-0">
                 <button
                   onClick={() => setViewType('calendar')}
-                  className={`px-4 py-2 rounded-md transition-all duration-200 flex items-center gap-1.5 text-xs font-medium cursor-pointer active:scale-95 ${
+                  className={`px-4 py-2 rounded-md transition-all duration-200 flex items-center justify-center gap-1.5 text-xs font-medium cursor-pointer active:scale-95 ${
                     viewType === 'calendar'
                       ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
                       : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-gray-700/50'
@@ -462,7 +483,7 @@ export default function DashboardContent({ events: initialEvents, specials, anno
                 </button>
                 <button
                   onClick={() => setViewType('list')}
-                  className={`px-4 py-2 rounded-md transition-all duration-200 flex items-center gap-1.5 text-xs font-medium cursor-pointer active:scale-95 ${
+                  className={`px-4 py-2 rounded-md transition-all duration-200 flex items-center justify-center gap-1.5 text-xs font-medium cursor-pointer active:scale-95 ${
                     viewType === 'list'
                       ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
                       : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-gray-700/50'
@@ -480,7 +501,7 @@ export default function DashboardContent({ events: initialEvents, specials, anno
         <div className="flex-1 flex overflow-hidden min-h-0 relative z-10">
           {viewType === 'calendar' ? (
             /* Calendar View */
-            <div className="flex-1 overflow-hidden p-3 sm:p-6 pb-3 sm:pb-6 min-h-0 flex flex-col">
+            <div className="flex-1 overflow-hidden p-2 sm:p-6 pb-2 sm:pb-6 min-h-0 flex flex-col">
               <CalendarView
                 events={events}
                 specials={specials}

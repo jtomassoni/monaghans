@@ -74,8 +74,8 @@ export async function PUT(
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Prevent modifying admin or superadmin
-    if (currentUser.role === 'admin' || currentUser.role === 'superadmin') {
+    // Prevent modifying admin
+    if (currentUser.role === 'admin') {
       return NextResponse.json({ error: 'Cannot modify admin user' }, { status: 403 });
     }
 
@@ -156,7 +156,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    if (user.role === 'admin' || user.role === 'superadmin') {
+    if (user.role === 'admin') {
       return NextResponse.json({ error: 'Cannot delete admin user' }, { status: 403 });
     }
 

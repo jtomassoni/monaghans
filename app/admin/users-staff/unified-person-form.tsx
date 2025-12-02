@@ -395,7 +395,7 @@ export default function UnifiedPersonModalForm({
     try {
       const deletions: Promise<any>[] = [];
 
-      if (person.user && person.user.role !== 'superadmin') {
+      if (person.user) {
         deletions.push(
           fetch(`/api/users/${person.user.id}`, { method: 'DELETE' })
         );
@@ -420,7 +420,7 @@ export default function UnifiedPersonModalForm({
     }
   }
 
-  const canDelete = person && person.user?.role !== 'superadmin';
+  const canDelete = !!person;
 
   return (
     <Modal
@@ -428,14 +428,6 @@ export default function UnifiedPersonModalForm({
       onClose={onClose}
       title={person ? 'Edit Person' : 'New Person'}
     >
-      {person && person.user?.role === 'superadmin' && (
-        <div className="mb-2 rounded-lg border border-yellow-300/70 dark:border-yellow-700/60 bg-yellow-100/90 dark:bg-yellow-900/40 shadow-sm shadow-black/5 p-2 backdrop-blur-sm">
-          <p className="text-xs text-yellow-800 dark:text-yellow-200 flex items-center gap-2">
-            <FaExclamationTriangle className="w-3 h-3" />
-            <span>Superadmin users cannot be modified or deleted</span>
-          </p>
-        </div>
-      )}
 
       <form onSubmit={handleSubmit} className="space-y-3">
         {/* Shared Information Section */}
@@ -458,7 +450,6 @@ export default function UnifiedPersonModalForm({
                   if (createEmployeeRecord) setEmployeeFormData({ ...employeeFormData, name: value });
                 }}
                 className="w-full rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
-                disabled={person?.user?.role === 'superadmin'}
                 placeholder="John Doe"
               />
             </div>
@@ -510,7 +501,6 @@ export default function UnifiedPersonModalForm({
                   }
                 }}
                 className="w-full rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
-                disabled={person?.user?.role === 'superadmin'}
                 required={createUserAccount}
               >
                 {rolesForSelect.map(role => {
@@ -678,7 +668,7 @@ export default function UnifiedPersonModalForm({
           </button>
           <button
             type="submit"
-            disabled={loading || (person?.user?.role === 'superadmin')}
+            disabled={loading}
             className="px-4 py-2 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-blue-500/20 cursor-pointer"
           >
             {loading ? 'Saving...' : person ? 'Update' : 'Create'}

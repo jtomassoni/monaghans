@@ -690,7 +690,7 @@ export default async function HomePage() {
       <section aria-label="Hero section" className="relative h-screen overflow-hidden">
         <div className="absolute inset-0 z-0">
           <Image
-            src="/pics/hero.png"
+            src={getHeroImage()}
             alt="Monaghan's Bar and Grill"
             fill
             className="object-cover transition-opacity duration-500"
@@ -703,11 +703,18 @@ export default async function HomePage() {
           {/* Welcome Title */}
           <div className="text-center mb-6 sm:mb-8 max-w-6xl mx-auto w-full">
             <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-2 sm:mb-3 drop-shadow-lg">
-              Welcome to Monaghan&apos;s
+              {hero?.title || "Monaghan's"}
             </h1>
-            <p className="text-lg sm:text-xl md:text-2xl text-white/90 drop-shadow-md">
-              Denver&apos;s Neighborhood Bar Since 1892
-            </p>
+            {hero?.tagline && (
+              <p className="text-lg sm:text-xl md:text-2xl text-white/90 drop-shadow-md mb-2">
+                {hero.tagline}
+              </p>
+            )}
+            {hero?.subtitle && (
+              <p className="text-base sm:text-lg md:text-xl text-white/80 drop-shadow-md">
+                {hero.subtitle}
+              </p>
+            )}
           </div>
           
           {/* Compact Grid Layout for Specials and Events */}
@@ -958,8 +965,17 @@ export default async function HomePage() {
           
           {/* Call to Action Buttons */}
           <div className="flex flex-wrap justify-center gap-2 sm:gap-3 max-w-6xl mx-auto w-full">
+            <Link
+              href="/private-events"
+              className="group inline-flex w-full items-center justify-center gap-2 rounded-full px-6 py-2.5 sm:px-8 sm:py-3 text-sm sm:text-base font-semibold transition-all hover:scale-105 bg-[var(--color-accent)] hover:bg-[var(--color-accent-dark)] shadow-lg hover:shadow-xl sm:w-auto text-white"
+            >
+              <svg className="w-4 h-4 sm:w-5 sm:h-5 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+              Private Events & Dining
+            </Link>
             <div
-              className="group inline-flex w-full items-center justify-center gap-2 rounded-full px-6 py-2.5 sm:px-8 sm:py-3 text-sm sm:text-base font-semibold transition-all shadow-lg bg-gray-600/50 cursor-not-allowed opacity-75 sm:w-auto"
+              className="group inline-flex w-full items-center justify-center gap-2 rounded-full px-6 py-2.5 sm:px-8 sm:py-3 text-sm sm:text-base font-semibold transition-all shadow-lg bg-gray-600/50 cursor-not-allowed opacity-75 sm:w-auto text-white"
               title="Online ordering coming soon"
             >
               <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -970,7 +986,7 @@ export default async function HomePage() {
             </div>
             <Link
               href="/menu"
-              className="group inline-flex w-full items-center justify-center gap-2 rounded-full border-2 border-white/30 px-6 py-2.5 sm:px-8 sm:py-3 text-sm sm:text-base font-semibold transition-all hover:scale-105 bg-white/10 backdrop-blur-sm hover:border-white/50 hover:bg-white/20 sm:w-auto"
+              className="group inline-flex w-full items-center justify-center gap-2 rounded-full border-2 border-white/30 px-6 py-2.5 sm:px-8 sm:py-3 text-sm sm:text-base font-semibold transition-all hover:scale-105 bg-white/10 backdrop-blur-sm hover:border-white/50 hover:bg-white/20 sm:w-auto text-white"
             >
               <svg className="w-4 h-4 sm:w-5 sm:h-5 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
@@ -1041,22 +1057,68 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* Private Events Section */}
+      <section id="private-events" aria-label="Private events section" className="py-16 md:py-24 px-3 sm:px-4 md:px-6 lg:px-8 bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-gray-900 dark:to-slate-950">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-gray-900 dark:text-white">Private Events & Private Dining</h2>
+            <div className="w-24 h-1 bg-gradient-to-r from-[var(--color-accent)] to-purple-600 mx-auto mb-8"></div>
+          </div>
+
+          {/* Two Column Layout */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 items-center mb-8">
+            {/* Image Column */}
+            <div className="relative aspect-[4/3] rounded-2xl overflow-hidden border-2 border-slate-200 dark:border-slate-700 shadow-xl">
+              <Image
+                src="/pics/hero.png"
+                alt="Monaghan's Bar private event space"
+                fill
+                className="object-cover"
+                unoptimized={true}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent"></div>
+            </div>
+
+            {/* Text Column */}
+            <div className="space-y-6">
+              <p className="text-lg md:text-xl text-gray-700 dark:text-gray-300 leading-relaxed">
+                Host your special occasion at Monaghan&apos;s Bar. Perfect for Christmas parties, corporate events, private dining, post-wedding celebrations, birthdays, anniversaries, and memorial services.
+              </p>
+              <p className="text-base md:text-lg text-gray-600 dark:text-gray-400 leading-relaxed">
+                Our flexible 2,400 sq ft space accommodates 50-120 guests with full-service bar, 8 HD TVs, and customizable catering options. Contact us to discuss your event needs and create a custom package.
+              </p>
+              <div className="pt-4">
+                <Link
+                  href="/private-events"
+                  className="group inline-flex items-center gap-2 px-8 py-4 bg-[var(--color-accent)] hover:bg-[var(--color-accent-dark)] text-white rounded-lg transition-all shadow-lg hover:shadow-xl hover:scale-105 cursor-pointer font-semibold text-lg"
+                >
+                  <span>Learn More About Private Events</span>
+                  <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Events Section */}
-      <section id="events" aria-label="Events section" className="py-16 md:py-24 px-3 sm:px-4 md:px-6 lg:px-8 bg-gradient-to-b from-white to-gray-50 dark:from-black dark:to-gray-900">
+      <section id="events" aria-label="Events section" className="py-16 md:py-24 px-3 sm:px-4 md:px-6 lg:px-8 bg-white dark:bg-gray-900">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-4xl md:text-5xl font-bold mb-4 text-gray-900 dark:text-white">Upcoming Events</h2>
-            <div className="w-24 h-1 bg-[var(--color-accent)] mx-auto mb-8"></div>
+            <div className="w-24 h-1 bg-blue-600 dark:bg-blue-500 mx-auto mb-8"></div>
           </div>
 
           {upcomingEvents.length === 0 ? (
             <div className="text-center py-16">
-              <div className="bg-gray-100 dark:bg-gray-900/60 backdrop-blur-sm border border-gray-300 dark:border-gray-800 rounded-xl p-12">
-                <svg className="w-16 h-16 mx-auto mb-4 text-gray-400 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="bg-blue-50 dark:bg-blue-950/30 border-2 border-blue-200 dark:border-blue-800 rounded-2xl p-12">
+                <svg className="w-16 h-16 mx-auto mb-4 text-blue-400 dark:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
-                <p className="text-gray-600 dark:text-gray-400 text-lg mb-2">No upcoming events</p>
-                <p className="text-gray-500 dark:text-gray-500 text-sm">Check back soon for updates!</p>
+                <p className="text-blue-700 dark:text-blue-400 text-lg mb-2 font-semibold">No upcoming events</p>
+                <p className="text-blue-600 dark:text-blue-500 text-sm">Check back soon for updates!</p>
               </div>
             </div>
           ) : (
@@ -1064,16 +1126,25 @@ export default async function HomePage() {
               {upcomingEvents.map((event) => (
                 <div
                   key={`${event.id}-${event.startDateTime}`}
-                  className="bg-white dark:bg-gray-900/60 backdrop-blur-sm border border-gray-300 dark:border-gray-800 rounded-xl p-6 shadow-sm dark:shadow-none"
+                  className="bg-blue-50 dark:bg-blue-950/20 border-l-4 border-blue-500 dark:border-blue-400 rounded-lg p-6 shadow-md hover:shadow-lg transition-shadow duration-300"
                 >
-                  <h3 className="text-xl font-bold mb-3 text-gray-900 dark:text-white">{event.title}</h3>
+                  <div className="flex items-start gap-3 mb-3">
+                    <div className="flex-shrink-0 w-12 h-12 bg-blue-100 dark:bg-blue-900/50 rounded-lg flex items-center justify-center">
+                      <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">{event.title}</h3>
+                    </div>
+                  </div>
                   {event.description && (
                     <p className="text-gray-700 dark:text-gray-300 mb-4 leading-relaxed text-sm">{event.description}</p>
                   )}
                   
-                  <div className="space-y-2 pt-4 border-t border-gray-300 dark:border-gray-800">
-                    <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                      <svg className="w-5 h-5 text-[var(--color-accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="space-y-2 pt-4 border-t border-blue-200 dark:border-blue-800">
+                    <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400 font-medium">
+                      <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
                       <span className="text-sm">
@@ -1086,8 +1157,8 @@ export default async function HomePage() {
                       </span>
                     </div>
                     
-                    <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                      <svg className="w-5 h-5 text-[var(--color-accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400 font-medium">
+                      <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                       <span className="text-sm">
@@ -1106,8 +1177,8 @@ export default async function HomePage() {
                     </div>
                     
                     {event.venueArea && (
-                      <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                        <svg className="w-5 h-5 text-[var(--color-accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400 font-medium">
+                        <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
@@ -1120,7 +1191,7 @@ export default async function HomePage() {
             </div>
           )}
 
-          <div className="text-center mt-12">
+          <div className="text-center mt-12 flex flex-wrap justify-center gap-4">
             <Link
               href="/events"
               className="group inline-flex items-center gap-2 px-6 py-3 bg-[var(--color-accent)] hover:bg-[var(--color-accent-dark)] text-white rounded-lg transition-all shadow-lg hover:shadow-xl hover:scale-105 cursor-pointer"
@@ -1129,6 +1200,15 @@ export default async function HomePage() {
               <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
+            </Link>
+            <Link
+              href="/private-events"
+              className="group inline-flex items-center gap-2 px-6 py-3 border-2 border-white/30 hover:border-white/50 bg-white/10 backdrop-blur-sm hover:bg-white/20 text-white rounded-lg transition-all shadow-lg hover:shadow-xl hover:scale-105 cursor-pointer"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+              <span>Private Events</span>
             </Link>
           </div>
         </div>

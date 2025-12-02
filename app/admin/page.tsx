@@ -78,7 +78,7 @@ export default async function AdminDashboard() {
       announcements={serializedAnnouncements}
       businessHours={businessHours}
       calendarHours={calendarHours}
-      isSuperadmin={session.user.role === 'superadmin'}
+      isAdmin={session.user.role === 'admin'}
     />
   );
 }

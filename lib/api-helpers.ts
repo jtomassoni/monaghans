@@ -37,9 +37,6 @@ export async function getCurrentUser(req: NextRequest) {
   if (!user && session.user.email) {
     try {
       // Determine role based on email matching patterns
-      const superadminEmail = process.env.SUPERADMIN_EMAIL?.toLowerCase().trim();
-      const isSuperadmin = superadminEmail && session.user.email.toLowerCase() === superadminEmail;
-      
       // For credentials auth, check if email matches admin username pattern
       // This handles the case where ADMIN_USERNAME was used and email is like "username@monaghans.local"
       const adminUsername = process.env.ADMIN_USERNAME || process.env.ADMIN_EMAIL;
@@ -48,12 +45,10 @@ export async function getCurrentUser(req: NextRequest) {
         session.user.email.toLowerCase() === `${adminUsername.toLowerCase()}@monaghans.local`
       );
       
-      // Determine role: superadmin email > credentials admin > default to admin
+      // Determine role: credentials admin > default to admin
       let role = 'admin';
-      if (isSuperadmin) {
-        role = 'superadmin';
-      } else if (isCredentialsAdmin) {
-        role = 'superadmin'; // Credentials auth users are superadmins
+      if (isCredentialsAdmin) {
+        role = 'admin'; // Credentials auth users are admins
       } else if (session.user.role) {
         role = session.user.role; // Use role from session if available
       }

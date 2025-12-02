@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { showToast } from '@/components/toast';
 import { useUnsavedChangesWarning } from '@/lib/use-unsaved-changes-warning';
 import TimePicker from '@/components/time-picker';
@@ -71,6 +72,28 @@ export default function HomepageForm({ initialHero, initialAbout, initialGallery
     enabled: initialMapEmbed?.enabled ?? true,
   };
 
+  // Helper function to extract URL from iframe HTML or return the URL as-is
+  const extractMapUrl = (input: string): string => {
+    if (!input) return '';
+    
+    // Trim whitespace
+    const trimmed = input.trim();
+    
+    // Check if it's an iframe HTML tag
+    const iframeMatch = trimmed.match(/<iframe[^>]+src=["']([^"']+)["']/i);
+    if (iframeMatch && iframeMatch[1]) {
+      return iframeMatch[1];
+    }
+    
+    // Check if it's just the URL (starts with http)
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    
+    // Return as-is if no match
+    return trimmed;
+  };
+
   const initialHappyHourData = {
     enabled: initialHappyHour?.enabled ?? false,
     title: initialHappyHour?.title || 'Buy One Get One',
@@ -132,6 +155,9 @@ export default function HomepageForm({ initialHero, initialAbout, initialGallery
   const [mapEmbed, setMapEmbed] = useState(initialMapEmbedData);
   const [happyHour, setHappyHour] = useState(initialHappyHourData);
 
+  // Validation errors for contact form
+  const [contactErrors, setContactErrors] = useState<{ phone?: string; email?: string }>({});
+
   // Track dirty state
   const [isHeroDirty, setIsHeroDirty] = useState(false);
   const [isAboutDirty, setIsAboutDirty] = useState(false);
@@ -141,9 +167,11 @@ export default function HomepageForm({ initialHero, initialAbout, initialGallery
   const [isMapDirty, setIsMapDirty] = useState(false);
   const [isHappyHourDirty, setIsHappyHourDirty] = useState(false);
 
-  // Check if forms are dirty
+  // Check if forms are dirty (exclude image field since it can't be changed)
   useEffect(() => {
-    setIsHeroDirty(JSON.stringify(hero) !== JSON.stringify(initialHeroRef.current));
+    const { image: _, ...heroWithoutImage } = hero;
+    const { image: __, ...initialHeroWithoutImage } = initialHeroRef.current;
+    setIsHeroDirty(JSON.stringify(heroWithoutImage) !== JSON.stringify(initialHeroWithoutImage));
   }, [hero]);
 
   useEffect(() => {
@@ -177,18 +205,23 @@ export default function HomepageForm({ initialHero, initialAbout, initialGallery
   async function handleSaveHero() {
     setHeroLoading(true);
     try {
+      // Exclude image from being saved - keep the original value
+      const heroToSave = {
+        ...hero,
+        image: initialHeroRef.current.image,
+      };
       await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           key: 'homepageHero',
-          value: hero,
+          value: heroToSave,
           description: 'Homepage hero section content',
         }),
       });
       router.refresh();
       setIsHeroDirty(false);
-      initialHeroRef.current = hero;
+      initialHeroRef.current = heroToSave;
       showToast('Hero section saved successfully', 'success');
     } catch (error) {
       showToast('Failed to save hero section', 'error', error instanceof Error ? error.message : 'Please try again.');
@@ -259,6 +292,19 @@ export default function HomepageForm({ initialHero, initialAbout, initialGallery
   }
 
   async function handleSaveContact() {
+    // Validate before saving
+    const phoneError = validatePhone(contact.phone);
+    const emailError = validateEmail(contact.email);
+    
+    if (phoneError || emailError) {
+      setContactErrors({
+        phone: phoneError,
+        email: emailError,
+      });
+      showToast('Please fix validation errors before saving', 'error');
+      return;
+    }
+
     setContactLoading(true);
     try {
       await fetch('/api/settings', {
@@ -273,6 +319,7 @@ export default function HomepageForm({ initialHero, initialAbout, initialGallery
       router.refresh();
       setIsContactDirty(false);
       initialContactRef.current = contact;
+      setContactErrors({});
       showToast('Contact information saved successfully', 'success');
     } catch (error) {
       showToast('Failed to save contact information', 'error', error instanceof Error ? error.message : 'Please try again.');
@@ -284,7 +331,36 @@ export default function HomepageForm({ initialHero, initialAbout, initialGallery
   function handleCancelContact() {
     setContact(initialContactRef.current);
     setIsContactDirty(false);
+    setContactErrors({});
   }
+
+  // Validation functions for contact form
+  const validatePhone = (phone: string): string | undefined => {
+    if (!phone || phone.trim() === '') return undefined; // Optional field
+    // Remove common formatting characters for validation
+    const cleaned = phone.replace(/[\s\-\(\)\.\+]/g, '');
+    // Check if it contains only digits and has 10-11 digits (10 for US, 11 if includes country code)
+    if (!/^\d+$/.test(cleaned)) {
+      return 'Phone number can only contain digits and formatting characters';
+    }
+    if (cleaned.length < 10 || cleaned.length > 11) {
+      return 'Please enter a valid phone number (e.g., (303) 789-7208)';
+    }
+    // If 11 digits, first should be 1 (US country code)
+    if (cleaned.length === 11 && cleaned[0] !== '1') {
+      return 'Please enter a valid phone number (e.g., (303) 789-7208)';
+    }
+    return undefined;
+  };
+
+  const validateEmail = (email: string): string | undefined => {
+    if (!email || email.trim() === '') return undefined; // Optional field
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return 'Please enter a valid email address';
+    }
+    return undefined;
+  };
 
   async function handleSaveHours() {
     setHoursLoading(true);
@@ -495,11 +571,12 @@ export default function HomepageForm({ initialHero, initialAbout, initialGallery
                     type="text"
                     value={hero.image || '/pics/hero.png'}
                     onChange={(e) => setHero({ ...hero, image: e.target.value })}
-                    className="w-full px-2 py-1.5 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white cursor-text focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
+                    disabled
+                    className="w-full px-2 py-1.5 text-sm bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-gray-500 dark:text-gray-400 cursor-not-allowed opacity-60"
                     placeholder="/pics/hero.png"
                   />
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Default: /pics/hero.png (leave empty to use dynamic images based on events/specials)
+                    Hero image path cannot be modified. Images are automatically selected based on events and specials.
                   </p>
                 </div>
               </div>
@@ -651,6 +728,10 @@ export default function HomepageForm({ initialHero, initialAbout, initialGallery
                   placeholder="Inside Monaghan's"
                 />
               </div>
+              <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded text-xs text-blue-800 dark:text-blue-300">
+                <p className="font-medium mb-1">Image Upload Coming Soon</p>
+                <p>For now, please email pictures to jt</p>
+              </div>
             </div>
           )}
 
@@ -726,9 +807,27 @@ export default function HomepageForm({ initialHero, initialAbout, initialGallery
                     id="phone"
                     type="tel"
                     value={contact.phone}
-                    onChange={(e) => setContact({ ...contact, phone: e.target.value })}
-                    className="w-full px-2 py-1.5 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white cursor-text focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
+                    onChange={(e) => {
+                      const newPhone = e.target.value;
+                      setContact({ ...contact, phone: newPhone });
+                      // Validate on change
+                      const error = validatePhone(newPhone);
+                      setContactErrors(prev => ({ ...prev, phone: error }));
+                    }}
+                    onBlur={(e) => {
+                      // Re-validate on blur
+                      const error = validatePhone(e.target.value);
+                      setContactErrors(prev => ({ ...prev, phone: error }));
+                    }}
+                    className={`w-full px-2 py-1.5 text-sm bg-white dark:bg-gray-700 border rounded text-gray-900 dark:text-white cursor-text focus:outline-none focus:ring-2 ${
+                      contactErrors.phone
+                        ? 'border-red-500 dark:border-red-500 focus:ring-red-500 dark:focus:ring-red-500 focus:border-red-500'
+                        : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400'
+                    }`}
                   />
+                  {contactErrors.phone && (
+                    <p className="mt-1 text-xs text-red-600 dark:text-red-400">{contactErrors.phone}</p>
+                  )}
                 </div>
                 <div>
                   <label htmlFor="email" className="block text-xs text-gray-700 dark:text-gray-300 mb-1 font-medium">Email</label>
@@ -736,9 +835,27 @@ export default function HomepageForm({ initialHero, initialAbout, initialGallery
                     id="email"
                     type="email"
                     value={contact.email}
-                    onChange={(e) => setContact({ ...contact, email: e.target.value })}
-                    className="w-full px-2 py-1.5 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white cursor-text focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
+                    onChange={(e) => {
+                      const newEmail = e.target.value;
+                      setContact({ ...contact, email: newEmail });
+                      // Validate on change
+                      const error = validateEmail(newEmail);
+                      setContactErrors(prev => ({ ...prev, email: error }));
+                    }}
+                    onBlur={(e) => {
+                      // Re-validate on blur
+                      const error = validateEmail(e.target.value);
+                      setContactErrors(prev => ({ ...prev, email: error }));
+                    }}
+                    className={`w-full px-2 py-1.5 text-sm bg-white dark:bg-gray-700 border rounded text-gray-900 dark:text-white cursor-text focus:outline-none focus:ring-2 ${
+                      contactErrors.email
+                        ? 'border-red-500 dark:border-red-500 focus:ring-red-500 dark:focus:ring-red-500 focus:border-red-500'
+                        : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400'
+                    }`}
                   />
+                  {contactErrors.email && (
+                    <p className="mt-1 text-xs text-red-600 dark:text-red-400">{contactErrors.email}</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -870,7 +987,7 @@ export default function HomepageForm({ initialHero, initialAbout, initialGallery
 
           {/* Map Embed */}
           {activeTab === 'map' && (
-            <div className="space-y-3">
+            <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Google Maps</h2>
                 <div className="flex gap-1.5">
@@ -893,20 +1010,41 @@ export default function HomepageForm({ initialHero, initialAbout, initialGallery
                   </button>
                 </div>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <div>
-                  <label htmlFor="mapUrl" className="block text-xs text-gray-700 dark:text-gray-300 mb-1 font-medium">Embed URL</label>
+                  <label htmlFor="mapUrl" className="block text-xs text-gray-700 dark:text-gray-300 mb-0.5 font-medium">Embed URL</label>
                   <input
                     id="mapUrl"
-                    type="url"
+                    type="text"
                     value={mapEmbed.url}
-                    onChange={(e) => setMapEmbed({ ...mapEmbed, url: e.target.value })}
-                    placeholder="https://google.com/maps/embed?pb=..."
+                    onChange={(e) => {
+                      const extractedUrl = extractMapUrl(e.target.value);
+                      setMapEmbed({ ...mapEmbed, url: extractedUrl });
+                    }}
+                    onPaste={(e) => {
+                      // Get pasted content from clipboard and extract URL immediately
+                      const pastedText = e.clipboardData.getData('text');
+                      if (pastedText) {
+                        const extractedUrl = extractMapUrl(pastedText);
+                        // Update state immediately for better UX
+                        setMapEmbed({ ...mapEmbed, url: extractedUrl });
+                        // Prevent default and set the extracted URL
+                        e.preventDefault();
+                        const input = e.currentTarget;
+                        input.value = extractedUrl;
+                      }
+                    }}
+                    placeholder="Paste iframe HTML or embed URL here"
                     className="w-full px-2 py-1.5 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white cursor-text focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
                   />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Share → Embed → Copy iframe src
-                  </p>
+                  <div className="mt-1.5 p-2 bg-gray-50 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-1 font-medium">Quick guide:</p>
+                    <ol className="text-xs text-gray-600 dark:text-gray-400 space-y-0.5 list-decimal list-inside">
+                      <li>Google Maps → Share → Embed a map</li>
+                      <li>Click &quot;COPY HTML&quot;</li>
+                      <li>Paste here (URL auto-extracted)</li>
+                    </ol>
+                  </div>
                 </div>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input

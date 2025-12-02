@@ -6,7 +6,7 @@ import { getPermissions } from '@/lib/permissions';
 
 /**
  * GET /api/feature-flags
- * Get all feature flags (all authenticated users can read, but only superadmin can update)
+ * Get all feature flags (all authenticated users can read, but only admin can update)
  */
 export async function GET(req: NextRequest) {
   try {
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
 
 /**
  * PUT /api/feature-flags
- * Update feature flags (only superadmin)
+ * Update feature flags (only admin)
  */
 export async function PUT(req: NextRequest) {
   try {
@@ -38,9 +38,9 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Only superadmin can update feature flags
+    // Only admin can update feature flags
     const userRole = session.user.role || 'admin';
-    if (userRole !== 'superadmin') {
+    if (userRole !== 'admin') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

@@ -2,7 +2,7 @@
  * Feature Flags System
  * 
  * Controls visibility and access to features in the admin panel.
- * Only superadmin can manage feature flags.
+ * Only admin can manage feature flags.
  */
 
 import { prisma } from './prisma';
@@ -190,7 +190,7 @@ export async function isFeatureEnabled(key: FeatureFlagKey): Promise<boolean> {
 }
 
 /**
- * Update a feature flag (only superadmin should call this)
+ * Update a feature flag (only admin should call this)
  */
 export async function updateFeatureFlag(
   key: FeatureFlagKey,

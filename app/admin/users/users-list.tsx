@@ -43,7 +43,6 @@ export default function UsersList({ initialUsers }: { initialUsers: User[] }) {
     { label: 'Active Only', value: 'active', filterFn: (u) => u.isActive },
     { label: 'Inactive Only', value: 'inactive', filterFn: (u) => !u.isActive },
     { label: 'Admins', value: 'admin', filterFn: (u) => u.role === 'admin' },
-    { label: 'Superadmins', value: 'superadmin', filterFn: (u) => u.role === 'superadmin' },
   ];
 
   function handleEdit(user: User) {
@@ -201,11 +200,7 @@ export default function UsersList({ initialUsers }: { initialUsers: User[] }) {
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span
-                          className={`px-2 py-1 text-xs font-medium rounded ${
-                            user.role === 'superadmin'
-                              ? 'bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-200'
-                              : 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200'
-                          }`}
+                          className={`px-2 py-1 text-xs font-medium rounded bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200`}
                         >
                           {user.role}
                         </span>
@@ -221,7 +216,7 @@ export default function UsersList({ initialUsers }: { initialUsers: User[] }) {
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <div className="flex items-center justify-end">
-                          {user.role !== 'superadmin' ? (
+                          {user.role !== 'admin' ? (
                             <div className="flex items-center justify-end gap-2">
                               <button
                                 onClick={() => handleToggleActive(user.id, user.isActive, user.email)}

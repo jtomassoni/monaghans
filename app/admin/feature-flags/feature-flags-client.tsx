@@ -68,7 +68,11 @@ export default function FeatureFlagsClient() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to update feature flag');
+        const errorData = await response.json().catch(() => ({}));
+        if (response.status === 403) {
+          throw new Error('You do not have permission to update feature flags. Only admin can toggle flags.');
+        }
+        throw new Error(errorData.error || 'Failed to update feature flag');
       }
 
       // Show success toast
@@ -135,15 +139,15 @@ export default function FeatureFlagsClient() {
                 {categoryFlags.map((flag) => (
                   <div
                     key={flag.key}
-                    className="px-2.5 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors"
+                    className="px-3 py-2.5 sm:px-2.5 sm:py-1.5 hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors"
                   >
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center justify-between gap-3">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <h3 className="text-xs font-semibold text-gray-900 dark:text-white">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <h3 className="text-xs sm:text-xs font-semibold text-gray-900 dark:text-white">
                             {flag.name}
                           </h3>
-                          <span className={`px-1 py-0.5 text-[9px] font-medium rounded-full ${
+                          <span className={`px-1.5 py-0.5 text-[9px] font-medium rounded-full ${
                             flag.isEnabled
                               ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200'
                               : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
@@ -160,15 +164,18 @@ export default function FeatureFlagsClient() {
                       <button
                         onClick={() => toggleFlag(flag.key, flag.isEnabled)}
                         disabled={saving}
-                        className={`flex-shrink-0 transition-opacity ${
-                          saving ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:opacity-80'
+                        className={`flex-shrink-0 transition-all min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg ${
+                          saving 
+                            ? 'opacity-50 cursor-not-allowed' 
+                            : 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 active:scale-95 touch-manipulation'
                         }`}
                         aria-label={`${flag.isEnabled ? 'Disable' : 'Enable'} ${flag.name}`}
+                        type="button"
                       >
                         {flag.isEnabled ? (
-                          <FaToggleOn className="w-6 h-6 text-green-500 dark:text-green-400" />
+                          <FaToggleOn className="w-7 h-7 sm:w-6 sm:h-6 text-green-500 dark:text-green-400" />
                         ) : (
-                          <FaToggleOff className="w-6 h-6 text-gray-400 dark:text-gray-600" />
+                          <FaToggleOff className="w-7 h-7 sm:w-6 sm:h-6 text-gray-400 dark:text-gray-600" />
                         )}
                       </button>
                     </div>
