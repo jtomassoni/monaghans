@@ -679,75 +679,7 @@ export default async function HomePage() {
     ...todaysEvents,
     ...todaysFoodSpecials,
     ...(todaysDrinkSpecial ? [todaysDrinkSpecial] : []),
-    ...(hasHappyHour ? [{ type: 'happyHour', title: happyHour.title || 'Buy One Get One', description: happyHour.description }] : []),
   ];
-
-  // Featured fallback content when there's no events/specials
-  const featuredContent = [
-    {
-      type: 'featured',
-      title: 'Historic Neighborhood Bar',
-      description: 'Denver\'s second-oldest bar since 1892',
-      icon: 'history',
-      color: 'amber',
-    },
-    {
-      type: 'featured',
-      title: 'Daily BOGO Happy Hour',
-      description: 'Buy one, get one on select drinks',
-      icon: 'drink',
-      color: 'green',
-    },
-    {
-      type: 'featured',
-      title: 'Famous Green Chili',
-      description: 'A local favorite you have to try',
-      icon: 'food',
-      color: 'orange',
-    },
-  ];
-
-  // Get hero image card for empty space
-  const getHeroImageCard = () => {
-    if (allContent.length >= 3) return null;
-    
-    // Select an image that's different from the background
-    const heroImage = getHeroImage();
-    const availableImages = [
-      '/pics/monaghans-billiard-room.jpg',
-      '/pics/monaghans-patio.jpg',
-      '/pics/monaghans-billiards.jpg',
-      '/pics/monaghans-breakfast-biscut.jpg',
-      '/pics/monaghans-fish-n-chips.jpg',
-      '/pics/monaghans-quesadilla.jpg',
-      '/pics/monaghans-taco-platter.jpg',
-    ];
-    // Use an image that's different from the background
-    const displayImage = availableImages.find(img => img !== heroImage) || availableImages[0];
-    
-    return (
-      <div className="group bg-white/10 backdrop-blur-md rounded-xl overflow-hidden border border-white/20 hover:bg-white/15 hover:border-white/30 transition-all duration-300 shadow-lg hover:shadow-xl">
-        <div className="relative h-full min-h-[200px] sm:min-h-[240px]">
-          <Image
-            src={displayImage}
-            alt="Monaghan's Bar and Grill"
-            fill
-            className="object-cover transition-transform duration-300 group-hover:scale-105"
-            sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-          <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4">
-            <span className="text-white/90 text-[10px] sm:text-xs font-semibold uppercase tracking-wider block mb-1">
-              Visit Us
-            </span>
-            <h3 className="text-base sm:text-lg font-bold text-white line-clamp-2 leading-tight">
-              Experience Monaghan&apos;s
-            </h3>
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   return (
     <main id="main-content" className="min-h-screen bg-[var(--color-background)] text-[var(--color-foreground)] scroll-smooth" role="main" aria-label="Main content">
@@ -768,6 +700,16 @@ export default async function HomePage() {
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/80" />
         </div>
         <div className="relative z-10 container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 flex flex-col h-full justify-center">
+          {/* Welcome Title */}
+          <div className="text-center mb-6 sm:mb-8 max-w-6xl mx-auto w-full">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-2 sm:mb-3 drop-shadow-lg">
+              Welcome to Monaghan&apos;s
+            </h1>
+            <p className="text-lg sm:text-xl md:text-2xl text-white/90 drop-shadow-md">
+              Denver&apos;s Neighborhood Bar Since 1892
+            </p>
+          </div>
+          
           {/* Compact Grid Layout for Specials and Events */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6 max-w-6xl mx-auto w-full">
             {/* Today's Events - Recurring and Ad Hoc */}
@@ -880,11 +822,11 @@ export default async function HomePage() {
 
             {/* Food Specials */}
             {todaysFoodSpecials.map((special) => (
-              <div key={special.id} className="group relative bg-orange-950/80 backdrop-blur-sm rounded-xl p-3 sm:p-4 border-l-4 border-orange-500 hover:border-orange-400 transition-all duration-300 shadow-lg hover:shadow-xl hover:shadow-orange-500/20 overflow-hidden">
+              <div key={special.id} className="group relative bg-orange-950/80 backdrop-blur-sm rounded-xl p-3 sm:p-4 border-l-4 border-orange-500 shadow-lg overflow-hidden">
                 {/* Diagonal accent stripe */}
-                <div className="absolute top-0 right-0 w-24 h-24 bg-orange-500/10 -rotate-45 translate-x-8 -translate-y-8 group-hover:bg-orange-500/20 transition-colors duration-300"></div>
+                <div className="absolute top-0 right-0 w-24 h-24 bg-orange-500/10 -rotate-45 translate-x-8 -translate-y-8"></div>
                 <div className="relative flex items-start gap-2 sm:gap-3">
-                  <div className="p-2 sm:p-2.5 bg-orange-600/70 rounded-lg flex-shrink-0 group-hover:scale-110 group-hover:bg-orange-500/80 transition-all duration-300 shadow-md">
+                  <div className="p-2 sm:p-2.5 bg-orange-600/70 rounded-lg flex-shrink-0 shadow-md">
                     <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                     </svg>
@@ -921,15 +863,15 @@ export default async function HomePage() {
 
             {/* Drink Special */}
             {todaysDrinkSpecial && (
-              <div className="group relative bg-slate-900/70 backdrop-blur-md rounded-2xl p-3 sm:p-4 border-2 border-blue-400/40 hover:border-blue-300/60 transition-all duration-300 shadow-xl hover:shadow-2xl hover:shadow-blue-500/30 overflow-hidden">
+              <div className="group relative bg-slate-900/70 backdrop-blur-md rounded-2xl p-3 sm:p-4 border-2 border-blue-400/40 shadow-xl overflow-hidden">
                 {/* Animated background circles */}
                 <div className="absolute inset-0 opacity-20">
-                  <div className="absolute top-2 right-2 w-20 h-20 bg-blue-500 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500"></div>
-                  <div className="absolute bottom-2 left-2 w-16 h-16 bg-cyan-500 rounded-full blur-xl group-hover:scale-125 transition-transform duration-700"></div>
+                  <div className="absolute top-2 right-2 w-20 h-20 bg-blue-500 rounded-full blur-2xl"></div>
+                  <div className="absolute bottom-2 left-2 w-16 h-16 bg-cyan-500 rounded-full blur-xl"></div>
                 </div>
                 <div className="relative flex flex-col">
                   <div className="flex items-start gap-2 sm:gap-3 mb-2">
-                    <div className="p-2 sm:p-2.5 bg-blue-500/60 rounded-xl flex-shrink-0 group-hover:scale-110 group-hover:rotate-6 transition-all duration-300 shadow-lg ring-2 ring-blue-400/30">
+                    <div className="p-2 sm:p-2.5 bg-blue-500/60 rounded-xl flex-shrink-0 shadow-lg ring-2 ring-blue-400/30">
                       <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
                       </svg>
@@ -965,48 +907,41 @@ export default async function HomePage() {
               </div>
             )}
 
-            {/* Announcements are now shown as modals, not in the grid */}
-
-            {/* Happy Hour - Distinctive recurring display */}
+            {/* Happy Hour */}
             {hasHappyHour && (
-              <div className="group relative bg-gradient-to-br from-green-600/40 via-green-500/30 to-emerald-600/40 backdrop-blur-md rounded-xl p-3 sm:p-4 border-2 border-green-400/40 hover:border-green-400/60 hover:from-green-600/50 hover:via-green-500/40 hover:to-emerald-600/50 transition-all duration-300 shadow-lg hover:shadow-xl hover:shadow-green-500/20 overflow-hidden">
-                {/* Recurring pattern background decoration */}
-                <div className="absolute inset-0 opacity-5">
-                  <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-                    <path d="M0,50 Q25,30 50,50 T100,50" stroke="currentColor" strokeWidth="0.5" fill="none" />
-                    <path d="M0,50 Q25,70 50,50 T100,50" stroke="currentColor" strokeWidth="0.5" fill="none" />
-                  </svg>
+              <div className="group relative bg-gradient-to-br from-green-900/70 via-emerald-800/60 to-teal-900/70 backdrop-blur-md rounded-2xl p-3 sm:p-4 border-2 border-green-400/40 shadow-xl overflow-hidden">
+                {/* Decorative pattern overlay */}
+                <div className="absolute inset-0 opacity-20">
+                  <div className="absolute top-2 right-2 w-20 h-20 bg-green-500 rounded-full blur-2xl"></div>
+                  <div className="absolute bottom-2 left-2 w-16 h-16 bg-emerald-500 rounded-full blur-xl"></div>
                 </div>
                 <div className="relative flex items-start gap-2 sm:gap-3">
-                  <div className="p-1.5 sm:p-2 bg-green-400/40 rounded-lg flex-shrink-0 group-hover:scale-110 transition-transform duration-300 ring-2 ring-green-300/30">
-                    <svg className="w-4 h-4 sm:w-5 sm:h-5 text-green-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="p-2 sm:p-2.5 bg-green-500/60 rounded-xl flex-shrink-0 shadow-lg ring-2 ring-green-400/30">
+                    <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-400/30 border border-green-300/40 rounded-full text-green-100 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider">
-                        <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
-                        </svg>
-                        Most Days
-                      </span>
-                    </div>
-                    <h3 className="text-base sm:text-lg font-bold text-white mb-1.5 line-clamp-2 leading-tight drop-shadow-sm">
-                      {happyHour.title || 'Buy One Get One'}
-                    </h3>
+                    <span className="text-green-300 text-[10px] sm:text-xs font-bold uppercase tracking-wider block mb-1.5">
+                      Happy Hour
+                    </span>
+                    {happyHour.title && (
+                      <h3 className="text-base sm:text-lg font-bold text-white mb-1.5 line-clamp-2 leading-tight drop-shadow-sm">
+                        {happyHour.title}
+                      </h3>
+                    )}
                     {happyHour.description && (
                       <p className="text-green-50/90 text-xs sm:text-sm mb-2 line-clamp-2 leading-relaxed">
                         {happyHour.description}
                       </p>
                     )}
                     {happyHour.details && (
-                      <p className="text-green-100/80 text-[10px] sm:text-xs mb-2 font-medium">
+                      <p className="text-green-200/80 text-[10px] sm:text-xs mb-2 font-semibold">
                         {happyHour.details}
                       </p>
                     )}
                     {happyHour.times && (
-                      <div className="flex items-center gap-1.5 text-green-100 text-[10px] sm:text-xs font-medium">
+                      <div className="flex items-center gap-1.5 text-green-200 text-[10px] sm:text-xs font-semibold">
                         <svg className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
@@ -1018,62 +953,7 @@ export default async function HomePage() {
               </div>
             )}
 
-            {/* Featured Fallback Content - Show when there's not enough content */}
-            {allContent.length < 3 && featuredContent.slice(0, Math.max(0, 3 - allContent.length - 1)).map((featured, idx) => {
-              const colorMap: Record<string, { bg: string; text: string; icon: React.ReactElement }> = {
-                amber: {
-                  bg: 'bg-amber-500/30',
-                  text: 'text-amber-200',
-                  icon: (
-                    <svg className="w-4 h-4 sm:w-5 sm:h-5 text-amber-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  ),
-                },
-                green: {
-                  bg: 'bg-green-500/30',
-                  text: 'text-green-200',
-                  icon: (
-                    <svg className="w-4 h-4 sm:w-5 sm:h-5 text-green-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-                    </svg>
-                  ),
-                },
-                orange: {
-                  bg: 'bg-orange-500/30',
-                  text: 'text-orange-200',
-                  icon: (
-                    <svg className="w-4 h-4 sm:w-5 sm:h-5 text-orange-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                    </svg>
-                  ),
-                },
-              };
-              const colors = colorMap[featured.color] || colorMap.amber;
-              
-              return (
-                <div key={`featured-${idx}`} className="group bg-white/10 backdrop-blur-md rounded-xl p-3 sm:p-4 border border-white/20 hover:bg-white/15 hover:border-white/30 transition-all duration-300 shadow-lg hover:shadow-xl">
-                  <div className="flex items-start gap-2 sm:gap-3">
-                    <div className={`p-1.5 sm:p-2 ${colors.bg} rounded-lg flex-shrink-0 group-hover:scale-110 transition-transform duration-300`}>
-                      {colors.icon}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <span className={`${colors.text} text-[10px] sm:text-xs font-semibold uppercase tracking-wider block mb-1`}>
-                        Featured
-                      </span>
-                      <h3 className="text-base sm:text-lg font-bold text-white mb-1.5 line-clamp-2 leading-tight">
-                        {featured.title}
-                      </h3>
-                      {featured.description && (
-                        <p className="text-white/80 text-xs sm:text-sm mb-2 line-clamp-2 leading-relaxed">
-                          {featured.description}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {/* Announcements are now shown as modals, not in the grid */}
           </div>
           
           {/* Call to Action Buttons */}
