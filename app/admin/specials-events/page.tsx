@@ -29,6 +29,7 @@ export default async function AdminSpecialsEvents() {
     tags: event.tags ? JSON.parse(event.tags) : null,
     image: (event as any).image || null,
     isActive: event.isActive,
+    eventType: 'event' as const,
   }));
 
   return (
