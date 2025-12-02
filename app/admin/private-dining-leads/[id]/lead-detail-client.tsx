@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { showToast } from '@/components/toast';
-import StatusBadge from '@/components/status-badge';
 import ConfirmationDialog from '@/components/confirmation-dialog';
 
 interface Lead {
@@ -41,6 +40,15 @@ const statusColors: Record<string, string> = {
   booked: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
   cancelled: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
   lost: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200',
+};
+
+const statusLabels: Record<string, string> = {
+  new: 'New',
+  contacted: 'Contacted',
+  quoted: 'Quoted',
+  booked: 'Booked',
+  cancelled: 'Cancelled',
+  lost: 'Lost',
 };
 
 export default function LeadDetailClient({ initialLead }: { initialLead: Lead }) {
@@ -193,17 +201,13 @@ export default function LeadDetailClient({ initialLead }: { initialLead: Lead })
             <h1 className="text-xl font-bold text-gray-900 dark:text-white">
               {isEditing ? 'Edit Lead' : lead.name}
             </h1>
-            <StatusBadge
-              status={lead.status}
-              statusMap={{
-                new: { label: 'New', color: statusColors.new },
-                contacted: { label: 'Contacted', color: statusColors.contacted },
-                quoted: { label: 'Quoted', color: statusColors.quoted },
-                booked: { label: 'Booked', color: statusColors.booked },
-                cancelled: { label: 'Cancelled', color: statusColors.cancelled },
-                lost: { label: 'Lost', color: statusColors.lost },
-              }}
-            />
+            <span
+              className={`px-2 py-0.5 text-xs rounded-full font-medium flex-shrink-0 ${
+                statusColors[lead.status] || statusColors.lost
+              }`}
+            >
+              {statusLabels[lead.status] || lead.status}
+            </span>
           </div>
           <div className="flex gap-2">
             {!isEditing ? (
@@ -505,7 +509,7 @@ export default function LeadDetailClient({ initialLead }: { initialLead: Lead })
         title="Delete Lead"
         message="Are you sure you want to delete this lead? This action cannot be undone."
         confirmText="Delete"
-        confirmColor="red"
+        variant="danger"
       />
     </div>
   );

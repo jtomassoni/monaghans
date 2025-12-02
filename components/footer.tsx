@@ -65,15 +65,21 @@ export default async function Footer() {
     }
     
     // Decode HTML entities that might appear in URLs from Google Maps embed code
-    // First decode numeric entities (like &#39;)
-    url = url.replace(/&#(\d+);/g, (match, code) => {
+    // Helper function to decode numeric entities (like &#39;)
+    const decodeNumericEntity = (_match: string, code: string): string => {
       return String.fromCharCode(parseInt(code, 10));
-    });
+    };
     
-    // Then decode hex entities (like &#x27;)
-    url = url.replace(/&#x([0-9a-fA-F]+);/g, (match, code) => {
+    // Helper function to decode hex entities (like &#x27;)
+    const decodeHexEntity = (_match: string, code: string): string => {
       return String.fromCharCode(parseInt(code, 16));
-    });
+    };
+    
+    // First decode numeric entities
+    url = url.replace(/&#(\d+);/g, decodeNumericEntity);
+    
+    // Then decode hex entities
+    url = url.replace(/&#x([0-9a-fA-F]+);/g, decodeHexEntity);
     
     // Finally decode named entities (but be careful with &amp;)
     url = url

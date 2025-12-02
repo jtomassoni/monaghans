@@ -24,12 +24,13 @@ async function requireAdminAccess(req: NextRequest) {
  */
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const authResult = await requireAdminAccess(req);
   if (authResult instanceof NextResponse) return authResult;
 
   try {
+    const { id } = await params;
     const body = await req.json();
     const { title, description, startDateTime, endDateTime, venueArea } = body;
 
@@ -42,7 +43,7 @@ export async function POST(
 
     // Get the lead
     const lead = await prisma.privateDiningLead.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!lead) {
@@ -66,7 +67,7 @@ export async function POST(
 
     // Link the event to the lead
     const updatedLead = await prisma.privateDiningLead.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         eventId: event.id,
         status: 'booked', // Automatically mark as booked when event is created

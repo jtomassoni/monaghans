@@ -14,7 +14,7 @@ const leadFormSchema = z.object({
   groupSize: z.string().min(1, 'Group size is required'),
   preferredDate: z.string().min(1, 'Preferred date is required'),
   message: z.string().optional(),
-  status: z.enum(['new', 'contacted', 'quoted', 'booked', 'cancelled', 'lost']).default('new'),
+  status: z.enum(['new', 'contacted', 'quoted', 'booked', 'cancelled', 'lost']),
 });
 
 type LeadFormData = z.infer<typeof leadFormSchema>;
