@@ -6,7 +6,12 @@ import { Providers } from '@/components/providers';
 import Analytics from '@/components/analytics';
 import Script from 'next/script';
 
+// Get base URL for absolute image URLs (needed for SMS previews)
+const baseUrl = process.env.NEXTAUTH_URL || 'https://monaghans.com';
+const heroImageUrl = `${baseUrl}/pics/hero.png`;
+
 export const metadata: Metadata = {
+  metadataBase: new URL(baseUrl),
   title: "Monaghan's Dive Bar",
   description: 'Cold drinks, warm people. Your neighborhood dive bar.',
   icons: {
@@ -17,7 +22,7 @@ export const metadata: Metadata = {
     description: 'Cold drinks, warm people. Your neighborhood dive bar.',
     images: [
       {
-        url: '/pics/sms-preview.png',
+        url: heroImageUrl,
         width: 1200,
         height: 630,
         alt: "Monaghan's Dive Bar",
@@ -29,7 +34,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: "Monaghan's Dive Bar",
     description: 'Cold drinks, warm people. Your neighborhood dive bar.',
-    images: ['/pics/sms-preview.png'],
+    images: [heroImageUrl],
   },
 };
 
