@@ -9,6 +9,7 @@ import { marked } from 'marked';
 import { getMountainTimeToday, getMountainTimeTomorrow, getMountainTimeWeekday, getMountainTimeNow, getMountainTimeDateString, parseMountainTimeDate } from '@/lib/timezone';
 import { startOfDay, endOfDay, isWithinInterval, format } from 'date-fns';
 import { RRule } from 'rrule';
+import { FaCalendarAlt, FaUtensils, FaBeer } from 'react-icons/fa';
 
 // Configure marked to allow HTML
 marked.setOptions({
@@ -399,6 +400,7 @@ export default async function HomePage() {
   // Fetch today's specials using Mountain Time
   const todayName = getMountainTimeWeekday();
   const todayStart = getMountainTimeToday();
+  const todayDateStr = getMountainTimeDateString(todayStart);
 
   // Get today's food specials (date-based or weekly recurring)
   // Collect ALL matching food specials, not just the first one
@@ -462,17 +464,15 @@ export default async function HomePage() {
         let isInDateRange = true;
         
         // Check if we're past the start date (if set)
-        if (startDate) {
-          const start = startOfDay(startDate);
-          if (todayStart < start) {
+        if (startDateStr) {
+          if (todayDateStr < startDateStr) {
             isInDateRange = false;
           }
         }
         
         // Check if we're before the end date (if set)
-        if (endDate && isInDateRange) {
-          const end = endOfDay(endDate);
-          if (todayStart > end) {
+        if (endDateStr && isInDateRange) {
+          if (todayDateStr > endDateStr) {
             isInDateRange = false;
           }
         }
@@ -481,15 +481,15 @@ export default async function HomePage() {
           todaysFoodSpecials.push(special);
         }
       }
-    } else if (startDate) {
+    } else if (startDateStr) {
       // Date-based special (no weekly recurring)
       // If only startDate is set, treat it as a single-day special
       // If both dates are set, use the date range
-      const effectiveEndDate = endDate || startDate;
-      const start = startOfDay(startDate);
-      const end = endOfDay(effectiveEndDate);
+      // Compare date strings directly to avoid timezone issues
+      const effectiveEndDateStr = endDateStr || startDateStr;
       
-      if (todayStart >= start && todayStart <= end) {
+      // Check if today's date string is within the range
+      if (todayDateStr >= startDateStr && todayDateStr <= effectiveEndDateStr) {
         todaysFoodSpecials.push(special);
       }
     }
@@ -556,17 +556,15 @@ export default async function HomePage() {
         let isInDateRange = true;
         
         // Check if we're past the start date (if set)
-        if (startDate) {
-          const start = startOfDay(startDate);
-          if (todayStart < start) {
+        if (startDateStr) {
+          if (todayDateStr < startDateStr) {
             isInDateRange = false;
           }
         }
         
         // Check if we're before the end date (if set)
-        if (endDate && isInDateRange) {
-          const end = endOfDay(endDate);
-          if (todayStart > end) {
+        if (endDateStr && isInDateRange) {
+          if (todayDateStr > endDateStr) {
             isInDateRange = false;
           }
         }
@@ -576,12 +574,13 @@ export default async function HomePage() {
           break;
         }
       }
-    } else if (startDate) {
+    } else if (startDateStr) {
       // Date-based special (no weekly recurring)
-      const start = startOfDay(startDate);
-      const end = endDate ? endOfDay(endDate) : start;
+      // Compare date strings directly to avoid timezone issues
+      const effectiveEndDateStr = endDateStr || startDateStr;
       
-      if (todayStart >= start && todayStart <= end) {
+      // Check if today's date string is within the range
+      if (todayDateStr >= startDateStr && todayDateStr <= effectiveEndDateStr) {
         todaysDrinkSpecial = special;
         break;
       }
@@ -761,7 +760,7 @@ export default async function HomePage() {
               return (
                 <div 
                   key={`${event.id}-${event.startDateTime}`} 
-                  className="group relative bg-gradient-to-br from-purple-900/60 via-purple-800/50 to-indigo-900/60 backdrop-blur-md rounded-2xl p-3 sm:p-4 border-2 border-purple-400/30 hover:border-purple-400/50 transition-all duration-300 shadow-xl hover:shadow-2xl hover:shadow-purple-500/20 overflow-hidden"
+                  className="group relative bg-gradient-to-br from-purple-900/60 via-purple-800/50 to-indigo-900/60 backdrop-blur-md rounded-2xl p-3 sm:p-4 border-l-4 border-purple-400 shadow-xl hover:shadow-2xl hover:shadow-purple-500/20 overflow-hidden"
                 >
                   {/* Decorative pattern overlay */}
                   <div className="absolute inset-0 opacity-10">
@@ -770,9 +769,7 @@ export default async function HomePage() {
                   </div>
                   <div className="relative flex items-start gap-2 sm:gap-3">
                     <div className={`p-2 sm:p-2.5 ${isRecurring ? 'bg-purple-500/60' : 'bg-purple-500/50'} rounded-xl flex-shrink-0 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 shadow-lg ring-2 ring-purple-300/30`}>
-                      <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
+                      <FaCalendarAlt className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 mb-1.5">
@@ -829,14 +826,12 @@ export default async function HomePage() {
 
             {/* Food Specials */}
             {todaysFoodSpecials.map((special) => (
-              <div key={special.id} className="group relative bg-orange-950/80 backdrop-blur-sm rounded-xl p-3 sm:p-4 border-l-4 border-orange-500 shadow-lg overflow-hidden">
+              <div key={special.id} className="group relative bg-orange-950/80 backdrop-blur-sm rounded-2xl p-3 sm:p-4 border-l-4 border-orange-500 shadow-xl overflow-hidden">
                 {/* Diagonal accent stripe */}
                 <div className="absolute top-0 right-0 w-24 h-24 bg-orange-500/10 -rotate-45 translate-x-8 -translate-y-8"></div>
                 <div className="relative flex items-start gap-2 sm:gap-3">
                   <div className="p-2 sm:p-2.5 bg-orange-600/70 rounded-lg flex-shrink-0 shadow-md">
-                    <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                    </svg>
+                    <FaUtensils className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <span className="text-orange-300 text-[10px] sm:text-xs font-bold uppercase tracking-wider block mb-1.5">
@@ -870,7 +865,7 @@ export default async function HomePage() {
 
             {/* Drink Special */}
             {todaysDrinkSpecial && (
-              <div className="group relative bg-slate-900/70 backdrop-blur-md rounded-2xl p-3 sm:p-4 border-2 border-blue-400/40 shadow-xl overflow-hidden">
+              <div className="group relative bg-slate-900/70 backdrop-blur-md rounded-2xl p-3 sm:p-4 border-l-4 border-blue-400 shadow-xl overflow-hidden">
                 {/* Animated background circles */}
                 <div className="absolute inset-0 opacity-20">
                   <div className="absolute top-2 right-2 w-20 h-20 bg-blue-500 rounded-full blur-2xl"></div>
@@ -879,9 +874,7 @@ export default async function HomePage() {
                 <div className="relative flex flex-col">
                   <div className="flex items-start gap-2 sm:gap-3 mb-2">
                     <div className="p-2 sm:p-2.5 bg-blue-500/60 rounded-xl flex-shrink-0 shadow-lg ring-2 ring-blue-400/30">
-                      <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-                      </svg>
+                      <FaBeer className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <span className="text-blue-300 text-[10px] sm:text-xs font-bold uppercase tracking-wider block mb-1.5">
@@ -916,7 +909,7 @@ export default async function HomePage() {
 
             {/* Happy Hour */}
             {hasHappyHour && (
-              <div className="group relative bg-gradient-to-br from-green-900/70 via-emerald-800/60 to-teal-900/70 backdrop-blur-md rounded-2xl p-3 sm:p-4 border-2 border-green-400/40 shadow-xl overflow-hidden">
+              <div className="group relative bg-gradient-to-br from-green-900/70 via-emerald-800/60 to-teal-900/70 backdrop-blur-md rounded-2xl p-3 sm:p-4 border-l-4 border-green-400 shadow-xl overflow-hidden">
                 {/* Decorative pattern overlay */}
                 <div className="absolute inset-0 opacity-20">
                   <div className="absolute top-2 right-2 w-20 h-20 bg-green-500 rounded-full blur-2xl"></div>
@@ -924,9 +917,7 @@ export default async function HomePage() {
                 </div>
                 <div className="relative flex items-start gap-2 sm:gap-3">
                   <div className="p-2 sm:p-2.5 bg-green-500/60 rounded-xl flex-shrink-0 shadow-lg ring-2 ring-green-400/30">
-                    <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
+                    <FaBeer className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <span className="text-green-300 text-[10px] sm:text-xs font-bold uppercase tracking-wider block mb-1.5">
