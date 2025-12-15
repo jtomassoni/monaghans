@@ -37,6 +37,7 @@ function parseDateTimeLocal(dateTimeLocal: string): Date {
 
 export default function DateTimePicker({ value, onChange, min, max, label, required }: DateTimePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(() => {
     return value ? parseDateTimeLocal(value) : new Date();
   });
@@ -65,9 +66,18 @@ export default function DateTimePicker({ value, onChange, min, max, label, requi
   const PICKER_Z_INDEX = 10001;
   const BACKDROP_Z_INDEX = 10000;
 
-  // Mount check for portal
+  // Mount check for portal and mobile detection
   useEffect(() => {
     setMounted(true);
+    
+    // Check if mobile on mount and resize
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768); // md breakpoint
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   // Sync internal state when value prop changes
@@ -269,6 +279,42 @@ export default function DateTimePicker({ value, onChange, min, max, label, requi
     const displayHours = hours % 12 || 12;
     return `${displayHours}:${String(minutes).padStart(2, '0')} ${period}`;
   };
+
+  // On mobile, use native datetime-local input
+  if (isMobile) {
+    // Convert value to datetime-local format (YYYY-MM-DDTHH:mm)
+    const getDateTimeLocalValue = () => {
+      if (!value) return '';
+      const date = parseDateTimeLocal(value);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
+    };
+
+    return (
+      <div className="relative">
+        {label && (
+          <label className="block mb-2 text-sm font-semibold text-gray-900 dark:text-white">
+            {label} {required && <span className="text-red-500">*</span>}
+          </label>
+        )}
+        <input
+          type="datetime-local"
+          value={getDateTimeLocalValue()}
+          onChange={(e) => {
+            onChange(e.target.value);
+          }}
+          min={min}
+          max={max}
+          required={required}
+          className="w-full px-4 py-3 bg-white dark:bg-gray-800/95 border-2 border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white text-base cursor-pointer focus:border-blue-500 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 touch-manipulation min-h-[44px]"
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="relative">

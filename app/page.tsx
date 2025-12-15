@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import React from 'react';
 import { prisma } from '@/lib/prisma';
 import ImageCarousel from '@/components/image-carousel';
 import Footer from '@/components/footer';
@@ -603,6 +602,10 @@ export default async function HomePage() {
   } catch {}
 
   const hasHappyHour = happyHour && (happyHour.title || happyHour.description || happyHour.times);
+  
+  // Check if today is a weekday (Monday-Friday) for happy hour display
+  const isWeekday = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].includes(todayName);
+  const shouldShowHappyHour = hasHappyHour && isWeekday;
 
   const formatHours = () => {
     const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
@@ -678,7 +681,23 @@ export default async function HomePage() {
     ...todaysEvents,
     ...todaysFoodSpecials,
     ...(todaysDrinkSpecial ? [todaysDrinkSpecial] : []),
+    ...(shouldShowHappyHour ? ['happyHour'] : []),
   ];
+
+  // Calculate total number of items for dynamic grid layout
+  const totalItems = todaysEvents.length + todaysFoodSpecials.length + (todaysDrinkSpecial ? 1 : 0) + (shouldShowHappyHour ? 1 : 0);
+  
+  // Determine grid columns and max width based on number of items
+  const getGridCols = () => {
+    if (totalItems === 0) return { cols: 'grid-cols-1', maxWidth: 'max-w-6xl' };
+    if (totalItems === 1) return { cols: 'grid-cols-1', maxWidth: 'max-w-md' };
+    if (totalItems === 2) return { cols: 'grid-cols-1 md:grid-cols-2', maxWidth: 'max-w-4xl' };
+    if (totalItems === 3) return { cols: 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3', maxWidth: 'max-w-6xl' };
+    // 4 or more items
+    return { cols: 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4', maxWidth: 'max-w-6xl' };
+  };
+  
+  const gridConfig = getGridCols();
 
   return (
     <main id="main-content" className="min-h-screen bg-[var(--color-background)] text-[var(--color-foreground)] scroll-smooth" role="main" aria-label="Main content">
@@ -717,7 +736,8 @@ export default async function HomePage() {
           </div>
           
           {/* Compact Grid Layout for Specials and Events */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6 max-w-6xl mx-auto w-full">
+          {totalItems > 0 ? (
+            <div className={`grid ${gridConfig.cols} gap-3 sm:gap-4 mb-4 sm:mb-6 ${gridConfig.maxWidth} mx-auto w-full`}>
             {/* Today's Events - Recurring and Ad Hoc */}
             {todaysEvents.map((event) => {
               const isRecurring = event.recurrenceRule || (event as any).isRecurringOccurrence;
@@ -782,11 +802,11 @@ export default async function HomePage() {
                           </span>
                         )}
                       </div>
-                      <h3 className="text-base sm:text-lg font-bold text-white mb-1.5 line-clamp-2 leading-tight drop-shadow-sm">
+                      <h3 className="text-base sm:text-lg font-bold text-white mb-1.5 line-clamp-2 leading-tight drop-shadow-sm break-words">
                         {event.title}
                       </h3>
                       {event.description && (
-                        <p className="text-purple-50/90 text-xs sm:text-sm mb-2 line-clamp-2 leading-relaxed">
+                        <p className="text-purple-50/90 text-xs sm:text-sm mb-2 line-clamp-2 leading-relaxed break-words">
                           {event.description}
                         </p>
                       )}
@@ -841,12 +861,12 @@ export default async function HomePage() {
                       {special.title}
                     </h3>
                     {special.description && (
-                      <p className="text-orange-50/90 text-xs sm:text-sm mb-2 line-clamp-2 leading-relaxed">
+                      <p className="text-orange-50/90 text-xs sm:text-sm mb-2 line-clamp-2 leading-relaxed break-words">
                         {special.description}
                       </p>
                     )}
                     {special.priceNotes && (
-                      <p className="text-orange-200/80 text-[10px] sm:text-xs mb-2 font-semibold">
+                      <p className="text-orange-200/80 text-[10px] sm:text-xs mb-2 font-semibold line-clamp-1 break-words">
                         {special.priceNotes}
                       </p>
                     )}
@@ -886,12 +906,12 @@ export default async function HomePage() {
                     </div>
                   </div>
                   {todaysDrinkSpecial.description && (
-                    <p className="text-blue-50/90 text-xs sm:text-sm mb-2 line-clamp-2 leading-relaxed ml-0 sm:ml-[3.5rem]">
+                    <p className="text-blue-50/90 text-xs sm:text-sm mb-2 line-clamp-2 leading-relaxed ml-0 sm:ml-[3.5rem] break-words">
                       {todaysDrinkSpecial.description}
                     </p>
                   )}
                   {todaysDrinkSpecial.priceNotes && (
-                    <p className="text-blue-200/80 text-[10px] sm:text-xs mb-2 font-semibold ml-0 sm:ml-[3.5rem]">
+                    <p className="text-blue-200/80 text-[10px] sm:text-xs mb-2 font-semibold ml-0 sm:ml-[3.5rem] line-clamp-1 break-words">
                       {todaysDrinkSpecial.priceNotes}
                     </p>
                   )}
@@ -908,7 +928,7 @@ export default async function HomePage() {
             )}
 
             {/* Happy Hour */}
-            {hasHappyHour && (
+            {shouldShowHappyHour && (
               <div className="group relative bg-gradient-to-br from-green-900/70 via-emerald-800/60 to-teal-900/70 backdrop-blur-md rounded-2xl p-3 sm:p-4 border-l-4 border-green-400 shadow-xl overflow-hidden">
                 {/* Decorative pattern overlay */}
                 <div className="absolute inset-0 opacity-20">
@@ -924,17 +944,17 @@ export default async function HomePage() {
                       Happy Hour
                     </span>
                     {happyHour.title && (
-                      <h3 className="text-base sm:text-lg font-bold text-white mb-1.5 line-clamp-2 leading-tight drop-shadow-sm">
+                      <h3 className="text-base sm:text-lg font-bold text-white mb-1.5 line-clamp-2 leading-tight drop-shadow-sm break-words">
                         {happyHour.title}
                       </h3>
                     )}
                     {happyHour.description && (
-                      <p className="text-green-50/90 text-xs sm:text-sm mb-2 line-clamp-2 leading-relaxed">
+                      <p className="text-green-50/90 text-xs sm:text-sm mb-2 line-clamp-2 leading-relaxed break-words">
                         {happyHour.description}
                       </p>
                     )}
                     {happyHour.details && (
-                      <p className="text-green-200/80 text-[10px] sm:text-xs mb-2 font-semibold">
+                      <p className="text-green-200/80 text-[10px] sm:text-xs mb-2 font-semibold line-clamp-1 break-words">
                         {happyHour.details}
                       </p>
                     )}
@@ -953,6 +973,15 @@ export default async function HomePage() {
 
             {/* Announcements are now shown as modals, not in the grid */}
           </div>
+          ) : (
+            <div className="mb-4 sm:mb-6 max-w-6xl mx-auto w-full">
+              <div className="bg-gradient-to-br from-gray-900/70 via-gray-800/60 to-gray-900/70 backdrop-blur-md rounded-2xl p-6 sm:p-8 border-l-4 border-gray-500 shadow-xl text-center">
+                <p className="text-gray-300 text-sm sm:text-base">
+                  Check back soon for today&apos;s specials and events!
+                </p>
+              </div>
+            </div>
+          )}
           
           {/* Call to Action Buttons */}
           <div className="flex flex-wrap justify-center gap-2 sm:gap-3 max-w-6xl mx-auto w-full">

@@ -315,8 +315,12 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 required
+                maxLength={60}
                 className={`w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 ${isFoodOnly ? 'px-3 py-2' : 'px-4 py-3'} text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all`}
               />
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {formData.title.length}/60 characters
+              </p>
             </div>
 
             <div className="space-y-1.5">
@@ -328,8 +332,12 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 rows={isFoodOnly ? 2 : 3}
+                maxLength={150}
                 className={`w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 ${isFoodOnly ? 'px-3 py-2' : 'px-4 py-3'} text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all`}
               />
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {formData.description.length}/150 characters
+              </p>
             </div>
 
             <div className="space-y-1.5">
@@ -342,8 +350,12 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
                 value={formData.priceNotes}
                 onChange={(e) => setFormData({ ...formData, priceNotes: e.target.value })}
                 placeholder={isFoodOnly ? "e.g., $12.99 (or leave empty if prices are in description)" : "e.g., $3 drafts, Happy hour prices"}
+                maxLength={50}
                 className={`w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 ${isFoodOnly ? 'px-3 py-2' : 'px-4 py-3'} text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all`}
               />
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {formData.priceNotes.length}/50 characters
+              </p>
               {isFoodOnly && (
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                   If your special has multiple prices, you can list them in the Description field instead.

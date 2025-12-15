@@ -661,8 +661,12 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                     required
+                    maxLength={60}
                     className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-3 sm:py-2 text-base sm:text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all min-h-[44px] touch-manipulation"
                   />
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {formData.title.length}/60 characters
+                  </p>
                 </div>
 
                 <div className="space-y-1.5">
@@ -674,8 +678,12 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     rows={2}
+                    maxLength={150}
                     className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all resize-none min-h-[60px] touch-manipulation"
                   />
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {formData.description.length}/150 characters
+                  </p>
                 </div>
               </div>
             </div>

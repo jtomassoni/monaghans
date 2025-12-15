@@ -17,6 +17,7 @@ interface DatePickerProps {
 
 export default function DatePicker({ value, onChange, min, max, label, required, dateOnly = true }: DatePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   
   // Helper function to parse YYYY-MM-DD as local date (not UTC)
   const parseLocalDate = (dateStr: string): Date => {
@@ -40,9 +41,18 @@ export default function DatePicker({ value, onChange, min, max, label, required,
   const PICKER_Z_INDEX = 10050; // Higher than Modal's z-50
   const BACKDROP_Z_INDEX = 10049;
 
-  // Mount check for portal
+  // Mount check for portal and mobile detection
   useEffect(() => {
     setMounted(true);
+    
+    // Check if mobile on mount and resize
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768); // md breakpoint
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   // Close picker when clicking outside
@@ -236,6 +246,37 @@ export default function DatePicker({ value, onChange, min, max, label, required,
         return format(date, "MMM d, yyyy");
       })()
     : '';
+
+  // On mobile, use native date input
+  if (isMobile) {
+    return (
+      <div className="relative">
+        {label && (
+          <label className="block mb-0.5 text-xs font-medium text-gray-700 dark:text-gray-300">
+            {label} {required && '*'}
+          </label>
+        )}
+        <input
+          type="date"
+          value={value ? (value.includes('T') ? value.split('T')[0] : value) : ''}
+          onChange={(e) => {
+            const dateValue = e.target.value;
+            if (dateOnly) {
+              onChange(dateValue);
+            } else {
+              // Preserve time if it exists
+              const timePart = value && value.includes('T') ? value.split('T')[1] : '00:00';
+              onChange(dateValue + 'T' + timePart);
+            }
+          }}
+          min={min ? (min.includes('T') ? min.split('T')[0] : min) : undefined}
+          max={max ? (max.includes('T') ? max.split('T')[0] : max) : undefined}
+          required={required}
+          className="w-full px-4 py-3 bg-white dark:bg-gray-800/95 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-base cursor-pointer focus:border-blue-500 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 touch-manipulation min-h-[44px]"
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="relative">
