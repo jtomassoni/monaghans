@@ -72,7 +72,58 @@ export default function MenuTabs({ sections, items, sectionsForItems }: MenuTabs
     <div className="flex flex-col h-full overflow-hidden min-h-0">
       {/* Tabs with Action Buttons */}
       <div className="flex-shrink-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 relative z-10">
-        <div className="flex items-center justify-between px-6 py-3">
+        {/* Mobile: Simplified Header */}
+        <div className="md:hidden px-4 py-3 space-y-3">
+          {/* Mobile Tab Navigation */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setActiveTab('sections')}
+              className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${
+                activeTab === 'sections'
+                  ? 'bg-blue-500/90 dark:bg-blue-600/90 text-white'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+              }`}
+            >
+              Sections
+            </button>
+            {activeTab === 'sections' && (
+              <button
+                onClick={() => setSectionsViewMode(sectionsViewMode === 'sections' ? 'items' : 'sections')}
+                className="px-4 py-2.5 text-sm font-medium rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+              >
+                {sectionsViewMode === 'sections' ? 'All Items' : 'Sections'}
+              </button>
+            )}
+          </div>
+          {/* Mobile Action Buttons */}
+          <div className="flex gap-2">
+            {sectionsViewMode === 'sections' && (
+              <button
+                onClick={() => {
+                  const event = new CustomEvent('openNewItem');
+                  window.dispatchEvent(event);
+                }}
+                className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-medium text-sm transition-all duration-200"
+              >
+                <FaPlus className="w-4 h-4" />
+                <span>New Item</span>
+              </button>
+            )}
+            <button
+              onClick={() => {
+                const event = new CustomEvent('openNewSection');
+                window.dispatchEvent(event);
+              }}
+              className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-medium text-sm transition-all duration-200"
+            >
+              <FaPlus className="w-4 h-4" />
+              <span>New Section</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Desktop: Full Header */}
+        <div className="hidden md:flex items-center justify-between px-6 py-3">
           {/* Tab Navigation */}
           <div className="flex items-center gap-6">
             <div className="flex gap-2">
@@ -124,8 +175,8 @@ export default function MenuTabs({ sections, items, sectionsForItems }: MenuTabs
           <div className="flex items-center gap-2">
             {sectionsViewMode === 'sections' && sections.length > 1 && (
               <>
-                {/* Reorder Sections Toggle */}
-                <label className="flex items-center gap-2 cursor-pointer px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors border border-gray-300 dark:border-gray-600">
+                {/* Reorder Sections Toggle - Desktop Only */}
+                <label className="hidden md:flex items-center gap-2 cursor-pointer px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors border border-gray-300 dark:border-gray-600">
                   <input
                     type="checkbox"
                     checked={reorderSectionsActive}

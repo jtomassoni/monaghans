@@ -127,7 +127,7 @@ export default function SupplierDetail({ supplier }: SupplierDetailProps) {
       </div>
 
       {/* Header */}
-      <div className="flex-shrink-0 px-4 sm:px-6 py-3 pt-16 md:pt-3 border-b border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm relative z-10">
+      <div className="flex-shrink-0 px-4 sm:px-6 py-3 pt-16 md:pt-0 border-b border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm relative z-10">
         <div className="flex items-center gap-4">
           <button
             onClick={() => router.push('/admin/suppliers')}

@@ -296,13 +296,13 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
       onClose={onClose}
       title={special ? 'Edit Special' : 'New Special'}
     >
-      <form onSubmit={handleSubmit} className={isFoodOnly ? "space-y-4" : "space-y-8"}>
-        <div className={`rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 ${isFoodOnly ? 'p-4 space-y-4' : 'p-6 space-y-6'} backdrop-blur-sm`}>
+      <form onSubmit={handleSubmit} className={isFoodOnly ? "space-y-2.5 sm:space-y-4" : "space-y-3 sm:space-y-6"}>
+        <div className={`rounded-lg sm:rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 ${isFoodOnly ? 'p-3 sm:p-4 space-y-2.5 sm:space-y-4' : 'p-3 sm:p-6 space-y-3 sm:space-y-6'} backdrop-blur-sm`}>
           {!isFoodOnly && (
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
+            <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-start sm:justify-between gap-3 sm:gap-4">
+              <div className="flex-1 min-w-0">
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Special Status</p>
-                <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
+                <p className="mt-1 text-xs sm:text-sm text-gray-600 dark:text-gray-300">
                   Control whether this special appears on your public menu.
                 </p>
               </div>
@@ -310,14 +310,14 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
                 type="active"
                 value={formData.isActive}
                 onChange={(value) => setFormData({ ...formData, isActive: value })}
-                className="shrink-0"
+                className="shrink-0 self-start sm:self-auto"
               />
             </div>
           )}
 
-          <div className={isFoodOnly ? "space-y-3" : "space-y-4"}>
-            <div className="space-y-1.5">
-              <label htmlFor="title" className="text-sm font-medium text-gray-900 dark:text-white">
+          <div className={isFoodOnly ? "space-y-2.5" : "space-y-3"}>
+            <div className="space-y-1">
+              <label htmlFor="title" className="block text-sm font-semibold text-gray-900 dark:text-white">
                 Title *
               </label>
               <input
@@ -327,32 +327,34 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 required
                 maxLength={60}
-                className={`w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 ${isFoodOnly ? 'px-3 py-2' : 'px-4 py-3'} text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all`}
+                className="w-full rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 text-base text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all min-h-[44px] touch-manipulation"
+                placeholder="Enter special title"
               />
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 {formData.title.length}/60 characters
               </p>
             </div>
 
-            <div className="space-y-1.5">
-              <label htmlFor="description" className="text-sm font-medium text-gray-900 dark:text-white">
+            <div className="space-y-1">
+              <label htmlFor="description" className="block text-sm font-semibold text-gray-900 dark:text-white">
                 Description
               </label>
               <textarea
                 id="description"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                rows={isFoodOnly ? 2 : 3}
+                rows={isFoodOnly ? 3 : 4}
                 maxLength={150}
-                className={`w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 ${isFoodOnly ? 'px-3 py-2' : 'px-4 py-3'} text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all`}
+                className="w-full rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 text-base text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all resize-y min-h-[80px] touch-manipulation"
+                placeholder="Describe your special..."
               />
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 {formData.description.length}/150 characters
               </p>
             </div>
 
-            <div className="space-y-1.5">
-              <label htmlFor="priceNotes" className="text-sm font-medium text-gray-900 dark:text-white">
+            <div className="space-y-1">
+              <label htmlFor="priceNotes" className="block text-sm font-semibold text-gray-900 dark:text-white">
                 Price {isFoodOnly ? '(optional)' : ''}
               </label>
               <input
@@ -360,15 +362,15 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
                 type="text"
                 value={formData.priceNotes}
                 onChange={(e) => setFormData({ ...formData, priceNotes: e.target.value })}
-                placeholder={isFoodOnly ? "e.g., $12.99 (or leave empty if prices are in description)" : "e.g., $3 drafts, Happy hour prices"}
+                placeholder={isFoodOnly ? "e.g., $12.99" : "e.g., $3 drafts, Happy hour prices"}
                 maxLength={50}
-                className={`w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 ${isFoodOnly ? 'px-3 py-2' : 'px-4 py-3'} text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all`}
+                className="w-full rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 text-base text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all min-h-[44px] touch-manipulation"
               />
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 {formData.priceNotes.length}/50 characters
               </p>
               {isFoodOnly && (
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                   If your special has multiple prices, you can list them in the Description field instead.
                 </p>
               )}
@@ -378,23 +380,23 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
 
         {/* Only show type dropdown if not food-only */}
         {!isFoodOnly && (
-          <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm space-y-6">
+          <div className="rounded-lg sm:rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 sm:p-6 backdrop-blur-sm space-y-3 sm:space-y-6">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Special Type</p>
-              <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
+              <p className="mt-1 text-xs sm:text-sm text-gray-600 dark:text-gray-300">
                 Select whether this is a food or drink special.
               </p>
             </div>
 
-            <div className="space-y-2">
-              <label htmlFor="type" className="text-sm font-medium text-gray-900 dark:text-white">
+            <div className="space-y-1">
+              <label htmlFor="type" className="block text-sm font-semibold text-gray-900 dark:text-white">
                 Type *
               </label>
               <select
                 id="type"
                 value={formData.type}
                 onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+                className="w-full rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 text-base text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all min-h-[44px] touch-manipulation"
                 required
               >
                 {SPECIAL_TYPES.map((type) => (
@@ -408,15 +410,15 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
         )}
 
         {formData.type === 'drink' && (
-          <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm space-y-6">
+          <div className="rounded-lg sm:rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 sm:p-6 backdrop-blur-sm space-y-3 sm:space-y-6">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Weekly Schedule</p>
-              <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
+              <p className="mt-1 text-xs sm:text-sm text-gray-600 dark:text-gray-300">
                 Select which days this special applies each week. Leave empty if using start/end dates.
               </p>
             </div>
 
-            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/70 dark:bg-gray-900/40 p-4 shadow-inner space-y-3">
+            <div className="rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white/70 dark:bg-gray-900/40 p-3 shadow-inner space-y-2.5">
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Applies On</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {WEEKDAYS.map((day) => {
@@ -424,10 +426,10 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
                   return (
                     <label
                       key={day}
-                      className={`flex items-center justify-center rounded-xl border px-3 py-2 text-xs font-semibold transition-all cursor-pointer ${
+                      className={`flex items-center justify-center rounded-lg border px-2 py-2.5 text-xs font-semibold transition-all cursor-pointer touch-manipulation min-h-[44px] ${
                         isSelected
                           ? 'border-blue-500 bg-blue-600 text-white shadow-sm shadow-blue-500/30'
-                          : 'border-gray-200/70 dark:border-gray-700/60 text-gray-700 dark:text-gray-200 bg-white/80 dark:bg-gray-900/40 hover:border-blue-400/70'
+                          : 'border-gray-200/70 dark:border-gray-700/60 text-gray-700 dark:text-gray-200 bg-white/80 dark:bg-gray-900/40 hover:border-blue-400/70 active:scale-95'
                       }`}
                     >
                       <input
@@ -445,13 +447,13 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
           </div>
         )}
 
-        <div className={`rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 ${isFoodOnly ? 'p-4 space-y-3' : 'p-6 space-y-6'} backdrop-blur-sm`}>
+        <div className={`rounded-lg sm:rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 ${isFoodOnly ? 'p-3 sm:p-4 space-y-2.5 sm:space-y-3' : 'p-3 sm:p-6 space-y-3 sm:space-y-6'} backdrop-blur-sm`}>
           {!isFoodOnly && (
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">
                 {formData.type === 'food' ? 'Date' : 'Timing'}
               </p>
-              <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
+              <p className="mt-1 text-xs sm:text-sm text-gray-600 dark:text-gray-300">
                 {formData.type === 'food' 
                   ? 'Select the date this daily special applies (full day).'
                   : 'Set when this special is available.'}
@@ -459,11 +461,11 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
             </div>
           )}
 
-          <div className={isFoodOnly ? "space-y-3" : "space-y-4"}>
+          <div className={isFoodOnly ? "space-y-2.5" : "space-y-3"}>
             {/* Only show time window for drink specials */}
             {!isFoodOnly && formData.type === 'drink' && (
-              <div className="space-y-1.5">
-                <label htmlFor="timeWindow" className="text-sm font-medium text-gray-900 dark:text-white">
+              <div className="space-y-1">
+                <label htmlFor="timeWindow" className="block text-sm font-semibold text-gray-900 dark:text-white">
                   Time Window
                 </label>
                 <input
@@ -472,13 +474,13 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
                   value={formData.timeWindow}
                   onChange={(e) => setFormData({ ...formData, timeWindow: e.target.value })}
                   placeholder="e.g., 11am-3pm, Happy Hour"
-                  className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+                  className="w-full rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 text-base text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all min-h-[44px] touch-manipulation"
                 />
               </div>
             )}
 
             {isFoodOnly || formData.type === 'food' ? (
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <DatePicker
                   label="Date *"
                   value={formData.date}
@@ -491,7 +493,7 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
                 )}
               </div>
             ) : (
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-3 md:grid-cols-2">
                 <div className="relative isolate">
                   <DatePicker
                     label="Start Date (optional)"
@@ -514,49 +516,51 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
           </div>
         </div>
 
-        <div className={`flex flex-wrap items-center justify-end gap-3 pt-6 mt-6 border-t border-gray-200 dark:border-gray-700`}>
-          {special?.id && onDelete && (
+        <div className="fixed bottom-0 left-0 right-0 sm:relative sm:bottom-auto sm:left-auto sm:right-auto bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 sm:border-t-0 sm:bg-transparent sm:dark:bg-transparent z-20 sm:z-auto shadow-lg sm:shadow-none">
+          <div className={`flex flex-col-reverse sm:flex-row sm:flex-wrap sm:items-center sm:justify-end gap-2 sm:gap-3 px-4 sm:px-0 py-3 sm:py-0 pt-4 sm:pt-6 mt-0 sm:mt-4 sm:mt-6`}>
+            {special?.id && onDelete && (
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(true)}
+                disabled={loading}
+                className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-base font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl cursor-pointer touch-manipulation min-h-[52px] w-full sm:w-auto sm:min-h-[44px] sm:text-sm sm:font-semibold sm:px-5 sm:py-2.5"
+              >
+                <FaTrash className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+                <span>Delete</span>
+              </button>
+            )}
             <button
               type="button"
-              onClick={() => setShowDeleteConfirm(true)}
+              onClick={handleCancel}
               disabled={loading}
-              className={`inline-flex items-center gap-2 ${isFoodOnly ? 'px-3 py-1.5 text-xs' : 'px-5 py-2.5 text-sm'} bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer`}
+              className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-base font-bold transition-all duration-200 cursor-pointer touch-manipulation min-h-[52px] w-full sm:w-auto sm:min-h-[44px] sm:text-sm sm:font-semibold sm:px-5 sm:py-2.5"
             >
-              <FaTrash className={`${isFoodOnly ? 'w-3 h-3' : 'w-3.5 h-3.5'}`} />
-              <span>Delete</span>
+              <FaTimes className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+              <span>Cancel</span>
             </button>
-          )}
-          <button
-            type="button"
-            onClick={handleCancel}
-            disabled={loading}
-            className={`inline-flex items-center gap-2 ${isFoodOnly ? 'px-3 py-1.5 text-xs' : 'px-5 py-2.5 text-sm'} bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg font-semibold transition-all duration-200 cursor-pointer`}
-          >
-            <FaTimes className={`${isFoodOnly ? 'w-3 h-3' : 'w-3.5 h-3.5'}`} />
-            <span>Cancel</span>
-          </button>
-          <button
-            type="submit"
-            disabled={
-              loading ||
-              (special?.id && !isDirty) ||
-              (formData.type === 'food' && !formData.date) ||
-              (formData.type === 'drink' && formData.appliesOn.length === 0 && !formData.startDate && !formData.endDate)
-            }
-            className={`inline-flex items-center gap-2 ${isFoodOnly ? 'px-3 py-1.5 text-xs' : 'px-5 py-2.5 text-sm'} bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer`}
-          >
-            {loading ? (
-              <>
-                <div className={`${isFoodOnly ? 'w-3 h-3' : 'w-3.5 h-3.5'} border-2 border-white border-t-transparent rounded-full animate-spin`} />
-                <span>{special?.id ? 'Saving...' : 'Creating...'}</span>
-              </>
-            ) : (
-              <>
-                {special?.id ? <FaSave className={`${isFoodOnly ? 'w-3 h-3' : 'w-3.5 h-3.5'}`} /> : <FaCheck className={`${isFoodOnly ? 'w-3 h-3' : 'w-3.5 h-3.5'}`} />}
-                <span>{special?.id ? 'Save' : 'Create'}</span>
-              </>
-            )}
-          </button>
+            <button
+              type="submit"
+              disabled={
+                loading ||
+                (special?.id && !isDirty) ||
+                (formData.type === 'food' && !formData.date) ||
+                (formData.type === 'drink' && formData.appliesOn.length === 0 && !formData.startDate && !formData.endDate)
+              }
+              className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-base font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl cursor-pointer touch-manipulation min-h-[52px] w-full sm:w-auto sm:min-h-[44px] sm:text-sm sm:font-semibold sm:px-5 sm:py-2.5"
+            >
+              {loading ? (
+                <>
+                  <div className="w-4 h-4 sm:w-3.5 sm:h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>{special?.id ? 'Saving...' : 'Creating...'}</span>
+                </>
+              ) : (
+                <>
+                  {special?.id ? <FaSave className="w-4 h-4 sm:w-3.5 sm:h-3.5" /> : <FaCheck className="w-4 h-4 sm:w-3.5 sm:h-3.5" />}
+                  <span>{special?.id ? 'Save' : 'Create'}</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </form>
 

@@ -257,162 +257,221 @@ export default function MenuItemsList({ initialItems, sections }: MenuItemsListP
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
-            <table className="w-full border-collapse bg-white dark:bg-gray-800">
-              <thead className="bg-gray-50 dark:bg-gray-900/50 sticky top-0 z-10">
-                <tr>
-                  <th
-                    className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                    onClick={() => handleColumnSort('name')}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span>Name</span>
-                      {columnSort.field === 'name' ? (
-                        columnSort.direction === 'asc' ? (
-                          <FaSortUp className="w-3 h-3" />
-                        ) : columnSort.direction === 'desc' ? (
-                          <FaSortDown className="w-3 h-3" />
-                        ) : (
-                          <FaSort className="w-3 h-3 opacity-50" />
-                        )
-                      ) : (
-                        <FaSort className="w-3 h-3 opacity-30" />
-                      )}
-                    </div>
-                  </th>
-                  <th
-                    className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                    onClick={() => handleColumnSort('section')}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span>Section</span>
-                      {columnSort.field === 'section' ? (
-                        columnSort.direction === 'asc' ? (
-                          <FaSortUp className="w-3 h-3" />
-                        ) : columnSort.direction === 'desc' ? (
-                          <FaSortDown className="w-3 h-3" />
-                        ) : (
-                          <FaSort className="w-3 h-3 opacity-50" />
-                        )
-                      ) : (
-                        <FaSort className="w-3 h-3 opacity-30" />
-                      )}
-                    </div>
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700">
-                    Description
-                  </th>
-                  <th
-                    className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                    onClick={() => handleColumnSort('price')}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span>Price</span>
-                      {columnSort.field === 'price' ? (
-                        columnSort.direction === 'asc' ? (
-                          <FaSortUp className="w-3 h-3" />
-                        ) : columnSort.direction === 'desc' ? (
-                          <FaSortDown className="w-3 h-3" />
-                        ) : (
-                          <FaSort className="w-3 h-3 opacity-50" />
-                        )
-                      ) : (
-                        <FaSort className="w-3 h-3 opacity-30" />
-                      )}
-                    </div>
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700">
-                    Price Notes
-                  </th>
-                  <th
-                    className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                    onClick={() => handleColumnSort('isAvailable')}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span>Status</span>
-                      {columnSort.field === 'isAvailable' ? (
-                        columnSort.direction === 'asc' ? (
-                          <FaSortUp className="w-3 h-3" />
-                        ) : columnSort.direction === 'desc' ? (
-                          <FaSortDown className="w-3 h-3" />
-                        ) : (
-                          <FaSort className="w-3 h-3 opacity-50" />
-                        )
-                      ) : (
-                        <FaSort className="w-3 h-3 opacity-30" />
-                      )}
-                    </div>
-                  </th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {displayItems.map((item) => (
-                  <tr
-                    key={item.id}
-                    className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors"
-                  >
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span
-                        className="text-sm font-medium text-gray-900 dark:text-white cursor-pointer hover:text-blue-600 dark:hover:text-blue-400"
-                        onClick={() => handleItemClick(item)}
-                      >
+          <>
+            {/* Mobile: Card View */}
+            <div className="md:hidden space-y-3">
+              {displayItems.map((item) => (
+                <div
+                  key={item.id}
+                  className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-1">
                         {item.name}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                      </h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
                         {item.section.name}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 max-w-xs">
-                        {item.description || '-'}
                       </p>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className="text-sm text-gray-900 dark:text-white font-medium">
-                        {item.price || '-'}
+                    </div>
+                    <StatusBadge status={item.isAvailable ? 'available' : 'unavailable'} />
+                  </div>
+                  
+                  {item.description && (
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2 line-clamp-2">
+                      {item.description}
+                    </p>
+                  )}
+                  
+                  <div className="flex flex-col gap-1 mb-3">
+                    {item.price && (
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">
+                        {item.price}
                       </span>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className="text-sm text-gray-600 dark:text-gray-400">
-                        {item.priceNotes || '-'}
+                    )}
+                    {item.priceNotes && (
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        {item.priceNotes}
                       </span>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      {!item.isAvailable && (
-                        <StatusBadge status="unavailable" />
-                      )}
-                      {item.isAvailable && (
-                        <span className="text-xs text-gray-500 dark:text-gray-400">-</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => handleItemClick(item)}
-                          className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-                          title="Edit"
-                        >
-                          <FaEdit className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(item)}
-                          className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                          title="Delete"
-                        >
-                          <FaTrash className="w-4 h-4" />
-                        </button>
+                    )}
+                  </div>
+                  
+                  <div className="flex gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                    <button
+                      onClick={() => handleItemClick(item)}
+                      className="flex-1 px-4 py-2 bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-medium text-sm transition-all duration-200"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(item)}
+                      className="px-4 py-2 bg-red-500/90 dark:bg-red-600/90 hover:bg-red-600 dark:hover:bg-red-700 rounded-lg text-white font-medium text-sm transition-all duration-200"
+                    >
+                      <FaTrash className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop: Table View */}
+            <div className="hidden md:block overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+              <table className="w-full border-collapse bg-white dark:bg-gray-800">
+                <thead className="bg-gray-50 dark:bg-gray-900/50 sticky top-0 z-10">
+                  <tr>
+                    <th
+                      className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                      onClick={() => handleColumnSort('name')}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span>Name</span>
+                        {columnSort.field === 'name' ? (
+                          columnSort.direction === 'asc' ? (
+                            <FaSortUp className="w-3 h-3" />
+                          ) : columnSort.direction === 'desc' ? (
+                            <FaSortDown className="w-3 h-3" />
+                          ) : (
+                            <FaSort className="w-3 h-3 opacity-50" />
+                          )
+                        ) : (
+                          <FaSort className="w-3 h-3 opacity-30" />
+                        )}
                       </div>
-                    </td>
+                    </th>
+                    <th
+                      className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                      onClick={() => handleColumnSort('section')}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span>Section</span>
+                        {columnSort.field === 'section' ? (
+                          columnSort.direction === 'asc' ? (
+                            <FaSortUp className="w-3 h-3" />
+                          ) : columnSort.direction === 'desc' ? (
+                            <FaSortDown className="w-3 h-3" />
+                          ) : (
+                            <FaSort className="w-3 h-3 opacity-50" />
+                          )
+                        ) : (
+                          <FaSort className="w-3 h-3 opacity-30" />
+                        )}
+                      </div>
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700">
+                      Description
+                    </th>
+                    <th
+                      className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                      onClick={() => handleColumnSort('price')}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span>Price</span>
+                        {columnSort.field === 'price' ? (
+                          columnSort.direction === 'asc' ? (
+                            <FaSortUp className="w-3 h-3" />
+                          ) : columnSort.direction === 'desc' ? (
+                            <FaSortDown className="w-3 h-3" />
+                          ) : (
+                            <FaSort className="w-3 h-3 opacity-50" />
+                          )
+                        ) : (
+                          <FaSort className="w-3 h-3 opacity-30" />
+                        )}
+                      </div>
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700">
+                      Price Notes
+                    </th>
+                    <th
+                      className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                      onClick={() => handleColumnSort('isAvailable')}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span>Status</span>
+                        {columnSort.field === 'isAvailable' ? (
+                          columnSort.direction === 'asc' ? (
+                            <FaSortUp className="w-3 h-3" />
+                          ) : columnSort.direction === 'desc' ? (
+                            <FaSortDown className="w-3 h-3" />
+                          ) : (
+                            <FaSort className="w-3 h-3 opacity-50" />
+                          )
+                        ) : (
+                          <FaSort className="w-3 h-3 opacity-30" />
+                        )}
+                      </div>
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700">
+                      Actions
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  {displayItems.map((item) => (
+                    <tr
+                      key={item.id}
+                      className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors"
+                    >
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span
+                          className="text-sm font-medium text-gray-900 dark:text-white cursor-pointer hover:text-blue-600 dark:hover:text-blue-400"
+                          onClick={() => handleItemClick(item)}
+                        >
+                          {item.name}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          {item.section.name}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 max-w-xs">
+                          {item.description || '-'}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className="text-sm text-gray-900 dark:text-white font-medium">
+                          {item.price || '-'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          {item.priceNotes || '-'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {!item.isAvailable && (
+                          <StatusBadge status="unavailable" />
+                        )}
+                        {item.isAvailable && (
+                          <span className="text-xs text-gray-500 dark:text-gray-400">-</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleItemClick(item)}
+                            className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                            title="Edit"
+                          >
+                            <FaEdit className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(item)}
+                            className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                            title="Delete"
+                          >
+                            <FaTrash className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 

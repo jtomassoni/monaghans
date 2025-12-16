@@ -41,8 +41,8 @@ export default async function AdminDrinkSpecials() {
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-rose-200/15 dark:from-rose-900/20 to-transparent rounded-full blur-3xl"></div>
       </div>
       {/* Header */}
-      <div className="flex-shrink-0 px-4 sm:px-6 py-3 pt-16 md:pt-3 border-b border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm relative z-10">
-        <div className="flex justify-between items-center">
+      <div className="flex-shrink-0 px-4 sm:px-6 py-3 pt-14 md:pt-0 border-b border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm relative z-10">
+        <div className="hidden md:flex justify-between items-center">
           <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 min-w-0">
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
               Drink Specials
@@ -51,6 +51,10 @@ export default async function AdminDrinkSpecials() {
               Manage daily drink specials
             </p>
           </div>
+          <NewDrinkSpecialButton />
+        </div>
+        {/* Mobile: Show action button only */}
+        <div className="md:hidden flex justify-end">
           <NewDrinkSpecialButton />
         </div>
       </div>

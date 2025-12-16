@@ -14,6 +14,7 @@ import {
   FaGlobe, 
   FaSignOutAlt,
   FaChevronDown,
+  FaChevronRight,
   FaExternalLinkAlt,
   FaHome,
   FaEdit,
@@ -49,6 +50,7 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCompact, setSidebarCompact] = useState(false);
+  const [openSections, setOpenSections] = useState<Set<string>>(new Set());
   const { theme, toggleTheme } = useTheme();
   const userMenuRef = useRef<HTMLDivElement>(null);
   const { flags: featureFlags } = useFeatureFlags();
@@ -95,12 +97,14 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
 
   const navGroups = [
     {
+      id: 'dashboard',
       title: 'Dashboard',
       items: [
         ...(permissions.canAccessAdmin && featureFlags.calendars_events ? [{ href: '/admin/overview', label: 'Overview', icon: FaHome }] : []),
       ],
     },
     {
+      id: 'content',
       title: 'Content',
       items: [
         ...(permissions.canAccessAdmin && featureFlags.calendars_events ? [{ href: '/admin', label: 'Calendar & Events', icon: FaCalendarAlt }] : []),
@@ -108,6 +112,7 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
       ],
     },
     {
+      id: 'specials',
       title: 'Specials',
       items: [
         ...(permissions.canManageMenu && featureFlags.specials_management ? [{ href: '/admin/food-specials', label: 'Food Specials', icon: FaDrumstickBite }] : []),
@@ -115,6 +120,7 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
       ],
     },
     {
+      id: 'operations',
       title: 'Operations',
       items: [
         ...(permissions.canManageMenu && featureFlags.menu_management ? [{ href: '/admin/menu', label: 'Menu', icon: FaUtensils }] : []),
@@ -128,18 +134,21 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
       ],
     },
     {
+      id: 'marketing',
       title: 'Marketing',
       items: [
         ...(permissions.canAccessAdmin && featureFlags.social_media ? [{ href: '/admin/social', label: 'Social Media', icon: FaShareAlt }] : []),
       ],
     },
     {
+      id: 'analytics',
       title: 'Analytics',
       items: [
         ...(permissions.canAccessReporting && featureFlags.reporting_analytics ? [{ href: '/admin/reporting', label: 'Reporting', icon: FaChartLine }] : []),
       ],
     },
     {
+      id: 'settings',
       title: 'Settings',
       items: [
         ...(permissions.canAccessAdmin ? [{ href: '/admin/settings', label: 'Company Settings', icon: FaCog }] : []),
@@ -187,6 +196,38 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
     return pathname?.startsWith(href);
   };
 
+  // Auto-open sections that contain the active page
+  useEffect(() => {
+    const newOpenSections = new Set<string>();
+    for (const group of navGroups) {
+      if (group.items.some(item => isActive(item.href))) {
+        newOpenSections.add(group.id);
+      }
+    }
+    // Also check Administration sections
+    if (permissions.canManageUsers && featureFlags.users_staff_management) {
+      if (isActive('/admin/users-staff') || isActive('/admin/users')) {
+        newOpenSections.add('administration');
+      }
+    }
+    if (userRole === 'admin' && isActive('/admin/feature-flags')) {
+      newOpenSections.add('administration');
+    }
+    setOpenSections(newOpenSections);
+  }, [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const toggleSection = (sectionId: string) => {
+    setOpenSections(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(sectionId)) {
+        newSet.delete(sectionId);
+      } else {
+        newSet.add(sectionId);
+      }
+      return newSet;
+    });
+  };
+
   const navContent = (
     <>
       {/* Logo/Brand */}
@@ -218,32 +259,63 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
       </div>
 
       {/* Navigation */}
-      <nav className={`flex-1 space-y-2 overflow-y-auto ${sidebarCompact ? 'p-1.5' : 'p-2'} min-h-0`}>
+      <nav className={`flex-1 space-y-1 overflow-y-auto ${sidebarCompact ? 'p-1.5' : 'p-2'} min-h-0`}>
         {navGroups.length > 0 ? (
-          navGroups.map((group) => (
-            <div key={group.title} className="space-y-1">
-              {!sidebarCompact && (
-                <div className={`px-3 py-1 text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider`}>
-                  {group.title}
-                </div>
-              )}
-              {group.items.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={closeMobileMenu}
-                  className={`flex items-center gap-2 ${sidebarCompact ? 'px-2 py-1.5' : 'px-3 py-2'} rounded-lg transition-all duration-200 group cursor-pointer ${
-                    isActive(item.href)
-                      ? 'bg-blue-500/90 dark:bg-blue-600/90 text-white border border-blue-400 dark:border-blue-500'
-                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+          navGroups.map((group) => {
+            const isOpen = openSections.has(group.id);
+            const hasActiveItem = group.items.some(item => isActive(item.href));
+            
+            return (
+              <div key={group.id} className="space-y-0.5">
+                {/* Section Header - Collapsible */}
+                {!sidebarCompact && (
+                  <button
+                    type="button"
+                    onClick={() => toggleSection(group.id)}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all duration-200 group cursor-pointer ${
+                      isOpen || hasActiveItem
+                        ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white'
+                        : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300'
+                    }`}
+                  >
+                    <span className="text-[10px] font-semibold uppercase tracking-wider">
+                      {group.title}
+                    </span>
+                    {isOpen ? (
+                      <FaChevronDown className="w-3 h-3 text-gray-500 dark:text-gray-400 transition-transform duration-200" />
+                    ) : (
+                      <FaChevronRight className="w-3 h-3 text-gray-500 dark:text-gray-400 transition-transform duration-200" />
+                    )}
+                  </button>
+                )}
+                
+                {/* Section Items - Collapsible Content */}
+                <div
+                  className={`overflow-hidden transition-all duration-300 ease-out ${
+                    sidebarCompact || isOpen ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'
                   }`}
                 >
-                  <item.icon className={`group-hover:scale-110 transition-transform duration-200 flex-shrink-0 ${sidebarCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} />
-                  <span className={`font-medium ${sidebarCompact ? 'text-xs' : 'text-sm'}`}>{item.label}</span>
-                </Link>
-              ))}
-            </div>
-          ))
+                  <div className="space-y-0.5">
+                    {group.items.map((item) => (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={closeMobileMenu}
+                        className={`flex items-center gap-2 ${sidebarCompact ? 'px-2 py-1.5' : 'px-3 py-2'} rounded-lg transition-all duration-200 group cursor-pointer ${
+                          isActive(item.href)
+                            ? 'bg-blue-500/90 dark:bg-blue-600/90 text-white border border-blue-400 dark:border-blue-500'
+                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+                        }`}
+                      >
+                        <item.icon className={`group-hover:scale-110 transition-transform duration-200 flex-shrink-0 ${sidebarCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} />
+                        <span className={`font-medium ${sidebarCompact ? 'text-xs' : 'text-sm'}`}>{item.label}</span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })
         ) : (
           <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
             No navigation items available
@@ -251,50 +323,68 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
         )}
 
         {/* Administration section */}
-        {permissions.canManageUsers && featureFlags.users_staff_management && (
-          <div className="space-y-1 pt-1">
+        {(permissions.canManageUsers && featureFlags.users_staff_management) || userRole === 'admin' ? (
+          <div className="space-y-0.5 pt-1">
             {!sidebarCompact && (
-              <div className={`px-3 py-1 text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider`}>
-                Administration
-              </div>
+              <button
+                type="button"
+                onClick={() => toggleSection('administration')}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all duration-200 group cursor-pointer ${
+                  openSections.has('administration') || isActive('/admin/users-staff') || isActive('/admin/users') || isActive('/admin/feature-flags')
+                    ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white'
+                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
+              >
+                <span className="text-[10px] font-semibold uppercase tracking-wider">
+                  Administration
+                </span>
+                {openSections.has('administration') ? (
+                  <FaChevronDown className="w-3 h-3 text-gray-500 dark:text-gray-400 transition-transform duration-200" />
+                ) : (
+                  <FaChevronRight className="w-3 h-3 text-gray-500 dark:text-gray-400 transition-transform duration-200" />
+                )}
+              </button>
             )}
-            <Link
-              href="/admin/users-staff"
-              onClick={closeMobileMenu}
-              className={`flex items-center gap-2 ${sidebarCompact ? 'px-2 py-1.5' : 'px-3 py-2'} rounded-lg transition-all duration-200 group cursor-pointer ${
-                isActive('/admin/users-staff') || isActive('/admin/users')
-                  ? 'bg-blue-500/90 dark:bg-blue-600/90 text-white border border-blue-400 dark:border-blue-500'
-                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+            
+            <div
+              className={`overflow-hidden transition-all duration-300 ease-out ${
+                sidebarCompact || openSections.has('administration') ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'
               }`}
             >
-              <FaUsers className={`group-hover:scale-110 transition-transform duration-200 flex-shrink-0 ${sidebarCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} />
-              <span className={`font-medium ${sidebarCompact ? 'text-xs' : 'text-sm'}`}>Users & Staff</span>
-            </Link>
-          </div>
-        )}
-        
-        {/* Feature Flags - Admin only */}
-        {userRole === 'admin' && (
-          <div className="space-y-1 pt-1">
-            {!sidebarCompact && (
-              <div className={`px-3 py-1 text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider`}>
-                Administration
+              <div className="space-y-0.5">
+                {permissions.canManageUsers && featureFlags.users_staff_management && (
+                  <Link
+                    href="/admin/users-staff"
+                    onClick={closeMobileMenu}
+                    className={`flex items-center gap-2 ${sidebarCompact ? 'px-2 py-1.5' : 'px-3 py-2'} rounded-lg transition-all duration-200 group cursor-pointer ${
+                      isActive('/admin/users-staff') || isActive('/admin/users')
+                        ? 'bg-blue-500/90 dark:bg-blue-600/90 text-white border border-blue-400 dark:border-blue-500'
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+                    }`}
+                  >
+                    <FaUsers className={`group-hover:scale-110 transition-transform duration-200 flex-shrink-0 ${sidebarCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} />
+                    <span className={`font-medium ${sidebarCompact ? 'text-xs' : 'text-sm'}`}>Users & Staff</span>
+                  </Link>
+                )}
+                
+                {userRole === 'admin' && (
+                  <Link
+                    href="/admin/feature-flags"
+                    onClick={closeMobileMenu}
+                    className={`flex items-center gap-2 ${sidebarCompact ? 'px-2 py-1.5' : 'px-3 py-2'} rounded-lg transition-all duration-200 group cursor-pointer ${
+                      isActive('/admin/feature-flags')
+                        ? 'bg-blue-500/90 dark:bg-blue-600/90 text-white border border-blue-400 dark:border-blue-500'
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+                    }`}
+                  >
+                    <FaCog className={`group-hover:scale-110 transition-transform duration-200 flex-shrink-0 ${sidebarCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} />
+                    <span className={`font-medium ${sidebarCompact ? 'text-xs' : 'text-sm'}`}>Feature Flags</span>
+                  </Link>
+                )}
               </div>
-            )}
-            <Link
-              href="/admin/feature-flags"
-              onClick={closeMobileMenu}
-              className={`flex items-center gap-2 ${sidebarCompact ? 'px-2 py-1.5' : 'px-3 py-2'} rounded-lg transition-all duration-200 group cursor-pointer ${
-                isActive('/admin/feature-flags')
-                  ? 'bg-blue-500/90 dark:bg-blue-600/90 text-white border border-blue-400 dark:border-blue-500'
-                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
-              }`}
-            >
-              <FaCog className={`group-hover:scale-110 transition-transform duration-200 flex-shrink-0 ${sidebarCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} />
-              <span className={`font-medium ${sidebarCompact ? 'text-xs' : 'text-sm'}`}>Feature Flags</span>
-            </Link>
+            </div>
           </div>
-        )}
+        ) : null}
       </nav>
 
       {/* Bottom Actions */}
@@ -405,10 +495,36 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
     </>
   );
 
+  // Get page title from pathname
+  const getPageTitle = (path: string) => {
+    if (path === '/admin' || path === '/admin/overview') return 'Overview';
+    if (path?.startsWith('/admin/food-specials')) return 'Food Specials';
+    if (path?.startsWith('/admin/drink-specials')) return 'Drink Specials';
+    if (path?.startsWith('/admin/menu')) return 'Menu';
+    if (path?.startsWith('/admin/staff')) return 'Staff & Scheduling';
+    if (path?.startsWith('/admin/orders')) return 'Orders';
+    if (path?.startsWith('/admin/kds')) return 'Kitchen Display';
+    if (path?.startsWith('/admin/homepage')) return 'Homepage';
+    if (path?.startsWith('/admin/social')) return 'Social Media';
+    if (path?.startsWith('/admin/reporting')) return 'Reporting';
+    if (path?.startsWith('/admin/users-staff')) return 'Users & Staff';
+    if (path?.startsWith('/admin/settings')) return 'Settings';
+    if (path?.startsWith('/admin/announcements')) return 'Announcements';
+    if (path?.startsWith('/admin/purchase-orders')) return 'Purchase Orders';
+    if (path?.startsWith('/admin/ingredients')) return 'Ingredients';
+    if (path?.startsWith('/admin/feature-flags')) return 'Feature Flags';
+    if (path?.startsWith('/admin/events')) return 'Events';
+    if (path?.startsWith('/admin/calendar')) return 'Calendar';
+    return null;
+  };
+
   return (
     <>
       {/* Mobile Header with Hamburger */}
-      <AdminMobileHeader onMenuClick={() => setMobileMenuOpen(true)} />
+      <AdminMobileHeader 
+        onMenuClick={() => setMobileMenuOpen(true)} 
+        title={getPageTitle(pathname ?? '') ?? undefined}
+      />
 
       {/* Mobile Menu - Brand new implementation */}
       <AdminMobileMenu

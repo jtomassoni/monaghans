@@ -25,36 +25,25 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/20 dark:bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-[9998] bg-black/30 dark:bg-black/70 backdrop-blur-md"
       onClick={onClose}
+      suppressHydrationWarning
     >
       <div 
-        className={`h-full flex ${title && title.trim() ? 'items-start sm:items-center' : 'items-center'} justify-center px-3 sm:px-6 py-2 sm:py-4 overflow-y-auto overflow-x-visible`}
+        className={`h-full flex ${title && title.trim() ? 'items-start' : 'items-center'} justify-center px-0 sm:px-6 pt-14 sm:pt-6 pb-6 sm:pb-6 overflow-y-auto overflow-x-visible`}
         onClick={onClose}
       >
         <div
-          className={`bg-white dark:bg-gray-800 rounded-lg sm:rounded-lg shadow-xl w-full ${title && title.trim() ? 'max-h-[calc(100vh-1rem)] sm:max-h-[calc(100vh-2rem)]' : 'max-h-[90vh]'} max-w-[500px] lg:max-w-[900px] flex flex-col ${title && title.trim() ? 'mt-0 sm:mt-0' : ''}`}
+          className={`bg-white dark:bg-gray-800 rounded-none shadow-2xl ${!title || !title.trim() ? 'w-full h-full sm:w-auto sm:h-auto sm:max-w-md sm:rounded-3xl sm:border sm:border-gray-200/50 dark:sm:border-gray-700/50' : 'w-full h-[calc(100vh-3.5rem-1.5rem)] sm:h-auto sm:max-h-[calc(100vh-2rem)] sm:max-w-[500px] lg:max-w-[900px]'} flex flex-col backdrop-blur-xl`}
           onClick={(e) => e.stopPropagation()}
         >
-        {/* Header - Sticky on mobile to ensure close button is always visible */}
+        {/* Header - Sticky within modal to ensure it's always visible */}
         {title && title.trim() && (
-          <div className="sticky top-0 bg-white dark:bg-gray-800 z-10 flex justify-between items-center px-4 sm:px-6 py-2.5 border-b border-gray-200 dark:border-gray-700 shrink-0 rounded-t-lg">
-            <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white pr-2">{title}</h2>
+          <div className="sticky top-0 bg-white dark:bg-gray-800 z-10 flex justify-between items-center pl-4 sm:pl-6 pr-3 sm:pr-6 py-3 sm:py-2.5 border-b border-gray-200 dark:border-gray-700 shrink-0 shadow-sm">
+            <h2 className="text-lg sm:text-lg font-bold text-gray-900 dark:text-white pr-2 truncate flex-1 min-w-0">{title}</h2>
             <button
               onClick={onClose}
-              className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-white text-3xl sm:text-2xl leading-none cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center touch-manipulation -mr-1"
-              aria-label="Close modal"
-              type="button"
-            >
-              ×
-            </button>
-          </div>
-        )}
-        {(!title || !title.trim()) && (
-          <div className="absolute top-0 right-0 z-10 p-2">
-            <button
-              onClick={onClose}
-              className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-white text-2xl leading-none cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center touch-manipulation"
+              className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-3xl sm:text-2xl leading-none cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center touch-manipulation shrink-0 font-light"
               aria-label="Close modal"
               type="button"
             >
@@ -64,7 +53,7 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
         )}
 
         {/* Content */}
-        <div className={`flex-1 overflow-y-auto overflow-x-visible ${title && title.trim() ? 'px-4 sm:px-6 py-3 sm:py-4' : 'px-6 sm:px-8 py-6 sm:py-8'}`}>
+        <div className={`flex-1 overflow-y-auto overflow-x-visible ${title && title.trim() ? 'px-4 sm:px-6 py-3 sm:py-4' : 'px-6 sm:px-8 py-6 sm:py-8'} pb-20 sm:pb-0`}>
           <div className="relative">
             {children}
           </div>

@@ -9,6 +9,8 @@ import DrinkSpecialModalForm from '@/components/drink-special-modal-form';
 import AnnouncementModalForm from '@/components/announcement-modal-form';
 import EventsList from '@/app/admin/specials-events-list';
 import { FaCalendarAlt, FaList } from 'react-icons/fa';
+import { useAdminMobileHeader } from '@/components/admin-mobile-header-context';
+import NewItemSelectionModal from '@/components/new-item-selection-modal';
 
 interface CalendarEvent {
   id: string;
@@ -99,6 +101,7 @@ type ViewType = 'calendar' | 'list';
 export default function DashboardContent({ events: initialEvents, specials, announcements = [], businessHours, calendarHours, isAdmin }: DashboardContentProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { setRightAction } = useAdminMobileHeader();
   const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
   const [eventModalOpen, setEventModalOpen] = useState(false);
   const [specialModalOpen, setSpecialModalOpen] = useState(false);
@@ -114,6 +117,7 @@ export default function DashboardContent({ events: initialEvents, specials, anno
   const [announcementModalOpen, setAnnouncementModalOpen] = useState(false);
   const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
   const [localAnnouncements, setLocalAnnouncements] = useState<CalendarAnnouncement[]>(announcements);
+  const [newItemSelectionModalOpen, setNewItemSelectionModalOpen] = useState(false);
   
   // Track the last initialEvents IDs to prevent unnecessary updates
   const lastInitialEventsIdsRef = useRef<string>(JSON.stringify(initialEvents.map(e => e.id).sort()));
@@ -426,6 +430,24 @@ export default function DashboardContent({ events: initialEvents, specials, anno
     setLocalAnnouncements(prev => prev.filter(a => a.id !== announcementId));
   };
 
+  // Set mobile header action button
+  useEffect(() => {
+    const mobileButton = (
+      <button
+        onClick={() => setNewItemSelectionModalOpen(true)}
+        className="h-9 px-2.5 bg-blue-500 dark:bg-blue-600 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-medium text-xs transition-all duration-200 active:scale-95 flex items-center justify-center gap-1.5 border border-blue-400 dark:border-blue-500 touch-manipulation shadow-sm"
+      >
+        <span className="text-xs">➕</span>
+        <span>New</span>
+      </button>
+    );
+    setRightAction(mobileButton);
+
+    return () => {
+      setRightAction(null);
+    };
+  }, [setRightAction]);
+
   return (
     <>
       <div className="h-screen flex flex-col bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 overflow-hidden relative">
@@ -435,7 +457,7 @@ export default function DashboardContent({ events: initialEvents, specials, anno
           <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-rose-200/15 dark:from-rose-900/20 to-transparent rounded-full blur-3xl"></div>
         </div>
         {/* Header - Simplified for Mobile */}
-        <div className="flex-shrink-0 px-3 sm:px-6 py-2.5 sm:py-3 border-b border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm relative z-40">
+        <div className="flex-shrink-0 px-3 sm:px-6 py-2.5 sm:py-3 pt-14 md:pt-2.5 border-b border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm relative z-40">
           <div className="flex items-center justify-between gap-2 min-h-[44px]">
             {/* Title - Hidden on mobile, shown on desktop */}
             <h1 className="hidden sm:block text-2xl font-bold text-gray-900 dark:text-white">
@@ -443,45 +465,17 @@ export default function DashboardContent({ events: initialEvents, specials, anno
             </h1>
             <div className="sm:hidden flex-1"></div>
             
-            {/* Mobile: Two buttons for Event and Announcement, Desktop: Separate buttons */}
+            {/* New Button - Desktop and Mobile */}
             <div className="flex items-center gap-1.5 flex-shrink-0" style={{ position: 'relative', zIndex: 60 }}>
-              {/* Mobile: Event and Announcement buttons */}
-              <div className="sm:hidden flex items-center gap-1.5">
-                <button
-                  onClick={() => handleNewEvent()}
-                  className="px-2.5 py-2 min-h-[40px] bg-blue-500 dark:bg-blue-600 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-semibold text-xs transition-all duration-200 active:scale-95 flex items-center justify-center gap-1 touch-manipulation shadow-md"
-                  style={{ zIndex: 61 }}
-                >
-                  <span className="text-sm">➕</span>
-                  <span>Event</span>
-                </button>
-                <button
-                  onClick={() => handleNewAnnouncement()}
-                  className="px-2.5 py-2 min-h-[40px] bg-yellow-500 dark:bg-yellow-600 hover:bg-yellow-600 dark:hover:bg-yellow-700 rounded-lg text-white font-semibold text-xs transition-all duration-200 active:scale-95 flex items-center justify-center gap-1 touch-manipulation shadow-md"
-                  style={{ zIndex: 61 }}
-                >
-                  <span className="text-sm">📢</span>
-                  <span>Announce</span>
-                </button>
-              </div>
-              
-              {/* Desktop: Separate buttons */}
-              <div className="hidden sm:flex items-center gap-2">
-                <button
-                  onClick={() => handleNewEvent()}
-                  className="px-4 py-2.5 bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-medium text-sm transition-all duration-200 hover:scale-105 flex items-center justify-center gap-2 border border-blue-400 dark:border-blue-500 touch-manipulation"
-                >
-                  <span>➕</span>
-                  <span>New Event</span>
-                </button>
-                <button
-                  onClick={() => handleNewAnnouncement()}
-                  className="px-4 py-2.5 bg-yellow-500/90 dark:bg-yellow-600/90 hover:bg-yellow-600 dark:hover:bg-yellow-700 rounded-lg text-white font-medium text-sm transition-all duration-200 hover:scale-105 flex items-center justify-center gap-2 border border-yellow-400 dark:border-yellow-500 touch-manipulation"
-                >
-                  <span>📢</span>
-                  <span>New Announcement</span>
-                </button>
-              </div>
+              <button
+                onClick={() => setNewItemSelectionModalOpen(true)}
+                className="px-4 py-2.5 bg-blue-500 dark:bg-blue-600 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-medium text-sm transition-all duration-200 hover:scale-105 active:scale-95 flex items-center justify-center gap-2 border border-blue-400 dark:border-blue-500 touch-manipulation shadow-sm"
+              >
+                <span>➕</span>
+                <span className="hidden sm:inline">New</span>
+                <span className="sm:hidden">New</span>
+              </button>
+            </div>
               
               {/* View Type Toggle - Hidden on mobile, shown on desktop */}
               <div className="hidden sm:flex gap-0.5 bg-gray-100 dark:bg-gray-800 rounded-lg p-1 border border-gray-200 dark:border-gray-700 flex-shrink-0">
@@ -509,7 +503,6 @@ export default function DashboardContent({ events: initialEvents, specials, anno
                 </button>
               </div>
             </div>
-          </div>
         </div>
 
         {/* Main Content */}
@@ -654,6 +647,29 @@ export default function DashboardContent({ events: initialEvents, specials, anno
         onDelete={handleAnnouncementDeleted}
         onAnnouncementAdded={handleAnnouncementAdded}
         onAnnouncementUpdated={handleAnnouncementUpdated}
+      />
+
+      {/* New Item Selection Modal - Mobile */}
+      <NewItemSelectionModal
+        isOpen={newItemSelectionModalOpen}
+        onClose={() => setNewItemSelectionModalOpen(false)}
+        onSelectEvent={() => {
+          handleNewEvent();
+        }}
+        onSelectFoodSpecial={() => {
+          setSpecialType('food');
+          setEditingSpecial(null);
+          setSpecialModalOpen(true);
+        }}
+        onSelectDrinkSpecial={() => {
+          setSpecialType('drink');
+          setEditingSpecial(null);
+          setSpecialModalOpen(true);
+        }}
+        onSelectAnnouncement={() => {
+          setEditingAnnouncement(null);
+          setAnnouncementModalOpen(true);
+        }}
       />
     </>
   );

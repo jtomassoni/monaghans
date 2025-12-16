@@ -435,7 +435,7 @@ export default function AdminMenuSections({ initialSections }: { initialSections
                   className={`rounded-lg border transition-all duration-200 overflow-hidden ${
                     reorderMode 
                       ? 'cursor-move border-2 border-blue-400 dark:border-blue-500 shadow-md bg-blue-50/50 dark:bg-blue-900/20' 
-                      : 'border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md bg-white dark:bg-gray-800'
+                      : 'border-gray-200 dark:border-gray-700 shadow-sm md:hover:shadow-md bg-white dark:bg-gray-800'
                   } ${
                     draggedSection === section.id ? 'opacity-50' : ''
                   } ${
@@ -457,19 +457,19 @@ export default function AdminMenuSections({ initialSections }: { initialSections
                       >
                         <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                           {reorderMode ? (
-                            <div className="flex-shrink-0 text-blue-600 dark:text-blue-400 cursor-move">
+                            <div className="hidden md:flex flex-shrink-0 text-blue-600 dark:text-blue-400 cursor-move">
                               <FaGripVertical className="w-4 h-4" />
                             </div>
                           ) : (
                             <div className={`flex-shrink-0 text-gray-400 dark:text-gray-500 transition-transform duration-200 ${isExpanded ? 'text-blue-600 dark:text-blue-400' : ''}`}>
                               {isExpanded ? (
-                                <FaChevronDown className="w-4 h-4" />
+                                <FaChevronDown className="w-5 h-5 md:w-4 md:h-4" />
                               ) : (
-                                <FaChevronRight className="w-4 h-4" />
+                                <FaChevronRight className="w-5 h-5 md:w-4 md:h-4" />
                               )}
                             </div>
                           )}
-                          <h2 className="text-sm font-semibold text-gray-900 dark:text-white truncate">{section.name}</h2>
+                          <h2 className="text-base md:text-sm font-semibold text-gray-900 dark:text-white truncate">{section.name}</h2>
                           <span className="px-2 py-0.5 text-xs font-medium uppercase tracking-wider bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md flex-shrink-0 border border-gray-200 dark:border-gray-600">
                             {section.menuType}
                           </span>
@@ -489,15 +489,16 @@ export default function AdminMenuSections({ initialSections }: { initialSections
                         {isExpanded && !reorderMode && (
                           <button
                             onClick={() => handleAddItem(section.id)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-md text-white font-medium text-xs transition-all duration-200 border border-blue-400 dark:border-blue-500"
+                            className="inline-flex items-center gap-1.5 px-4 py-2 md:px-3 md:py-1.5 bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-md text-white font-medium text-sm md:text-xs transition-all duration-200 border border-blue-400 dark:border-blue-500"
                           >
-                            <FaPlus className="w-3 h-3" />
-                            <span>New Item</span>
+                            <FaPlus className="w-4 h-4 md:w-3 md:h-3" />
+                            <span className="hidden md:inline">New Item</span>
+                            <span className="md:hidden">Add</span>
                           </button>
                         )}
-                        {/* Reorder Items Toggle - shown when section is expanded */}
+                        {/* Reorder Items Toggle - Desktop only, shown when section is expanded */}
                         {isExpanded && section.items.length > 1 && !reorderMode && (
-                          <label className={`flex items-center gap-1.5 cursor-pointer px-2 py-1 rounded-md border transition-all duration-200 ${
+                          <label className={`hidden md:flex items-center gap-1.5 cursor-pointer px-2 py-1 rounded-md border transition-all duration-200 ${
                             itemReorderMode === section.id
                               ? 'bg-purple-50 dark:bg-purple-900/30 border-purple-400 dark:border-purple-500'
                               : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
@@ -513,9 +514,9 @@ export default function AdminMenuSections({ initialSections }: { initialSections
                         )}
                       </div>
                       
-                      {/* Edit button - appears centered on hover (disabled in reorder mode) */}
+                      {/* Edit button - appears centered on hover (disabled in reorder mode) - Desktop only */}
                       {!reorderMode && (
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 group-hover/section:opacity-100 transition-opacity duration-200">
+                        <div className="hidden md:flex absolute inset-0 items-center justify-center pointer-events-none opacity-0 group-hover/section:opacity-100 transition-opacity duration-200">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -527,6 +528,18 @@ export default function AdminMenuSections({ initialSections }: { initialSections
                             Edit
                           </button>
                         </div>
+                      )}
+                      {/* Mobile: Edit button always visible */}
+                      {!reorderMode && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditSection(section);
+                          }}
+                          className="md:hidden flex-shrink-0 px-3 py-1.5 bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-md text-white font-medium text-xs transition-all duration-200 border border-blue-400 dark:border-blue-500"
+                        >
+                          Edit
+                        </button>
                       )}
                     </div>
                   </div>
@@ -558,8 +571,8 @@ export default function AdminMenuSections({ initialSections }: { initialSections
                         </div>
                       ) : (
                         <div>
-                          {/* Show ALL items when expanded - Two Column Grid */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          {/* Show ALL items when expanded - Single column on mobile, two columns on desktop */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-2">
                           {section.items.map((item) => {
                             // Parse modifiers if they exist
                             let modifiersList: string[] = [];
@@ -581,10 +594,10 @@ export default function AdminMenuSections({ initialSections }: { initialSections
                                 onDragOver={(e) => handleItemDragOver(e, item.id)}
                                 onDragEnd={handleItemDragEnd}
                                 onDrop={(e) => handleItemDrop(e, item.id, section.id)}
-                                className={`group/item relative rounded-lg border transition-all duration-200 flex flex-col p-4 ${
+                                className={`group/item relative rounded-lg border transition-all duration-200 flex flex-col p-3 md:p-4 ${
                                   itemReorderMode === section.id
                                     ? 'cursor-move border-2 border-purple-400 dark:border-purple-500 shadow-md bg-purple-50/50 dark:bg-purple-900/20'
-                                    : 'border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md bg-white dark:bg-gray-800 cursor-pointer'
+                                    : 'border-gray-200 dark:border-gray-700 shadow-sm md:hover:shadow-md bg-white dark:bg-gray-800 cursor-pointer'
                                 } ${
                                   draggedItem === item.id ? 'opacity-50' : ''
                                 } ${
@@ -597,11 +610,11 @@ export default function AdminMenuSections({ initialSections }: { initialSections
                                 >
                                   <div className="flex items-center gap-2 mb-2 flex-wrap">
                                     {itemReorderMode === section.id ? (
-                                      <div className="flex-shrink-0 text-purple-600 dark:text-purple-400 cursor-move">
+                                      <div className="hidden md:flex flex-shrink-0 text-purple-600 dark:text-purple-400 cursor-move">
                                         <FaGripVertical className="w-4 h-4" />
                                       </div>
                                     ) : null}
-                                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate">{item.name}</h3>
+                                    <h3 className="text-base md:text-sm font-semibold text-gray-900 dark:text-white truncate">{item.name}</h3>
                                     <StatusBadge status={item.isAvailable ? 'available' : 'unavailable'} />
                                   </div>
                                   
@@ -641,9 +654,9 @@ export default function AdminMenuSections({ initialSections }: { initialSections
                                   )}
                                 </div>
                                 
-                                {/* Edit button - appears centered on hover (disabled in reorder mode) */}
+                                {/* Edit button - appears centered on hover (disabled in reorder mode) - Desktop only */}
                                 {itemReorderMode !== section.id && (
-                                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 group-hover/item:opacity-100 transition-opacity duration-200">
+                                  <div className="hidden md:flex absolute inset-0 items-center justify-center pointer-events-none opacity-0 group-hover/item:opacity-100 transition-opacity duration-200">
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
@@ -655,6 +668,18 @@ export default function AdminMenuSections({ initialSections }: { initialSections
                                       Edit
                                     </button>
                                   </div>
+                                )}
+                                {/* Mobile: Edit button always visible */}
+                                {itemReorderMode !== section.id && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleItemClick(item);
+                                    }}
+                                    className="md:hidden mt-2 w-full px-3 py-2 text-sm bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-md text-white font-medium transition-all duration-200 border border-blue-400 dark:border-blue-500"
+                                  >
+                                    Edit
+                                  </button>
                                 )}
                               </div>
                             );

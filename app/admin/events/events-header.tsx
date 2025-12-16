@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useAdminMobileHeader } from '@/components/admin-mobile-header-context';
 
 export default function EventsHeader() {
   const [showDuplicateButton, setShowDuplicateButton] = useState(false);
+  const { setRightAction } = useAdminMobileHeader();
 
   useEffect(() => {
     // Check if there are events scheduled at least one year from now
@@ -28,6 +30,27 @@ export default function EventsHeader() {
     checkForFutureEvents();
   }, []);
 
+  useEffect(() => {
+    // Set mobile header action button
+    const mobileButton = (
+      <button
+        onClick={() => {
+          const event = new CustomEvent('openNewEvent');
+          window.dispatchEvent(event);
+        }}
+        className="h-9 px-2.5 bg-blue-500 dark:bg-blue-600 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-medium text-xs transition-all duration-200 active:scale-95 flex items-center justify-center gap-1.5 border border-blue-400 dark:border-blue-500 touch-manipulation shadow-sm"
+      >
+        <span className="text-xs">➕</span>
+        <span>New</span>
+      </button>
+    );
+    setRightAction(mobileButton);
+
+    return () => {
+      setRightAction(null);
+    };
+  }, [setRightAction]);
+
   return (
     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
       <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 min-w-0">
@@ -44,7 +67,7 @@ export default function EventsHeader() {
             const event = new CustomEvent('openNewEvent');
             window.dispatchEvent(event);
           }}
-          className="w-full sm:w-auto px-4 py-2.5 bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-medium text-sm transition-all duration-200 hover:scale-105 flex items-center justify-center gap-2 border border-blue-400 dark:border-blue-500 touch-manipulation"
+          className="w-full sm:w-auto px-4 py-2.5 bg-blue-500 dark:bg-blue-600 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-medium text-sm transition-all duration-200 hover:scale-105 flex items-center justify-center gap-2 border border-blue-400 dark:border-blue-500 touch-manipulation"
         >
           <span>➕</span>
           <span>New Event</span>
@@ -55,7 +78,7 @@ export default function EventsHeader() {
               const event = new CustomEvent('openDuplicateCalendar');
               window.dispatchEvent(event);
             }}
-            className="w-full sm:w-auto px-4 py-2.5 bg-green-500/90 dark:bg-green-600/90 hover:bg-green-600 dark:hover:bg-green-700 rounded-lg text-white font-medium text-sm transition-all duration-200 hover:scale-105 flex items-center justify-center gap-2 border border-green-400 dark:border-green-500 touch-manipulation"
+            className="w-full sm:w-auto px-4 py-2.5 bg-green-500 dark:bg-green-600 hover:bg-green-600 dark:hover:bg-green-700 rounded-lg text-white font-medium text-sm transition-all duration-200 hover:scale-105 flex items-center justify-center gap-2 border border-green-400 dark:border-green-500 touch-manipulation"
             title="Duplicate recurring events to following year"
           >
             <span>📅</span>

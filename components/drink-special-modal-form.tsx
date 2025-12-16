@@ -210,12 +210,12 @@ export default function DrinkSpecialModalForm({ isOpen, onClose, special, onSucc
       onClose={onClose}
       title={special ? 'Edit Drink Special' : 'New Drink Special'}
     >
-      <form onSubmit={handleSubmit} className="space-y-8">
-        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm space-y-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
+      <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-6">
+        <div className="rounded-lg sm:rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 sm:p-6 backdrop-blur-sm space-y-3 sm:space-y-6">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-start sm:justify-between gap-3 sm:gap-4">
+            <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Special Status</p>
-              <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
+              <p className="mt-1 text-xs sm:text-sm text-gray-600 dark:text-gray-300">
                 Control whether this special appears on your public menu.
               </p>
             </div>
@@ -223,13 +223,13 @@ export default function DrinkSpecialModalForm({ isOpen, onClose, special, onSucc
               type="active"
               value={formData.isActive}
               onChange={(value) => setFormData({ ...formData, isActive: value })}
-              className="shrink-0"
+              className="shrink-0 self-start sm:self-auto"
             />
           </div>
 
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label htmlFor="title" className="text-sm font-medium text-gray-900 dark:text-white">
+          <div className="space-y-2.5">
+            <div className="space-y-1">
+              <label htmlFor="title" className="block text-sm font-semibold text-gray-900 dark:text-white">
                 Title *
               </label>
               <input
@@ -238,38 +238,38 @@ export default function DrinkSpecialModalForm({ isOpen, onClose, special, onSucc
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 required
-                className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+                className="w-full rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 text-base text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all min-h-[44px] touch-manipulation"
                 placeholder="e.g., $3 Drafts, Happy Hour"
               />
             </div>
 
-            <div className="space-y-2">
-              <label htmlFor="description" className="text-sm font-medium text-gray-900 dark:text-white">
+            <div className="space-y-1">
+              <label htmlFor="description" className="block text-sm font-semibold text-gray-900 dark:text-white">
                 Description
               </label>
               <textarea
                 id="description"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                rows={3}
-                className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+                rows={4}
+                className="w-full rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 text-base text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all resize-y min-h-[80px] touch-manipulation"
                 placeholder="Describe the drink special..."
               />
             </div>
           </div>
         </div>
 
-        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm space-y-6">
+        <div className="rounded-lg sm:rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 sm:p-6 backdrop-blur-sm space-y-3 sm:space-y-6">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Weekly Schedule</p>
-            <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
+            <p className="mt-1 text-xs sm:text-sm text-gray-600 dark:text-gray-300">
               {hasWeeklyRecurring 
                 ? 'This special will run every selected day, ongoing forever.'
                 : 'Select which days this special applies each week. Leave empty to use date range instead.'}
             </p>
           </div>
 
-          <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/70 dark:bg-gray-900/40 p-4 shadow-inner space-y-3">
+          <div className="rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white/70 dark:bg-gray-900/40 p-3 shadow-inner space-y-2.5">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Applies On</p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {WEEKDAYS.map((day) => {
@@ -277,10 +277,10 @@ export default function DrinkSpecialModalForm({ isOpen, onClose, special, onSucc
                 return (
                   <label
                     key={day}
-                    className={`flex items-center justify-center rounded-xl border px-3 py-2 text-xs font-semibold transition-all cursor-pointer ${
+                    className={`flex items-center justify-center rounded-lg border px-2 py-2.5 text-xs font-semibold transition-all cursor-pointer touch-manipulation min-h-[44px] ${
                       isSelected
                         ? 'border-blue-500 bg-blue-600 text-white shadow-sm shadow-blue-500/30'
-                        : 'border-gray-200/70 dark:border-gray-700/60 text-gray-700 dark:text-gray-200 bg-white/80 dark:bg-gray-900/40 hover:border-blue-400/70'
+                        : 'border-gray-200/70 dark:border-gray-700/60 text-gray-700 dark:text-gray-200 bg-white/80 dark:bg-gray-900/40 hover:border-blue-400/70 active:scale-95'
                     }`}
                   >
                     <input
@@ -299,15 +299,15 @@ export default function DrinkSpecialModalForm({ isOpen, onClose, special, onSucc
 
         {/* Date Range (alternative to weekly recurring) */}
         {!hasWeeklyRecurring && (
-          <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm space-y-6">
+          <div className="rounded-lg sm:rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 sm:p-6 backdrop-blur-sm space-y-3 sm:space-y-6">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Date Range</p>
-              <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
+              <p className="mt-1 text-xs sm:text-sm text-gray-600 dark:text-gray-300">
                 Use this for one-time or date-specific specials. Leave empty if using weekly recurring days.
               </p>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-3 md:grid-cols-2">
               <div className="relative isolate">
                 <DatePicker
                   label="Start Date"
@@ -329,49 +329,51 @@ export default function DrinkSpecialModalForm({ isOpen, onClose, special, onSucc
           </div>
         )}
 
-        <div className="flex flex-wrap items-center justify-end gap-3 pt-6 mt-6 border-t border-gray-200 dark:border-gray-700">
-          {special?.id && onDelete && (
+        <div className="fixed bottom-0 left-0 right-0 sm:relative sm:bottom-auto sm:left-auto sm:right-auto bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 sm:border-t-0 sm:bg-transparent sm:dark:bg-transparent z-20 sm:z-auto shadow-lg sm:shadow-none">
+          <div className="flex flex-col-reverse sm:flex-row sm:flex-wrap sm:items-center sm:justify-end gap-2 sm:gap-3 px-4 sm:px-0 py-3 sm:py-0 pt-4 sm:pt-6 mt-0 sm:mt-4 sm:mt-6">
+            {special?.id && onDelete && (
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(true)}
+                disabled={loading}
+                className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-base font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl cursor-pointer touch-manipulation min-h-[52px] w-full sm:w-auto sm:min-h-[44px] sm:text-sm sm:font-semibold sm:px-5 sm:py-2.5"
+              >
+                <FaTrash className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+                <span>Delete</span>
+              </button>
+            )}
             <button
               type="button"
-              onClick={() => setShowDeleteConfirm(true)}
+              onClick={handleCancel}
               disabled={loading}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer"
+              className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-base font-bold transition-all duration-200 cursor-pointer touch-manipulation min-h-[52px] w-full sm:w-auto sm:min-h-[44px] sm:text-sm sm:font-semibold sm:px-5 sm:py-2.5"
             >
-              <FaTrash className="w-3.5 h-3.5" />
-              <span>Delete</span>
+              <FaTimes className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+              <span>Cancel</span>
             </button>
-          )}
-          <button
-            type="button"
-            onClick={handleCancel}
-            disabled={loading}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold transition-all duration-200 cursor-pointer"
-          >
-            <FaTimes className="w-3.5 h-3.5" />
-            <span>Cancel</span>
-          </button>
-          <button
-            type="submit"
-            disabled={
-              loading ||
-              (special?.id && !isDirty) ||
-              (!hasWeeklyRecurring && !hasDateRange)
-            }
-            title={!hasWeeklyRecurring && !hasDateRange ? 'Please select weekly days or a date range' : ''}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer"
-          >
-            {loading ? (
-              <>
-                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                <span>{special?.id ? 'Saving...' : 'Creating...'}</span>
-              </>
-            ) : (
-              <>
-                {special?.id ? <FaSave className="w-3.5 h-3.5" /> : <FaCheck className="w-3.5 h-3.5" />}
-                <span>{special?.id ? 'Save' : 'Create'}</span>
-              </>
-            )}
-          </button>
+            <button
+              type="submit"
+              disabled={
+                loading ||
+                (special?.id && !isDirty) ||
+                (!hasWeeklyRecurring && !hasDateRange)
+              }
+              title={!hasWeeklyRecurring && !hasDateRange ? 'Please select weekly days or a date range' : ''}
+              className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-base font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl cursor-pointer touch-manipulation min-h-[52px] w-full sm:w-auto sm:min-h-[44px] sm:text-sm sm:font-semibold sm:px-5 sm:py-2.5"
+            >
+              {loading ? (
+                <>
+                  <div className="w-4 h-4 sm:w-3.5 sm:h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>{special?.id ? 'Saving...' : 'Creating...'}</span>
+                </>
+              ) : (
+                <>
+                  {special?.id ? <FaSave className="w-4 h-4 sm:w-3.5 sm:h-3.5" /> : <FaCheck className="w-4 h-4 sm:w-3.5 sm:h-3.5" />}
+                  <span>{special?.id ? 'Save' : 'Create'}</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </form>
 
