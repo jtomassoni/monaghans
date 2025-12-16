@@ -274,3 +274,55 @@ export function parseMountainTimeDate(dateStr: string): Date {
 export function compareMountainTimeDates(date1: Date, date2: Date): boolean {
   return getMountainTimeDateString(date1) === getMountainTimeDateString(date2);
 }
+
+/**
+ * Parse any date value (string, Date, or null) as Mountain Time
+ * This ensures dates are always interpreted in the company timezone (Mountain Time)
+ * regardless of where the request is coming from or what format the date is in.
+ * 
+ * This is critical when the same database is used by production (UTC) and local dev (various timezones).
+ * 
+ * @param dateValue - Can be:
+ *   - A YYYY-MM-DD string (parsed as Mountain Time midnight)
+ *   - An ISO string (date components extracted and interpreted as Mountain Time)
+ *   - A Date object (converted to Mountain Time date string, then parsed)
+ *   - null or undefined (returns null)
+ * @returns Date object representing the date at midnight in Mountain Time, or null
+ */
+export function parseAnyDateAsMountainTime(dateValue: string | Date | null | undefined): Date | null {
+  if (!dateValue) return null;
+  
+  // If it's already a Date object, extract the date components in Mountain Time
+  if (dateValue instanceof Date) {
+    const dateStr = getMountainTimeDateString(dateValue);
+    return parseMountainTimeDate(dateStr);
+  }
+  
+  // If it's a string in YYYY-MM-DD format, parse it directly
+  if (typeof dateValue === 'string') {
+    // Check if it's in YYYY-MM-DD format
+    if (dateValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      return parseMountainTimeDate(dateValue);
+    }
+    
+    // If it's an ISO string or other format, extract the date part
+    // First, try to parse it as a date to get the components
+    const tempDate = new Date(dateValue);
+    
+    // Check if it's a valid date
+    if (isNaN(tempDate.getTime())) {
+      // If parsing failed, try to extract YYYY-MM-DD from the string
+      const dateMatch = dateValue.match(/(\d{4}-\d{2}-\d{2})/);
+      if (dateMatch) {
+        return parseMountainTimeDate(dateMatch[1]);
+      }
+      return null;
+    }
+    
+    // Get the date components in Mountain Time from the parsed date
+    const dateStr = getMountainTimeDateString(tempDate);
+    return parseMountainTimeDate(dateStr);
+  }
+  
+  return null;
+}

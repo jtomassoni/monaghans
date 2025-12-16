@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, handleError, getCurrentUser, logActivity } from '@/lib/api-helpers';
-import { parseMountainTimeDate } from '@/lib/timezone';
+import { parseAnyDateAsMountainTime } from '@/lib/timezone';
 
 export async function GET(
   req: NextRequest,
@@ -56,13 +56,10 @@ export async function PUT(
         type: body.type || 'food',
         appliesOn: typeof body.appliesOn === 'string' ? body.appliesOn : JSON.stringify(body.appliesOn || []),
         timeWindow: body.timeWindow,
-        // Parse dates as Mountain Time to prevent timezone shifts
-        startDate: body.startDate ? (typeof body.startDate === 'string' && body.startDate.match(/^\d{4}-\d{2}-\d{2}$/) 
-          ? parseMountainTimeDate(body.startDate) 
-          : new Date(body.startDate)) : null,
-        endDate: body.endDate ? (typeof body.endDate === 'string' && body.endDate.match(/^\d{4}-\d{2}-\d{2}$/) 
-          ? parseMountainTimeDate(body.endDate) 
-          : new Date(body.endDate)) : null,
+        // Always parse dates as Mountain Time regardless of format or user's timezone
+        // This ensures dates are consistent whether requests come from production (UTC) or local dev (any timezone)
+        startDate: parseAnyDateAsMountainTime(body.startDate),
+        endDate: parseAnyDateAsMountainTime(body.endDate),
         image: body.image,
         isActive: body.isActive,
       },
