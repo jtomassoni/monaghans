@@ -169,10 +169,6 @@ function formatDateTimeLocal(dateTime: string): string {
   }
   const date = new Date(dateTime);
   return formatDateAsDateTimeLocal(date, getCompanyTimezoneSync());
-  const [month, day, year] = datePart.split('/').map(Number);
-  const [hours, minutes] = timePart.split(':').map(Number);
-  
-  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 }
 
 // Helper function to get today's date/time in datetime-local format (Mountain Time)

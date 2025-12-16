@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
-import { getMountainTimeNow, getMountainTimeToday } from '@/lib/timezone';
+import { getMountainTimeNow, getMountainTimeToday, getCompanyTimezoneDateString } from '@/lib/timezone';
 import { RRule } from 'rrule';
 import { format } from 'date-fns';
 
@@ -327,8 +327,18 @@ export default async function EventsPage() {
   
   allUpcomingEvents.forEach((event) => {
     const eventDate = new Date(event.startDateTime);
-    const monthKey = format(eventDate, 'yyyy-MM', { timeZone: 'America/Denver' });
-    const monthLabel = format(eventDate, 'MMMM yyyy', { timeZone: 'America/Denver' });
+    // Get date string in Mountain Time, then format with date-fns
+    const dateStr = getCompanyTimezoneDateString(eventDate, 'America/Denver');
+    const [year, month] = dateStr.split('-');
+    const monthKey = `${year}-${month}`;
+    
+    // For month label, use Intl.DateTimeFormat for timezone-aware formatting
+    const monthLabelFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Denver',
+      month: 'long',
+      year: 'numeric',
+    });
+    const monthLabel = monthLabelFormatter.format(eventDate);
     
     if (!eventsByMonth.has(monthKey)) {
       eventsByMonth.set(monthKey, []);
@@ -337,12 +347,16 @@ export default async function EventsPage() {
   });
 
   // Get current month key for highlighting
-  const currentMonthKey = format(now, 'yyyy-MM', { timeZone: 'America/Denver' });
+  const nowDateStr = getCompanyTimezoneDateString(now, 'America/Denver');
+  const [nowYear, nowMonth] = nowDateStr.split('-');
+  const currentMonthKey = `${nowYear}-${nowMonth}`;
   
   // Calculate the cutoff month (2 months from now)
   const cutoffDate = new Date(today);
   cutoffDate.setMonth(cutoffDate.getMonth() + 2);
-  const cutoffMonthKey = format(cutoffDate, 'yyyy-MM', { timeZone: 'America/Denver' });
+  const cutoffDateStr = getCompanyTimezoneDateString(cutoffDate, 'America/Denver');
+  const [cutoffYear, cutoffMonth] = cutoffDateStr.split('-');
+  const cutoffMonthKey = `${cutoffYear}-${cutoffMonth}`;
 
   // Filter to only show events from current month through 2 months ahead
   // Sort months chronologically
@@ -406,8 +420,17 @@ export default async function EventsPage() {
                       
                       // Get event date for styling
                       const eventDate = new Date(event.startDateTime);
-                      const eventDay = format(eventDate, 'd', { timeZone: 'America/Denver' });
-                      const eventWeekday = format(eventDate, 'EEE', { timeZone: 'America/Denver' });
+                      // Format day and weekday in Mountain Time using Intl.DateTimeFormat
+                      const dayFormatter = new Intl.DateTimeFormat('en-US', {
+                        timeZone: 'America/Denver',
+                        day: 'numeric',
+                      });
+                      const weekdayFormatter = new Intl.DateTimeFormat('en-US', {
+                        timeZone: 'America/Denver',
+                        weekday: 'short',
+                      });
+                      const eventDay = dayFormatter.format(eventDate);
+                      const eventWeekday = weekdayFormatter.format(eventDate);
                       
                       return (
                         <div
