@@ -7,7 +7,12 @@
  * 
  * Note: Most functions here are synchronous and use the hardcoded default.
  * For server-side code that needs the configured timezone, use getCompanyTimezone().
+ * 
+ * CRITICAL: All date/time operations should use these utilities to ensure consistency
+ * across different server timezones (Vercel UTC vs local dev) and client timezones.
  */
+
+const DEFAULT_TIMEZONE = 'America/Denver';
 
 /**
  * Get the company timezone from settings
@@ -27,7 +32,7 @@ export async function getCompanyTimezone(): Promise<string> {
     // If Prisma is not available (client-side), fall back to default
     console.warn('Could not fetch timezone setting, using default');
   }
-  return 'America/Denver';
+  return DEFAULT_TIMEZONE;
 }
 
 /**
@@ -35,22 +40,15 @@ export async function getCompanyTimezone(): Promise<string> {
  * Uses the default timezone. For server-side, use getCompanyTimezone() instead.
  */
 export function getCompanyTimezoneSync(): string {
-  return 'America/Denver'; // Default, can be overridden by settings
+  return DEFAULT_TIMEZONE; // Default, can be overridden by settings
 }
 
 /**
- * Get today's date in Mountain Time (start of day, 00:00:00)
- * Returns a Date object representing today at midnight in Mountain Time
- * This function works correctly regardless of the server's timezone (UTC or local)
+ * Helper to get timezone-aware formatter for the company timezone
  */
-export function getMountainTimeToday(): Date {
-  // Get the current time - this is always in UTC internally
-  const now = new Date();
-  
-  // Get the current date components in Mountain Time
-  // This ensures we get the correct day even if the server is in UTC
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/Denver',
+function getCompanyTimezoneFormatter(timezone: string = DEFAULT_TIMEZONE) {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -59,60 +57,194 @@ export function getMountainTimeToday(): Date {
     second: '2-digit',
     hour12: false
   });
+}
+
+/**
+ * Parse a datetime-local string (YYYY-MM-DDTHH:mm) as company timezone
+ * This is critical for forms where users input dates/times that should be
+ * interpreted in the company timezone, not the browser's local timezone.
+ * 
+ * @param datetimeLocal - String in format "YYYY-MM-DDTHH:mm" (no timezone info)
+ * @param timezone - Company timezone (defaults to America/Denver)
+ * @returns Date object in UTC representing the datetime in company timezone
+ */
+export function parseDateTimeLocalAsCompanyTimezone(
+  datetimeLocal: string,
+  timezone: string = DEFAULT_TIMEZONE
+): Date {
+  if (!datetimeLocal) {
+    throw new Error('datetimeLocal string is required');
+  }
+
+  const [datePart, timePart] = datetimeLocal.split('T');
+  if (!datePart) {
+    throw new Error('Invalid datetime-local format');
+  }
+
+  const [year, month, day] = datePart.split('-').map(Number);
+  const [hours = 0, minutes = 0] = (timePart || '00:00').split(':').map(Number);
+
+  const formatter = getCompanyTimezoneFormatter(timezone);
+
+  // Try different UTC offsets to find which one gives us the desired company timezone time
+  // Most timezones have offsets between -12 and +14, but we'll try a reasonable range
+  // For Mountain Time: UTC-7 (MST) or UTC-6 (MDT)
+  // We'll try offsets from -8 to +8 hours (covering most common timezones)
+  for (let offsetHours = -8; offsetHours <= 8; offsetHours++) {
+    const candidateUTC = new Date(Date.UTC(year, month - 1, day, hours - offsetHours, minutes, 0));
+    
+    const parts = formatter.formatToParts(candidateUTC);
+    const candidateYear = parseInt(parts.find(p => p.type === 'year')!.value);
+    const candidateMonth = parseInt(parts.find(p => p.type === 'month')!.value);
+    const candidateDay = parseInt(parts.find(p => p.type === 'day')!.value);
+    const candidateHour = parseInt(parts.find(p => p.type === 'hour')!.value);
+    const candidateMinute = parseInt(parts.find(p => p.type === 'minute')!.value);
+    
+    // candidateMonth is 1-indexed (1-12), month is 0-indexed (0-11)
+    if (candidateYear === year && candidateMonth === month && candidateDay === day &&
+        candidateHour === hours && candidateMinute === minutes) {
+      return candidateUTC;
+    }
+  }
+
+  // Fallback: Use a more sophisticated approach
+  // Create a date at noon in the target timezone to determine DST
+  const testDate = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  const tzInfo = testDate.toLocaleString('en-US', {
+    timeZone: timezone,
+    timeZoneName: 'short'
+  });
+
+  // Try to extract offset from timezone name or use a reasonable default
+  // This is a fallback, so we'll use a conservative approach
+  // For most US timezones, we can try common offsets
+  const commonOffsets = timezone.includes('America') 
+    ? [7, 6, 8, 5, 9, 4] // Common US timezone offsets
+    : [0, 1, -1, 2, -2, 3, -3]; // Common offsets for other regions
+
+  for (const offsetHours of commonOffsets) {
+    const candidateUTC = new Date(Date.UTC(year, month - 1, day, hours - offsetHours, minutes, 0));
+    const parts = formatter.formatToParts(candidateUTC);
+    const candidateYear = parseInt(parts.find(p => p.type === 'year')!.value);
+    const candidateMonth = parseInt(parts.find(p => p.type === 'month')!.value);
+    const candidateDay = parseInt(parts.find(p => p.type === 'day')!.value);
+    const candidateHour = parseInt(parts.find(p => p.type === 'hour')!.value);
+    const candidateMinute = parseInt(parts.find(p => p.type === 'minute')!.value);
+    
+    if (candidateYear === year && candidateMonth === month && candidateDay === day &&
+        candidateHour === hours && candidateMinute === minutes) {
+      return candidateUTC;
+    }
+  }
+
+  // Last resort: Use a simple offset calculation (not ideal but better than error)
+  // For Mountain Time, default to UTC-7
+  const defaultOffset = timezone === 'America/Denver' ? 7 : 0;
+  return new Date(Date.UTC(year, month - 1, day, hours - defaultOffset, minutes, 0));
+}
+
+/**
+ * Convert a UTC Date to datetime-local string in company timezone
+ * Used for displaying dates in forms (datetime-local input format)
+ * 
+ * @param date - Date object (in UTC)
+ * @param timezone - Company timezone (defaults to America/Denver)
+ * @returns String in format "YYYY-MM-DDTHH:mm"
+ */
+export function formatDateAsDateTimeLocal(
+  date: Date,
+  timezone: string = DEFAULT_TIMEZONE
+): string {
+  const formatter = getCompanyTimezoneFormatter(timezone);
+  const parts = formatter.formatToParts(date);
+  
+  const year = parts.find(p => p.type === 'year')!.value;
+  const month = parts.find(p => p.type === 'month')!.value;
+  const day = parts.find(p => p.type === 'day')!.value;
+  const hour = parts.find(p => p.type === 'hour')!.value;
+  const minute = parts.find(p => p.type === 'minute')!.value;
+  
+  return `${year}-${month}-${day}T${hour}:${minute}`;
+}
+
+/**
+ * Get today's date in Mountain Time (start of day, 00:00:00)
+ * Returns a Date object representing today at midnight in Mountain Time
+ * This function works correctly regardless of the server's timezone (UTC or local)
+ * 
+ * @deprecated Use getCompanyTimezoneToday() for better timezone support
+ */
+export function getMountainTimeToday(): Date {
+  return getCompanyTimezoneToday();
+}
+
+/**
+ * Get today's date in company timezone (start of day, 00:00:00)
+ * Returns a Date object representing today at midnight in company timezone
+ * This function works correctly regardless of the server's timezone (UTC or local)
+ * 
+ * @param timezone - Company timezone (defaults to America/Denver)
+ */
+export function getCompanyTimezoneToday(timezone: string = DEFAULT_TIMEZONE): Date {
+  // Get the current time - this is always in UTC internally
+  const now = new Date();
+  
+  // Get the current date components in company timezone
+  // This ensures we get the correct day even if the server is in UTC
+  const formatter = getCompanyTimezoneFormatter(timezone);
   
   const parts = formatter.formatToParts(now);
   const year = parseInt(parts.find(p => p.type === 'year')!.value);
   const month = parseInt(parts.find(p => p.type === 'month')!.value) - 1; // 0-indexed
   const day = parseInt(parts.find(p => p.type === 'day')!.value);
   
-  // Now find what UTC time corresponds to MT midnight for this date
-  // We need to find the UTC time that, when converted to MT, gives us 00:00:00 on this date
-  // MT is UTC-7 (MST) or UTC-6 (MDT), so MT midnight is UTC 7am or 6am
-  // Try both offsets and check which one gives us MT midnight
-  for (let offsetHours = 6; offsetHours <= 7; offsetHours++) {
-    const candidate = new Date(Date.UTC(year, month, day, offsetHours, 0, 0));
+  // Now find what UTC time corresponds to company timezone midnight for this date
+  // Try different UTC offsets to find which one gives us midnight in company timezone
+  for (let offsetHours = -12; offsetHours <= 14; offsetHours++) {
+    const candidate = new Date(Date.UTC(year, month, day, -offsetHours, 0, 0));
     
-    // Verify this candidate represents midnight in Mountain Time
-    const mtParts = formatter.formatToParts(candidate);
-    const mtYear = parseInt(mtParts.find(p => p.type === 'year')!.value);
-    const mtMonth = parseInt(mtParts.find(p => p.type === 'month')!.value) - 1;
-    const mtDay = parseInt(mtParts.find(p => p.type === 'day')!.value);
-    const mtHour = parseInt(mtParts.find(p => p.type === 'hour')!.value);
-    const mtMinute = parseInt(mtParts.find(p => p.type === 'minute')!.value);
-    const mtSecond = parseInt(mtParts.find(p => p.type === 'second')?.value || '0');
+    // Verify this candidate represents midnight in company timezone
+    const tzParts = formatter.formatToParts(candidate);
+    const tzYear = parseInt(tzParts.find(p => p.type === 'year')!.value);
+    const tzMonth = parseInt(tzParts.find(p => p.type === 'month')!.value) - 1;
+    const tzDay = parseInt(tzParts.find(p => p.type === 'day')!.value);
+    const tzHour = parseInt(tzParts.find(p => p.type === 'hour')!.value);
+    const tzMinute = parseInt(tzParts.find(p => p.type === 'minute')?.value || '0');
+    const tzSecond = parseInt(tzParts.find(p => p.type === 'second')?.value || '0');
     
-    // Check if this candidate represents midnight on the target date in MT
-    if (mtYear === year && mtMonth === month && mtDay === day && 
-        mtHour === 0 && mtMinute === 0 && mtSecond === 0) {
+    // Check if this candidate represents midnight on the target date in company timezone
+    if (tzYear === year && tzMonth === month && tzDay === day && 
+        tzHour === 0 && tzMinute === 0 && tzSecond === 0) {
       return candidate;
     }
   }
   
-  // Fallback: detect DST and use appropriate offset
-  // Check if DST is active for this date by creating a test date at noon
-  const testDate = new Date(Date.UTC(year, month, day, 12, 0, 0));
-  const mtTest = testDate.toLocaleString('en-US', {
-    timeZone: 'America/Denver',
-    timeZoneName: 'short'
-  });
-  
-  // MDT is UTC-6 (daylight time), MST is UTC-7 (standard time)
-  const isDST = mtTest.includes('MDT');
-  const fallbackOffset = isDST ? 6 : 7;
-  
-  const fallback = new Date(Date.UTC(year, month, day, fallbackOffset, 0, 0));
+  // Fallback: Use a reasonable default offset based on timezone
+  // For Mountain Time, default to UTC-7 (MST)
+  const defaultOffset = timezone === 'America/Denver' ? 7 : 0;
+  const fallback = new Date(Date.UTC(year, month, day, defaultOffset, 0, 0));
   
   // Verify the fallback is correct
   const fallbackParts = formatter.formatToParts(fallback);
-  const fallbackMTYear = parseInt(fallbackParts.find(p => p.type === 'year')!.value);
-  const fallbackMTMonth = parseInt(fallbackParts.find(p => p.type === 'month')!.value) - 1;
-  const fallbackMTDay = parseInt(fallbackParts.find(p => p.type === 'day')!.value);
-  const fallbackMTHour = parseInt(fallbackParts.find(p => p.type === 'hour')!.value);
+  const fallbackTZYear = parseInt(fallbackParts.find(p => p.type === 'year')!.value);
+  const fallbackTZMonth = parseInt(fallbackParts.find(p => p.type === 'month')!.value) - 1;
+  const fallbackTZDay = parseInt(fallbackParts.find(p => p.type === 'day')!.value);
+  const fallbackTZHour = parseInt(fallbackParts.find(p => p.type === 'hour')!.value);
   
-  // If fallback doesn't match, try the other offset
-  if (fallbackMTYear !== year || fallbackMTMonth !== month || fallbackMTDay !== day || fallbackMTHour !== 0) {
-    const altOffset = isDST ? 7 : 6;
-    return new Date(Date.UTC(year, month, day, altOffset, 0, 0));
+  // If fallback doesn't match, try adjacent offsets
+  if (fallbackTZYear !== year || fallbackTZMonth !== month || fallbackTZDay !== day || fallbackTZHour !== 0) {
+    for (const altOffset of [defaultOffset - 1, defaultOffset + 1, defaultOffset - 2, defaultOffset + 2]) {
+      const altCandidate = new Date(Date.UTC(year, month, day, altOffset, 0, 0));
+      const altParts = formatter.formatToParts(altCandidate);
+      const altYear = parseInt(altParts.find(p => p.type === 'year')!.value);
+      const altMonth = parseInt(altParts.find(p => p.type === 'month')!.value) - 1;
+      const altDay = parseInt(altParts.find(p => p.type === 'day')!.value);
+      const altHour = parseInt(altParts.find(p => p.type === 'hour')!.value);
+      
+      if (altYear === year && altMonth === month && altDay === day && altHour === 0) {
+        return altCandidate;
+      }
+    }
   }
   
   return fallback;
@@ -155,34 +287,70 @@ export function getMountainTimeTomorrow(): Date {
 }
 
 /**
- * Get the current weekday name in Mountain Time
+ * Get the current weekday name in company timezone
  * This function works correctly regardless of the server's timezone (UTC or local)
+ * 
+ * @param timezone - Company timezone (defaults to America/Denver)
  */
-export function getMountainTimeWeekday(): string {
+export function getMountainTimeWeekday(timezone: string = DEFAULT_TIMEZONE): string {
+  return getCompanyTimezoneWeekday(timezone);
+}
+
+/**
+ * Get the current weekday name in company timezone
+ * This function works correctly regardless of the server's timezone (UTC or local)
+ * 
+ * @param timezone - Company timezone (defaults to America/Denver)
+ */
+export function getCompanyTimezoneWeekday(timezone: string = DEFAULT_TIMEZONE): string {
   const now = new Date();
   // Use toLocaleDateString with timeZone to ensure we get the correct day
   // even if the server is running in UTC
   return now.toLocaleDateString('en-US', { 
     weekday: 'long',
-    timeZone: 'America/Denver'
+    timeZone: timezone
   });
 }
 
 /**
- * Get the current date/time in Mountain Time
+ * Get the current date/time in company timezone
  * Returns a Date object representing the current moment
+ * Note: Date objects are always in UTC internally, this just returns current time
  */
 export function getMountainTimeNow(): Date {
+  return getCompanyTimezoneNow();
+}
+
+/**
+ * Get the current date/time in company timezone
+ * Returns a Date object representing the current moment
+ * Note: Date objects are always in UTC internally, this just returns current time
+ */
+export function getCompanyTimezoneNow(): Date {
   return new Date();
 }
 
 /**
- * Get the date string (YYYY-MM-DD) from a Date object in Mountain Time
+ * Get the date string (YYYY-MM-DD) from a Date object in company timezone
  * This prevents dates from shifting by a day due to timezone conversion
+ * 
+ * @param date - Date object
+ * @param timezone - Company timezone (defaults to America/Denver)
  */
-export function getMountainTimeDateString(date: Date): string {
+export function getMountainTimeDateString(date: Date, timezone: string = DEFAULT_TIMEZONE): string {
+  return getCompanyTimezoneDateString(date, timezone);
+}
+
+/**
+ * Get the date string (YYYY-MM-DD) from a Date object in company timezone
+ * This prevents dates from shifting by a day due to timezone conversion
+ * 
+ * @param date - Date object
+ * @param timezone - Company timezone (defaults to America/Denver)
+ */
+export function getCompanyTimezoneDateString(date: Date, timezone: string = DEFAULT_TIMEZONE): string {
   const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/Denver',
+    timeZone: timezone,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit'
@@ -197,71 +365,78 @@ export function getMountainTimeDateString(date: Date): string {
 }
 
 /**
- * Parse a YYYY-MM-DD date string as Mountain Time (not UTC)
+ * Parse a YYYY-MM-DD date string as company timezone (not UTC)
  * This prevents dates from shifting by a day due to timezone conversion
- * Returns a Date object representing midnight in Mountain Time for that date
+ * Returns a Date object representing midnight in company timezone for that date
  * This function works correctly regardless of the server's timezone (UTC or local)
+ * 
+ * @param dateStr - Date string in format "YYYY-MM-DD"
+ * @param timezone - Company timezone (defaults to America/Denver)
  */
-export function parseMountainTimeDate(dateStr: string): Date {
+export function parseMountainTimeDate(dateStr: string, timezone: string = DEFAULT_TIMEZONE): Date {
+  return parseCompanyTimezoneDate(dateStr, timezone);
+}
+
+/**
+ * Parse a YYYY-MM-DD date string as company timezone (not UTC)
+ * This prevents dates from shifting by a day due to timezone conversion
+ * Returns a Date object representing midnight in company timezone for that date
+ * This function works correctly regardless of the server's timezone (UTC or local)
+ * 
+ * @param dateStr - Date string in format "YYYY-MM-DD"
+ * @param timezone - Company timezone (defaults to America/Denver)
+ */
+export function parseCompanyTimezoneDate(dateStr: string, timezone: string = DEFAULT_TIMEZONE): Date {
   const [year, month, day] = dateStr.split('-').map(Number);
   
   // Use Intl.DateTimeFormat to verify dates correctly
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/Denver',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false
-  });
+  const formatter = getCompanyTimezoneFormatter(timezone);
   
-  // Try different UTC hours to find which one gives us MT midnight
-  for (let offsetHours = 6; offsetHours <= 7; offsetHours++) {
-    const candidate = new Date(Date.UTC(year, month - 1, day, offsetHours, 0, 0));
+  // Try different UTC offsets to find which one gives us company timezone midnight
+  for (let offsetHours = -12; offsetHours <= 14; offsetHours++) {
+    const candidate = new Date(Date.UTC(year, month - 1, day, -offsetHours, 0, 0));
     
-    // Verify this candidate represents midnight in Mountain Time
-    const mtParts = formatter.formatToParts(candidate);
-    const mtYear = parseInt(mtParts.find(p => p.type === 'year')!.value);
-    const mtMonth = parseInt(mtParts.find(p => p.type === 'month')!.value) - 1;
-    const mtDay = parseInt(mtParts.find(p => p.type === 'day')!.value);
-    const mtHour = parseInt(mtParts.find(p => p.type === 'hour')!.value);
-    const mtMinute = parseInt(mtParts.find(p => p.type === 'minute')!.value);
-    const mtSecond = parseInt(mtParts.find(p => p.type === 'second')?.value || '0');
+    // Verify this candidate represents midnight in company timezone
+    const tzParts = formatter.formatToParts(candidate);
+    const tzYear = parseInt(tzParts.find(p => p.type === 'year')!.value);
+    const tzMonth = parseInt(tzParts.find(p => p.type === 'month')!.value) - 1;
+    const tzDay = parseInt(tzParts.find(p => p.type === 'day')!.value);
+    const tzHour = parseInt(tzParts.find(p => p.type === 'hour')!.value);
+    const tzMinute = parseInt(tzParts.find(p => p.type === 'minute')!.value);
+    const tzSecond = parseInt(tzParts.find(p => p.type === 'second')?.value || '0');
     
-    // Check if this candidate represents midnight on the target date in MT
-    if (mtYear === year && mtMonth === month - 1 && mtDay === day && 
-        mtHour === 0 && mtMinute === 0 && mtSecond === 0) {
+    // Check if this candidate represents midnight on the target date in company timezone
+    if (tzYear === year && tzMonth === month - 1 && tzDay === day && 
+        tzHour === 0 && tzMinute === 0 && tzSecond === 0) {
       return candidate;
     }
   }
   
-  // Fallback: detect DST and use appropriate offset
-  // Check if DST is active for this date by creating a test date at noon
-  const testDate = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
-  const mtTest = testDate.toLocaleString('en-US', {
-    timeZone: 'America/Denver',
-    timeZoneName: 'short'
-  });
-  
-  // MDT is UTC-6 (daylight time), MST is UTC-7 (standard time)
-  const isDST = mtTest.includes('MDT');
-  const fallbackOffset = isDST ? 6 : 7;
-  
-  const fallback = new Date(Date.UTC(year, month - 1, day, fallbackOffset, 0, 0));
+  // Fallback: Use a reasonable default offset based on timezone
+  const defaultOffset = timezone === 'America/Denver' ? 7 : 0;
+  const fallback = new Date(Date.UTC(year, month - 1, day, defaultOffset, 0, 0));
   
   // Verify the fallback is correct
   const fallbackParts = formatter.formatToParts(fallback);
-  const fallbackMTYear = parseInt(fallbackParts.find(p => p.type === 'year')!.value);
-  const fallbackMTMonth = parseInt(fallbackParts.find(p => p.type === 'month')!.value) - 1;
-  const fallbackMTDay = parseInt(fallbackParts.find(p => p.type === 'day')!.value);
-  const fallbackMTHour = parseInt(fallbackParts.find(p => p.type === 'hour')!.value);
+  const fallbackTZYear = parseInt(fallbackParts.find(p => p.type === 'year')!.value);
+  const fallbackTZMonth = parseInt(fallbackParts.find(p => p.type === 'month')!.value) - 1;
+  const fallbackTZDay = parseInt(fallbackParts.find(p => p.type === 'day')!.value);
+  const fallbackTZHour = parseInt(fallbackParts.find(p => p.type === 'hour')!.value);
   
-  // If fallback doesn't match, try the other offset
-  if (fallbackMTYear !== year || fallbackMTMonth !== month - 1 || fallbackMTDay !== day || fallbackMTHour !== 0) {
-    const altOffset = isDST ? 7 : 6;
-    return new Date(Date.UTC(year, month - 1, day, altOffset, 0, 0));
+  // If fallback doesn't match, try adjacent offsets
+  if (fallbackTZYear !== year || fallbackTZMonth !== month - 1 || fallbackTZDay !== day || fallbackTZHour !== 0) {
+    for (const altOffset of [defaultOffset - 1, defaultOffset + 1, defaultOffset - 2, defaultOffset + 2]) {
+      const altCandidate = new Date(Date.UTC(year, month - 1, day, altOffset, 0, 0));
+      const altParts = formatter.formatToParts(altCandidate);
+      const altYear = parseInt(altParts.find(p => p.type === 'year')!.value);
+      const altMonth = parseInt(altParts.find(p => p.type === 'month')!.value) - 1;
+      const altDay = parseInt(altParts.find(p => p.type === 'day')!.value);
+      const altHour = parseInt(altParts.find(p => p.type === 'hour')!.value);
+      
+      if (altYear === year && altMonth === month - 1 && altDay === day && altHour === 0) {
+        return altCandidate;
+      }
+    }
   }
   
   return fallback;

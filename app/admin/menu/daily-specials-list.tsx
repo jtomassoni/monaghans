@@ -7,7 +7,8 @@ import { showToast } from '@/components/toast';
 import SearchSortFilter, { SortOption, FilterOption } from '@/components/search-sort-filter';
 import StatusBadge from '@/components/status-badge';
 import { getItemStatus } from '@/lib/status-helpers';
-import { getMountainTimeDateString, getMountainTimeToday } from '@/lib/timezone';
+import { getMountainTimeDateString, getMountainTimeToday, parseMountainTimeDate } from '@/lib/timezone';
+import { startOfDay, endOfDay } from 'date-fns';
 import ConfirmationDialog from '@/components/confirmation-dialog';
 import { FaStar, FaSort, FaSortUp, FaSortDown, FaEdit, FaCopy, FaTrash } from 'react-icons/fa';
 
@@ -27,7 +28,7 @@ interface DailySpecialsListProps {
   initialSpecials: DailySpecial[];
 }
 
-type SortField = 'title' | 'startDate' | 'type' | 'isActive' | 'priceNotes' | 'timeWindow';
+type SortField = 'title' | 'startDate' | 'type' | 'isActive' | 'priceNotes';
 type SortDirection = 'asc' | 'desc' | null;
 
 export default function DailySpecialsList({ initialSpecials }: DailySpecialsListProps) {
@@ -38,7 +39,7 @@ export default function DailySpecialsList({ initialSpecials }: DailySpecialsList
   const [specialModalOpen, setSpecialModalOpen] = useState(false);
   const [editingSpecial, setEditingSpecial] = useState<DailySpecial | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{ id: string; title: string } | null>(null);
-  const [columnSort, setColumnSort] = useState<{ field: SortField; direction: SortDirection }>({ field: 'startDate', direction: 'asc' });
+  const [columnSort, setColumnSort] = useState<{ field: SortField; direction: SortDirection }>({ field: 'startDate', direction: null });
 
   useEffect(() => {
     setSpecials(initialSpecials);
@@ -46,28 +47,113 @@ export default function DailySpecialsList({ initialSpecials }: DailySpecialsList
 
   // Get today's date string in Mountain Time for sorting
   const todayStr = getMountainTimeDateString(getMountainTimeToday());
+  const now = getMountainTimeToday();
+
+  // Helper function to get the next occurrence date for a special
+  const getSpecialDate = (special: DailySpecial): Date => {
+    // For date-based specials, use startDate (or endDate if it's a range)
+    if (special.startDate) {
+      const startDate = parseMountainTimeDate(special.startDate.split('T')[0]);
+      const endDate = special.endDate ? parseMountainTimeDate(special.endDate.split('T')[0]) : null;
+      
+      // If the special is currently active (today is within the range), return today
+      const effectiveEndDate = endDate || startDate;
+      const start = startOfDay(startDate);
+      const end = endOfDay(effectiveEndDate);
+      
+      if (now >= start && now <= end) {
+        return now; // Currently active, show it first
+      }
+      
+      // If startDate is in the future, return it
+      if (startDate > now) {
+        return startDate;
+      }
+      
+      // If past, return the end date (or start date if no end date)
+      return endDate || startDate;
+    }
+    
+    // For weekly recurring specials (appliesOn), find the next occurrence
+    // Note: appliesOn is not in the interface, but we'll handle it if it exists
+    const appliesOn = (special as any).appliesOn;
+    if (appliesOn && Array.isArray(appliesOn) && appliesOn.length > 0) {
+      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const dayMap: Record<string, number> = {
+        'Sunday': 0, 'Monday': 1, 'Tuesday': 2, 'Wednesday': 3, 
+        'Thursday': 4, 'Friday': 5, 'Saturday': 6
+      };
+      
+      // Find the next matching day
+      let checkDate = new Date(now);
+      for (let i = 0; i < 14; i++) { // Check up to 2 weeks ahead
+        const dayName = dayNames[checkDate.getDay()];
+        if (appliesOn.includes(dayName)) {
+          // Check if within date range if set
+          if (special.startDate || special.endDate) {
+            const startDate = special.startDate ? parseMountainTimeDate(special.startDate.split('T')[0]) : null;
+            const endDate = special.endDate ? parseMountainTimeDate(special.endDate.split('T')[0]) : null;
+            
+            if (startDate && checkDate < startOfDay(startDate)) {
+              checkDate.setDate(checkDate.getDate() + 1);
+              continue;
+            }
+            if (endDate && checkDate > endOfDay(endDate)) {
+              // Past the end date, return far future
+              const farFuture = new Date();
+              farFuture.setFullYear(farFuture.getFullYear() + 100);
+              return farFuture;
+            }
+          }
+          return startOfDay(checkDate);
+        }
+        checkDate.setDate(checkDate.getDate() + 1);
+      }
+      
+      // No match found in next 2 weeks, return far future
+      const farFuture = new Date();
+      farFuture.setFullYear(farFuture.getFullYear() + 100);
+      return farFuture;
+    }
+    
+    // No date information, return far future to sort at end
+    const farFuture = new Date();
+    farFuture.setFullYear(farFuture.getFullYear() + 100);
+    return farFuture;
+  };
+
+  // Helper to get status priority: Active (0), Scheduled (1), Past (2)
+  const getStatusPriority = (special: DailySpecial): number => {
+    const statuses = getItemStatus({
+      isActive: special.isActive,
+      startDate: special.startDate,
+      endDate: special.endDate,
+    });
+    
+    // Check for statuses in priority order
+    if (statuses.includes('active')) return 0; // Active first
+    if (statuses.includes('scheduled')) return 1; // Scheduled second
+    if (statuses.includes('past')) return 2; // Past third
+    return 3; // Everything else (inactive, etc.)
+  };
 
   const sortOptions: SortOption<DailySpecial>[] = [
     { 
-      label: 'Date (Today First)', 
-      value: 'date-today-first', 
+      label: 'Next', 
+      value: 'next', 
       sortFn: (a, b) => {
-        const aDateStr = a.startDate ? a.startDate.split('T')[0] : '';
-        const bDateStr = b.startDate ? b.startDate.split('T')[0] : '';
+        // PRIORITY 1: Status (Active → Scheduled → Past)
+        const aStatusPriority = getStatusPriority(a);
+        const bStatusPriority = getStatusPriority(b);
         
-        // Today's items first
-        const aIsToday = aDateStr === todayStr;
-        const bIsToday = bDateStr === todayStr;
-        if (aIsToday && !bIsToday) return -1;
-        if (!aIsToday && bIsToday) return 1;
-        
-        // Then sort by date (ascending - today, tomorrow, etc.)
-        if (aDateStr && bDateStr) {
-          return aDateStr.localeCompare(bDateStr);
+        if (aStatusPriority !== bStatusPriority) {
+          return aStatusPriority - bStatusPriority;
         }
-        if (aDateStr) return -1;
-        if (bDateStr) return 1;
-        return 0;
+        
+        // PRIORITY 2: Within the same status, sort chronologically
+        const aDate = getSpecialDate(a).getTime();
+        const bDate = getSpecialDate(b).getTime();
+        return aDate - bDate;
       }
     },
     { 
@@ -271,10 +357,6 @@ export default function DailySpecialsList({ initialSpecials }: DailySpecialsList
           aVal = a.priceNotes?.toLowerCase() || '';
           bVal = b.priceNotes?.toLowerCase() || '';
           break;
-        case 'timeWindow':
-          aVal = a.timeWindow?.toLowerCase() || '';
-          bVal = b.timeWindow?.toLowerCase() || '';
-          break;
         default:
           return 0;
       }
@@ -321,7 +403,11 @@ export default function DailySpecialsList({ initialSpecials }: DailySpecialsList
           searchPlaceholder="Search daily specials..."
           sortOptions={sortOptions}
           filterOptions={filterOptions}
-          defaultSort={sortOptions[0]} // "Date (Today First)"
+          defaultSort={sortOptions[0]} // "Next" - today, tomorrow, day after
+          onSortChange={() => {
+            // Reset table header column sorting when user selects a sort option from dropdown
+            setColumnSort({ field: 'startDate', direction: null });
+          }}
         />
       </div>
 
@@ -424,25 +510,6 @@ export default function DailySpecialsList({ initialSpecials }: DailySpecialsList
                   </th>
                   <th
                     className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                    onClick={() => handleColumnSort('timeWindow')}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span>Time Window</span>
-                      {columnSort.field === 'timeWindow' ? (
-                        columnSort.direction === 'asc' ? (
-                          <FaSortUp className="w-3 h-3" />
-                        ) : columnSort.direction === 'desc' ? (
-                          <FaSortDown className="w-3 h-3" />
-                        ) : (
-                          <FaSort className="w-3 h-3 opacity-50" />
-                        )
-                      ) : (
-                        <FaSort className="w-3 h-3 opacity-30" />
-                      )}
-                    </div>
-                  </th>
-                  <th
-                    className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                     onClick={() => handleColumnSort('isActive')}
                   >
                     <div className="flex items-center gap-2">
@@ -517,11 +584,6 @@ export default function DailySpecialsList({ initialSpecials }: DailySpecialsList
                     <td className="px-4 py-3 whitespace-nowrap">
                       <span className="text-sm text-gray-900 dark:text-white font-medium">
                         {item.priceNotes || '-'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className="text-sm text-gray-600 dark:text-gray-400">
-                        {item.timeWindow || '-'}
                       </span>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">

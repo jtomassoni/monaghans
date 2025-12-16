@@ -9,6 +9,7 @@ import ConfirmationDialog from '@/components/confirmation-dialog';
 import DateTimePicker from '@/components/date-time-picker';
 import DatePicker from '@/components/date-picker';
 import { FaCalendarAlt, FaBullhorn } from 'react-icons/fa';
+import { formatDateAsDateTimeLocal, parseDateTimeLocalAsCompanyTimezone, getCompanyTimezoneSync } from '@/lib/timezone';
 
 interface Event {
   id?: string;
@@ -122,8 +123,10 @@ function buildRRULE(frequency: string, days: string[], monthDay?: number, until?
   }
 
   if (until && rrule) {
+    // Format date as YYYYMMDDT235959Z to ensure the entire day is included
+    // This makes UNTIL inclusive of the last occurrence on that date
     const dateStr = until.replace(/-/g, '');
-    rrule += `;UNTIL=${dateStr}`;
+    rrule += `;UNTIL=${dateStr}T235959Z`;
   }
 
   return rrule;
@@ -134,134 +137,38 @@ const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Satur
 // Helper function to convert UTC ISO string to datetime-local string (Mountain Time)
 function convertUTCToMountainTimeLocal(utcISO: string): string {
   const utcDate = new Date(utcISO);
-  
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/Denver',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false
-  });
-  
-  const parts = formatter.formatToParts(utcDate);
-  const year = parts.find(p => p.type === 'year')!.value;
-  const month = parts.find(p => p.type === 'month')!.value;
-  const day = parts.find(p => p.type === 'day')!.value;
-  const hour = parts.find(p => p.type === 'hour')!.value;
-  const minute = parts.find(p => p.type === 'minute')!.value;
-  
-  return `${year}-${month}-${day}T${hour}:${minute}`;
+  return formatDateAsDateTimeLocal(utcDate, getCompanyTimezoneSync());
 }
 
-// Helper function to convert datetime-local string (interpreted as Mountain Time) to UTC ISO string
+// Helper function to convert datetime-local string (interpreted as company timezone) to UTC ISO string
 function convertMountainTimeToUTC(datetimeLocal: string): string {
-  const [datePart, timePart] = datetimeLocal.split('T');
-  const [year, month, day] = datePart.split('-').map(Number);
-  const [hours, minutes] = timePart.split(':').map(Number);
-  
-  const mtDateString = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`;
-  
-  for (let offsetHours = 6; offsetHours <= 7; offsetHours++) {
-    const candidateUTC = new Date(Date.UTC(year, month - 1, day, hours + offsetHours, minutes, 0));
-    
-    const formatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: 'America/Denver',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    });
-    
-    const mtParts = formatter.formatToParts(candidateUTC);
-    const mtYear = parseInt(mtParts.find(p => p.type === 'year')!.value);
-    const mtMonth = parseInt(mtParts.find(p => p.type === 'month')!.value);
-    const mtDay = parseInt(mtParts.find(p => p.type === 'day')!.value);
-    const mtHour = parseInt(mtParts.find(p => p.type === 'hour')!.value);
-    const mtMinute = parseInt(mtParts.find(p => p.type === 'minute')!.value);
-    
-    if (mtYear === year && mtMonth === month && mtDay === day && mtHour === hours && mtMinute === minutes) {
-      return candidateUTC.toISOString();
-    }
+  try {
+    const date = parseDateTimeLocalAsCompanyTimezone(datetimeLocal, getCompanyTimezoneSync());
+    return date.toISOString();
+  } catch (error) {
+    console.error('Error converting datetime-local to UTC:', error);
+    return new Date().toISOString();
   }
-  
-  const testDate = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
-  const mtTest = testDate.toLocaleString('en-US', {
-    timeZone: 'America/Denver',
-    timeZoneName: 'short'
-  });
-  
-  const isDST = mtTest.includes('MDT') || (!mtTest.includes('MST') && month >= 3 && month <= 10);
-  const fallbackOffset = isDST ? 6 : 7;
-  
-  const utcDate = new Date(Date.UTC(year, month - 1, day, hours + fallbackOffset, minutes, 0));
-  return utcDate.toISOString();
 }
 
-// Helper function to parse datetime-local string as Mountain Time
+// Helper function to parse datetime-local string as company timezone
 function parseAsMountainTime(dateTimeLocal: string): Date {
   if (!dateTimeLocal) return new Date();
-  
-  const [datePart, timePart] = dateTimeLocal.split('T');
-  const [year, month, day] = datePart.split('-').map(Number);
-  const [hours, minutes] = (timePart || '00:00').split(':').map(Number);
-  
-  for (let offsetHours = 6; offsetHours <= 7; offsetHours++) {
-    const candidateUTC = new Date(Date.UTC(year, month - 1, day, hours + offsetHours, minutes, 0));
-    const mtStr = candidateUTC.toLocaleString('en-US', { 
-      timeZone: 'America/Denver',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    });
-    
-    const [candidateDate, candidateTime] = mtStr.split(', ');
-    const targetDate = `${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}/${year}`;
-    const targetTime = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`;
-    
-    if (candidateDate === targetDate && candidateTime === targetTime) {
-      return candidateUTC;
-    }
+  try {
+    return parseDateTimeLocalAsCompanyTimezone(dateTimeLocal, getCompanyTimezoneSync());
+  } catch (error) {
+    console.error('Error parsing datetime-local:', error);
+    return new Date();
   }
-  
-  const testDate = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
-  const mtTest = testDate.toLocaleString('en-US', {
-    timeZone: 'America/Denver',
-    timeZoneName: 'short'
-  });
-  
-  const isDST = mtTest.includes('MDT') || (!mtTest.includes('MST') && month >= 3 && month <= 10);
-  const fallbackOffset = isDST ? 6 : 7;
-  
-  return new Date(Date.UTC(year, month - 1, day, hours + fallbackOffset, minutes, 0));
 }
 
-// Helper function to format date for datetime-local input (Mountain Time displayed as local)
+// Helper function to format date for datetime-local input (company timezone displayed as local)
 function formatDateTimeLocal(dateTime: string): string {
   if (!dateTime.includes('Z') && !dateTime.includes('+') && !dateTime.includes('-', 10)) {
     return dateTime.slice(0, 16);
   }
   const date = new Date(dateTime);
-  const mtStr = date.toLocaleString('en-US', {
-    timeZone: 'America/Denver',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false
-  });
-  
-  const [datePart, timePart] = mtStr.split(', ');
+  return formatDateAsDateTimeLocal(date, getCompanyTimezoneSync());
   const [month, day, year] = datePart.split('/').map(Number);
   const [hours, minutes] = timePart.split(':').map(Number);
   
@@ -526,10 +433,13 @@ export default function UnifiedEventAnnouncementForm({
       }
     } else {
       // For timed events, parse dates as Mountain Time to ensure consistent comparison
+      // Note: Cross-day events are allowed (e.g., Tuesday 10am to Wednesday 2am)
+      // This is common for bars/restaurants where the business day spans midnight
       const startDateMT = parseAsMountainTime(start);
       const endDateMT = parseAsMountainTime(end);
       
       // End must be after start (not equal)
+      // This naturally handles cross-day events since the end date will be on the next calendar day
       if (endDateMT <= startDateMT) {
         return 'End date & time must be after start date & time';
       }

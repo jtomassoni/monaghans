@@ -272,6 +272,9 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
         return 'End date must be on or after start date';
       }
     } else {
+      // Note: Cross-day events are allowed (e.g., Tuesday 10am to Wednesday 2am)
+      // This is common for bars/restaurants where the business day spans midnight
+      // The Date comparison naturally handles this since the end date will be on the next calendar day
       if (endDate <= startDate) {
         return 'End date & time must be after start date & time';
       }

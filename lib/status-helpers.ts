@@ -15,6 +15,7 @@ export function getItemStatus(item: {
   endDateTime?: string | null;
   startDate?: string | null;
   endDate?: string | null;
+  appliesOn?: string | null; // For recurring specials (JSON array of weekdays)
 }): StatusType[] {
   const statuses: StatusType[] = [];
   const now = new Date();
@@ -70,14 +71,27 @@ export function getItemStatus(item: {
         : getMountainTimeDateString(endDateValue);
     }
     
+    // Check if this is a recurring special (has appliesOn with weekdays)
+    let isRecurring = false;
+    if (item.appliesOn) {
+      try {
+        const appliesOnDays = typeof item.appliesOn === 'string' ? JSON.parse(item.appliesOn) : item.appliesOn;
+        isRecurring = Array.isArray(appliesOnDays) && appliesOnDays.length > 0;
+      } catch {
+        // If parsing fails, assume not recurring
+        isRecurring = false;
+      }
+    }
+    
     // Compare date strings directly (YYYY-MM-DD format)
     // A date is "past" only if it's before today in Mountain Time (not equal to today)
     // For single-day specials, use startDate if endDate is not set or equals startDate
+    // Only mark as "past" for non-recurring specials (recurring specials don't have a "past" state)
     if (startDateStr) {
       const effectiveEndDateStr = endDateStr && endDateStr !== startDateStr ? endDateStr : startDateStr;
       
-      // Only mark as past if the date is strictly before today (not today)
-      if (effectiveEndDateStr < mtTodayStr) {
+      // Only mark as past if the date is strictly before today (not today) AND it's not recurring
+      if (!isRecurring && effectiveEndDateStr < mtTodayStr) {
         statuses.push('past');
       } else if (startDateStr > mtTodayStr) {
         statuses.push('scheduled');

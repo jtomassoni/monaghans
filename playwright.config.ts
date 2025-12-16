@@ -28,9 +28,12 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   /* Parallelize tests - use multiple workers in CI for faster execution */
   /* Default to 4 workers in CI, or use PLAYWRIGHT_WORKERS env var if set */
+  /* Tests are organized by feature area for optimal parallelization */
   workers: process.env.CI 
     ? (process.env.PLAYWRIGHT_WORKERS ? parseInt(process.env.PLAYWRIGHT_WORKERS) : 4)
     : undefined,
+  /* Maximum number of test failures before stopping */
+  maxFailures: process.env.CI ? undefined : 5,
   /* Reporter configuration - multiple reporters for better visibility */
   reporter: process.env.CI
     ? [

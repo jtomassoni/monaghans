@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import CalendarView from '@/components/admin-calendar';
 import EventModalForm from '@/components/event-modal-form';
 import SpecialModalForm from '@/components/special-modal-form';
@@ -98,6 +98,7 @@ type ViewType = 'calendar' | 'list';
 
 export default function DashboardContent({ events: initialEvents, specials, announcements = [], businessHours, calendarHours, isAdmin }: DashboardContentProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
   const [eventModalOpen, setEventModalOpen] = useState(false);
   const [specialModalOpen, setSpecialModalOpen] = useState(false);
@@ -105,7 +106,11 @@ export default function DashboardContent({ events: initialEvents, specials, anno
   const [eventOccurrenceDate, setEventOccurrenceDate] = useState<Date | undefined>(undefined);
   const [editingSpecial, setEditingSpecial] = useState<Special | null>(null);
   const [specialType, setSpecialType] = useState<'food' | 'drink'>('food');
-  const [viewType, setViewType] = useState<ViewType>('calendar');
+  // Initialize viewType from URL param if present, otherwise default to 'calendar'
+  const [viewType, setViewType] = useState<ViewType>(() => {
+    const viewParam = searchParams.get('view');
+    return (viewParam === 'list' ? 'list' : 'calendar') as ViewType;
+  });
   const [announcementModalOpen, setAnnouncementModalOpen] = useState(false);
   const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
   const [localAnnouncements, setLocalAnnouncements] = useState<CalendarAnnouncement[]>(announcements);
@@ -113,6 +118,16 @@ export default function DashboardContent({ events: initialEvents, specials, anno
   // Track the last initialEvents IDs to prevent unnecessary updates
   const lastInitialEventsIdsRef = useRef<string>(JSON.stringify(initialEvents.map(e => e.id).sort()));
   const lastInitialAnnouncementsIdsRef = useRef<string>(JSON.stringify(announcements.map(a => a.id).sort()));
+
+  // Update viewType when URL param changes
+  useEffect(() => {
+    const viewParam = searchParams.get('view');
+    if (viewParam === 'list') {
+      setViewType('list');
+    } else if (viewParam === 'calendar') {
+      setViewType('calendar');
+    }
+  }, [searchParams]);
 
   // Update events when initialEvents changes (e.g., from server)
   // Only update if the actual IDs have changed, not just the array reference

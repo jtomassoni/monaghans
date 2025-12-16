@@ -16,7 +16,7 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
   });
 
   if (!event) {
-    redirect('/admin/specials-events');
+    redirect('/admin?view=list');
   }
 
   const tags = event.tags ? JSON.parse(event.tags) : [];

@@ -139,7 +139,7 @@ export default function EventForm({ event }: { event?: Event }) {
       });
 
       if (res.ok) {
-        router.push('/admin/specials-events');
+        router.push('/admin?view=list');
         router.refresh();
       } else {
         alert('Failed to save event');
@@ -157,7 +157,7 @@ export default function EventForm({ event }: { event?: Event }) {
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 dark:text-white">{event ? 'Edit Event' : 'New Event'}</h1>
           <Link
-            href="/admin/specials-events"
+            href="/admin?view=list"
             className="px-4 py-2 bg-gray-500 dark:bg-gray-700 hover:bg-gray-600 dark:hover:bg-gray-600 rounded text-white transition-colors"
           >
             Cancel
@@ -326,7 +326,7 @@ export default function EventForm({ event }: { event?: Event }) {
 
           <div className="flex gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
             <Link
-              href="/admin/specials-events"
+              href="/admin?view=list"
               className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold transition-colors"
             >
               Cancel

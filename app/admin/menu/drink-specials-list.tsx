@@ -7,8 +7,10 @@ import { showToast } from '@/components/toast';
 import SearchSortFilter, { SortOption, FilterOption } from '@/components/search-sort-filter';
 import StatusBadge from '@/components/status-badge';
 import { getItemStatus } from '@/lib/status-helpers';
+import { getMountainTimeDateString, getMountainTimeToday, parseMountainTimeDate } from '@/lib/timezone';
+import { startOfDay, endOfDay } from 'date-fns';
 import ConfirmationDialog from '@/components/confirmation-dialog';
-import { FaBeer } from 'react-icons/fa';
+import { FaBeer, FaCopy } from 'react-icons/fa';
 
 interface DrinkSpecial {
   id: string;
@@ -43,7 +45,132 @@ export default function DrinkSpecialsList({ initialSpecials }: DrinkSpecialsList
     setSpecials(initialSpecials);
   }, [initialSpecials]);
 
+  // Get today's date in Mountain Time for sorting
+  const now = getMountainTimeToday();
+
+  // Helper function to get the next occurrence date for a drink special
+  const getSpecialDate = (special: DrinkSpecial): Date => {
+    // For date-based specials, use startDate (or endDate if it's a range)
+    if (special.startDate) {
+      const startDate = parseMountainTimeDate(special.startDate.split('T')[0]);
+      const endDate = special.endDate ? parseMountainTimeDate(special.endDate.split('T')[0]) : null;
+      
+      // If the special is currently active (today is within the range), return today
+      const effectiveEndDate = endDate || startDate;
+      const start = startOfDay(startDate);
+      const end = endOfDay(effectiveEndDate);
+      
+      if (now >= start && now <= end) {
+        return now; // Currently active, show it first
+      }
+      
+      // If startDate is in the future, return it
+      if (startDate > now) {
+        return startDate;
+      }
+      
+      // If past, return the end date (or start date if no end date)
+      return endDate || startDate;
+    }
+    
+    // For weekly recurring specials (appliesOn), find the next occurrence
+    const appliesOn = special.appliesOn;
+    if (appliesOn) {
+      try {
+        const appliesOnDays = typeof appliesOn === 'string' ? JSON.parse(appliesOn) : appliesOn;
+        if (Array.isArray(appliesOnDays) && appliesOnDays.length > 0) {
+          const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+          
+          // Find the next matching day
+          let checkDate = new Date(now);
+          for (let i = 0; i < 14; i++) { // Check up to 2 weeks ahead
+            const dayName = dayNames[checkDate.getDay()];
+            if (appliesOnDays.includes(dayName)) {
+              // Check if within date range if set
+              if (special.startDate || special.endDate) {
+                const startDate = special.startDate ? parseMountainTimeDate(special.startDate.split('T')[0]) : null;
+                const endDate = special.endDate ? parseMountainTimeDate(special.endDate.split('T')[0]) : null;
+                
+                if (startDate && checkDate < startOfDay(startDate)) {
+                  checkDate.setDate(checkDate.getDate() + 1);
+                  continue;
+                }
+                if (endDate && checkDate > endOfDay(endDate)) {
+                  // Past the end date, return far future
+                  const farFuture = new Date();
+                  farFuture.setFullYear(farFuture.getFullYear() + 100);
+                  return farFuture;
+                }
+              }
+              return startOfDay(checkDate);
+            }
+            checkDate.setDate(checkDate.getDate() + 1);
+          }
+        }
+      } catch {
+        // If parsing fails, continue
+      }
+    }
+    
+    // No date information, return far future to sort at end
+    const farFuture = new Date();
+    farFuture.setFullYear(farFuture.getFullYear() + 100);
+    return farFuture;
+  };
+
+  // Helper to get status priority: Active (0), Scheduled (1), Past (2)
+  const getStatusPriority = (special: DrinkSpecial): number => {
+    const statuses = getItemStatus({
+      isActive: special.isActive,
+      startDate: special.startDate,
+      endDate: special.endDate,
+      appliesOn: special.appliesOn,
+    });
+    
+    // Check for statuses in priority order
+    if (statuses.includes('active')) return 0; // Active first
+    if (statuses.includes('scheduled')) return 1; // Scheduled second
+    if (statuses.includes('past')) return 2; // Past third
+    return 3; // Everything else (inactive, etc.)
+  };
+
   const sortOptions: SortOption<DrinkSpecial>[] = [
+    { 
+      label: 'Next', 
+      value: 'next', 
+      sortFn: (a, b) => {
+        // PRIORITY 1: Status (Active → Scheduled → Past)
+        const aStatusPriority = getStatusPriority(a);
+        const bStatusPriority = getStatusPriority(b);
+        
+        if (aStatusPriority !== bStatusPriority) {
+          return aStatusPriority - bStatusPriority;
+        }
+        
+        // PRIORITY 2: Within the same status, sort chronologically
+        const aDate = getSpecialDate(a).getTime();
+        const bDate = getSpecialDate(b).getTime();
+        return aDate - bDate;
+      }
+    },
+    { 
+      label: 'Date (Newest First)', 
+      value: 'date', 
+      sortFn: (a, b) => {
+        const aDate = a.startDate ? new Date(a.startDate).getTime() : 0;
+        const bDate = b.startDate ? new Date(b.startDate).getTime() : 0;
+        return bDate - aDate;
+      }
+    },
+    { 
+      label: 'Date (Oldest First)', 
+      value: 'date-oldest', 
+      sortFn: (a, b) => {
+        const aDate = a.startDate ? new Date(a.startDate).getTime() : 0;
+        const bDate = b.startDate ? new Date(b.startDate).getTime() : 0;
+        return aDate - bDate;
+      }
+    },
     { label: 'Title (A-Z)', value: 'title' },
     { label: 'Title (Z-A)', value: 'title', sortFn: (a, b) => b.title.localeCompare(a.title) },
   ];
@@ -98,6 +225,39 @@ export default function DrinkSpecialsList({ initialSpecials }: DrinkSpecialsList
   const handleNewItem = () => {
     setEditingSpecial(null);
     setSpecialModalOpen(true);
+  };
+
+  const handleDuplicate = async (item: DrinkSpecial) => {
+    try {
+      const res = await fetch(`/api/specials/${item.id}`);
+      if (res.ok) {
+        const specialData = await res.json();
+        // Create a duplicate without the ID
+        setEditingSpecial({
+          id: '', // No ID means it's a new special
+          title: `${specialData.title} (Copy)`,
+          description: specialData.description || null,
+          priceNotes: specialData.priceNotes || null,
+          type: specialData.type,
+          appliesOn: specialData.appliesOn,
+          timeWindow: specialData.timeWindow || null,
+          startDate: specialData.startDate 
+            ? (typeof specialData.startDate === 'string' 
+                ? specialData.startDate 
+                : new Date(specialData.startDate).toISOString().split('T')[0])
+            : null,
+          endDate: specialData.endDate
+            ? (typeof specialData.endDate === 'string'
+                ? specialData.endDate
+                : new Date(specialData.endDate).toISOString().split('T')[0])
+            : null,
+          isActive: false, // Start as inactive so user can review before activating
+        });
+        setSpecialModalOpen(true);
+      }
+    } catch (error) {
+      showToast('Failed to duplicate special', 'error');
+    }
   };
 
   const handleModalSuccess = () => {
@@ -204,7 +364,11 @@ export default function DrinkSpecialsList({ initialSpecials }: DrinkSpecialsList
           searchPlaceholder="Search drink specials..."
           sortOptions={sortOptions}
           filterOptions={filterOptions}
-          defaultSort={sortOptions[0]}
+          defaultSort={sortOptions[0]} // "Next" - Active → Scheduled → Past
+          onSortChange={() => {
+            // Reset any column sorting when user selects a sort option from dropdown
+            // (Not applicable here since this list doesn't have column sorting)
+          }}
         />
       </div>
 
@@ -271,6 +435,7 @@ export default function DrinkSpecialsList({ initialSpecials }: DrinkSpecialsList
                         isActive: item.isActive,
                         startDate: item.startDate,
                         endDate: item.endDate,
+                        appliesOn: item.appliesOn,
                       }).map((status) => (
                         <StatusBadge key={status} status={status} />
                       ))}
@@ -312,17 +477,41 @@ export default function DrinkSpecialsList({ initialSpecials }: DrinkSpecialsList
                     </button>
                   </div>
                   
-                  {/* Delete button - always visible */}
-                  <div className="flex-shrink-0 z-20 relative">
+                  {/* Action buttons - always visible */}
+                  <div className="flex-shrink-0 z-20 relative flex items-center gap-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleItemClick(item);
+                      }}
+                      className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                      title="Edit"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDuplicate(item);
+                      }}
+                      className="p-2 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
+                      title="Duplicate"
+                    >
+                      <FaCopy className="w-4 h-4" />
+                    </button>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDelete(item);
                       }}
-                      className="px-3 py-1.5 text-xs bg-red-500/90 dark:bg-red-600/90 hover:bg-red-600 dark:hover:bg-red-700 rounded-lg text-white font-medium transition-all duration-200 hover:scale-105 border border-red-400 dark:border-red-500"
-                      title="Delete special"
+                      className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                      title="Delete"
                     >
-                      Delete
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
                     </button>
                   </div>
                 </div>

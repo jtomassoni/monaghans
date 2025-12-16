@@ -16,7 +16,7 @@ export default async function EditSpecialPage({ params }: { params: Promise<{ id
   });
 
   if (!special) {
-    redirect('/admin/specials-events');
+    redirect('/admin?view=list');
   }
 
   const appliesOn = typeof special.appliesOn === 'string' ? JSON.parse(special.appliesOn) : special.appliesOn;

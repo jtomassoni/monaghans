@@ -9,6 +9,7 @@ import ConfirmationDialog from '@/components/confirmation-dialog';
 import StatusToggle from '@/components/status-toggle';
 import DatePicker from '@/components/date-picker';
 import { useUnsavedChangesWarning } from '@/lib/use-unsaved-changes-warning';
+import { getMountainTimeDateString, parseMountainTimeDate } from '@/lib/timezone';
 
 interface Special {
   id?: string;
@@ -45,17 +46,33 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
   const formatDateForInput = (date: any): string => {
     if (!date) return '';
     
+    // If it's already in YYYY-MM-DD format, return as is (assuming it's already Mountain Time)
+    if (typeof date === 'string' && date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      return date;
+    }
+    
     // Convert to Date object if needed
     let dateObj: Date;
     if (date instanceof Date) {
+      // Date object from Prisma is in UTC - we need to get the Mountain Time date string
+      // This handles the case where a Date object represents a UTC timestamp
+      // that needs to be converted to Mountain Time for display
       dateObj = date;
     } else if (typeof date === 'string') {
-      // If it's already in YYYY-MM-DD format, return as is (assuming it's already Mountain Time)
+      // If it's an ISO string with time, parse it
+      // But if it's just a date string, we need to be careful
       if (date.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        return date;
+        // It's already a date string, but we need to ensure it's interpreted as Mountain Time
+        // Parse it using parseMountainTimeDate to get the correct Date object
+        dateObj = parseMountainTimeDate(date);
+      } else {
+        // Parse ISO string - this will be in UTC, so we need to convert to Mountain Time
+        const tempDate = new Date(date);
+        // Get the date string in Mountain Time from this UTC date
+        const mtDateStr = getMountainTimeDateString(tempDate);
+        // Parse it back as Mountain Time to ensure consistency
+        dateObj = parseMountainTimeDate(mtDateStr);
       }
-      // Parse ISO string or other date string
-      dateObj = new Date(date);
     } else {
       return '';
     }
@@ -65,15 +82,9 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
       return '';
     }
     
-    // Format in Mountain Time to get the correct date
-    const mtStr = dateObj.toLocaleDateString('en-US', {
-      timeZone: 'America/Denver',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    });
-    const [month, day, year] = mtStr.split('/');
-    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    // Use getMountainTimeDateString to get the correct date string in Mountain Time
+    // This ensures we always get the date as it appears in Mountain Time, not UTC
+    return getMountainTimeDateString(dateObj);
   };
 
   const [formData, setFormData] = useState({

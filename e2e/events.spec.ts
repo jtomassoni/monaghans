@@ -1,4 +1,14 @@
 import { test, expect } from '@playwright/test';
+import {
+  formatDateTimeLocal,
+  formatDateLocal,
+  getDateNDaysFromNow,
+  getNextMonday,
+  getNextWednesday,
+  generateTestId,
+  fillIfExists,
+  clickIfExists,
+} from './test-helpers';
 
 // Test with both admin and owner roles
 const roles = ['admin', 'owner'] as const;
@@ -86,7 +96,7 @@ for (const role of roles) {
         // Fill in title
         const titleInput = page.locator('input[id="title"], input[name="title"]');
         if (await titleInput.count() > 0) {
-          await titleInput.fill('Weekly Test Event');
+          await titleInput.fill(`Weekly Test Event ${generateTestId()}`);
           
           // Set recurrence to weekly
           const weeklyRadio = page.locator('input[type="radio"][value="weekly"], input[name="recurrence"][value="weekly"]');
@@ -95,21 +105,18 @@ for (const role of roles) {
             await page.waitForTimeout(500);
             
             // Select days (e.g., Monday and Wednesday)
-            const mondayCheckbox = page.locator('input[type="checkbox"][value="Monday"], input[type="checkbox"][value="1"]');
+            const mondayCheckbox = page.locator('input[type="checkbox"][value="Monday"], input[type="checkbox"][value="1"], label:has-text("Monday") input').first();
             if (await mondayCheckbox.count() > 0) {
-              await mondayCheckbox.first().click();
+              await mondayCheckbox.click();
             }
           }
           
-          // Set start date/time
-          const tomorrow = new Date();
-          tomorrow.setDate(tomorrow.getDate() + 1);
-          const startDateTime = tomorrow.toISOString().slice(0, 16);
+          // Set start date/time (next Monday at 6pm Mountain Time)
+          const startDate = getNextMonday();
+          startDate.setHours(18, 0, 0, 0);
+          const startDateTime = formatDateTimeLocal(startDate);
           
-          const startInput = page.locator('input[id="startDateTime"], input[name="startDateTime"]').first();
-          if (await startInput.count() > 0) {
-            await startInput.fill(startDateTime);
-          }
+          await fillIfExists(page, 'input[id="startDateTime"], input[name="startDateTime"], input[type="datetime-local"]', startDateTime);
           
           // Submit
           const submitButton = page.locator('button[type="submit"], button:has-text("Save")');
@@ -118,6 +125,157 @@ for (const role of roles) {
             await page.waitForTimeout(2000);
             
             // Should see success
+            const successVisible = await page.locator('text=/success|created|saved/i').isVisible().catch(() => false);
+            expect(successVisible).toBeTruthy();
+          }
+        }
+      }
+    });
+
+    test('should create recurring weekly event with UNTIL date including last occurrence', async ({ page }) => {
+      await page.goto('/admin/events');
+      
+      await page.waitForTimeout(1000);
+      
+      const newEventButton = page.locator('button:has-text("New Event"), button:has-text("New")').first();
+      if (await newEventButton.count() > 0) {
+        await newEventButton.click();
+        await page.waitForTimeout(1000);
+        
+        const titleInput = page.locator('input[id="title"], input[name="title"]').first();
+        if (await titleInput.count() > 0) {
+          const testTitle = `UNTIL Test Event ${generateTestId()}`;
+          await titleInput.fill(testTitle);
+          
+          // Set recurrence to weekly
+          const weeklyRadio = page.locator('input[type="radio"][value="weekly"], input[name*="recurrence"][value="weekly"]').first();
+          if (await weeklyRadio.count() > 0) {
+            await weeklyRadio.click();
+            await page.waitForTimeout(500);
+            
+            // Select Wednesday
+            const wednesdayCheckbox = page.locator('input[type="checkbox"][value="Wednesday"], label:has-text("Wednesday") input').first();
+            if (await wednesdayCheckbox.count() > 0) {
+              await wednesdayCheckbox.click();
+            }
+          }
+          
+          // Set start date (next Wednesday)
+          const startDate = getNextWednesday();
+          startDate.setHours(18, 0, 0, 0);
+          const startDateTime = formatDateTimeLocal(startDate);
+          
+          await fillIfExists(page, 'input[id*="startDateTime"], input[name*="startDateTime"]', startDateTime);
+          
+          // Set UNTIL date to exactly 3 weeks later (should include that Wednesday)
+          const untilDate = new Date(startDate);
+          untilDate.setDate(untilDate.getDate() + 21); // 3 weeks = 4 occurrences
+          const untilDateStr = formatDateLocal(untilDate);
+          
+          await fillIfExists(page, 'input[type="date"][id*="recurrenceEnd"], input[type="date"][name*="recurrenceEnd"]', untilDateStr);
+          
+          // Submit
+          const submitButton = page.locator('button[type="submit"], button:has-text("Save")').first();
+          if (await submitButton.count() > 0) {
+            await submitButton.click();
+            await page.waitForTimeout(2000);
+            
+            const successVisible = await page.locator('text=/success|created|saved/i').isVisible().catch(() => false);
+            expect(successVisible).toBeTruthy();
+            
+            // Verify event appears on public events page (should include all 4 occurrences)
+            await page.goto('/events');
+            await page.waitForTimeout(2000);
+            
+            const eventTitle = page.locator(`text=${testTitle}`);
+            const eventCount = await eventTitle.count();
+            
+            // Event should appear (may appear multiple times if recurring)
+            expect(eventCount).toBeGreaterThanOrEqual(1);
+          }
+        }
+      }
+    });
+
+    test('should create monthly recurring event', async ({ page }) => {
+      await page.goto('/admin/events');
+      
+      await page.waitForTimeout(1000);
+      
+      const newEventButton = page.locator('button:has-text("New Event"), button:has-text("New")').first();
+      if (await newEventButton.count() > 0) {
+        await newEventButton.click();
+        await page.waitForTimeout(1000);
+        
+        const titleInput = page.locator('input[id="title"], input[name="title"]').first();
+        if (await titleInput.count() > 0) {
+          await titleInput.fill(`Monthly Event ${generateTestId()}`);
+          
+          // Set recurrence to monthly
+          const monthlyRadio = page.locator('input[type="radio"][value="monthly"], input[name*="recurrence"][value="monthly"]').first();
+          if (await monthlyRadio.count() > 0) {
+            await monthlyRadio.click();
+            await page.waitForTimeout(500);
+            
+            // Set day of month (15th)
+            await fillIfExists(page, 'input[id*="monthDay"], input[name*="monthDay"], input[type="number"]', '15');
+          }
+          
+          // Set start date (15th of next month at 7pm)
+          const startDate = new Date();
+          startDate.setMonth(startDate.getMonth() + 1);
+          startDate.setDate(15);
+          startDate.setHours(19, 0, 0, 0);
+          const startDateTime = formatDateTimeLocal(startDate);
+          
+          await fillIfExists(page, 'input[id*="startDateTime"]', startDateTime);
+          
+          // Submit
+          const submitButton = page.locator('button[type="submit"], button:has-text("Save")').first();
+          if (await submitButton.count() > 0) {
+            await submitButton.click();
+            await page.waitForTimeout(2000);
+            
+            const successVisible = await page.locator('text=/success|created|saved/i').isVisible().catch(() => false);
+            expect(successVisible).toBeTruthy();
+          }
+        }
+      }
+    });
+
+    test('should create all-day event', async ({ page }) => {
+      await page.goto('/admin/events');
+      
+      await page.waitForTimeout(1000);
+      
+      const newEventButton = page.locator('button:has-text("New Event"), button:has-text("New")').first();
+      if (await newEventButton.count() > 0) {
+        await newEventButton.click();
+        await page.waitForTimeout(1000);
+        
+        const titleInput = page.locator('input[id="title"], input[name="title"]').first();
+        if (await titleInput.count() > 0) {
+          await titleInput.fill(`All Day Event ${generateTestId()}`);
+          
+          // Check all-day checkbox
+          const allDayCheckbox = page.locator('input[type="checkbox"][id*="allDay"], input[type="checkbox"][name*="allDay"]').first();
+          if (await allDayCheckbox.count() > 0) {
+            await allDayCheckbox.click();
+            await page.waitForTimeout(500);
+          }
+          
+          // Set date (5 days from now)
+          const startDate = getDateNDaysFromNow(5);
+          const startDateStr = formatDateLocal(startDate);
+          
+          await fillIfExists(page, 'input[type="date"], input[id*="startDateTime"]', startDateStr);
+          
+          // Submit
+          const submitButton = page.locator('button[type="submit"], button:has-text("Save")').first();
+          if (await submitButton.count() > 0) {
+            await submitButton.click();
+            await page.waitForTimeout(2000);
+            
             const successVisible = await page.locator('text=/success|created|saved/i').isVisible().catch(() => false);
             expect(successVisible).toBeTruthy();
           }

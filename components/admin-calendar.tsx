@@ -26,7 +26,7 @@ import {
 import { FaMicrophone, FaBrain, FaCalendarAlt, FaUtensils, FaBeer, FaTable, FaCalendarWeek, FaDice, FaBullhorn, FaClock, FaCalendarDay } from 'react-icons/fa';
 import { FaFootball } from 'react-icons/fa6';
 import { HiChevronLeft, HiChevronRight } from 'react-icons/hi';
-import { parseMountainTimeDate } from '@/lib/timezone';
+import { parseMountainTimeDate, getMountainTimeDateString, getMountainTimeToday } from '@/lib/timezone';
 
 interface CalendarEvent {
   id: string;
@@ -240,6 +240,41 @@ export default function CalendarView({ events, specials, announcements = [], bus
   const weekEnd = endOfWeek(currentDate);
   const dayStart = startOfDay(currentDate);
   const dayEnd = endOfDay(currentDate);
+
+  // Get today's date in Mountain Time for comparison
+  const todayMT = getMountainTimeToday();
+  
+  // Check if we're currently viewing today/this week/this month
+  // Compare using date strings to avoid timezone issues
+  const isViewingCurrentPeriod = useMemo(() => {
+    const currentDateStr = getMountainTimeDateString(currentDate);
+    const todayMTStr = getMountainTimeDateString(todayMT);
+    
+    if (viewMode === 'day') {
+      // For day view, check if the dates match
+      return currentDateStr === todayMTStr;
+    } else if (viewMode === 'week') {
+      // For week view, check if today falls within the current week
+      const currentWeekStart = startOfWeek(currentDate);
+      const currentWeekEnd = endOfWeek(currentDate);
+      return todayMT >= currentWeekStart && todayMT <= currentWeekEnd;
+    } else if (viewMode === 'month') {
+      // For month view, check if we're viewing the current month
+      return isSameMonth(currentDate, todayMT);
+    }
+    return false;
+  }, [viewMode, currentDate, todayMT]);
+
+  // Get button text based on view mode
+  const getTodayButtonText = () => {
+    if (viewMode === 'day') {
+      return 'Today';
+    } else if (viewMode === 'week') {
+      return 'This Week';
+    } else {
+      return 'This Month';
+    }
+  };
 
   // Generate all calendar items
   const getAllItems = useMemo(() => {
@@ -651,8 +686,26 @@ export default function CalendarView({ events, specials, announcements = [], bus
       // Handle food specials (with dates)
       if (special.type === 'food') {
         // Parse dates as Mountain Time dates (not UTC) to prevent day shifts
-        const startDate = special.startDate ? parseMountainTimeDate(special.startDate.split('T')[0]) : null;
-        const endDate = special.endDate ? parseMountainTimeDate(special.endDate.split('T')[0]) : null;
+        // Handle both string and Date object formats
+        let startDateStr: string | null = null;
+        let endDateStr: string | null = null;
+        
+        if (special.startDate) {
+          const startDateValue = special.startDate as string | Date;
+          startDateStr = typeof startDateValue === 'string' 
+            ? startDateValue.split('T')[0] 
+            : getMountainTimeDateString(startDateValue);
+        }
+        
+        if (special.endDate) {
+          const endDateValue = special.endDate as string | Date;
+          endDateStr = typeof endDateValue === 'string' 
+            ? endDateValue.split('T')[0] 
+            : getMountainTimeDateString(endDateValue);
+        }
+        
+        const startDate = startDateStr ? parseMountainTimeDate(startDateStr) : null;
+        const endDate = endDateStr ? parseMountainTimeDate(endDateStr) : null;
 
         if (startDate) {
           // Normalize to start of day in Mountain Time to prevent timezone issues
@@ -856,39 +909,55 @@ export default function CalendarView({ events, specials, announcements = [], bus
 
   const getItemColor = (item: CalendarItem) => {
     if (item.eventType === 'special') {
-      // All food specials use the same orange color regardless of active/inactive status
-      // This ensures consistency in the calendar display
+      // Food specials: Warm, appetizing amber/terracotta color
       if (item.type === 'food') {
-        return 'bg-orange-500/80 dark:bg-orange-600/80 border-orange-400 dark:border-orange-500';
+        return 'bg-amber-600/85 dark:bg-amber-700/85 border-amber-500 dark:border-amber-600';
       }
-      // Drink specials keep their blue color logic with inactive distinction
+      // Drink specials: Cool, refreshing teal color (better than blue for beverages)
       const isInactive = !item.isActive;
       if (isInactive) {
-        return 'bg-blue-500/40 dark:bg-blue-600/40 border-blue-400/50 dark:border-blue-500/50 opacity-60';
+        return 'bg-teal-500/40 dark:bg-teal-600/40 border-teal-400/50 dark:border-teal-500/50 opacity-60';
       }
-      return 'bg-blue-500/80 dark:bg-blue-600/80 border-blue-400 dark:border-blue-500';
+      return 'bg-teal-500/85 dark:bg-teal-600/85 border-teal-400 dark:border-teal-500';
     }
     if (item.eventType === 'announcement') {
+      // Announcements: Distinct amber/gold that's easier to read than yellow
       return item.isPublished
-        ? 'bg-yellow-500/80 dark:bg-yellow-600/80 border-yellow-400 dark:border-yellow-500'
+        ? 'bg-amber-500/85 dark:bg-amber-600/85 border-amber-400 dark:border-amber-500'
         : 'bg-gray-500/60 dark:bg-gray-600/60 border-gray-400 dark:border-gray-500';
     }
-    // For events, assign colors based on icon type (same logic as getItemIcon)
+    // For events, assign colors based on icon type and recurrence status
     const title = item.title.toLowerCase();
+    const isRecurring = item.eventType === 'event' && (item as CalendarEvent).recurrenceRule !== null;
+    
+    // Sports events: Vibrant emerald green
     if (title.includes('broncos')) {
-      return 'bg-green-500/80 dark:bg-green-600/80 border-green-400 dark:border-green-500';
+      return isRecurring
+        ? 'bg-emerald-600/85 dark:bg-emerald-700/85 border-emerald-500 dark:border-emerald-600'
+        : 'bg-emerald-500/85 dark:bg-emerald-600/85 border-emerald-400 dark:border-emerald-500';
     }
+    // Poker events: Deeper, richer red
     if (title.includes('poker')) {
-      return 'bg-red-500/80 dark:bg-red-600/80 border-red-400 dark:border-red-500';
+      return isRecurring
+        ? 'bg-red-600/85 dark:bg-red-700/85 border-red-500 dark:border-red-600'
+        : 'bg-red-500/85 dark:bg-red-600/85 border-red-400 dark:border-red-500';
     }
+    // Karaoke: Bright, fun fuchsia/magenta
     if (title.includes('karaoke') || title.includes('kareoke')) {
-      return 'bg-pink-500/80 dark:bg-pink-600/80 border-pink-400 dark:border-pink-500';
+      return isRecurring
+        ? 'bg-fuchsia-600/85 dark:bg-fuchsia-700/85 border-fuchsia-500 dark:border-fuchsia-600'
+        : 'bg-fuchsia-500/85 dark:bg-fuchsia-600/85 border-fuchsia-400 dark:border-fuchsia-500';
     }
+    // Trivia: Bright indigo
     if (title.includes('trivia')) {
-      return 'bg-indigo-500/80 dark:bg-indigo-600/80 border-indigo-400 dark:border-indigo-500';
+      return isRecurring
+        ? 'bg-indigo-600/85 dark:bg-indigo-700/85 border-indigo-500 dark:border-indigo-600'
+        : 'bg-indigo-500/85 dark:bg-indigo-600/85 border-indigo-400 dark:border-indigo-500';
     }
-    // Default calendar icon events get teal/cyan color
-    return 'bg-cyan-500/80 dark:bg-cyan-600/80 border-cyan-400 dark:border-cyan-500';
+    // Default calendar icon events: Soft blue for singular, slightly deeper for recurring
+    return isRecurring
+      ? 'bg-blue-600/85 dark:bg-blue-700/85 border-blue-500 dark:border-blue-600'
+      : 'bg-blue-500/85 dark:bg-blue-600/85 border-blue-400 dark:border-blue-500';
   };
 
   const getItemIcon = (item: CalendarItem) => {
@@ -1249,11 +1318,6 @@ export default function CalendarView({ events, specials, announcements = [], bus
                           <div className="text-[9px] opacity-85 truncate pl-3">
                             {format(new Date(event.startDateTime), 'h:mm a')}
                             {event.endDateTime && ` - ${format(new Date(event.endDateTime), 'h:mm a')}`}
-                          </div>
-                        )}
-                        {event && event.description && (
-                          <div className="text-[9px] opacity-75 line-clamp-1 truncate pl-3">
-                            {event.description}
                           </div>
                         )}
                       </div>
@@ -2367,11 +2431,16 @@ export default function CalendarView({ events, specials, announcements = [], bus
               <HiChevronRight className="w-4 h-4 sm:w-5 sm:h-5 pointer-events-none" />
             </button>
             <button
-              onClick={() => setCurrentDate(new Date())}
-              className="px-2.5 sm:px-4 py-2 sm:py-1.5 min-h-[40px] sm:min-h-0 text-xs bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg transition-all duration-200 hover:scale-105 text-white font-semibold flex-shrink-0 cursor-pointer active:scale-95 z-10 relative border border-blue-400 dark:border-blue-500 touch-manipulation"
+              onClick={() => setCurrentDate(todayMT)}
+              disabled={isViewingCurrentPeriod}
+              className={`px-2.5 sm:px-4 py-2 sm:py-1.5 min-h-[40px] sm:min-h-0 text-xs rounded-lg transition-all duration-200 font-semibold flex-shrink-0 z-10 relative border touch-manipulation ${
+                isViewingCurrentPeriod
+                  ? 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-500 border-gray-400 dark:border-gray-600 cursor-not-allowed opacity-60'
+                  : 'bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 hover:scale-105 text-white border-blue-400 dark:border-blue-500 cursor-pointer active:scale-95'
+              }`}
             >
-              <span className="hidden sm:inline">Today</span>
-              <span className="sm:hidden">Now</span>
+              <span className="hidden sm:inline">{getTodayButtonText()}</span>
+              <span className="sm:hidden">{viewMode === 'day' ? 'Now' : viewMode === 'week' ? 'Week' : 'Month'}</span>
             </button>
           </div>
 

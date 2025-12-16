@@ -277,6 +277,7 @@ export default async function HomePage() {
             startDateTime: eventStart.toISOString(),
             endDateTime: eventEnd?.toISOString() || null,
             isRecurringOccurrence: true,
+            recurrenceRule: event.recurrenceRule, // Preserve recurrenceRule for consistent display
           };
         });
     } catch (e) {
@@ -315,7 +316,12 @@ export default async function HomePage() {
 
   const upcomingRecurringOccurrences = allEvents
     .filter(event => event.recurrenceRule)
-    .flatMap(event => getRecurringEventOccurrences(event, now, futureDate));
+    .flatMap(event => getRecurringEventOccurrences(event, now, futureDate))
+    .filter(occurrence => {
+      // Filter to only include occurrences that are now or in the future
+      const occurrenceDate = new Date(occurrence.startDateTime);
+      return occurrenceDate >= now;
+    });
 
   const upcomingEvents = [...upcomingOneTimeEvents, ...upcomingRecurringOccurrences]
     .sort((a, b) => new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime())
@@ -462,16 +468,16 @@ export default async function HomePage() {
         // Weekly recurring specials: check day match AND date range if set
         let isInDateRange = true;
         
-        // Check if we're past the start date (if set)
-        if (startDateStr) {
-          if (todayDateStr < startDateStr) {
+        // Check if we're past the start date (if set) - use Date comparison
+        if (startDate) {
+          if (today < startOfDay(startDate)) {
             isInDateRange = false;
           }
         }
         
-        // Check if we're before the end date (if set)
-        if (endDateStr && isInDateRange) {
-          if (todayDateStr > endDateStr) {
+        // Check if we're before the end date (if set) - use Date comparison
+        if (endDate && isInDateRange) {
+          if (today > endOfDay(endDate)) {
             isInDateRange = false;
           }
         }
@@ -480,15 +486,15 @@ export default async function HomePage() {
           todaysFoodSpecials.push(special);
         }
       }
-    } else if (startDateStr) {
+    } else if (startDateStr && startDate) {
       // Date-based special (no weekly recurring)
-      // If only startDate is set, treat it as a single-day special
-      // If both dates are set, use the date range
-      // Compare date strings directly to avoid timezone issues
-      const effectiveEndDateStr = endDateStr || startDateStr;
+      // Use Date objects with startOfDay/endOfDay for accurate comparison (same as menu page)
+      const effectiveEndDate = endDate || startDate;
+      const start = startOfDay(startDate);
+      const end = endOfDay(effectiveEndDate);
       
-      // Check if today's date string is within the range
-      if (todayDateStr >= startDateStr && todayDateStr <= effectiveEndDateStr) {
+      // Check if today is within the date range
+      if (today >= start && today <= end) {
         todaysFoodSpecials.push(special);
       }
     }
@@ -554,16 +560,16 @@ export default async function HomePage() {
         // Weekly recurring specials: check day match AND date range if set
         let isInDateRange = true;
         
-        // Check if we're past the start date (if set)
-        if (startDateStr) {
-          if (todayDateStr < startDateStr) {
+        // Check if we're past the start date (if set) - use Date comparison
+        if (startDate) {
+          if (today < startOfDay(startDate)) {
             isInDateRange = false;
           }
         }
         
-        // Check if we're before the end date (if set)
-        if (endDateStr && isInDateRange) {
-          if (todayDateStr > endDateStr) {
+        // Check if we're before the end date (if set) - use Date comparison
+        if (endDate && isInDateRange) {
+          if (today > endOfDay(endDate)) {
             isInDateRange = false;
           }
         }
@@ -573,13 +579,15 @@ export default async function HomePage() {
           break;
         }
       }
-    } else if (startDateStr) {
+    } else if (startDateStr && startDate) {
       // Date-based special (no weekly recurring)
-      // Compare date strings directly to avoid timezone issues
-      const effectiveEndDateStr = endDateStr || startDateStr;
+      // Use Date objects with startOfDay/endOfDay for accurate comparison (same as menu page)
+      const effectiveEndDate = endDate || startDate;
+      const start = startOfDay(startDate);
+      const end = endOfDay(effectiveEndDate);
       
-      // Check if today's date string is within the range
-      if (todayDateStr >= startDateStr && todayDateStr <= effectiveEndDateStr) {
+      // Check if today is within the date range
+      if (today >= start && today <= end) {
         todaysDrinkSpecial = special;
         break;
       }
@@ -675,17 +683,29 @@ export default async function HomePage() {
     return '/pics/hero.png';
   };
 
+  // For food specials, only show the first/most relevant one to avoid clutter
+  // Sort by startDate to ensure the most recent/current one shows first
+  // This ensures only one food special appears in the hero at a time
+  const sortedFoodSpecials = [...todaysFoodSpecials].sort((a, b) => {
+    const aStartDate = a.startDate as string | Date | null;
+    const bStartDate = b.startDate as string | Date | null;
+    const aDate = aStartDate ? (typeof aStartDate === 'string' ? aStartDate.split('T')[0] : getMountainTimeDateString(aStartDate)) : '';
+    const bDate = bStartDate ? (typeof bStartDate === 'string' ? bStartDate.split('T')[0] : getMountainTimeDateString(bStartDate)) : '';
+    return bDate.localeCompare(aDate); // Most recent first
+  });
+  const displayFoodSpecial = sortedFoodSpecials.length > 0 ? [sortedFoodSpecials[0]] : [];
+  
   // Collect all available content for dynamic display
   // Note: Announcements are shown as modals, not in the grid
   const allContent = [
     ...todaysEvents,
-    ...todaysFoodSpecials,
+    ...displayFoodSpecial,
     ...(todaysDrinkSpecial ? [todaysDrinkSpecial] : []),
     ...(shouldShowHappyHour ? ['happyHour'] : []),
   ];
 
   // Calculate total number of items for dynamic grid layout
-  const totalItems = todaysEvents.length + todaysFoodSpecials.length + (todaysDrinkSpecial ? 1 : 0) + (shouldShowHappyHour ? 1 : 0);
+  const totalItems = todaysEvents.length + displayFoodSpecial.length + (todaysDrinkSpecial ? 1 : 0) + (shouldShowHappyHour ? 1 : 0);
   
   // Determine grid columns and max width based on number of items
   const getGridCols = () => {
@@ -740,42 +760,14 @@ export default async function HomePage() {
             <div className={`grid ${gridConfig.cols} gap-3 sm:gap-4 mb-4 sm:mb-6 ${gridConfig.maxWidth} mx-auto w-full`}>
             {/* Today's Events - Recurring and Ad Hoc */}
             {todaysEvents.map((event) => {
-              const isRecurring = event.recurrenceRule || (event as any).isRecurringOccurrence;
+              // Check if event is recurring - either has recurrenceRule or is an expanded occurrence
+              const isRecurring = !!(event.recurrenceRule || (event as any).isRecurringOccurrence);
+              // Get the original event to check recurrence rule (for expanded occurrences, use the event itself)
               const originalEvent = allEvents.find(e => e.id === event.id);
-              const hasRecurrenceRule = originalEvent?.recurrenceRule;
+              const hasRecurrenceRule = event.recurrenceRule || originalEvent?.recurrenceRule;
               
-              // Try to extract recurrence pattern for display
-              let recurrenceLabel = '';
-              if (hasRecurrenceRule) {
-                try {
-                  const rule = RRule.fromString(hasRecurrenceRule);
-                  if (rule.options.freq === RRule.WEEKLY) {
-                    const byday = rule.options.byweekday;
-                    if (byday && Array.isArray(byday) && byday.length > 0) {
-                      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-                      const days = byday.map((d) => {
-                        if (typeof d === 'number') {
-                          return dayNames[d];
-                        } else if (d && typeof d === 'object' && 'weekday' in d) {
-                          return dayNames[(d as { weekday: number }).weekday];
-                        }
-                        return '';
-                      }).filter(Boolean).join(', ');
-                      recurrenceLabel = days ? `Every ${days}` : 'Recurring';
-                    } else {
-                      recurrenceLabel = 'Recurring';
-                    }
-                  } else if (rule.options.freq === RRule.DAILY) {
-                    recurrenceLabel = 'Daily';
-                  } else if (rule.options.freq === RRule.MONTHLY) {
-                    recurrenceLabel = 'Monthly';
-                  } else {
-                    recurrenceLabel = 'Recurring';
-                  }
-                } catch {
-                  recurrenceLabel = 'Recurring';
-                }
-              }
+              // All recurring events display the same way regardless of frequency
+              // No need to show specific recurrence pattern - just mark as recurring
               
               return (
                 <div 
@@ -811,14 +803,6 @@ export default async function HomePage() {
                         </p>
                       )}
                       <div className="space-y-1">
-                        {recurrenceLabel && (
-                          <div className="flex items-center gap-1.5 text-purple-100/90 text-[10px] sm:text-xs font-medium">
-                            <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                            </svg>
-                            <span>{recurrenceLabel}</span>
-                          </div>
-                        )}
                         <div className="flex items-center gap-1.5 text-purple-100 text-[10px] sm:text-xs font-semibold">
                           <svg className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -844,8 +828,8 @@ export default async function HomePage() {
               );
             })}
 
-            {/* Food Specials */}
-            {todaysFoodSpecials.map((special) => (
+            {/* Food Specials - Only show the first one */}
+            {displayFoodSpecial.map((special) => (
               <div key={special.id} className="group relative bg-orange-950/80 backdrop-blur-sm rounded-2xl p-3 sm:p-4 border-l-4 border-orange-500 shadow-xl overflow-hidden">
                 {/* Diagonal accent stripe */}
                 <div className="absolute top-0 right-0 w-24 h-24 bg-orange-500/10 -rotate-45 translate-x-8 -translate-y-8"></div>

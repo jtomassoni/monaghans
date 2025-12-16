@@ -140,7 +140,7 @@ export default function SpecialForm({ special }: { special?: Special }) {
 
       if (res.ok) {
         showToast(special?.id ? 'Special updated successfully' : 'Special created successfully', 'success');
-        router.push('/admin/specials-events');
+        router.push('/admin?view=list');
         router.refresh();
       } else {
         const error = await res.json();
@@ -161,7 +161,7 @@ export default function SpecialForm({ special }: { special?: Special }) {
       const res = await fetch(`/api/specials/${special.id}`, { method: 'DELETE' });
       if (res.ok) {
         showToast('Special deleted successfully', 'success');
-        router.push('/admin/specials-events');
+        router.push('/admin?view=list');
         router.refresh();
       } else {
         const error = await res.json();
@@ -197,7 +197,7 @@ export default function SpecialForm({ special }: { special?: Special }) {
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-4xl font-bold">{special ? 'Edit Special' : 'New Special'}</h1>
           <Link
-            href="/admin/specials-events"
+            href="/admin?view=list"
             className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded"
           >
             Cancel
@@ -373,7 +373,7 @@ export default function SpecialForm({ special }: { special?: Special }) {
               </button>
             )}
             <Link
-              href="/admin/specials-events"
+              href="/admin?view=list"
               onClick={handleCancel}
               className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
             >

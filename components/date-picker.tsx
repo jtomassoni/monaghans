@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, isToday, addDays } from 'date-fns';
 import { HiChevronLeft, HiChevronRight } from 'react-icons/hi';
+import { getMountainTimeDateString, parseMountainTimeDate } from '@/lib/timezone';
 
 interface DatePickerProps {
   value: string; // date format: "YYYY-MM-DD" or full datetime "YYYY-MM-DDTHH:mm"
@@ -224,18 +225,27 @@ export default function DatePicker({ value, onChange, min, max, label, required,
   };
 
   const handleQuickSelect = (type: 'today' | 'tomorrow') => {
+    // Get today's date in Mountain Time, not local timezone
     const now = new Date();
-    const date = type === 'today' ? now : new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const todayMTStr = getMountainTimeDateString(now);
+    const todayMT = parseMountainTimeDate(todayMTStr);
+    
+    // For tomorrow, add 24 hours to today's Mountain Time date
+    const tomorrowMT = type === 'tomorrow' 
+      ? new Date(todayMT.getTime() + 24 * 60 * 60 * 1000)
+      : todayMT;
+    
+    // Get the date string in Mountain Time
+    const targetDateStr = getMountainTimeDateString(tomorrowMT);
     
     if (dateOnly) {
-      const formatted = format(date, "yyyy-MM-dd");
-      onChange(formatted);
+      onChange(targetDateStr);
     } else {
       const timePart = value && value.includes('T') ? value.split('T')[1] : '00:00';
-      const formatted = format(date, "yyyy-MM-dd") + 'T' + timePart;
+      const formatted = targetDateStr + 'T' + timePart;
       onChange(formatted);
     }
-    setCurrentMonth(date);
+    setCurrentMonth(tomorrowMT);
     setIsOpen(false);
   };
 
@@ -246,6 +256,23 @@ export default function DatePicker({ value, onChange, min, max, label, required,
         return format(date, "MMM d, yyyy");
       })()
     : '';
+
+  // Check if the selected date is today in Mountain Time
+  const isSelectedDateToday = (() => {
+    if (!value) return false;
+    const dateStr = value.includes('T') ? value.split('T')[0] : value;
+    const now = new Date();
+    const todayMTStr = getMountainTimeDateString(now);
+    return dateStr === todayMTStr;
+  })();
+
+  // Check if we're viewing the current month in Mountain Time
+  const isViewingCurrentMonth = (() => {
+    const now = new Date();
+    const todayMTStr = getMountainTimeDateString(now);
+    const todayMT = parseMountainTimeDate(todayMTStr);
+    return isSameMonth(currentMonth, todayMT);
+  })();
 
   // On mobile, use native date input
   if (isMobile) {
@@ -400,7 +427,12 @@ export default function DatePicker({ value, onChange, min, max, label, required,
               <button
                 type="button"
                 onClick={() => handleQuickSelect('today')}
-                className="flex-1 px-3 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors duration-200 cursor-pointer"
+                disabled={isSelectedDateToday}
+                className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors duration-200 ${
+                  isSelectedDateToday
+                    ? 'text-gray-400 dark:text-gray-600 bg-gray-100 dark:bg-gray-800 cursor-not-allowed opacity-50'
+                    : 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 cursor-pointer'
+                }`}
               >
                 Today
               </button>

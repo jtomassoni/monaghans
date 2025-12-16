@@ -374,7 +374,7 @@ export default function OverviewContent({
                       Upcoming Events
                     </h2>
                     <Link
-                      href="/admin/specials-events"
+                      href="/admin?view=list"
                       className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
                     >
                       View All
@@ -385,7 +385,7 @@ export default function OverviewContent({
                       {upcomingEvents.map((event: any) => (
                         <Link
                           key={event.id}
-                          href={`/admin/specials-events?id=${event.id}`}
+                          href={`/admin?view=list&id=${event.id}`}
                           className="block p-2 rounded border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group"
                         >
                           <div className="flex items-start justify-between">

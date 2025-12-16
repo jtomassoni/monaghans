@@ -8,6 +8,8 @@ import StatusToggle from '@/components/status-toggle';
 import ConfirmationDialog from '@/components/confirmation-dialog';
 import DateTimePicker from '@/components/date-time-picker';
 import DatePicker from '@/components/date-picker';
+import TimePicker from '@/components/time-picker';
+import { parseDateTimeLocalAsCompanyTimezone, formatDateAsDateTimeLocal, getCompanyTimezoneSync } from '@/lib/timezone';
 
 interface Event {
   id?: string;
@@ -124,9 +126,10 @@ function buildRRULE(frequency: string, days: string[], monthDay?: number, until?
 
   // Add UNTIL clause if recurrence end date is specified
   if (until && rrule) {
-    // Format date as YYYYMMDD (RRULE format)
+    // Format date as YYYYMMDDT235959Z to ensure the entire day is included
+    // This makes UNTIL inclusive of the last occurrence on that date
     const dateStr = until.replace(/-/g, '');
-    rrule += `;UNTIL=${dateStr}`;
+    rrule += `;UNTIL=${dateStr}T235959Z`;
   }
 
   return rrule;
@@ -139,82 +142,28 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showDeleteRecurringConfirm, setShowDeleteRecurringConfirm] = useState(false);
   
-  // Helper function to convert datetime-local string to Date object treating it as Mountain Time
-  // datetime-local format: "YYYY-MM-DDTHH:mm" (no timezone info)
+  // Helper function to convert datetime-local string to Date object treating it as company timezone
+  // Uses centralized utility for consistency
   const parseAsMountainTime = (dateTimeLocal: string): Date => {
     if (!dateTimeLocal) return new Date();
-    
-    // Parse the datetime-local string
-    const [datePart, timePart] = dateTimeLocal.split('T');
-    const [year, month, day] = datePart.split('-').map(Number);
-    const [hours, minutes] = (timePart || '00:00').split(':').map(Number);
-    
-    // Create a test date to determine if DST is active on that date
-    // We'll test both possible offsets and see which one gives us the correct Mountain Time
-    // MT is UTC-7 (MST) or UTC-6 (MDT)
-    for (let offsetHours = 6; offsetHours <= 7; offsetHours++) {
-      const candidateUTC = new Date(Date.UTC(year, month - 1, day, hours + offsetHours, minutes, 0));
-      const mtStr = candidateUTC.toLocaleString('en-US', { 
-        timeZone: 'America/Denver',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false
-      });
-      
-      const [candidateDate, candidateTime] = mtStr.split(', ');
-      const targetDate = `${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}/${year}`;
-      const targetTime = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`;
-      
-      if (candidateDate === targetDate && candidateTime === targetTime) {
-        return candidateUTC;
-      }
+    try {
+      return parseDateTimeLocalAsCompanyTimezone(dateTimeLocal, getCompanyTimezoneSync());
+    } catch (error) {
+      console.error('Error parsing datetime-local:', error);
+      return new Date();
     }
-    
-    // Fallback: detect DST and use appropriate offset
-    // Check if DST is active for this date by creating a test date
-    const testDate = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
-    const mtTest = testDate.toLocaleString('en-US', {
-      timeZone: 'America/Denver',
-      timeZoneName: 'short'
-    });
-    
-    // If timezone name contains 'MDT' or 'MST', use appropriate offset
-    // MDT is UTC-6, MST is UTC-7
-    const isDST = mtTest.includes('MDT') || (!mtTest.includes('MST') && month >= 3 && month <= 10);
-    const fallbackOffset = isDST ? 6 : 7;
-    
-    return new Date(Date.UTC(year, month - 1, day, hours + fallbackOffset, minutes, 0));
   };
 
-  // Helper function to format date for datetime-local input (Mountain Time displayed as local)
+  // Helper function to format date for datetime-local input (company timezone displayed as local)
+  // Uses centralized utility for consistency
   const formatDateTimeLocal = (dateTime: string): string => {
     // If already in local format (no timezone), use as-is
     if (!dateTime.includes('Z') && !dateTime.includes('+') && !dateTime.includes('-', 10)) {
       return dateTime.slice(0, 16);
     }
-    // Otherwise parse and convert to Mountain Time for display
+    // Otherwise parse and convert to company timezone for display
     const date = new Date(dateTime);
-    // Format as Mountain Time
-    const mtStr = date.toLocaleString('en-US', {
-      timeZone: 'America/Denver',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    });
-    
-    // Parse the formatted string: "MM/DD/YYYY, HH:MM"
-    const [datePart, timePart] = mtStr.split(', ');
-    const [month, day, year] = datePart.split('/').map(Number);
-    const [hours, minutes] = timePart.split(':').map(Number);
-    
-    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+    return formatDateAsDateTimeLocal(date, getCompanyTimezoneSync());
   };
 
   // Helper function to get today's date/time in datetime-local format (Mountain Time)
@@ -267,6 +216,22 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
     const threeHoursLater = new Date(parsed.getTime() + 3 * 60 * 60 * 1000);
     return formatDateTimeLocal(threeHoursLater.toISOString());
   };
+
+  // Helper function to extract time from datetime string (HH:mm format)
+  const extractTime = (dateTime: string): string => {
+    if (!dateTime) return '';
+    const timePart = dateTime.split('T')[1];
+    if (timePart) {
+      return timePart.slice(0, 5); // Extract HH:mm
+    }
+    return '';
+  };
+
+  // Helper function to combine date and time into datetime string
+  const combineDateAndTime = (date: string, time: string): string => {
+    if (!date || !time) return '';
+    return `${date}T${time}`;
+  };
   
   // Parse existing RRULE if editing
   const initialRecurrence = parseRRULE(event?.recurrenceRule);
@@ -308,10 +273,13 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
       }
     } else {
       // For timed events, parse dates as Mountain Time to ensure consistent comparison
+      // Note: Cross-day events are allowed (e.g., Tuesday 10am to Wednesday 2am)
+      // This is common for bars/restaurants where the business day spans midnight
       const startDateMT = parseAsMountainTime(start);
       const endDateMT = parseAsMountainTime(end);
       
       // End must be after start (not equal)
+      // This naturally handles cross-day events since the end date will be on the next calendar day
       if (endDateMT <= startDateMT) {
         return 'End date & time must be after start date & time';
       }
@@ -447,6 +415,7 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
       }
     } else {
       const todayDateTime = getTodayDateTime();
+      const todayDate = todayDateTime.split('T')[0];
       setRecurrenceType('none');
       setRecurrenceDays([]);
       setMonthDay(new Date().getDate());
@@ -456,7 +425,7 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
         title: '',
         description: '',
         startDateTime: todayDateTime,
-        endDateTime: `${todayDateTime.split('T')[0]}T23:59`, // Default to same day for all-day events
+        endDateTime: `${todayDate}T23:59`, // Default to same day for all-day events
         isAllDay: true, // Default to all-day for new events
         tags: [],
         isActive: true,
@@ -693,73 +662,109 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Schedule</p>
                   <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
-                    Choose the start and end for this event.
+                    {!event?.id && (recurrenceType === 'weekly' || recurrenceType === 'monthly')
+                      ? 'Set the time for this recurring event. The date range is controlled by the recurrence settings.'
+                      : 'Choose the start and end for this event. Cross-day events are supported (e.g., Tuesday 10am to Wednesday 2am).'}
                   </p>
                 </div>
-                <label
-                  htmlFor="isAllDay"
-                  className="inline-flex items-center gap-2 rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 sm:py-1.5 text-sm sm:text-xs font-medium text-gray-900 dark:text-white shadow-inner cursor-pointer transition-colors hover:border-blue-400/70 focus-within:ring-2 focus-within:ring-blue-500/30 min-h-[44px] touch-manipulation"
-                >
-                  <input
-                    type="checkbox"
-                    id="isAllDay"
-                    checked={formData.isAllDay}
-                    onChange={(e) => handleAllDayChange(e.target.checked)}
-                    className="h-4 w-4 sm:h-3.5 sm:w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  All Day Event
-                </label>
+                {(!event?.id && (recurrenceType === 'weekly' || recurrenceType === 'monthly')) ? null : (
+                  <label
+                    htmlFor="isAllDay"
+                    className="inline-flex items-center gap-2 rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 sm:py-1.5 text-sm sm:text-xs font-medium text-gray-900 dark:text-white shadow-inner cursor-pointer transition-colors hover:border-blue-400/70 focus-within:ring-2 focus-within:ring-blue-500/30 min-h-[44px] touch-manipulation"
+                  >
+                    <input
+                      type="checkbox"
+                      id="isAllDay"
+                      checked={formData.isAllDay}
+                      onChange={(e) => handleAllDayChange(e.target.checked)}
+                      className="h-4 w-4 sm:h-3.5 sm:w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    All Day Event
+                  </label>
+                )}
               </div>
 
-              <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
-                <div className="relative isolate">
-                  {formData.isAllDay ? (
-                    <DatePicker
-                      label="Start Date"
-                      value={formData.startDateTime ? formData.startDateTime.split('T')[0] : ''}
-                      onChange={(value) => handleStartDateTimeChange(value ? `${value}T00:00` : '')}
-                      required
-                      dateOnly={true}
-                    />
-                  ) : (
-                    <DateTimePicker
-                      label="Start Date & Time"
-                      value={formData.startDateTime || ''}
-                      onChange={handleStartDateTimeChange}
-                      required
-                    />
-                  )}
-                </div>
-                <div className="relative isolate">
-                  {formData.isAllDay ? (
-                    <DatePicker
-                      label="End Date"
-                      value={formData.endDateTime ? formData.endDateTime.split('T')[0] : (formData.startDateTime ? formData.startDateTime.split('T')[0] : '')}
-                      onChange={(value) => {
-                        // For all-day events, use the selected date with end of day time, or same as start if not set
-                        if (value) {
-                          handleEndDateTimeChange(`${value}T23:59`);
-                        } else if (formData.startDateTime) {
-                          // If cleared, default to same as start date
-                          const startDate = formData.startDateTime.split('T')[0];
-                          handleEndDateTimeChange(`${startDate}T23:59`);
-                        } else {
-                          handleEndDateTimeChange('');
-                        }
+              {/* For new recurring events, show only time pickers */}
+              {!event?.id && (recurrenceType === 'weekly' || recurrenceType === 'monthly') ? (
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-gray-900 dark:text-white">
+                      Start Time *
+                    </label>
+                    <TimePicker
+                      value={extractTime(formData.startDateTime)}
+                      onChange={(time) => {
+                        // Use recurrence start date if set, otherwise use today's date
+                        const date = recurrenceStartDate || getTodayDateTime().split('T')[0];
+                        handleStartDateTimeChange(combineDateAndTime(date, time));
                       }}
-                      min={formData.startDateTime ? formData.startDateTime.split('T')[0] : undefined}
-                      dateOnly={true}
                     />
-                  ) : (
-                    <DateTimePicker
-                      label="End Date & Time"
-                      value={formData.endDateTime || ''}
-                      onChange={handleEndDateTimeChange}
-                      min={formData.startDateTime || undefined}
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-gray-900 dark:text-white">
+                      End Time
+                    </label>
+                    <TimePicker
+                      value={extractTime(formData.endDateTime)}
+                      onChange={(time) => {
+                        // Use recurrence start date if set, otherwise use today's date
+                        const date = recurrenceStartDate || getTodayDateTime().split('T')[0];
+                        handleEndDateTimeChange(combineDateAndTime(date, time));
+                      }}
                     />
-                  )}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
+                  <div className="relative isolate">
+                    {formData.isAllDay ? (
+                      <DatePicker
+                        label="Start Date"
+                        value={formData.startDateTime ? formData.startDateTime.split('T')[0] : ''}
+                        onChange={(value) => handleStartDateTimeChange(value ? `${value}T00:00` : '')}
+                        required
+                        dateOnly={true}
+                      />
+                    ) : (
+                      <DateTimePicker
+                        label="Start Date & Time"
+                        value={formData.startDateTime || ''}
+                        onChange={handleStartDateTimeChange}
+                        required
+                      />
+                    )}
+                  </div>
+                  <div className="relative isolate">
+                    {formData.isAllDay ? (
+                      <DatePicker
+                        label="End Date"
+                        value={formData.endDateTime ? formData.endDateTime.split('T')[0] : (formData.startDateTime ? formData.startDateTime.split('T')[0] : '')}
+                        onChange={(value) => {
+                          // For all-day events, use the selected date with end of day time, or same as start if not set
+                          if (value) {
+                            handleEndDateTimeChange(`${value}T23:59`);
+                          } else if (formData.startDateTime) {
+                            // If cleared, default to same as start date
+                            const startDate = formData.startDateTime.split('T')[0];
+                            handleEndDateTimeChange(`${startDate}T23:59`);
+                          } else {
+                            handleEndDateTimeChange('');
+                          }
+                        }}
+                        min={formData.startDateTime ? formData.startDateTime.split('T')[0] : undefined}
+                        dateOnly={true}
+                      />
+                    ) : (
+                      <DateTimePicker
+                        label="End Date & Time"
+                        value={formData.endDateTime || ''}
+                        onChange={handleEndDateTimeChange}
+                        min={formData.startDateTime || undefined}
+                      />
+                    )}
+                  </div>
+                </div>
+              )}
               {dateError && (
                 <p className="text-xs text-red-500 dark:text-red-400 mt-1">
                   {dateError}
@@ -813,10 +818,17 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
                     checked={recurrenceType === 'weekly'}
                     onChange={() => {
                       setRecurrenceType('weekly');
-                      // Set recurrence start date to the event start date
-                      if (formData.startDateTime) {
-                        setRecurrenceStartDate(formData.startDateTime.split('T')[0]);
+                      // Set recurrence start date to the event start date or today
+                      const startDate = formData.startDateTime 
+                        ? formData.startDateTime.split('T')[0] 
+                        : getTodayDateTime().split('T')[0];
+                      setRecurrenceStartDate(startDate);
+                      
+                      // For new events, initialize recurrence start date if not set
+                      if (!event?.id && !recurrenceStartDate) {
+                        setRecurrenceStartDate(startDate);
                       }
+                      
                       if (recurrenceDays.length === 0 && formData.startDateTime) {
                         // Parse the datetime-local string as Mountain Time to get correct day of week
                         const startDateMT = parseAsMountainTime(formData.startDateTime);
@@ -859,14 +871,24 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
                     checked={recurrenceType === 'monthly'}
                     onChange={() => {
                       setRecurrenceType('monthly');
-                      // Set recurrence start date to the event start date
-                      if (formData.startDateTime) {
-                        setRecurrenceStartDate(formData.startDateTime.split('T')[0]);
+                      // Set recurrence start date to the event start date or today
+                      const startDate = formData.startDateTime 
+                        ? formData.startDateTime.split('T')[0] 
+                        : getTodayDateTime().split('T')[0];
+                      setRecurrenceStartDate(startDate);
+                      
+                      // For new events, initialize recurrence start date if not set
+                      if (!event?.id && !recurrenceStartDate) {
+                        setRecurrenceStartDate(startDate);
                       }
+                      
                       if (formData.startDateTime) {
-                        const startDate = new Date(formData.startDateTime);
-                        const dayOfMonth = startDate.getDate();
+                        const startDateMT = parseAsMountainTime(formData.startDateTime);
+                        const dayOfMonth = startDateMT.getDate();
                         setMonthDay(dayOfMonth);
+                      } else {
+                        // Default to today's day of month
+                        setMonthDay(new Date().getDate());
                       }
                     }}
                     className="sr-only"
@@ -949,8 +971,16 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
                         value={recurrenceStartDate || (formData.startDateTime ? formData.startDateTime.split('T')[0] : '')}
                         onChange={(value) => {
                           setRecurrenceStartDate(value || '');
-                          // Update event start date if recurrence start is set and event start is empty
-                          if (value && !formData.startDateTime) {
+                          // For new recurring events, update the datetime with the new date but keep the time
+                          if (value && !event?.id && (recurrenceType === 'weekly' || recurrenceType === 'monthly')) {
+                            const startTime = extractTime(formData.startDateTime) || '00:00';
+                            const endTime = extractTime(formData.endDateTime) || '23:59';
+                            handleStartDateTimeChange(combineDateAndTime(value, startTime));
+                            if (formData.endDateTime) {
+                              handleEndDateTimeChange(combineDateAndTime(value, endTime));
+                            }
+                          } else if (value && !formData.startDateTime) {
+                            // For one-time events or when editing, update event start date if empty
                             handleStartDateTimeChange(value + 'T00:00');
                           }
                         }}

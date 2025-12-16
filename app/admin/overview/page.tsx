@@ -3,6 +3,9 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { getAllFeatureFlags } from '@/lib/feature-flags';
+import { getMountainTimeNow, getMountainTimeToday } from '@/lib/timezone';
+import { RRule } from 'rrule';
+import { format } from 'date-fns';
 import OverviewContent from './overview-content';
 
 export default async function AdminOverview() {
@@ -23,9 +26,13 @@ export default async function AdminOverview() {
   const isActivityLogEnabled = flagsMap.get('activity_log') ?? false;
   const isUsersStaffManagementEnabled = flagsMap.get('users_staff_management') ?? false;
 
-  const now = new Date();
-  const nextWeek = new Date(now);
-  nextWeek.setDate(now.getDate() + 7);
+  // Use Mountain Time for date calculations to match events page
+  const now = getMountainTimeNow();
+  const today = getMountainTimeToday();
+  
+  // Look ahead 2 months for recurring events (matching events page)
+  const futureDate = new Date(today);
+  futureDate.setMonth(futureDate.getMonth() + 2);
 
   // Date ranges for today
   const startOfToday = new Date(now);
@@ -55,20 +62,8 @@ export default async function AdminOverview() {
     promises.push(prisma.special.count());
     promiseIndices.activeSpecialsCount = promises.length;
     promises.push(prisma.special.count({ where: { isActive: true } }));
-    promiseIndices.upcomingEvents = promises.length;
-    promises.push(
-      prisma.event.findMany({
-        where: {
-          isActive: true,
-          startDateTime: {
-            gte: now,
-            lte: nextWeek,
-          },
-        },
-        orderBy: { startDateTime: 'asc' },
-        take: 3,
-      })
-    );
+    // We'll handle events separately to include recurring occurrences
+    promiseIndices.upcomingEvents = -1; // Will be handled separately
   } else {
     promiseIndices.eventsCount = -1;
     promiseIndices.activeEventsCount = -1;
@@ -267,6 +262,78 @@ export default async function AdminOverview() {
 
   // Execute all promises
   const results = await Promise.all(promises);
+  
+  // Handle events separately to include recurring occurrences (matching events page logic)
+  let upcomingEvents: any[] = [];
+  if (isCalendarsEventsEnabled || isSpecialsManagementEnabled) {
+    // Fetch all active events (including recurring ones)
+    const allEvents = await prisma.event.findMany({
+      where: {
+        isActive: true,
+      },
+      orderBy: { startDateTime: 'asc' },
+    });
+    
+    // Helper function to get recurring event occurrences (simplified version for admin overview)
+    const getRecurringEventOccurrences = (event: any, rangeStart: Date, rangeEnd: Date) => {
+      if (!event.recurrenceRule) return [];
+      
+      try {
+        const exceptions: string[] = event.exceptions ? JSON.parse(event.exceptions) : [];
+        const startDate = new Date(event.startDateTime);
+        
+        // Use a simpler approach for admin overview - just use RRule directly
+        const rule = RRule.fromString(event.recurrenceRule);
+        const ruleOptions = {
+          ...rule.options,
+          dtstart: startDate,
+        };
+        const ruleWithDtstart = new RRule(ruleOptions);
+        
+        const searchStart = startDate > rangeStart ? startDate : rangeStart;
+        const occurrences = ruleWithDtstart.between(searchStart, rangeEnd, true);
+        
+        // Filter out exceptions and create event objects
+        return occurrences
+          .filter(occurrence => {
+            const occurrenceDateStr = format(occurrence, 'yyyy-MM-dd');
+            return !exceptions.includes(occurrenceDateStr);
+          })
+          .map(occurrence => ({
+            ...event,
+            startDateTime: occurrence.toISOString(),
+            endDateTime: event.endDateTime ? (() => {
+              const duration = new Date(event.endDateTime).getTime() - new Date(event.startDateTime).getTime();
+              return new Date(occurrence.getTime() + duration).toISOString();
+            })() : null,
+            isRecurringOccurrence: true,
+          }));
+      } catch (e) {
+        return [];
+      }
+    };
+    
+    // Get upcoming one-time events
+    const upcomingOneTimeEvents = allEvents.filter(event => {
+      if (event.recurrenceRule) return false;
+      const eventDate = new Date(event.startDateTime);
+      return eventDate >= today;
+    });
+    
+    // Get upcoming recurring occurrences
+    const upcomingRecurringOccurrences = allEvents
+      .filter(event => event.recurrenceRule)
+      .flatMap(event => getRecurringEventOccurrences(event, today, futureDate))
+      .filter(occurrence => {
+        const occurrenceDate = new Date(occurrence.startDateTime);
+        return occurrenceDate >= today;
+      });
+    
+    // Combine and sort, then take first 3
+    upcomingEvents = [...upcomingOneTimeEvents, ...upcomingRecurringOccurrences]
+      .sort((a, b) => new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime())
+      .slice(0, 3);
+  }
 
   // Extract results using indices
   const getResult = (index: number, defaultValue: any = 0) => 
@@ -281,7 +348,7 @@ export default async function AdminOverview() {
   const announcementsCount = getResult(promiseIndices.announcementsCount);
   const publishedAnnouncementsCount = getResult(promiseIndices.publishedAnnouncementsCount);
   const usersCount = getResult(promiseIndices.usersCount);
-  const upcomingEvents = getResult(promiseIndices.upcomingEvents, []);
+  // upcomingEvents is already handled above
   const recentActivities = getResult(promiseIndices.recentActivities, []);
   const inactiveMenuItems = getResult(promiseIndices.inactiveMenuItems);
   const unpublishedAnnouncements = getResult(promiseIndices.unpublishedAnnouncements, []);
@@ -369,7 +436,7 @@ export default async function AdminOverview() {
       total: eventsCount + specialsCount,
       active: activeEventsCount + activeSpecialsCount,
       iconName: 'FaCalendarAlt',
-      href: '/admin/specials-events',
+      href: '/admin?view=list',
       color: 'bg-blue-500/80 dark:bg-blue-600/80',
       bgColor: 'bg-blue-50 dark:bg-blue-900/20',
       textColor: 'text-blue-600 dark:text-blue-400',

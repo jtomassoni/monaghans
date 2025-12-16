@@ -94,7 +94,7 @@ export default function AdminMobileMenu({
     ...(permissions.canManageMenu && featureFlags.specials_management ? [{ href: '/admin/food-specials', label: 'Food Specials', icon: FaDrumstickBite }] : []),
     ...(permissions.canManageMenu && featureFlags.specials_management ? [{ href: '/admin/drink-specials', label: 'Drink Specials', icon: FaWineGlass }] : []),
     ...(permissions.canManageMenu && featureFlags.menu_management ? [{ href: '/admin/menu', label: 'Menu', icon: FaUtensils }] : []),
-    ...(permissions.canManageEvents && featureFlags.calendars_events ? [{ href: '/admin/specials-events', label: 'Events', icon: FaStar }] : []),
+    ...(permissions.canManageEvents && featureFlags.calendars_events ? [{ href: '/admin?view=list', label: 'Events', icon: FaStar }] : []),
   ].filter(Boolean);
 
   // Other navigation groups - shown below quick actions
@@ -123,8 +123,8 @@ export default function AdminMobileMenu({
     if (href === '/admin/overview') {
       return pathname === '/admin/overview';
     }
-    if (href === '/admin/specials-events') {
-      return pathname?.startsWith('/admin/specials-events') || pathname?.startsWith('/admin/events');
+    if (href === '/admin?view=list') {
+      return pathname === '/admin' || pathname?.startsWith('/admin/events') || pathname?.startsWith('/admin/specials');
     }
     if (href === '/admin/food-specials') {
       return pathname?.startsWith('/admin/food-specials');

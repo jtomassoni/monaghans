@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { RRule } from 'rrule';
+import { format } from 'date-fns';
 import { showToast } from '@/components/toast';
 import SearchSortFilter, { SortOption, FilterOption } from '@/components/search-sort-filter';
 import ConfirmationDialog from '@/components/confirmation-dialog';
@@ -13,6 +14,7 @@ import AnnouncementModalForm from '@/components/announcement-modal-form';
 import StatusBadge from '@/components/status-badge';
 import { getItemStatus } from '@/lib/status-helpers';
 import DuplicateCalendarModal from '@/components/duplicate-calendar-modal';
+import { FaCopy } from 'react-icons/fa';
 
 interface Event {
   id: string;
@@ -22,6 +24,7 @@ interface Event {
   endDateTime: string | null;
   venueArea: string | null;
   recurrenceRule: string | null;
+  exceptions?: string | null;
   isAllDay: boolean;
   tags: string[] | null;
   image: string | null;
@@ -107,16 +110,42 @@ export default function EventsList({
         return new Date(event.startDateTime);
       }
       try {
+        // Use Mountain Time for consistent date comparisons
         const now = new Date();
         const startDate = new Date(event.startDateTime);
+        
+        // Parse exceptions if they exist
+        const exceptions: string[] = event.exceptions ? JSON.parse(event.exceptions) : [];
+        
+        // Get the next occurrence, checking exceptions
         const rule = RRule.fromString(event.recurrenceRule);
         const ruleOptions = {
           ...rule.options,
           dtstart: startDate,
         };
         const ruleWithDtstart = new RRule(ruleOptions);
-        const nextOccurrence = ruleWithDtstart.after(now, true);
-        return nextOccurrence || startDate;
+        
+        // Get next occurrence (use false to exclude current time - we want future occurrences)
+        let nextOccurrence = ruleWithDtstart.after(now, false);
+        let attempts = 0;
+        while (nextOccurrence && attempts < 10) {
+          const occurrenceDateStr = format(nextOccurrence, 'yyyy-MM-dd');
+          if (!exceptions.includes(occurrenceDateStr)) {
+            break;
+          }
+          nextOccurrence = ruleWithDtstart.after(nextOccurrence, false);
+          attempts++;
+        }
+        
+        // If no next occurrence found, return a far future date so it sorts at the end
+        // This ensures recurring events without future occurrences don't get mixed with past events
+        if (!nextOccurrence) {
+          const farFuture = new Date();
+          farFuture.setFullYear(farFuture.getFullYear() + 100);
+          return farFuture;
+        }
+        
+        return nextOccurrence;
       } catch (e) {
         return new Date(event.startDateTime);
       }
@@ -129,27 +158,44 @@ export default function EventsList({
     }
   };
 
+  // Helper to get status priority: Active (0), Scheduled (1), Past (2)
+  const getStatusPriority = (item: ListItem): number => {
+    const statuses = getItemStatus({
+      isActive: item.eventType === 'event' ? (item as Event).isActive : 
+                item.eventType === 'special' ? (item as Special).isActive : undefined,
+      isPublished: item.eventType === 'announcement' ? (item as Announcement).isPublished : undefined,
+      startDateTime: item.eventType === 'event' ? (item as Event).startDateTime : undefined,
+      endDateTime: item.eventType === 'event' ? (item as Event).endDateTime : undefined,
+      startDate: item.eventType === 'special' ? (item as Special).startDate : undefined,
+      endDate: item.eventType === 'special' ? (item as Special).endDate : undefined,
+      publishAt: item.eventType === 'announcement' ? (item as Announcement).publishAt : undefined,
+      expiresAt: item.eventType === 'announcement' ? (item as Announcement).expiresAt : undefined,
+    });
+    
+    // Check for statuses in priority order
+    if (statuses.includes('active') || statuses.includes('published')) return 0; // Active/Published first
+    if (statuses.includes('scheduled')) return 1; // Scheduled second
+    if (statuses.includes('past')) return 2; // Past third
+    return 3; // Everything else (inactive, draft, etc.)
+  };
+
   const sortOptions: SortOption<ListItem>[] = [
     { 
-      label: 'Next Upcoming First', 
-      value: 'upcoming', 
+      label: 'Next', 
+      value: 'next', 
       sortFn: (a, b) => {
+        // PRIORITY 1: Status (Active → Scheduled → Past)
+        const aStatusPriority = getStatusPriority(a);
+        const bStatusPriority = getStatusPriority(b);
+        
+        if (aStatusPriority !== bStatusPriority) {
+          return aStatusPriority - bStatusPriority;
+        }
+        
+        // PRIORITY 2: Within the same status, sort chronologically
         const aDate = getItemDate(a).getTime();
         const bDate = getItemDate(b).getTime();
-        const now = new Date().getTime();
-        
-        // Both are upcoming (future dates)
-        if (aDate >= now && bDate >= now) {
-          return aDate - bDate; // Ascending: earlier upcoming dates first
-        }
-        // Both are past
-        if (aDate < now && bDate < now) {
-          return bDate - aDate; // Descending: more recent past dates first
-        }
-        // One is upcoming, one is past - upcoming comes first
-        if (aDate >= now) return -1;
-        if (bDate >= now) return 1;
-        return 0;
+        return aDate - bDate;
       }
     },
     { 
@@ -249,6 +295,55 @@ export default function EventsList({
       } catch (error) {
         showToast('Failed to load announcement', 'error');
       }
+    }
+  };
+
+  const handleDuplicate = async (item: ListItem) => {
+    if (item.eventType === 'event') {
+      try {
+        const res = await fetch(`/api/events/${item.id}`);
+        if (res.ok) {
+          const eventData = await res.json();
+          setEditingEvent({
+            id: '', // No ID means it's a new event
+            title: `${eventData.title} (Copy)`,
+            description: eventData.description || '',
+            startDateTime: eventData.startDateTime,
+            endDateTime: eventData.endDateTime || '',
+            venueArea: eventData.venueArea || 'bar',
+            recurrenceRule: eventData.recurrenceRule || '',
+            isAllDay: eventData.isAllDay || false,
+            tags: eventData.tags ? JSON.parse(eventData.tags) : [],
+            image: eventData.image || null,
+            isActive: false, // Start as inactive so user can review before activating
+            eventType: 'event',
+          });
+          setEventModalOpen(true);
+        }
+      } catch (error) {
+        showToast('Failed to duplicate event', 'error');
+      }
+    } else if (item.eventType === 'special') {
+      const special = item as Special;
+      setSpecialType(special.type);
+      setEditingSpecial({
+        id: '', // No ID means it's a new special
+        title: `${special.title} (Copy)`,
+        description: special.description || null,
+        priceNotes: special.priceNotes || null,
+        type: special.type,
+        appliesOn: special.appliesOn,
+        timeWindow: special.timeWindow || null,
+        startDate: special.startDate || null,
+        endDate: special.endDate || null,
+        image: special.image || null,
+        isActive: false, // Start as inactive so user can review before activating
+        eventType: 'special',
+      });
+      setSpecialModalOpen(true);
+    } else {
+      // Announcements don't support duplication
+      showToast('Announcements cannot be duplicated', 'info');
     }
   };
 
@@ -443,7 +538,11 @@ export default function EventsList({
           searchPlaceholder="Search events, specials, and announcements..."
           sortOptions={sortOptions}
           filterOptions={filterOptions}
-          defaultSort={sortOptions[0]} // "Next Upcoming First"
+          defaultSort={sortOptions[0]} // "Next" - Active → Scheduled → Past
+          onSortChange={() => {
+            // Reset any column sorting when user selects a sort option from dropdown
+            // (Not applicable here since this list doesn't have column sorting)
+          }}
         />
 
         {/* Unified List */}
@@ -463,9 +562,9 @@ export default function EventsList({
                 ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-blue-300 dark:border-blue-600'
                 : item.eventType === 'special'
                 ? (item as Special).type === 'food'
-                  ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 border-orange-300 dark:border-orange-600'
-                  : 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border-purple-300 dark:border-purple-600'
-                : 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400 border-yellow-300 dark:border-yellow-600';
+                  ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-600'
+                  : 'bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 border-teal-300 dark:border-teal-600'
+                : 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-600';
 
               return (
                 <div
@@ -538,17 +637,43 @@ export default function EventsList({
                     </button>
                   </div>
                   
-                  {/* Delete button - always visible */}
-                  <div className="flex-shrink-0 z-20 relative">
+                  {/* Action buttons - always visible */}
+                  <div className="flex-shrink-0 z-20 relative flex items-center gap-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleItemClick(item);
+                      }}
+                      className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                      title="Edit"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                    {item.eventType !== 'announcement' && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDuplicate(item);
+                        }}
+                        className="p-2 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
+                        title="Duplicate"
+                      >
+                        <FaCopy className="w-4 h-4" />
+                      </button>
+                    )}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDelete(item);
                       }}
-                      className="px-3 py-1.5 text-xs bg-red-500/90 dark:bg-red-600/90 hover:bg-red-600 dark:hover:bg-red-700 rounded-lg text-white font-medium transition-all duration-200 hover:scale-105 border border-red-400 dark:border-red-500 cursor-pointer"
+                      className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                       title={`Delete ${itemType.toLowerCase()}`}
                     >
-                      Delete
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
                     </button>
                   </div>
                 </div>

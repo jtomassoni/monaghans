@@ -24,6 +24,7 @@ interface SearchSortFilterProps<T> {
   filterOptions?: FilterOption<T>[];
   defaultSort?: SortOption<T>;
   actionButton?: React.ReactNode;
+  onSortChange?: () => void;
 }
 
 // Helper function to get nested property values
@@ -42,6 +43,7 @@ export default function SearchSortFilter<T extends Record<string, any>>({
   filterOptions = [],
   defaultSort,
   actionButton,
+  onSortChange,
 }: SearchSortFilterProps<T>) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption<T> | null>(defaultSort || null);
@@ -220,6 +222,10 @@ export default function SearchSortFilter<T extends Record<string, any>>({
                       setSortBy(null);
                     } else {
                       setSortBy(sortOptions[index - 1] || null);
+                    }
+                    // Call onSortChange callback if provided
+                    if (onSortChange) {
+                      onSortChange();
                     }
                   }}
                   className="w-full pl-9 sm:pl-10 pr-7 sm:pr-8 py-2 sm:py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 shadow-sm appearance-none transition-all duration-200 text-sm touch-manipulation"

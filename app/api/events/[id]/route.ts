@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, handleError, getCurrentUser, logActivity } from '@/lib/api-helpers';
 import { extractEventPattern } from '@/lib/event-pattern-helpers';
+import { parseDateTimeLocalAsCompanyTimezone, getCompanyTimezone } from '@/lib/timezone';
 
 export async function GET(
   req: NextRequest,
@@ -47,7 +48,32 @@ export async function PUT(
       return NextResponse.json({ error: 'Event not found' }, { status: 404 });
     }
 
-    const startDateTime = new Date(body.startDateTime);
+    // CRITICAL: Parse datetime strings as company timezone, not server timezone
+    const timezone = await getCompanyTimezone();
+    let startDateTime: Date;
+    
+    if (typeof body.startDateTime === 'string') {
+      if (body.startDateTime.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)) {
+        startDateTime = parseDateTimeLocalAsCompanyTimezone(body.startDateTime, timezone);
+      } else {
+        startDateTime = new Date(body.startDateTime);
+      }
+    } else {
+      startDateTime = new Date(body.startDateTime);
+    }
+    
+    let endDateTime: Date | null = null;
+    if (body.endDateTime) {
+      if (typeof body.endDateTime === 'string') {
+        if (body.endDateTime.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)) {
+          endDateTime = parseDateTimeLocalAsCompanyTimezone(body.endDateTime, timezone);
+        } else {
+          endDateTime = new Date(body.endDateTime);
+        }
+      } else {
+        endDateTime = new Date(body.endDateTime);
+      }
+    }
     
     // Extract pattern information
     const pattern = extractEventPattern(startDateTime, body.recurrenceRule);
@@ -58,7 +84,7 @@ export async function PUT(
         title: body.title,
         description: body.description,
         startDateTime,
-        endDateTime: body.endDateTime ? new Date(body.endDateTime) : null,
+        endDateTime,
         venueArea: body.venueArea || 'bar',
         recurrenceRule: body.recurrenceRule,
         exceptions: body.exceptions ? JSON.stringify(body.exceptions) : null,

@@ -4,9 +4,10 @@ import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, isToday, addDays } from 'date-fns';
 import { HiChevronLeft, HiChevronRight } from 'react-icons/hi';
+import { parseDateTimeLocalAsCompanyTimezone, formatDateAsDateTimeLocal, getCompanyTimezoneSync } from '@/lib/timezone';
 
 interface DateTimePickerProps {
-  value: string; // datetime-local format: "YYYY-MM-DDTHH:mm"
+  value: string; // datetime-local format: "YYYY-MM-DDTHH:mm" (interpreted as company timezone)
   onChange: (value: string) => void;
   min?: string;
   max?: string;
@@ -15,7 +16,8 @@ interface DateTimePickerProps {
 }
 
 // Helper function to parse datetime-local format string (YYYY-MM-DDTHH:mm)
-// This format has no timezone info, so we treat it as local time
+// CRITICAL: This interprets the datetime-local string as company timezone, not browser local time
+// This ensures consistency across different user timezones
 function parseDateTimeLocal(dateTimeLocal: string): Date {
   if (!dateTimeLocal) return new Date();
   
@@ -24,15 +26,15 @@ function parseDateTimeLocal(dateTimeLocal: string): Date {
     return new Date(dateTimeLocal);
   }
   
-  // Parse datetime-local format: "YYYY-MM-DDTHH:mm"
-  const [datePart, timePart] = dateTimeLocal.split('T');
-  if (!datePart) return new Date();
-  
-  const [year, month, day] = datePart.split('-').map(Number);
-  const [hours = 0, minutes = 0] = (timePart || '00:00').split(':').map(Number);
-  
-  // Create date in local timezone (datetime-local format is always local time)
-  return new Date(year, month - 1, day, hours, minutes, 0);
+  // Parse datetime-local format as company timezone (not browser local time)
+  // This is critical for consistency when users in different timezones use the app
+  try {
+    return parseDateTimeLocalAsCompanyTimezone(dateTimeLocal, getCompanyTimezoneSync());
+  } catch (error) {
+    console.error('Error parsing datetime-local as company timezone:', error);
+    // Fallback to current time if parsing fails
+    return new Date();
+  }
 }
 
 export default function DateTimePicker({ value, onChange, min, max, label, required }: DateTimePickerProps) {
@@ -228,21 +230,28 @@ export default function DateTimePicker({ value, onChange, min, max, label, requi
     if (minDate !== null && day < minDate) return;
     if (maxDate !== null && day > maxDate) return;
 
-    const newDate = new Date(day);
-    newDate.setHours(selectedTime.hours);
-    newDate.setMinutes(selectedTime.minutes);
+    // Get the date components in company timezone
+    const timezone = getCompanyTimezoneSync();
+    const dateStr = formatDateAsDateTimeLocal(day, timezone);
+    const [datePart, timePart] = dateStr.split('T');
+    const [year, month, dayNum] = datePart.split('-').map(Number);
     
-    const formatted = format(newDate, "yyyy-MM-dd'T'HH:mm");
+    // Create datetime-local string with selected time
+    const formatted = `${year}-${String(month).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}T${String(selectedTime.hours).padStart(2, '0')}:${String(selectedTime.minutes).padStart(2, '0')}`;
     onChange(formatted);
   };
 
   const handleTimeChange = (hours: number, minutes: number) => {
     setSelectedTime({ hours, minutes });
     const dateToUse = selectedDate || new Date();
-    const newDate = new Date(dateToUse);
-    newDate.setHours(hours);
-    newDate.setMinutes(minutes);
-    const formatted = format(newDate, "yyyy-MM-dd'T'HH:mm");
+    
+    // Get the date components in company timezone
+    const timezone = getCompanyTimezoneSync();
+    const dateStr = formatDateAsDateTimeLocal(dateToUse, timezone);
+    const [datePart] = dateStr.split('T');
+    
+    // Create datetime-local string with new time
+    const formatted = `${datePart}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
     onChange(formatted);
   };
 
@@ -251,25 +260,55 @@ export default function DateTimePicker({ value, onChange, min, max, label, requi
     let date: Date;
     
     if (type === 'topOfHour') {
-      date = new Date(now);
-      date.setMinutes(0, 0, 0);
+      // Get current time in company timezone and set minutes to 0
+      const timezone = getCompanyTimezoneSync();
+      const nowStr = formatDateAsDateTimeLocal(now, timezone);
+      const [datePart, timePart] = nowStr.split('T');
+      const [hours] = timePart.split(':').map(Number);
+      const formatted = `${datePart}T${String(hours).padStart(2, '0')}:00`;
+      onChange(formatted);
+      
+      // Update UI state
+      const parsed = parseDateTimeLocal(formatted);
+      setCurrentMonth(parsed);
+      setSelectedTime({
+        hours: hours,
+        minutes: 0,
+      });
+      return;
     } else {
       date = now;
     }
 
-    const formatted = format(date, "yyyy-MM-dd'T'HH:mm");
+    // Format current time in company timezone
+    const timezone = getCompanyTimezoneSync();
+    const formatted = formatDateAsDateTimeLocal(date, timezone);
     onChange(formatted);
-    setCurrentMonth(date);
+    
+    const parsed = parseDateTimeLocal(formatted);
+    setCurrentMonth(parsed);
     setSelectedTime({
-      hours: date.getHours(),
-      minutes: date.getMinutes(),
+      hours: parsed.getUTCHours(), // Note: parsed date is in UTC, but we need to extract the time components
+      minutes: parsed.getUTCMinutes(),
     });
+    
+    // Better approach: parse the formatted string to get time components
+    const [_, timePart] = formatted.split('T');
+    const [hours, minutes] = timePart.split(':').map(Number);
+    setSelectedTime({ hours, minutes });
   };
 
   const displayValue = value 
     ? (() => {
         const date = parseDateTimeLocal(value);
-        return format(date, "MMM d, yyyy 'at' h:mm a");
+        // Format for display in company timezone
+        const timezone = getCompanyTimezoneSync();
+        const dateStr = formatDateAsDateTimeLocal(date, timezone);
+        const [datePart, timePart] = dateStr.split('T');
+        const [year, month, day] = datePart.split('-').map(Number);
+        const [hours, minutes] = timePart.split(':').map(Number);
+        const displayDate = new Date(year, month - 1, day, hours, minutes);
+        return format(displayDate, "MMM d, yyyy 'at' h:mm a");
       })()
     : '';
 
@@ -282,16 +321,16 @@ export default function DateTimePicker({ value, onChange, min, max, label, requi
 
   // On mobile, use native datetime-local input
   if (isMobile) {
-    // Convert value to datetime-local format (YYYY-MM-DDTHH:mm)
+    // Convert value to datetime-local format (YYYY-MM-DDTHH:mm) in company timezone
     const getDateTimeLocalValue = () => {
       if (!value) return '';
+      // If value is already in datetime-local format, use it directly
+      if (value.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)) {
+        return value;
+      }
+      // Otherwise, parse and format in company timezone
       const date = parseDateTimeLocal(value);
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      const hours = String(date.getHours()).padStart(2, '0');
-      const minutes = String(date.getMinutes()).padStart(2, '0');
-      return `${year}-${month}-${day}T${hours}:${minutes}`;
+      return formatDateAsDateTimeLocal(date, getCompanyTimezoneSync());
     };
 
     return (

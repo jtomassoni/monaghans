@@ -10,14 +10,25 @@ export default function PrivateEventsPageClient({ contact }: { contact: any }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const formSectionRef = useRef<HTMLElement>(null);
+  const bottomFormSectionRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     const handleScroll = () => {
-      if (formSectionRef.current) {
+      if (formSectionRef.current && bottomFormSectionRef.current) {
         const formBottom = formSectionRef.current.offsetTop + formSectionRef.current.offsetHeight;
         const scrollPosition = window.scrollY + window.innerHeight;
-        // Show button when we've scrolled past the form
-        setShowScrollButton(scrollPosition > formBottom + 100);
+        
+        // Check if bottom form section is visible in viewport
+        const bottomFormTop = bottomFormSectionRef.current.offsetTop;
+        const bottomFormBottom = bottomFormTop + bottomFormSectionRef.current.offsetHeight;
+        const viewportTop = window.scrollY;
+        const viewportBottom = window.scrollY + window.innerHeight;
+        
+        // Hide button if bottom form is visible (even partially)
+        const isBottomFormVisible = bottomFormTop < viewportBottom && bottomFormBottom > viewportTop;
+        
+        // Show button when we've scrolled past the top form AND bottom form is not visible
+        setShowScrollButton(scrollPosition > formBottom + 100 && !isBottomFormVisible);
       }
     };
 
@@ -404,7 +415,7 @@ export default function PrivateEventsPageClient({ contact }: { contact: any }) {
           </section>
 
           {/* Bottom Form Section */}
-          <section id="contact" className="bg-gradient-to-br from-[var(--color-accent)]/20 to-purple-900/20 backdrop-blur-sm border-2 border-[var(--color-accent)]/30 rounded-xl p-8 md:p-10 mb-12">
+          <section id="contact" ref={bottomFormSectionRef} className="bg-gradient-to-br from-[var(--color-accent)]/20 to-purple-900/20 backdrop-blur-sm border-2 border-[var(--color-accent)]/30 rounded-xl p-8 md:p-10 mb-12">
             <div className="max-w-3xl mx-auto">
               <h2 className="text-3xl md:text-4xl font-bold mb-4 text-white text-center">
                 Questions? We&apos;re Here to Help
@@ -422,16 +433,21 @@ export default function PrivateEventsPageClient({ contact }: { contact: any }) {
                   <PrivateEventsForm compact={true} />
                 </div>
               </div>
-              <div className="mt-6 text-center">
-                <Link
-                  href="/"
-                  className="inline-flex items-center gap-2 px-6 py-3 border-2 border-white/30 hover:border-white/50 bg-white/10 backdrop-blur-sm hover:bg-white/20 text-white rounded-lg transition-all font-semibold"
-                >
-                  Back to Home
-                </Link>
-              </div>
             </div>
           </section>
+
+          {/* Back to Home Link - Less Prominent */}
+          <div className="text-center mb-12">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-1.5 text-gray-400 hover:text-gray-300 text-sm transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              Back to Home
+            </Link>
+          </div>
         </div>
       </main>
 

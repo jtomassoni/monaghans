@@ -8,6 +8,6 @@ export default async function NewEventPage() {
     redirect('/admin/login');
   }
 
-  redirect('/admin/specials-events?newEvent=true');
+  redirect('/admin?view=list&newEvent=true');
 }
 
