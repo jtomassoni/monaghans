@@ -41,16 +41,23 @@ export function getCompanyTimezoneSync(): string {
 /**
  * Get today's date in Mountain Time (start of day, 00:00:00)
  * Returns a Date object representing today at midnight in Mountain Time
+ * This function works correctly regardless of the server's timezone (UTC or local)
  */
 export function getMountainTimeToday(): Date {
+  // Get the current time - this is always in UTC internally
   const now = new Date();
   
   // Get the current date components in Mountain Time
+  // This ensures we get the correct day even if the server is in UTC
   const formatter = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/Denver',
     year: 'numeric',
     month: '2-digit',
-    day: '2-digit'
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
   });
   
   const parts = formatter.formatToParts(now);
@@ -58,44 +65,57 @@ export function getMountainTimeToday(): Date {
   const month = parseInt(parts.find(p => p.type === 'month')!.value) - 1; // 0-indexed
   const day = parseInt(parts.find(p => p.type === 'day')!.value);
   
-  // Find what UTC time corresponds to MT midnight
+  // Now find what UTC time corresponds to MT midnight for this date
+  // We need to find the UTC time that, when converted to MT, gives us 00:00:00 on this date
   // MT is UTC-7 (MST) or UTC-6 (MDT), so MT midnight is UTC 7am or 6am
   // Try both offsets and check which one gives us MT midnight
   for (let offsetHours = 6; offsetHours <= 7; offsetHours++) {
     const candidate = new Date(Date.UTC(year, month, day, offsetHours, 0, 0));
-    const mtCandidate = candidate.toLocaleString('en-US', { 
-      timeZone: 'America/Denver',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    });
     
-    const candidateParts = mtCandidate.split(', ');
-    const candidateDate = candidateParts[0];
-    const candidateTime = candidateParts[1];
+    // Verify this candidate represents midnight in Mountain Time
+    const mtParts = formatter.formatToParts(candidate);
+    const mtYear = parseInt(mtParts.find(p => p.type === 'year')!.value);
+    const mtMonth = parseInt(mtParts.find(p => p.type === 'month')!.value) - 1;
+    const mtDay = parseInt(mtParts.find(p => p.type === 'day')!.value);
+    const mtHour = parseInt(mtParts.find(p => p.type === 'hour')!.value);
+    const mtMinute = parseInt(mtParts.find(p => p.type === 'minute')!.value);
+    const mtSecond = parseInt(mtParts.find(p => p.type === 'second')?.value || '0');
     
-    const targetDate = `${String(month + 1).padStart(2, '0')}/${String(day).padStart(2, '0')}/${year}`;
-    
-    if (candidateDate === targetDate && candidateTime === '00:00:00') {
+    // Check if this candidate represents midnight on the target date in MT
+    if (mtYear === year && mtMonth === month && mtDay === day && 
+        mtHour === 0 && mtMinute === 0 && mtSecond === 0) {
       return candidate;
     }
   }
   
   // Fallback: detect DST and use appropriate offset
+  // Check if DST is active for this date by creating a test date at noon
   const testDate = new Date(Date.UTC(year, month, day, 12, 0, 0));
   const mtTest = testDate.toLocaleString('en-US', {
     timeZone: 'America/Denver',
     timeZoneName: 'short'
   });
   
-  const isDST = mtTest.includes('MDT') || (!mtTest.includes('MST') && month >= 2 && month <= 10);
+  // MDT is UTC-6 (daylight time), MST is UTC-7 (standard time)
+  const isDST = mtTest.includes('MDT');
   const fallbackOffset = isDST ? 6 : 7;
   
-  return new Date(Date.UTC(year, month, day, fallbackOffset, 0, 0));
+  const fallback = new Date(Date.UTC(year, month, day, fallbackOffset, 0, 0));
+  
+  // Verify the fallback is correct
+  const fallbackParts = formatter.formatToParts(fallback);
+  const fallbackMTYear = parseInt(fallbackParts.find(p => p.type === 'year')!.value);
+  const fallbackMTMonth = parseInt(fallbackParts.find(p => p.type === 'month')!.value) - 1;
+  const fallbackMTDay = parseInt(fallbackParts.find(p => p.type === 'day')!.value);
+  const fallbackMTHour = parseInt(fallbackParts.find(p => p.type === 'hour')!.value);
+  
+  // If fallback doesn't match, try the other offset
+  if (fallbackMTYear !== year || fallbackMTMonth !== month || fallbackMTDay !== day || fallbackMTHour !== 0) {
+    const altOffset = isDST ? 7 : 6;
+    return new Date(Date.UTC(year, month, day, altOffset, 0, 0));
+  }
+  
+  return fallback;
 }
 
 /**
@@ -136,9 +156,12 @@ export function getMountainTimeTomorrow(): Date {
 
 /**
  * Get the current weekday name in Mountain Time
+ * This function works correctly regardless of the server's timezone (UTC or local)
  */
 export function getMountainTimeWeekday(): string {
   const now = new Date();
+  // Use toLocaleDateString with timeZone to ensure we get the correct day
+  // even if the server is running in UTC
   return now.toLocaleDateString('en-US', { 
     weekday: 'long',
     timeZone: 'America/Denver'
@@ -177,48 +200,71 @@ export function getMountainTimeDateString(date: Date): string {
  * Parse a YYYY-MM-DD date string as Mountain Time (not UTC)
  * This prevents dates from shifting by a day due to timezone conversion
  * Returns a Date object representing midnight in Mountain Time for that date
+ * This function works correctly regardless of the server's timezone (UTC or local)
  */
 export function parseMountainTimeDate(dateStr: string): Date {
   const [year, month, day] = dateStr.split('-').map(Number);
+  
+  // Use Intl.DateTimeFormat to verify dates correctly
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Denver',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+  
   // Try different UTC hours to find which one gives us MT midnight
   for (let offsetHours = 6; offsetHours <= 7; offsetHours++) {
     const candidate = new Date(Date.UTC(year, month - 1, day, offsetHours, 0, 0));
-    const mtCandidate = candidate.toLocaleString('en-US', { 
-      timeZone: 'America/Denver',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    });
     
-    const candidateParts = mtCandidate.split(', ');
-    const candidateDate = candidateParts[0];
-    const candidateTime = candidateParts[1];
+    // Verify this candidate represents midnight in Mountain Time
+    const mtParts = formatter.formatToParts(candidate);
+    const mtYear = parseInt(mtParts.find(p => p.type === 'year')!.value);
+    const mtMonth = parseInt(mtParts.find(p => p.type === 'month')!.value) - 1;
+    const mtDay = parseInt(mtParts.find(p => p.type === 'day')!.value);
+    const mtHour = parseInt(mtParts.find(p => p.type === 'hour')!.value);
+    const mtMinute = parseInt(mtParts.find(p => p.type === 'minute')!.value);
+    const mtSecond = parseInt(mtParts.find(p => p.type === 'second')?.value || '0');
     
-    const targetDate = `${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}/${year}`;
-    
-    if (candidateDate === targetDate && candidateTime === '00:00:00') {
+    // Check if this candidate represents midnight on the target date in MT
+    if (mtYear === year && mtMonth === month - 1 && mtDay === day && 
+        mtHour === 0 && mtMinute === 0 && mtSecond === 0) {
       return candidate;
     }
   }
   
   // Fallback: detect DST and use appropriate offset
-  // Check if DST is active for this date by creating a test date
+  // Check if DST is active for this date by creating a test date at noon
   const testDate = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
   const mtTest = testDate.toLocaleString('en-US', {
     timeZone: 'America/Denver',
     timeZoneName: 'short'
   });
   
-  // If timezone name contains 'MDT' or 'MST', use appropriate offset
-  // MDT is UTC-6, MST is UTC-7
-  const isDST = mtTest.includes('MDT') || (!mtTest.includes('MST') && month >= 3 && month <= 10);
+  // MDT is UTC-6 (daylight time), MST is UTC-7 (standard time)
+  const isDST = mtTest.includes('MDT');
   const fallbackOffset = isDST ? 6 : 7;
   
-  return new Date(Date.UTC(year, month - 1, day, fallbackOffset, 0, 0));
+  const fallback = new Date(Date.UTC(year, month - 1, day, fallbackOffset, 0, 0));
+  
+  // Verify the fallback is correct
+  const fallbackParts = formatter.formatToParts(fallback);
+  const fallbackMTYear = parseInt(fallbackParts.find(p => p.type === 'year')!.value);
+  const fallbackMTMonth = parseInt(fallbackParts.find(p => p.type === 'month')!.value) - 1;
+  const fallbackMTDay = parseInt(fallbackParts.find(p => p.type === 'day')!.value);
+  const fallbackMTHour = parseInt(fallbackParts.find(p => p.type === 'hour')!.value);
+  
+  // If fallback doesn't match, try the other offset
+  if (fallbackMTYear !== year || fallbackMTMonth !== month - 1 || fallbackMTDay !== day || fallbackMTHour !== 0) {
+    const altOffset = isDST ? 7 : 6;
+    return new Date(Date.UTC(year, month - 1, day, altOffset, 0, 0));
+  }
+  
+  return fallback;
 }
 
 /**
