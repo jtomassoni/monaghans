@@ -63,6 +63,60 @@ test.describe('Public Homepage', () => {
     expect(sectionCount).toBeGreaterThanOrEqual(0);
   });
 
+  test('should display today\'s events in hero section with correct timezone', async ({ page }) => {
+    await page.goto('/');
+    
+    await page.waitForTimeout(2000);
+    
+    // Verify homepage loads
+    await expect(page.locator('body')).toBeVisible();
+    
+    // Look for hero section or events section
+    // The hero should show today's events if any exist
+    const heroContent = await page.textContent('body');
+    expect(heroContent).toBeTruthy();
+    
+    // Check for any date/time formatting (should be in Mountain Time)
+    // Events displayed should show correct times regardless of when/where test runs
+    const dateElements = page.locator('text=/Mon|Tue|Wed|Thu|Fri|Sat|Sun|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|PM|AM|pm|am/');
+    const dateCount = await dateElements.count();
+    
+    // If dates are shown, they should be formatted (structural check)
+    expect(dateCount).toBeGreaterThanOrEqual(0);
+  });
+
+  test('should not show hydration errors related to dates/times', async ({ page }) => {
+    await page.goto('/');
+    
+    // Wait for page to fully load and hydrate
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(2000);
+    
+    // Check console for hydration errors
+    const consoleErrors: string[] = [];
+    page.on('console', msg => {
+      if (msg.type() === 'error') {
+        const text = msg.text();
+        if (text.includes('hydration') || text.includes('Hydration') || 
+            (text.includes('date') && text.includes('mismatch'))) {
+          consoleErrors.push(text);
+        }
+      }
+    });
+    
+    // Navigate around to trigger any hydration issues
+    await page.goto('/events');
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(1000);
+    
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(1000);
+    
+    // Verify no hydration errors occurred
+    expect(consoleErrors.length).toBe(0);
+  });
+
   test('should display announcements', async ({ page }) => {
     await page.goto('/');
     

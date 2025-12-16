@@ -18,7 +18,8 @@ test.describe('Datetime Flows', () => {
   
   /**
    * Helper function to format date in YYYY-MM-DDTHH:mm format for datetime-local inputs
-   * Uses Mountain Time timezone
+   * Uses Mountain Time timezone (company timezone)
+   * This matches the behavior of formatDateAsDateTimeLocal in lib/timezone.ts
    */
   function formatDateTimeLocal(date: Date, timeZone: string = 'America/Denver'): string {
     const formatter = new Intl.DateTimeFormat('en-US', {
