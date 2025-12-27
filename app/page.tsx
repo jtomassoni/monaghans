@@ -721,9 +721,6 @@ export default async function HomePage() {
 
   return (
     <main id="main-content" className="min-h-screen bg-[var(--color-background)] text-[var(--color-foreground)] scroll-smooth" role="main" aria-label="Main content">
-      {/* Announcements Handler - Shows modals for unacknowledged announcements */}
-      <AnnouncementsHandler announcements={publishedAnnouncements} />
-      
       {/* Hero Section */}
       <section aria-label="Hero section" className="relative h-screen overflow-hidden">
         <div className="absolute inset-0 z-0">
@@ -739,7 +736,7 @@ export default async function HomePage() {
         </div>
         <div className="relative z-10 container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 flex flex-col h-full justify-center">
           {/* Welcome Title */}
-          <div className="text-center mb-6 sm:mb-8 max-w-6xl mx-auto w-full">
+          <div className="text-center mb-4 sm:mb-6 max-w-6xl mx-auto w-full">
             <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-2 sm:mb-3 drop-shadow-lg">
               {hero?.title || "Monaghan's"}
             </h1>
@@ -754,6 +751,9 @@ export default async function HomePage() {
               </p>
             )}
           </div>
+          
+          {/* Announcements Handler - Integrated into hero */}
+          <AnnouncementsHandler announcements={publishedAnnouncements} />
           
           {/* Compact Grid Layout for Specials and Events */}
           {totalItems > 0 ? (

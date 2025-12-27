@@ -76,6 +76,7 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
     crossPostInstagram: announcement?.crossPostInstagram ?? false,
     ctaText: announcement?.ctaText || '',
     ctaUrl: announcement?.ctaUrl || '',
+    dismissable: announcement?.dismissable ?? true,
   });
 
   const [initialFormData, setInitialFormData] = useState(formData);
@@ -99,6 +100,7 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
         crossPostInstagram: announcement.crossPostInstagram ?? false,
         ctaText: announcement.ctaText || '',
         ctaUrl: announcement.ctaUrl || '',
+        dismissable: announcement.dismissable ?? true,
       };
     } else {
       setShowCTA(false);
@@ -118,6 +120,7 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
         crossPostInstagram: false,
         ctaText: '',
         ctaUrl: '',
+        dismissable: true,
       };
     }
     setFormData(newFormData);
@@ -174,6 +177,7 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
           crossPostInstagram: announcement.crossPostInstagram ?? false,
           ctaText: announcement.ctaText || '',
           ctaUrl: announcement.ctaUrl || '',
+          dismissable: announcement.dismissable ?? true,
         };
         setFormData(newFormData);
         setInitialFormData(newFormData);
@@ -319,17 +323,17 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
       onClose={onClose}
       title={announcement ? 'Edit Announcement' : 'New Announcement'}
     >
-      <form onSubmit={handleSubmit} className="space-y-8">
-        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-4 backdrop-blur-sm space-y-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Announcement Content</p>
-            <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
+            <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300 max-w-sm">
               Create your announcement with title and content.
             </p>
           </div>
 
-          <div className="space-y-4">
-            <div className="space-y-2">
+          <div className="space-y-3">
+            <div className="space-y-1.5">
               <label htmlFor="title" className="text-sm font-medium text-gray-900 dark:text-white">
                 Title *
               </label>
@@ -339,11 +343,11 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 required
-                className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 sm:py-2.5 text-base sm:text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all min-h-[44px] touch-manipulation"
+                className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-2.5 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all min-h-[44px] touch-manipulation"
               />
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <label htmlFor="body" className="text-sm font-medium text-gray-900 dark:text-white">
                 Content *
               </label>
@@ -351,24 +355,24 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
                 id="body"
                 value={formData.body}
                 onChange={(e) => setFormData({ ...formData, body: e.target.value })}
-                rows={6}
+                rows={3}
                 required
-                className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 sm:py-2.5 text-base sm:text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all min-h-[44px] touch-manipulation"
+                className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-2.5 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all min-h-[44px] touch-manipulation"
               />
               <p className="text-xs text-gray-500 dark:text-gray-400">Supports markdown and HTML</p>
             </div>
           </div>
         </div>
 
-        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm space-y-6">
+        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-4 backdrop-blur-sm space-y-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Schedule</p>
-            <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
+            <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300 max-w-sm">
               Set when this announcement should be published and expire.
             </p>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div className="relative isolate">
               <DateTimePicker
                 label="Publish Date & Time"
@@ -412,23 +416,23 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
                 })() : undefined}
                 required
               />
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5">Must be within 1 month of publish date</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Must be within 1 month of publish date</p>
             </div>
           </div>
         </div>
 
-        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm space-y-6">
+        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-4 backdrop-blur-sm space-y-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Social Media</p>
-            <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
+            <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300 max-w-sm">
               Automatically share this announcement to your connected social media accounts.
             </p>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             <label
               htmlFor="crossPostFacebook"
-              className={`inline-flex items-center gap-3 rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-2.5 text-sm font-medium text-gray-900 dark:text-white shadow-inner cursor-pointer transition-colors ${
+              className={`inline-flex items-center gap-3 rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-2 text-sm font-medium text-gray-900 dark:text-white shadow-inner cursor-pointer transition-colors ${
                 facebookConnected ? 'hover:border-blue-400/70 focus-within:ring-2 focus-within:ring-blue-500/30' : 'opacity-50 cursor-not-allowed'
               }`}
             >
@@ -447,7 +451,7 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
             </label>
             <label
               htmlFor="crossPostInstagram"
-              className="inline-flex items-center gap-3 rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-2.5 text-sm font-medium text-gray-500 dark:text-gray-400 shadow-inner cursor-not-allowed opacity-50"
+              className="inline-flex items-center gap-3 rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-400 shadow-inner cursor-not-allowed opacity-50"
             >
               <input
                 type="checkbox"
@@ -462,17 +466,40 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
           </div>
         </div>
 
-        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm space-y-6">
+        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-4 backdrop-blur-sm space-y-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Display Options</p>
+            <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300 max-w-sm">
+              Control how users interact with this announcement.
+            </p>
+          </div>
+
+          <label
+            htmlFor="dismissable"
+            className="inline-flex items-center gap-3 rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-2 text-sm font-medium text-gray-900 dark:text-white shadow-inner cursor-pointer transition-colors hover:border-blue-400/70 focus-within:ring-2 focus-within:ring-blue-500/30"
+          >
+            <input
+              type="checkbox"
+              id="dismissable"
+              checked={formData.dismissable}
+              onChange={(e) => setFormData({ ...formData, dismissable: e.target.checked })}
+              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span>Allow users to dismiss this announcement</span>
+          </label>
+        </div>
+
+        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-4 backdrop-blur-sm space-y-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Call-to-Action</p>
-            <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
+            <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300 max-w-sm">
               Add an optional button to your announcement.
             </p>
           </div>
 
           <label
             htmlFor="showCTA"
-            className="inline-flex items-center gap-3 rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-2.5 text-sm font-medium text-gray-900 dark:text-white shadow-inner cursor-pointer transition-colors hover:border-blue-400/70 focus-within:ring-2 focus-within:ring-blue-500/30"
+            className="inline-flex items-center gap-3 rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-2 text-sm font-medium text-gray-900 dark:text-white shadow-inner cursor-pointer transition-colors hover:border-blue-400/70 focus-within:ring-2 focus-within:ring-blue-500/30"
           >
             <input
               type="checkbox"
@@ -490,10 +517,10 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
           </label>
 
           {showCTA && (
-            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/70 dark:bg-gray-900/40 p-4 shadow-inner space-y-4 border-l-4 border-l-blue-500 dark:border-l-blue-400">
+            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/70 dark:bg-gray-900/40 p-3 shadow-inner space-y-3 border-l-4 border-l-blue-500 dark:border-l-blue-400">
               <p className="text-xs text-gray-500 dark:text-gray-400">Both fields are required for the CTA button to appear.</p>
-              <div className="space-y-4">
-                <div className="space-y-2">
+              <div className="space-y-3">
+                <div className="space-y-1.5">
                   <label htmlFor="ctaText" className="text-sm font-medium text-gray-900 dark:text-white">
                     Button Text *
                   </label>
@@ -503,10 +530,10 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
                     value={formData.ctaText}
                     onChange={(e) => setFormData({ ...formData, ctaText: e.target.value })}
                     placeholder="e.g., Learn More, Book Now, Order Here"
-                    className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 sm:py-2.5 text-base sm:text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all min-h-[44px] touch-manipulation"
+                    className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-2.5 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all min-h-[44px] touch-manipulation"
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <label htmlFor="ctaUrl" className="text-sm font-medium text-gray-900 dark:text-white">
                     Button URL *
                   </label>
@@ -516,7 +543,7 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
                     value={formData.ctaUrl}
                     onChange={(e) => setFormData({ ...formData, ctaUrl: e.target.value })}
                     placeholder="https://example.com or /menu"
-                    className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 sm:py-2.5 text-base sm:text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all min-h-[44px] touch-manipulation"
+                    className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-2.5 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all min-h-[44px] touch-manipulation"
                   />
                 </div>
               </div>
@@ -524,7 +551,7 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
           )}
         </div>
 
-        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-4 sm:p-6 backdrop-blur-sm flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-end gap-2">
+        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 backdrop-blur-sm flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-end gap-2">
           {announcement?.id && onDelete && (
             <button
               type="button"

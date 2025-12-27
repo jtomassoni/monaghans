@@ -21,3 +21,5 @@ CREATE INDEX "FeatureFlag_isEnabled_idx" ON "FeatureFlag"("isEnabled");
 -- CreateIndex: FeatureFlag category
 CREATE INDEX "FeatureFlag_category_idx" ON "FeatureFlag"("category");
 
+
+

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import AnnouncementModal from './announcement-modal';
+import AnnouncementBanner from './announcement-modal';
 
 interface Announcement {
   id: string;
@@ -9,6 +9,7 @@ interface Announcement {
   body: string;
   ctaText?: string | null;
   ctaUrl?: string | null;
+  dismissable?: boolean;
 }
 
 interface AnnouncementsHandlerProps {
@@ -20,22 +21,13 @@ export default function AnnouncementsHandler({ announcements }: AnnouncementsHan
   const [acknowledgedIds, setAcknowledgedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    // Load acknowledged announcement IDs from localStorage
-    const stored = localStorage.getItem('acknowledgedAnnouncements');
-    if (stored) {
-      try {
-        const ids = JSON.parse(stored) as string[];
-        setAcknowledgedIds(new Set(ids));
-      } catch {
-        // If parsing fails, start fresh
-      }
+    // Always show the first announcement on page load (no localStorage persistence)
+    if (announcements.length === 0) {
+      setCurrentAnnouncementIndex(null);
+      return;
     }
-  }, []);
 
-  useEffect(() => {
     // Find the first unacknowledged announcement
-    if (announcements.length === 0) return;
-
     const unacknowledgedIndex = announcements.findIndex(
       (announcement) => !acknowledgedIds.has(announcement.id)
     );
@@ -43,6 +35,7 @@ export default function AnnouncementsHandler({ announcements }: AnnouncementsHan
     if (unacknowledgedIndex !== -1) {
       setCurrentAnnouncementIndex(unacknowledgedIndex);
     } else {
+      // If all are acknowledged in this session, hide the banner
       setCurrentAnnouncementIndex(null);
     }
   }, [announcements, acknowledgedIds]);
@@ -53,16 +46,10 @@ export default function AnnouncementsHandler({ announcements }: AnnouncementsHan
     const currentAnnouncement = announcements[currentAnnouncementIndex];
     if (!currentAnnouncement) return;
 
-    // Mark as acknowledged
+    // Mark as acknowledged (only for current session, not persisted)
     const newAcknowledgedIds = new Set(acknowledgedIds);
     newAcknowledgedIds.add(currentAnnouncement.id);
     setAcknowledgedIds(newAcknowledgedIds);
-
-    // Save to localStorage
-    localStorage.setItem(
-      'acknowledgedAnnouncements',
-      JSON.stringify(Array.from(newAcknowledgedIds))
-    );
 
     // Find next unacknowledged announcement
     const nextIndex = announcements.findIndex(
@@ -80,7 +67,7 @@ export default function AnnouncementsHandler({ announcements }: AnnouncementsHan
     currentAnnouncementIndex !== null ? announcements[currentAnnouncementIndex] : null;
 
   return (
-    <AnnouncementModal
+    <AnnouncementBanner
       isOpen={currentAnnouncement !== null}
       announcement={currentAnnouncement}
       onAcknowledge={handleAcknowledge}

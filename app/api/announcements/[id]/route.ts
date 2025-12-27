@@ -76,6 +76,7 @@ export async function PUT(
         crossPostInstagram: body.crossPostInstagram,
         ctaText: body.ctaText || null,
         ctaUrl: body.ctaUrl || null,
+        dismissable: body.dismissable ?? true,
       },
     });
 

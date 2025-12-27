@@ -8,7 +8,7 @@ import SpecialModalForm from '@/components/special-modal-form';
 import DrinkSpecialModalForm from '@/components/drink-special-modal-form';
 import AnnouncementModalForm from '@/components/announcement-modal-form';
 import EventsList from '@/app/admin/specials-events-list';
-import { FaCalendarAlt, FaList } from 'react-icons/fa';
+import { FaCalendarAlt, FaList, FaPlus } from 'react-icons/fa';
 import { useAdminMobileHeader } from '@/components/admin-mobile-header-context';
 import NewItemSelectionModal from '@/components/new-item-selection-modal';
 
@@ -458,27 +458,25 @@ export default function DashboardContent({ events: initialEvents, specials, anno
         </div>
         {/* Header - Simplified for Mobile */}
         <div className="flex-shrink-0 px-3 sm:px-6 py-2.5 sm:py-3 pt-14 md:pt-2.5 border-b border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm relative z-40">
-          <div className="flex items-center justify-between gap-2 min-h-[44px]">
-            {/* Title - Hidden on mobile, shown on desktop */}
-            <h1 className="hidden sm:block text-2xl font-bold text-gray-900 dark:text-white">
+          <div className="flex items-center justify-between gap-3 min-h-[44px]">
+            {/* Title */}
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
               Calendar & Events
             </h1>
-            <div className="sm:hidden flex-1"></div>
             
-            {/* New Button - Desktop and Mobile */}
-            <div className="flex items-center gap-1.5 flex-shrink-0" style={{ position: 'relative', zIndex: 60 }}>
+            {/* Right side actions */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {/* New Button */}
               <button
                 onClick={() => setNewItemSelectionModalOpen(true)}
-                className="px-4 py-2.5 bg-blue-500 dark:bg-blue-600 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-medium text-sm transition-all duration-200 hover:scale-105 active:scale-95 flex items-center justify-center gap-2 border border-blue-400 dark:border-blue-500 touch-manipulation shadow-sm"
+                className="px-4 py-2 bg-blue-500 dark:bg-blue-600 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-medium text-sm transition-colors duration-200 flex items-center justify-center gap-2 shadow-sm hover:shadow-md active:scale-[0.98]"
               >
-                <span>➕</span>
-                <span className="hidden sm:inline">New</span>
-                <span className="sm:hidden">New</span>
+                <FaPlus className="w-3.5 h-3.5" />
+                <span>New</span>
               </button>
-            </div>
               
               {/* View Type Toggle - Hidden on mobile, shown on desktop */}
-              <div className="hidden sm:flex gap-0.5 bg-gray-100 dark:bg-gray-800 rounded-lg p-1 border border-gray-200 dark:border-gray-700 flex-shrink-0">
+              <div className="hidden sm:flex gap-0.5 bg-gray-100 dark:bg-gray-800 rounded-lg p-1 border border-gray-200 dark:border-gray-700">
                 <button
                   onClick={() => setViewType('calendar')}
                   className={`px-4 py-2 rounded-md transition-all duration-200 flex items-center justify-center gap-1.5 text-xs font-medium cursor-pointer active:scale-95 ${
@@ -503,6 +501,7 @@ export default function DashboardContent({ events: initialEvents, specials, anno
                 </button>
               </div>
             </div>
+          </div>
         </div>
 
         {/* Main Content */}
