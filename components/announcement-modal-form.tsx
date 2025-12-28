@@ -43,6 +43,7 @@ interface Announcement {
   crossPostInstagram: boolean;
   ctaText?: string;
   ctaUrl?: string;
+  dismissable?: boolean;
 }
 
 interface AnnouncementModalFormProps {
@@ -198,6 +199,7 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
           crossPostInstagram: false,
           ctaText: '',
           ctaUrl: '',
+          dismissable: true,
         };
         setFormData(newFormData);
         setInitialFormData(newFormData);
