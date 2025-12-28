@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Modal from './modal';
+import { useReCaptcha } from './recaptcha';
 
 const privateEventsSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -30,6 +31,9 @@ export default function PrivateEventsForm({ onSuccess, compact = false }: Privat
     message: string;
   }>({ type: null, message: '' });
 
+  const recaptchaSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
+  const { getToken } = useReCaptcha(recaptchaSiteKey, 'private_events_form');
+
   const {
     register,
     handleSubmit,
@@ -44,12 +48,34 @@ export default function PrivateEventsForm({ onSuccess, compact = false }: Privat
     setSubmitStatus({ type: null, message: '' });
 
     try {
+      // Get reCAPTCHA token
+      let recaptchaToken = '';
+      if (recaptchaSiteKey) {
+        try {
+          recaptchaToken = await getToken();
+        } catch (error) {
+          console.error('reCAPTCHA error:', error);
+          // Continue without token in development, but log the error
+          if (process.env.NODE_ENV === 'production') {
+            setSubmitStatus({
+              type: 'error',
+              message: 'Security verification failed. Please try again.',
+            });
+            setIsSubmitting(false);
+            return;
+          }
+        }
+      }
+
       const response = await fetch('/api/private-events/contact', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          recaptchaToken,
+        }),
       });
 
       const result = await response.json();

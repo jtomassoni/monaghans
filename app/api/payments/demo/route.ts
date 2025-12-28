@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { handleError } from '@/lib/api-helpers';
 import { calculateTipDistribution } from '@/lib/order-helpers';
+import { verifyRecaptcha } from '@/lib/recaptcha-verify';
 
 /**
  * Demo Payment API
@@ -21,7 +22,31 @@ export async function POST(req: NextRequest) {
       tax,
       tip = 0,
       total,
+      recaptchaToken,
     } = body;
+
+    // Verify reCAPTCHA if configured
+    if (process.env.RECAPTCHA_SECRET_KEY) {
+      if (!recaptchaToken) {
+        return NextResponse.json(
+          { error: 'Security verification failed. Please try again.' },
+          { status: 400 }
+        );
+      }
+
+      const verification = await verifyRecaptcha(
+        recaptchaToken,
+        process.env.RECAPTCHA_SECRET_KEY
+      );
+
+      if (!verification.success) {
+        console.error('reCAPTCHA verification failed:', verification.error);
+        return NextResponse.json(
+          { error: 'Security verification failed. Please try again.' },
+          { status: 400 }
+        );
+      }
+    }
 
     // Validate required fields
     if (!customerName || !customerEmail || !customerPhone || !items || items.length === 0) {

@@ -10,6 +10,7 @@ import {
   useStripe,
   useElements,
 } from '@stripe/react-stripe-js';
+import { useReCaptcha } from '@/components/recaptcha';
 
 interface CartItem {
   menuItemId: string;
@@ -63,6 +64,8 @@ function PaymentForm({
   const [processing, setProcessing] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const orderCreatedRef = useRef(false);
+  const recaptchaSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
+  const { getToken } = useReCaptcha(recaptchaSiteKey, 'order_checkout');
 
   const calculateSubtotal = () => {
     return cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
@@ -87,6 +90,22 @@ function PaymentForm({
     setPaymentError(null);
 
     try {
+      // Get reCAPTCHA token
+      let recaptchaToken = '';
+      if (recaptchaSiteKey) {
+        try {
+          recaptchaToken = await getToken();
+        } catch (error) {
+          console.error('reCAPTCHA error:', error);
+          // Continue without token in development, but log the error
+          if (process.env.NODE_ENV === 'production') {
+            setPaymentError('Security verification failed. Please try again.');
+            setProcessing(false);
+            return;
+          }
+        }
+      }
+
       // Step 1: Create order first
       let orderId: string;
       if (!orderCreatedRef.current) {
@@ -100,6 +119,7 @@ function PaymentForm({
             subtotal: calculateSubtotal(),
             tax: calculateTax(),
             total: calculateTotal(),
+            recaptchaToken,
           }),
         });
 
@@ -440,9 +460,28 @@ export default function CheckoutPage() {
     sessionStorage.setItem('cart', JSON.stringify(newCart));
   };
 
+  const recaptchaSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
+  const { getToken } = useReCaptcha(recaptchaSiteKey, 'order_checkout');
+
   const handleDemoPayment = async () => {
     setProcessingDemo(true);
     try {
+      // Get reCAPTCHA token
+      let recaptchaToken = '';
+      if (recaptchaSiteKey) {
+        try {
+          recaptchaToken = await getToken();
+        } catch (error) {
+          console.error('reCAPTCHA error:', error);
+          // Continue without token in development
+          if (process.env.NODE_ENV === 'production') {
+            alert('Security verification failed. Please try again.');
+            setProcessingDemo(false);
+            return;
+          }
+        }
+      }
+
       const response = await fetch('/api/payments/demo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -453,6 +492,7 @@ export default function CheckoutPage() {
           subtotal: calculateSubtotal(),
           tax: calculateTax(),
           total: calculateTotal(),
+          recaptchaToken,
         }),
       });
 

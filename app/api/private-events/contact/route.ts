@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { verifyRecaptcha } from '@/lib/recaptcha-verify';
 
 /**
  * POST /api/private-events/contact
@@ -8,7 +9,30 @@ import { prisma } from '@/lib/prisma';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { name, phone, email, groupSize, date, message } = body;
+    const { name, phone, email, groupSize, date, message, recaptchaToken } = body;
+
+    // Verify reCAPTCHA if configured
+    if (process.env.RECAPTCHA_SECRET_KEY) {
+      if (!recaptchaToken) {
+        return NextResponse.json(
+          { error: 'Security verification failed. Please try again.' },
+          { status: 400 }
+        );
+      }
+
+      const verification = await verifyRecaptcha(
+        recaptchaToken,
+        process.env.RECAPTCHA_SECRET_KEY
+      );
+
+      if (!verification.success) {
+        console.error('reCAPTCHA verification failed:', verification.error);
+        return NextResponse.json(
+          { error: 'Security verification failed. Please try again.' },
+          { status: 400 }
+        );
+      }
+    }
 
     // Validate required fields
     if (!name || !phone || !email || !groupSize || !date) {
