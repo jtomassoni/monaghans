@@ -54,9 +54,32 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Google Analytics 4 Measurement ID
+  const ga4MeasurementId = 'G-ZXF5XYV2RY';
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="antialiased" suppressHydrationWarning>
+        {/* Google Analytics 4 */}
+        <Script
+          src={`https://www.googletagmanager.com/gtag/js?id=${ga4MeasurementId}`}
+          strategy="afterInteractive"
+        />
+        <Script
+          id="ga4-init"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', '${ga4MeasurementId}', {
+                page_path: window.location.pathname,
+                send_page_view: false // We'll handle pageviews manually for better control
+              });
+            `,
+          }}
+        />
         <Script
           id="theme-script"
           strategy="beforeInteractive"
