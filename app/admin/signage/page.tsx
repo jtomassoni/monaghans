@@ -9,7 +9,9 @@ type SignageConfig = {
   includeDrinkSpecials: boolean;
   includeHappyHour: boolean;
   includeEvents: boolean;
-  daysAhead: number;
+  eventsTileCount: number;
+  // Kept for backward compatibility with older saved configs
+  daysAhead?: number;
   slideDurationSec: number;
   fadeDurationSec: number;
   customSlides: any[];
@@ -20,7 +22,7 @@ const DEFAULT_CONFIG: SignageConfig = {
   includeDrinkSpecials: true,
   includeHappyHour: true,
   includeEvents: true,
-  daysAhead: 7, // next week by default
+  eventsTileCount: 6, // show up to 6 events by default
   slideDurationSec: 10,
   fadeDurationSec: 0.8,
   customSlides: [],
@@ -29,10 +31,16 @@ const DEFAULT_CONFIG: SignageConfig = {
 function sanitizeConfig(value: any): SignageConfig {
   try {
     const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+    const tiles = (() => {
+      if (typeof parsed?.eventsTileCount === 'number') return parsed.eventsTileCount;
+      if (typeof parsed?.daysAhead === 'number') return parsed.daysAhead; // backward compatibility
+      return DEFAULT_CONFIG.eventsTileCount;
+    })();
     return {
       ...DEFAULT_CONFIG,
       ...parsed,
-      daysAhead: Math.min(Math.max(Number(parsed?.daysAhead) || DEFAULT_CONFIG.daysAhead, 1), 7),
+      eventsTileCount: Math.min(Math.max(Number(tiles) || DEFAULT_CONFIG.eventsTileCount, 1), 12),
+      daysAhead: parsed?.daysAhead,
       slideDurationSec: Math.min(Math.max(Number(parsed?.slideDurationSec) || DEFAULT_CONFIG.slideDurationSec, 4), 60),
       fadeDurationSec: Math.min(Math.max(Number(parsed?.fadeDurationSec) || DEFAULT_CONFIG.fadeDurationSec, 0.3), 5),
       customSlides: Array.isArray(parsed?.customSlides) ? parsed.customSlides : [],
