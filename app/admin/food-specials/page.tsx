@@ -24,6 +24,7 @@ const transformSpecial = (special: any) => ({
   timeWindow: special.timeWindow || null,
   startDate: special.startDate?.toISOString() || null,
   endDate: special.endDate?.toISOString() || null,
+  image: special.image || null,
   isActive: special.isActive,
 });
 

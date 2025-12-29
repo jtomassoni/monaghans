@@ -4,35 +4,39 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-// Load .env.local file
+// Load .env.local file (optional; ignore permission errors so builds can proceed)
 const envPath = path.join(__dirname, '..', '.env.local');
 if (fs.existsSync(envPath)) {
-  const envContent = fs.readFileSync(envPath, 'utf8');
-  const envVars = {};
-  
-  envContent.split('\n').forEach(line => {
-    line = line.trim();
-    // Skip comments and empty lines
-    if (!line || line.startsWith('#')) return;
+  try {
+    const envContent = fs.readFileSync(envPath, 'utf8');
+    const envVars = {};
     
-    // Parse KEY=VALUE format
-    const match = line.match(/^([^=]+)=(.*)$/);
-    if (match) {
-      const key = match[1].trim();
-      let value = match[2].trim();
+    envContent.split('\n').forEach(line => {
+      line = line.trim();
+      // Skip comments and empty lines
+      if (!line || line.startsWith('#')) return;
       
-      // Remove quotes if present
-      if ((value.startsWith('"') && value.endsWith('"')) || 
-          (value.startsWith("'") && value.endsWith("'"))) {
-        value = value.slice(1, -1);
+      // Parse KEY=VALUE format
+      const match = line.match(/^([^=]+)=(.*)$/);
+      if (match) {
+        const key = match[1].trim();
+        let value = match[2].trim();
+        
+        // Remove quotes if present
+        if ((value.startsWith('"') && value.endsWith('"')) || 
+            (value.startsWith("'") && value.endsWith("'"))) {
+          value = value.slice(1, -1);
+        }
+        
+        envVars[key] = value;
       }
-      
-      envVars[key] = value;
-    }
-  });
-  
-  // Set environment variables
-  Object.assign(process.env, envVars);
+    });
+    
+    // Set environment variables
+    Object.assign(process.env, envVars);
+  } catch (err) {
+    console.warn('⚠️  Could not read .env.local, skipping. Reason:', err.message);
+  }
 }
 
 // Run the build commands
@@ -41,8 +45,10 @@ try {
   console.log('Generating Prisma Client...');
   execSync('npx prisma generate', { stdio: 'inherit' });
   
+  const hasDatabaseUrl = Boolean(process.env.DATABASE_URL);
+
   // Optionally run migrations (skip if SKIP_MIGRATIONS is set or if migrations fail)
-  if (!process.env.SKIP_MIGRATIONS) {
+  if (!process.env.SKIP_MIGRATIONS && hasDatabaseUrl) {
     try {
       console.log('Running Prisma migrations...');
       execSync('npx prisma migrate deploy', { 
@@ -55,7 +61,10 @@ try {
       console.warn('   (To skip migrations in future builds, set SKIP_MIGRATIONS=true)');
     }
   } else {
-    console.log('Skipping migrations (SKIP_MIGRATIONS is set)');
+    const reason = process.env.SKIP_MIGRATIONS
+      ? 'SKIP_MIGRATIONS is set'
+      : 'DATABASE_URL is missing';
+    console.log(`Skipping migrations (${reason})`);
   }
   
   console.log('Building Next.js application...');
