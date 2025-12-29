@@ -42,6 +42,13 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
   const [loading, setLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const isFoodOnly = defaultType === 'food';
+  const resolveType = (currentSpecial?: Special): 'food' | 'drink' => {
+    if (isFoodOnly) return 'food';
+    const type = currentSpecial?.type ?? defaultType ?? 'food';
+    return type === 'drink' ? 'drink' : 'food';
+  };
+  const getDefaultPriceNotes = (resolvedType: 'food' | 'drink') => (resolvedType === 'food' ? '$14.00' : '');
+  const resolvedType = resolveType(special);
   
   // Helper function to format date to YYYY-MM-DD format (in Mountain Time)
   const formatDateForInput = (date: any): string => {
@@ -91,10 +98,10 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
   const [formData, setFormData] = useState({
     title: special?.title || '',
     description: special?.description || '',
-    priceNotes: special?.priceNotes || (isFoodOnly || special?.type === 'food' || (!special && (defaultType === 'food' || !defaultType)) ? '$14.00' : ''),
-    type: isFoodOnly ? 'food' : (special?.type || defaultType || 'food'),
+    priceNotes: special?.priceNotes || getDefaultPriceNotes(resolvedType),
+    type: resolvedType,
     appliesOn: special?.appliesOn || [],
-    timeWindow: isFoodOnly ? '' : (special?.timeWindow || ''), // Always empty for food
+    timeWindow: resolvedType === 'food' ? '' : (special?.timeWindow || ''), // Always empty for food
     date: formatDateForInput(special?.startDate) || '', // For food type, use single date field
     startDate: formatDateForInput(special?.startDate) || '', // For drink type
     endDate: formatDateForInput(special?.endDate) || '',
@@ -108,14 +115,15 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
     if (special) {
       const formattedStartDate = formatDateForInput(special.startDate);
       const formattedEndDate = formatDateForInput(special.endDate);
+      const nextType = resolveType(special);
       
       const newFormData = {
         title: special.title || '',
         description: special.description || '',
-        priceNotes: special.priceNotes || (isFoodOnly || special.type === 'food' ? '$14.00' : ''),
-        type: isFoodOnly ? 'food' : (special.type || 'food'),
+        priceNotes: special.priceNotes || getDefaultPriceNotes(nextType),
+        type: nextType,
         appliesOn: special.appliesOn || [],
-        timeWindow: isFoodOnly ? '' : (special.timeWindow || ''), // Always empty for food
+        timeWindow: nextType === 'food' ? '' : (special.timeWindow || ''), // Always empty for food
         date: formattedStartDate, // For food type, use single date
         startDate: formattedStartDate, // For drink type
         endDate: formattedEndDate,
@@ -125,13 +133,14 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
       setFormData(newFormData);
       setInitialFormData(newFormData);
     } else {
+      const nextType = resolveType();
       const newFormData = {
         title: '',
         description: '',
-        priceNotes: isFoodOnly || defaultType === 'food' || !defaultType ? '$14.00' : '',
-        type: isFoodOnly ? 'food' : (defaultType || 'food'),
+        priceNotes: getDefaultPriceNotes(nextType),
+        type: nextType,
         appliesOn: [],
-        timeWindow: isFoodOnly ? '' : '', // Always empty for food
+        timeWindow: nextType === 'food' ? '' : '', // Always empty for food
         date: '',
         startDate: '',
         endDate: '',
@@ -155,14 +164,15 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
       if (special) {
         const formattedStartDate = formatDateForInput(special.startDate);
         const formattedEndDate = formatDateForInput(special.endDate);
+        const nextType = resolveType(special);
         
         const newFormData = {
           title: special.title || '',
           description: special.description || '',
-          priceNotes: special.priceNotes || (isFoodOnly || special.type === 'food' ? '$14.00' : ''),
-          type: isFoodOnly ? 'food' : (special.type || 'food'),
+          priceNotes: special.priceNotes || getDefaultPriceNotes(nextType),
+          type: nextType,
           appliesOn: special.appliesOn || [],
-          timeWindow: isFoodOnly ? '' : (special.timeWindow || ''), // Always empty for food
+          timeWindow: nextType === 'food' ? '' : (special.timeWindow || ''), // Always empty for food
           date: formattedStartDate,
           startDate: formattedStartDate,
           endDate: formattedEndDate,
@@ -172,13 +182,14 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
         setFormData(newFormData);
         setInitialFormData(newFormData);
       } else {
+        const nextType = resolveType();
         const newFormData = {
           title: '',
           description: '',
-          priceNotes: isFoodOnly || defaultType === 'food' || !defaultType ? '$14.00' : '',
-          type: isFoodOnly ? 'food' : (defaultType || 'food'),
+          priceNotes: getDefaultPriceNotes(nextType),
+          type: nextType,
           appliesOn: [],
-          timeWindow: isFoodOnly ? '' : '', // Always empty for food
+          timeWindow: nextType === 'food' ? '' : '', // Always empty for food
           date: '',
           startDate: '',
           endDate: '',
@@ -424,7 +435,7 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
               <select
                 id="type"
                 value={formData.type}
-                onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, type: e.target.value as 'food' | 'drink' })}
                 className="w-full rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 text-base text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all min-h-[44px] touch-manipulation"
                 required
               >
