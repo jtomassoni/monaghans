@@ -250,6 +250,9 @@ function getRecurringEventOccurrences(event: any, rangeStart: Date, rangeEnd: Da
   try {
     const exceptions: string[] = event.exceptions ? JSON.parse(event.exceptions) : [];
     const startDate = new Date(event.startDateTime);
+    const durationMs = event.endDateTime
+      ? new Date(event.endDateTime).getTime() - new Date(event.startDateTime).getTime()
+      : null;
 
     const mtFormatter = new Intl.DateTimeFormat('en-US', {
       timeZone: 'America/Denver',
@@ -497,17 +500,8 @@ function getRecurringEventOccurrences(event: any, rangeStart: Date, rangeEnd: Da
           );
         }
 
-        let eventEnd: Date | null = null;
-        if (event.endDateTime) {
-          eventEnd = createMountainTimeDate(
-            occurrenceMTYear,
-            occurrenceMTMonth - 1,
-            occurrenceMTDay,
-            originalEndHours,
-            originalEndMinutes,
-            originalEndSeconds
-          );
-        }
+        const eventEnd =
+          durationMs !== null ? new Date(eventStart.getTime() + durationMs) : null;
 
         return {
           ...event,
@@ -538,6 +532,23 @@ function formatEventTimeRange(start: Date, end?: Date | null) {
   return `${startLabel} - ${timeFormatter.format(end)}`;
 }
 
+function formatDebugDate(dt: Date) {
+  const mtFormatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Denver',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+  return {
+    iso: dt.toISOString(),
+    mt: mtFormatter.format(dt),
+  };
+}
+
 export default async function SpecialsTvPage({ searchParams }: SpecialsTvPageProps) {
   const resolvedSearchParams: SearchParamsShape = searchParams
     ? await Promise.resolve(searchParams)
@@ -552,13 +563,23 @@ export default async function SpecialsTvPage({ searchParams }: SpecialsTvPagePro
   const now = getMountainTimeNow();
   const debug = getParam('debug') === '1' || getParam('debug') === 'true';
 
+  const windowStart = parseMountainTimeDate(getMountainTimeDateString(today));
+  const rangeEnd = new Date(now);
+  rangeEnd.setDate(rangeEnd.getDate() + 60);
+
   const [allSpecials, allEvents, signageSetting] = await Promise.all([
     prisma.special.findMany({
       where: { isActive: true },
       orderBy: { createdAt: 'desc' },
     }),
+    // Pull events that start on/after windowStart OR have recurrences that extend into our window.
+    // We include base events whose startDateTime is before windowStart so their recurrences are expanded.
     prisma.event.findMany({
-      where: { isActive: true },
+      where: {
+        startDateTime: {
+          lte: rangeEnd, // ensure we include bases that can generate upcoming occurrences
+        },
+      },
       orderBy: { startDateTime: 'asc' },
     }),
     prisma.setting.findUnique({ where: { key: 'signageConfig' } }),
@@ -612,32 +633,63 @@ export default async function SpecialsTvPage({ searchParams }: SpecialsTvPagePro
     times: '10am-12pm & 4pm-7pm',
   };
 
-  // Look ahead a reasonable window to expand recurring events; then trim by tile count.
-  const rangeEnd = new Date(now);
-  rangeEnd.setDate(rangeEnd.getDate() + 60);
+  const occurrenceRangeStart = windowStart;
 
-  const recurringOccurrences = signageConfig.includeEvents
+  const recurringBaseOccurrences = signageConfig.includeEvents
     ? allEvents
         .filter((event) => event.recurrenceRule)
-        .flatMap((event) => getRecurringEventOccurrences(event, now, rangeEnd))
+        .filter((event) => new Date(event.startDateTime) >= windowStart)
+    : [];
+
+  const recurringExpandedOccurrences = signageConfig.includeEvents
+    ? allEvents
+        .filter((event) => event.recurrenceRule)
+        .flatMap((event) => getRecurringEventOccurrences(event, occurrenceRangeStart, rangeEnd))
         .filter((occurrence) => {
           const start = new Date(occurrence.startDateTime);
-          return start >= now;
+          return start >= windowStart;
         })
+    : [];
+
+  const recurringOccurrences = signageConfig.includeEvents
+    ? [...recurringBaseOccurrences, ...recurringExpandedOccurrences]
     : [];
 
   const oneTimeEvents = signageConfig.includeEvents
     ? allEvents.filter((event) => {
         const start = new Date(event.startDateTime);
-        return start >= now && !event.recurrenceRule;
+        return start >= windowStart && !event.recurrenceRule;
       })
     : [];
 
-  const upcomingEvents = signageConfig.includeEvents
-    ? [...oneTimeEvents, ...recurringOccurrences]
-        .sort((a, b) => new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime())
-        .slice(0, upcomingEventsTileCount)
+  const allUpcomingEvents = signageConfig.includeEvents
+    ? [...oneTimeEvents, ...recurringOccurrences].sort(
+        (a, b) => new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime()
+      )
     : [];
+
+  // Simply take the next N upcoming events in chronological order
+  const upcomingEvents = signageConfig.includeEvents
+    ? allUpcomingEvents.slice(0, upcomingEventsTileCount)
+    : [];
+
+  // Debug logging
+  if (debug) {
+    const logEvents = (label: string, items: any[]) => {
+      console.log(`[DEBUG specials-tv] ${label}`, items.map((e, idx) => ({
+        idx,
+        title: e.title,
+        start: formatDebugDate(new Date(e.startDateTime)),
+        end: e.endDateTime ? formatDebugDate(new Date(e.endDateTime)) : null,
+        recurrenceRule: e.recurrenceRule ?? null,
+      })));
+    };
+    logEvents('allEvents (DB, >= today MT)', allEvents.slice(0, 20));
+    logEvents('recurringOccurrences (expanded)', recurringOccurrences.slice(0, 20));
+    logEvents('oneTimeEvents', oneTimeEvents.slice(0, 20));
+    logEvents('allUpcomingEvents (sorted)', allUpcomingEvents.slice(0, 20));
+    logEvents('upcomingEvents (selected, limited)', upcomingEvents);
+  }
 
   // Debug logging
   if (debug) {

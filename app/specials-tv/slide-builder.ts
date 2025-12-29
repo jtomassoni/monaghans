@@ -195,11 +195,12 @@ export function buildSlides(input: SlideBuilderInput): SlideContent[] {
   if (config.includeEvents && input.events.length > 0) {
     const cleaned = input.events.map(cleanItem).filter(Boolean) as SlideItem[];
     if (cleaned.length > 0) {
+      const eventCountLabel = cleaned.length === 1 ? '1 upcoming event' : `${cleaned.length} upcoming events`;
       const baseSlide: Omit<SlideContent, 'sequence' | 'items'> = {
         id: 'events',
         label: 'Upcoming Events',
         title: '', // no hero title to reduce wasted space
-        subtitle: cleanText(`${cleaned.length} this week`, TEXT_LIMITS.subtitle),
+        subtitle: cleanText(eventCountLabel, TEXT_LIMITS.subtitle),
         accent: 'accent',
         footer: 'Tell your crew',
         source: 'events',

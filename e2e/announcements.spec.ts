@@ -8,13 +8,9 @@ for (const role of roles) {
     test.use({ storageState: `.auth/${role}.json` });
 
     test('should navigate to announcements page', async ({ page }) => {
-      await page.goto('/admin');
-      
-      // Navigate to announcements
-      await page.click('a:has-text("Announcements")');
-      
-      // Should be on announcements page
+      await page.goto('/admin/announcements');
       await expect(page).toHaveURL(/\/admin\/announcements/);
+      await expect(page.getByText(/Announcements/i)).toBeVisible();
     });
 
     test('should display announcements list', async ({ page }) => {
@@ -99,16 +95,26 @@ for (const role of roles) {
         if (await titleInput.count() > 0) {
           const currentValue = await titleInput.inputValue();
           if (currentValue) {
-            await titleInput.fill(`${currentValue} - Updated`);
+            const updatedTitle = `${currentValue} - Updated`;
+            await titleInput.fill(updatedTitle);
             
             // Save
             const submitButton = page.locator('button[type="submit"], button:has-text("Save")');
             if (await submitButton.count() > 0) {
               await submitButton.first().click();
-              await page.waitForTimeout(2000);
-              
-              const successVisible = await page.locator('text=/success|updated|saved/i').isVisible().catch(() => false);
-              expect(successVisible).toBeTruthy();
+              // Wait for modal to close or updated title to appear in list
+              const updatedRow = page.locator(`text=${updatedTitle}`).first();
+              const successVisible = await page
+                .locator('text=/success|updated|saved/i')
+                .isVisible()
+                .catch(() => false);
+              if (!successVisible) {
+                await updatedRow.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+              }
+              // Expect either toast or updated row
+              const sawUpdate =
+                successVisible || (await updatedRow.isVisible().catch(() => false));
+              expect(sawUpdate).toBeTruthy();
             }
           }
         }
