@@ -36,24 +36,17 @@ export default async function AdminSettings() {
     where: { key: 'mapEmbed' },
   });
 
-  // Get happy hour setting
-  const happyHourSetting = await prisma.setting.findUnique({
-    where: { key: 'happyHour' },
-  });
-
   const timezone = timezoneSetting?.value || 'America/Denver';
   const siteTitle = siteTitleSetting?.value || "Monaghan's Dive Bar";
 
   let contact: any = {};
   let hours: any = {};
   let mapEmbed: any = {};
-  let happyHour: any = {};
 
   try {
     contact = contactSetting ? JSON.parse(contactSetting.value) : {};
     hours = hoursSetting ? JSON.parse(hoursSetting.value) : {};
     mapEmbed = mapSetting ? JSON.parse(mapSetting.value) : {};
-    happyHour = happyHourSetting ? JSON.parse(happyHourSetting.value) : {};
   } catch {}
 
   return (
@@ -87,7 +80,7 @@ export default async function AdminSettings() {
             initialContact={contact}
             initialHours={hours}
             initialMapEmbed={mapEmbed}
-            initialHappyHour={happyHour}
+            initialHappyHour={{}}
           />
         </div>
       </div>

@@ -3,3 +3,4 @@
 
 ALTER TABLE "Announcement" ADD COLUMN IF NOT EXISTS "dismissable" BOOLEAN NOT NULL DEFAULT true;
 
+

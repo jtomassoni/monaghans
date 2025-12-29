@@ -54,7 +54,8 @@ export async function POST(req: NextRequest) {
         // This ensures dates are consistent whether requests come from production (UTC) or local dev (any timezone)
         startDate: parseAnyDateAsMountainTime(body.startDate),
         endDate: parseAnyDateAsMountainTime(body.endDate),
-        image: body.image,
+        // Convert empty string to null for image field
+        image: body.image?.trim() || null,
         isActive: body.isActive ?? true,
       },
     });

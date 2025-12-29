@@ -6,8 +6,8 @@ import Navigation from '@/components/navigation';
 export default function ConditionalNavigation() {
   const pathname = usePathname();
   
-  // Don't show marketing navigation in admin routes or timeclock
-  if (pathname?.startsWith('/admin') || pathname === '/timeclock') {
+  // Don't show marketing navigation in admin routes, timeclock, or signage display
+  if (pathname?.startsWith('/admin') || pathname === '/timeclock' || pathname === '/specials-tv') {
     return null;
   }
   

@@ -21,6 +21,7 @@ export function useFeatureFlags(): FeatureFlagsState {
   const defaultFlags: Record<FeatureFlagKey, boolean> = {
     calendars_events: true, // Default enabled
     specials_management: true, // Default enabled
+    signage_management: true, // Default enabled
     menu_management: false,
     online_ordering: false,
     boh_connections: false,

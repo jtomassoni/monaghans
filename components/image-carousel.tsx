@@ -18,42 +18,72 @@ const images = [
 export default function ImageCarousel() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+
+  // Filter out failed images
+  const availableImages = images.filter(img => !failedImages.has(img));
 
   useEffect(() => {
-    if (!isAutoPlaying) return;
+    if (!isAutoPlaying || availableImages.length === 0) return;
 
     const interval = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % images.length);
+      setCurrentIndex((prev) => (prev + 1) % availableImages.length);
     }, 4000);
 
     return () => clearInterval(interval);
-  }, [isAutoPlaying]);
+  }, [isAutoPlaying, availableImages.length]);
+
+  // Adjust current index when images fail
+  useEffect(() => {
+    if (availableImages.length > 0 && currentIndex >= availableImages.length) {
+      setCurrentIndex(0);
+    }
+  }, [availableImages.length, currentIndex]);
 
   const goToSlide = (index: number) => {
-    setCurrentIndex(index);
+    if (availableImages.length === 0) return;
+    setCurrentIndex(index % availableImages.length);
     setIsAutoPlaying(false);
   };
 
   const goToPrevious = () => {
-    setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
+    if (availableImages.length === 0) return;
+    setCurrentIndex((prev) => (prev - 1 + availableImages.length) % availableImages.length);
     setIsAutoPlaying(false);
   };
 
   const goToNext = () => {
-    setCurrentIndex((prev) => (prev + 1) % images.length);
+    if (availableImages.length === 0) return;
+    setCurrentIndex((prev) => (prev + 1) % availableImages.length);
     setIsAutoPlaying(false);
   };
+
+  const handleImageError = (imageSrc: string) => {
+    setFailedImages((prev) => new Set(prev).add(imageSrc));
+  };
+
+  // If no images available, show placeholder
+  if (availableImages.length === 0) {
+    return (
+      <div className="relative w-full h-[400px] md:h-[500px] lg:h-[600px] overflow-hidden rounded-lg bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
+        <div className="text-white/60 text-center">
+          <p className="text-lg font-semibold">No images available</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative w-full h-[400px] md:h-[500px] lg:h-[600px] overflow-hidden rounded-lg">
       {/* Main Image */}
       <div className="relative w-full h-full">
         <Image
-          src={images[currentIndex]}
+          src={availableImages[currentIndex]}
           alt={`Monaghan's ${currentIndex + 1}`}
           fill
           className="object-cover"
           priority={currentIndex === 0}
+          onError={() => handleImageError(availableImages[currentIndex])}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
       </div>
@@ -80,7 +110,7 @@ export default function ImageCarousel() {
 
       {/* Dots Indicator */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-        {images.map((_, index) => (
+        {availableImages.map((_, index) => (
           <button
             key={index}
             onClick={() => goToSlide(index)}

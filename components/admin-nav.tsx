@@ -97,36 +97,43 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
 
   const navGroups = [
     {
-      id: 'dashboard',
-      title: 'Dashboard',
+      id: 'overview',
+      title: 'Overview',
       items: [
         ...(permissions.canAccessAdmin && featureFlags.calendars_events ? [{ href: '/admin/overview', label: 'Overview', icon: FaHome }] : []),
       ],
     },
     {
-      id: 'content',
-      title: 'Content',
+      id: 'guest-experience',
+      title: 'Guest Experience',
       items: [
         ...(permissions.canAccessAdmin && featureFlags.calendars_events ? [{ href: '/admin', label: 'Calendar & Events', icon: FaCalendarAlt }] : []),
         ...(permissions.canAccessAdmin && featureFlags.homepage_management ? [{ href: '/admin/homepage', label: 'Homepage', icon: FaEdit }] : []),
+        ...(permissions.canAccessAdmin && featureFlags.signage_management ? [{ href: '/admin/signage', label: 'Digital Signage', icon: FaGlobe }] : []),
       ],
     },
     {
-      id: 'specials',
-      title: 'Specials',
+      id: 'menus-specials',
+      title: 'Menus & Specials',
       items: [
+        ...(permissions.canManageMenu && featureFlags.menu_management ? [{ href: '/admin/menu', label: 'Menu', icon: FaUtensils }] : []),
         ...(permissions.canManageMenu && featureFlags.specials_management ? [{ href: '/admin/food-specials', label: 'Food Specials', icon: FaDrumstickBite }] : []),
         ...(permissions.canManageMenu && featureFlags.specials_management ? [{ href: '/admin/drink-specials', label: 'Drink Specials', icon: FaWineGlass }] : []),
       ],
     },
     {
-      id: 'operations',
-      title: 'Operations',
+      id: 'orders-leads',
+      title: 'Orders & Leads',
       items: [
-        ...(permissions.canManageMenu && featureFlags.menu_management ? [{ href: '/admin/menu', label: 'Menu', icon: FaUtensils }] : []),
-        ...(permissions.canManageStaff && featureFlags.staff_scheduling ? [{ href: '/admin/staff', label: 'Scheduling', icon: FaClock }] : []),
         ...(permissions.canAccessAdmin && featureFlags.online_ordering ? [{ href: '/admin/orders', label: 'Orders', icon: FaCashRegister }] : []),
         ...(permissions.canAccessAdmin ? [{ href: '/admin/private-dining-leads', label: 'Private Dining Leads', icon: FaUsers }] : []),
+      ],
+    },
+    {
+      id: 'back-of-house',
+      title: 'Back of House',
+      items: [
+        ...(permissions.canManageStaff && featureFlags.staff_scheduling ? [{ href: '/admin/staff', label: 'Staff Scheduling', icon: FaClock }] : []),
         ...(permissions.canAccessKDS && featureFlags.boh_connections ? [{ href: '/admin/kds', label: 'Kitchen Display', icon: FaUtensils }] : []),
         ...(permissions.canAccessAdmin && featureFlags.boh_connections ? [{ href: '/admin/pos-integrations', label: 'POS Integrations', icon: FaCashRegister }] : []),
         ...(permissions.canAccessAdmin && featureFlags.purchase_orders ? [{ href: '/admin/purchase-orders', label: 'Purchase Orders', icon: FaUtensils }] : []),
@@ -141,10 +148,11 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
       ],
     },
     {
-      id: 'analytics',
-      title: 'Analytics',
+      id: 'insights',
+      title: 'Insights',
       items: [
         ...(permissions.canAccessReporting && featureFlags.reporting_analytics ? [{ href: '/admin/reporting', label: 'Reporting', icon: FaChartLine }] : []),
+        ...(permissions.canAccessAdmin && featureFlags.activity_log ? [{ href: '/admin/activity', label: 'Activity', icon: FaHistory }] : []),
       ],
     },
     {
@@ -165,6 +173,9 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
     }
     if (href === '/admin/settings') {
       return pathname === '/admin/settings';
+    }
+    if (href === '/admin/signage') {
+      return pathname?.startsWith('/admin/signage');
     }
     if (href === '/admin/food-specials') {
       return pathname?.startsWith('/admin/food-specials');
@@ -385,125 +396,114 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
             </div>
           </div>
         ) : null}
-      </nav>
-
-      {/* Bottom Actions */}
-      <div className={`border-t border-gray-200 dark:border-gray-700 space-y-1 ${sidebarCompact ? 'p-1.5' : 'p-2'}`}>
-        {permissions.canAccessAdmin && featureFlags.activity_log && (
+        
+        {/* Bottom Actions now inside scroll area, styled to match items */}
+        <div className={`mt-2 space-y-0.5 ${sidebarCompact ? 'px-1.5 pb-1.5' : 'px-2 pb-2'}`}>
           <Link
-            href="/admin/activity"
+            href="/"
+            target="_blank"
             onClick={(e) => {
               e.stopPropagation();
               closeMobileMenu();
             }}
-            className={`flex items-center gap-2 ${sidebarCompact ? 'px-2 py-1.5' : 'px-3 py-2'} rounded-lg transition-all duration-200 group cursor-pointer ${
-              isActive('/admin/activity')
-                ? 'bg-blue-500/90 dark:bg-blue-600/90 text-white border border-blue-400 dark:border-blue-500'
-                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
-            }`}
+            className={`flex items-center gap-2 ${sidebarCompact ? 'px-2 py-1.5' : 'px-3 py-2'} rounded-lg transition-all duration-200 group cursor-pointer text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white`}
           >
-            <FaHistory className={`group-hover:scale-110 transition-transform duration-200 flex-shrink-0 ${sidebarCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} />
-            <span className={`font-medium ${sidebarCompact ? 'text-xs' : 'text-sm'}`}>Activity</span>
+            <FaGlobe className={`group-hover:scale-110 transition-transform duration-200 flex-shrink-0 ${sidebarCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} />
+            <span className={`font-medium ${sidebarCompact ? 'text-xs' : 'text-sm'}`}>View Site</span>
+            <FaExternalLinkAlt className="ml-auto w-2.5 h-2.5 flex-shrink-0" />
           </Link>
-        )}
 
-        <Link
-          href="/"
-          target="_blank"
-          onClick={(e) => {
-            e.stopPropagation();
-            closeMobileMenu();
-          }}
-          className={`flex items-center gap-2 ${sidebarCompact ? 'px-2 py-1.5' : 'px-3 py-2'} rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white transition-all duration-200 group cursor-pointer`}
-        >
-          <FaGlobe className={`group-hover:scale-110 transition-transform duration-200 flex-shrink-0 ${sidebarCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} />
-          <span className={`font-medium ${sidebarCompact ? 'text-xs' : 'text-sm'}`}>View Site</span>
-          <FaExternalLinkAlt className="ml-auto w-2.5 h-2.5 flex-shrink-0" />
-        </Link>
-
-        {/* Theme Toggle */}
-        <button
-          onClick={() => {
-            toggleTheme();
-            closeMobileMenu();
-          }}
-          className={`w-full flex items-center justify-between gap-2 ${sidebarCompact ? 'px-2 py-1.5' : 'px-3 py-2'} rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white transition-all duration-200 group cursor-pointer`}
-          aria-label={theme === 'dark' ? 'Dark mode on' : 'Dark mode off'}
-        >
-          <div className="flex items-center gap-2">
-            <FaMoon className={`group-hover:scale-110 transition-transform duration-200 flex-shrink-0 ${sidebarCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} />
-            <span className={`font-medium ${sidebarCompact ? 'text-xs' : 'text-sm'}`}>Dark Mode</span>
-          </div>
-          <div className={`relative rounded-full transition-colors duration-200 ${
-            theme === 'dark' ? 'bg-blue-500 dark:bg-blue-600' : 'bg-gray-400 dark:bg-gray-600'
-          } ${sidebarCompact ? 'w-8 h-4' : 'w-9 h-5'}`}>
-            <div className={`absolute top-0.5 left-0.5 rounded-full bg-white transition-transform duration-200 shadow-md ${
-              theme === 'dark' ? (sidebarCompact ? 'translate-x-4' : 'translate-x-4') : 'translate-x-0'
-            } ${sidebarCompact ? 'w-3 h-3' : 'w-4 h-4'}`} />
-          </div>
-        </button>
-
-        {/* User Menu */}
-        <div className="relative" ref={userMenuRef}>
+          {/* Theme Toggle */}
           <button
             onClick={() => {
-              setShowUserMenu(!showUserMenu);
-              // Don't close menu on user menu click, let user interact with dropdown
+              toggleTheme();
+              closeMobileMenu();
             }}
-            className={`w-full flex items-center gap-2 ${sidebarCompact ? 'px-2 py-1.5' : 'px-3 py-2'} rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white transition-all duration-200 group`}
+            className={`w-full flex items-center justify-between gap-2 ${sidebarCompact ? 'px-2 py-1.5' : 'px-3 py-2'} rounded-lg transition-all duration-200 group cursor-pointer ${
+              theme === 'dark'
+                ? 'bg-blue-500/10 text-blue-600 dark:text-blue-300 hover:bg-blue-500/20 dark:hover:bg-blue-500/30'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+            }`}
+            aria-label={theme === 'dark' ? 'Dark mode on' : 'Dark mode off'}
           >
-            <div className={`rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold flex-shrink-0 ${sidebarCompact ? 'w-5 h-5 text-[10px]' : 'w-6 h-6 text-xs'}`}>
-              {userName?.[0]?.toUpperCase() || userEmail?.[0]?.toUpperCase() || 'A'}
+            <div className="flex items-center gap-2">
+              <FaMoon className={`group-hover:scale-110 transition-transform duration-200 flex-shrink-0 ${sidebarCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} />
+              <span className={`font-medium ${sidebarCompact ? 'text-xs' : 'text-sm'}`}>Dark Mode</span>
             </div>
-            <div className="flex-1 text-left min-w-0">
-              <div className={`font-medium text-gray-900 dark:text-white truncate ${sidebarCompact ? 'text-xs' : 'text-sm'}`}>{userName || 'Admin'}</div>
-              {!sidebarCompact && (
-                <div className="text-[10px] text-gray-600 dark:text-gray-400 truncate">{userEmail}</div>
-              )}
+            <div className={`relative rounded-full transition-colors duration-200 ${
+              theme === 'dark' ? 'bg-blue-500 dark:bg-blue-600' : 'bg-gray-400 dark:bg-gray-600'
+            } ${sidebarCompact ? 'w-8 h-4' : 'w-9 h-5'}`}>
+              <div className={`absolute top-0.5 left-0.5 rounded-full bg-white transition-transform duration-200 shadow-md ${
+                theme === 'dark' ? (sidebarCompact ? 'translate-x-4' : 'translate-x-4') : 'translate-x-0'
+              } ${sidebarCompact ? 'w-3 h-3' : 'w-4 h-4'}`} />
             </div>
-            <FaChevronDown className={`w-2.5 h-2.5 transition-transform duration-200 flex-shrink-0 ${showUserMenu ? 'rotate-180' : ''}`} />
           </button>
 
-          {showUserMenu && (
-            <div className="absolute bottom-full left-0 right-0 mb-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden z-10 min-w-[120px]">
-              <Link
-                href="/admin/profile"
-                onClick={() => {
-                  setShowUserMenu(false);
-                  closeMobileMenu();
-                }}
-                className="w-full px-3 py-2 text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 flex items-center gap-2 text-sm"
-              >
-                <FaUser className="w-3.5 h-3.5 flex-shrink-0" />
-                <span>Profile</span>
-              </Link>
-              <button
-                onClick={() => {
-                  setShowUserMenu(false);
-                  closeMobileMenu();
-                  signOut({ callbackUrl: '/' });
-                }}
-                className="w-full px-3 py-2 text-left text-red-400 dark:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 flex items-center gap-2 text-sm"
-              >
-                <FaSignOutAlt className="w-3.5 h-3.5 flex-shrink-0" />
-                <span>Sign Out</span>
-              </button>
-            </div>
-          )}
+          {/* User Menu */}
+          <div className="relative" ref={userMenuRef}>
+            <button
+              onClick={() => {
+                setShowUserMenu(!showUserMenu);
+                // Don't close menu on user menu click, let user interact with dropdown
+              }}
+              className={`w-full flex items-center gap-2 ${sidebarCompact ? 'px-2 py-1.5' : 'px-3 py-2'} rounded-lg transition-all duration-200 group cursor-pointer text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white`}
+            >
+              <div className={`rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold flex-shrink-0 ${sidebarCompact ? 'w-5 h-5 text-[10px]' : 'w-6 h-6 text-xs'}`}>
+                {userName?.[0]?.toUpperCase() || userEmail?.[0]?.toUpperCase() || 'A'}
+              </div>
+              <div className="flex-1 text-left min-w-0">
+                <div className={`font-medium text-gray-900 dark:text-white truncate ${sidebarCompact ? 'text-xs' : 'text-sm'}`}>{userName || 'Admin'}</div>
+                {!sidebarCompact && (
+                  <div className="text-[10px] text-gray-600 dark:text-gray-400 truncate">{userEmail}</div>
+                )}
+              </div>
+              <FaChevronDown className={`w-2.5 h-2.5 transition-transform duration-200 flex-shrink-0 ${showUserMenu ? 'rotate-180' : ''}`} />
+            </button>
+
+            {showUserMenu && (
+              <div className="absolute bottom-full left-0 right-0 mb-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden z-10 min-w-[120px]">
+                <Link
+                  href="/admin/profile"
+                  onClick={() => {
+                    setShowUserMenu(false);
+                    closeMobileMenu();
+                  }}
+                  className="w-full px-3 py-2 text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 flex items-center gap-2 text-sm"
+                >
+                  <FaUser className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span>Profile</span>
+                </Link>
+                <button
+                  onClick={() => {
+                    setShowUserMenu(false);
+                    closeMobileMenu();
+                    signOut({ callbackUrl: '/' });
+                  }}
+                  className="w-full px-3 py-2 text-left text-red-400 dark:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 flex items-center gap-2 text-sm"
+                >
+                  <FaSignOutAlt className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span>Sign Out</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      </nav>
     </>
   );
 
   // Get page title from pathname
   const getPageTitle = (path: string) => {
     if (path === '/admin' || path === '/admin/overview') return 'Overview';
+    if (path?.startsWith('/admin/signage')) return 'Digital Signage';
     if (path?.startsWith('/admin/food-specials')) return 'Food Specials';
     if (path?.startsWith('/admin/drink-specials')) return 'Drink Specials';
     if (path?.startsWith('/admin/menu')) return 'Menu';
     if (path?.startsWith('/admin/staff')) return 'Staff & Scheduling';
     if (path?.startsWith('/admin/orders')) return 'Orders';
+    if (path?.startsWith('/admin/private-dining-leads')) return 'Private Dining Leads';
     if (path?.startsWith('/admin/kds')) return 'Kitchen Display';
+    if (path?.startsWith('/admin/pos-integrations')) return 'POS Integrations';
     if (path?.startsWith('/admin/homepage')) return 'Homepage';
     if (path?.startsWith('/admin/social')) return 'Social Media';
     if (path?.startsWith('/admin/reporting')) return 'Reporting';

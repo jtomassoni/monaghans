@@ -96,23 +96,43 @@ export default function AdminMobileMenu({
   // Organized navigation sections with collapsible accordion
   const navSections = [
     {
-      id: 'quick',
-      title: 'Quick Actions',
+      id: 'overview',
+      title: 'Overview',
       items: [
-        ...(permissions.canAccessAdmin && featureFlags.calendars_events ? [{ href: '/admin', label: 'Calendar', icon: FaCalendarAlt }] : []),
-        ...(permissions.canManageMenu && featureFlags.specials_management ? [{ href: '/admin/food-specials', label: 'Food Specials', icon: FaDrumstickBite }] : []),
-        ...(permissions.canManageMenu && featureFlags.specials_management ? [{ href: '/admin/drink-specials', label: 'Drink Specials', icon: FaWineGlass }] : []),
-        ...(permissions.canManageMenu && featureFlags.menu_management ? [{ href: '/admin/menu', label: 'Menu', icon: FaUtensils }] : []),
-        ...(permissions.canManageEvents && featureFlags.calendars_events ? [{ href: '/admin?view=list', label: 'Events', icon: FaStar }] : []),
+        ...(permissions.canAccessAdmin && featureFlags.calendars_events ? [{ href: '/admin/overview', label: 'Overview', icon: FaHome }] : []),
       ],
     },
     {
-      id: 'operations',
-      title: 'Operations',
+      id: 'guest-experience',
+      title: 'Guest Experience',
       items: [
-        ...(permissions.canAccessAdmin && featureFlags.calendars_events ? [{ href: '/admin/overview', label: 'Overview', icon: FaHome }] : []),
-        ...(permissions.canManageStaff && featureFlags.staff_scheduling ? [{ href: '/admin/staff', label: 'Scheduling', icon: FaClock }] : []),
+        ...(permissions.canAccessAdmin && featureFlags.calendars_events ? [{ href: '/admin', label: 'Calendar & Events', icon: FaCalendarAlt }] : []),
+        ...(permissions.canAccessAdmin && featureFlags.homepage_management ? [{ href: '/admin/homepage', label: 'Homepage', icon: FaEdit }] : []),
+        ...(permissions.canAccessAdmin && featureFlags.signage_management ? [{ href: '/admin/signage', label: 'Digital Signage', icon: FaGlobe }] : []),
+      ],
+    },
+    {
+      id: 'menus-specials',
+      title: 'Menus & Specials',
+      items: [
+        ...(permissions.canManageMenu && featureFlags.menu_management ? [{ href: '/admin/menu', label: 'Menu', icon: FaUtensils }] : []),
+        ...(permissions.canManageMenu && featureFlags.specials_management ? [{ href: '/admin/food-specials', label: 'Food Specials', icon: FaDrumstickBite }] : []),
+        ...(permissions.canManageMenu && featureFlags.specials_management ? [{ href: '/admin/drink-specials', label: 'Drink Specials', icon: FaWineGlass }] : []),
+      ],
+    },
+    {
+      id: 'orders-leads',
+      title: 'Orders & Leads',
+      items: [
         ...(permissions.canAccessAdmin && featureFlags.online_ordering ? [{ href: '/admin/orders', label: 'Orders', icon: FaCashRegister }] : []),
+        ...(permissions.canAccessAdmin ? [{ href: '/admin/private-dining-leads', label: 'Private Dining Leads', icon: FaUsers }] : []),
+      ],
+    },
+    {
+      id: 'back-of-house',
+      title: 'Back of House',
+      items: [
+        ...(permissions.canManageStaff && featureFlags.staff_scheduling ? [{ href: '/admin/staff', label: 'Staff Scheduling', icon: FaClock }] : []),
         ...(permissions.canAccessKDS && featureFlags.boh_connections ? [{ href: '/admin/kds', label: 'Kitchen Display', icon: FaUtensils }] : []),
         ...(permissions.canAccessAdmin && featureFlags.boh_connections ? [{ href: '/admin/pos-integrations', label: 'POS Integrations', icon: FaCashRegister }] : []),
         ...(permissions.canAccessAdmin && featureFlags.purchase_orders ? [{ href: '/admin/purchase-orders', label: 'Purchase Orders', icon: FaUtensils }] : []),
@@ -121,17 +141,17 @@ export default function AdminMobileMenu({
     },
     {
       id: 'marketing',
-      title: 'Marketing & Content',
+      title: 'Marketing',
       items: [
-        ...(permissions.canAccessAdmin && featureFlags.homepage_management ? [{ href: '/admin/homepage', label: 'Homepage', icon: FaEdit }] : []),
         ...(permissions.canAccessAdmin && featureFlags.social_media ? [{ href: '/admin/social', label: 'Social Media', icon: FaShareAlt }] : []),
       ],
     },
     {
-      id: 'analytics',
-      title: 'Analytics',
+      id: 'insights',
+      title: 'Insights',
       items: [
         ...(permissions.canAccessReporting && featureFlags.reporting_analytics ? [{ href: '/admin/reporting', label: 'Reporting', icon: FaChartLine }] : []),
+        ...(permissions.canAccessAdmin && featureFlags.activity_log ? [{ href: '/admin/activity', label: 'Activity', icon: FaHistory }] : []),
       ],
     },
     {

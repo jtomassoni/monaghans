@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import ImageCarousel from '@/components/image-carousel';
 import Footer from '@/components/footer';
 import AnnouncementsHandler from '@/components/announcements-handler';
+import HeroImage from '@/components/hero-image';
 import { marked } from 'marked';
 import { getMountainTimeToday, getMountainTimeTomorrow, getMountainTimeWeekday, getMountainTimeNow, getMountainTimeDateString, parseMountainTimeDate } from '@/lib/timezone';
 import { startOfDay, endOfDay, isWithinInterval, format } from 'date-fns';
@@ -669,15 +670,18 @@ export default async function HomePage() {
       return '/pics/monaghans-beer-and-shot.jpg';
     }
     if (todaysFoodSpecials.length > 0) {
-      // Check food special type
+      // Use the special's image field if available
       const firstSpecial = todaysFoodSpecials[0];
+      if (firstSpecial.image) {
+        return firstSpecial.image;
+      }
+      // Fallback to title-based logic if no image specified
       if (firstSpecial.title.toLowerCase().includes('breakfast') || firstSpecial.title.toLowerCase().includes('biscuit')) {
         return '/pics/monaghans-breakfast-biscut.jpg';
       }
       if (firstSpecial.title.toLowerCase().includes('fish') || firstSpecial.title.toLowerCase().includes('taco')) {
         return '/pics/monaghans-taco-platter.jpg';
       }
-      return '/pics/monaghans-quesadilla.jpg';
     }
     // Default hero image
     return '/pics/hero.png';
@@ -724,13 +728,9 @@ export default async function HomePage() {
       {/* Hero Section */}
       <section aria-label="Hero section" className="relative h-screen overflow-hidden">
         <div className="absolute inset-0 z-0">
-          <Image
+          <HeroImage
             src={getHeroImage()}
             alt="Monaghan's Bar and Grill"
-            fill
-            className="object-cover transition-opacity duration-500"
-            priority
-            unoptimized={true}
           />
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/80" />
         </div>

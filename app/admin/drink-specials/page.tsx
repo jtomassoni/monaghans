@@ -33,12 +33,20 @@ export default async function AdminDrinkSpecials() {
     isActive: special.isActive,
   }));
 
+  const backgroundImage =
+    "linear-gradient(135deg, rgba(15, 23, 42, 0.70), rgba(30, 41, 59, 0.65), rgba(79, 70, 229, 0.40)), url('/pics/happy-hour-cheers.png')";
+
   return (
-    <div className="h-screen flex flex-col bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 overflow-hidden relative">
+    <div
+      className="h-screen flex flex-col overflow-hidden relative bg-cover bg-center"
+      style={{ backgroundImage }}
+    >
+      {/* Image overlay for readability */}
+      <div className="absolute inset-0 bg-black/30 dark:bg-black/40" />
       {/* Decorative background elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-amber-200/15 dark:from-amber-900/20 to-transparent rounded-full blur-3xl"></div>
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-rose-200/15 dark:from-rose-900/20 to-transparent rounded-full blur-3xl"></div>
+        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-amber-200/20 dark:from-amber-900/30 to-transparent rounded-full blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-rose-200/20 dark:from-rose-900/30 to-transparent rounded-full blur-3xl"></div>
       </div>
       {/* Header */}
       <div className="flex-shrink-0 px-4 sm:px-6 py-3 pt-14 md:pt-0 border-b border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm relative z-10">

@@ -21,6 +21,7 @@ interface Special {
   timeWindow: string;
   startDate: string;
   endDate: string;
+  image?: string;
   isActive: boolean;
 }
 
@@ -90,13 +91,14 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
   const [formData, setFormData] = useState({
     title: special?.title || '',
     description: special?.description || '',
-    priceNotes: special?.priceNotes || '',
+    priceNotes: special?.priceNotes || (isFoodOnly || special?.type === 'food' || (!special && (defaultType === 'food' || !defaultType)) ? '$14.00' : ''),
     type: isFoodOnly ? 'food' : (special?.type || defaultType || 'food'),
     appliesOn: special?.appliesOn || [],
     timeWindow: isFoodOnly ? '' : (special?.timeWindow || ''), // Always empty for food
     date: formatDateForInput(special?.startDate) || '', // For food type, use single date field
     startDate: formatDateForInput(special?.startDate) || '', // For drink type
     endDate: formatDateForInput(special?.endDate) || '',
+    image: special?.image ?? '', // Use nullish coalescing to preserve null, but default to empty string
     isActive: special?.isActive ?? true,
   });
 
@@ -110,13 +112,14 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
       const newFormData = {
         title: special.title || '',
         description: special.description || '',
-        priceNotes: special.priceNotes || '',
+        priceNotes: special.priceNotes || (isFoodOnly || special.type === 'food' ? '$14.00' : ''),
         type: isFoodOnly ? 'food' : (special.type || 'food'),
         appliesOn: special.appliesOn || [],
         timeWindow: isFoodOnly ? '' : (special.timeWindow || ''), // Always empty for food
         date: formattedStartDate, // For food type, use single date
         startDate: formattedStartDate, // For drink type
         endDate: formattedEndDate,
+        image: special.image ?? '', // Use nullish coalescing to preserve null, but default to empty string
         isActive: special.isActive ?? true,
       };
       setFormData(newFormData);
@@ -125,13 +128,14 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
       const newFormData = {
         title: '',
         description: '',
-        priceNotes: '',
+        priceNotes: isFoodOnly || defaultType === 'food' || !defaultType ? '$14.00' : '',
         type: isFoodOnly ? 'food' : (defaultType || 'food'),
         appliesOn: [],
         timeWindow: isFoodOnly ? '' : '', // Always empty for food
         date: '',
         startDate: '',
         endDate: '',
+        image: '',
         isActive: true,
       };
       setFormData(newFormData);
@@ -155,13 +159,14 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
         const newFormData = {
           title: special.title || '',
           description: special.description || '',
-          priceNotes: special.priceNotes || '',
+          priceNotes: special.priceNotes || (isFoodOnly || special.type === 'food' ? '$14.00' : ''),
           type: isFoodOnly ? 'food' : (special.type || 'food'),
           appliesOn: special.appliesOn || [],
           timeWindow: isFoodOnly ? '' : (special.timeWindow || ''), // Always empty for food
           date: formattedStartDate,
           startDate: formattedStartDate,
           endDate: formattedEndDate,
+          image: special.image ?? '', // Use nullish coalescing to preserve null, but default to empty string
           isActive: special.isActive ?? true,
         };
         setFormData(newFormData);
@@ -170,13 +175,14 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
         const newFormData = {
           title: '',
           description: '',
-          priceNotes: '',
+          priceNotes: isFoodOnly || defaultType === 'food' || !defaultType ? '$14.00' : '',
           type: isFoodOnly ? 'food' : (defaultType || 'food'),
           appliesOn: [],
           timeWindow: isFoodOnly ? '' : '', // Always empty for food
           date: '',
           startDate: '',
           endDate: '',
+          image: '',
           isActive: true,
         };
         setFormData(newFormData);
@@ -215,12 +221,15 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
       const method = special?.id ? 'PUT' : 'POST';
 
       // For food type, set both startDate and endDate to the same date, and ensure timeWindow is empty
+      const isFood = isFoodOnly || formData.type === 'food';
       const submitData = {
         ...formData,
         type: isFoodOnly ? 'food' : formData.type,
         timeWindow: isFoodOnly ? '' : formData.timeWindow, // Always empty for food
-        startDate: formData.type === 'food' ? formData.date : formData.startDate,
-        endDate: formData.type === 'food' ? formData.date : formData.endDate,
+        startDate: isFood ? formData.date : formData.startDate,
+        endDate: isFood ? formData.date : formData.endDate,
+        // Always include image for food specials - send null if empty string to ensure it's saved
+        image: isFood ? (formData.image?.trim() || null) : undefined,
       };
       // Remove the date field before submitting
       const { date, ...dataToSubmit } = submitData;
@@ -375,6 +384,26 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
                 </p>
               )}
             </div>
+
+            {/* Image path field - only for food specials */}
+            {(isFoodOnly || formData.type === 'food') && (
+              <div className="space-y-1">
+                <label htmlFor="image" className="block text-sm font-semibold text-gray-900 dark:text-white">
+                  Image Path
+                </label>
+                <input
+                  id="image"
+                  type="text"
+                  value={formData.image}
+                  onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+                  placeholder="/pics/your-image.jpg"
+                  className="w-full rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 text-base text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all min-h-[44px] touch-manipulation"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Path to the image file (optional, e.g., /pics/your-image.jpg)
+                </p>
+              </div>
+            )}
           </div>
         </div>
 

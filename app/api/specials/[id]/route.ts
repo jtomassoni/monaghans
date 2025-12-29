@@ -60,7 +60,8 @@ export async function PUT(
         // This ensures dates are consistent whether requests come from production (UTC) or local dev (any timezone)
         startDate: parseAnyDateAsMountainTime(body.startDate),
         endDate: parseAnyDateAsMountainTime(body.endDate),
-        image: body.image,
+        // Always update image field - convert empty string to null, or use the provided value
+        image: body.image !== undefined ? (body.image?.trim() || null) : undefined,
         isActive: body.isActive,
       },
     });

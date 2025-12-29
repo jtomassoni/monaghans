@@ -47,6 +47,38 @@ export default async function EventsPage() {
   // Helper function to get recurring event occurrences for a date range
   const getRecurringEventOccurrences = (event: any, rangeStart: Date, rangeEnd: Date) => {
     if (!event.recurrenceRule) return [];
+
+    const buildSimpleFallbackOccurrences = () => {
+      try {
+        const startDate = new Date(event.startDateTime);
+        const rule = RRule.fromString(event.recurrenceRule);
+        const ruleWithDtstart = new RRule({
+          ...rule.options,
+          dtstart: startDate,
+        });
+        const searchStart = startDate > rangeStart ? startDate : rangeStart;
+        const occurrences = ruleWithDtstart.between(searchStart, rangeEnd, true);
+        const duration = event.endDateTime
+          ? new Date(event.endDateTime).getTime() - new Date(event.startDateTime).getTime()
+          : null;
+
+        return occurrences.map((occurrence) => {
+          const eventEnd = duration !== null ? new Date(occurrence.getTime() + duration) : null;
+          return {
+            ...event,
+            startDateTime: occurrence.toISOString(),
+            endDateTime: eventEnd?.toISOString() || null,
+            isRecurringOccurrence: true,
+            recurrenceRule: event.recurrenceRule,
+          };
+        }).filter((occurrence) => {
+          const occurrenceDate = new Date(occurrence.startDateTime);
+          return occurrenceDate >= rangeStart && occurrenceDate < rangeEnd;
+        });
+      } catch {
+        return [];
+      }
+    };
     
     try {
       const exceptions: string[] = event.exceptions ? JSON.parse(event.exceptions) : [];
@@ -199,7 +231,7 @@ export default async function EventsPage() {
       const occurrences = ruleWithDtstart.between(searchStart, rangeEnd, true);
       
       // Filter out exceptions and create event objects for each occurrence
-      return occurrences
+      const mappedOccurrences = occurrences
         .filter(occurrence => {
           const occurrenceDateStr = format(occurrence, 'yyyy-MM-dd');
           return !exceptions.includes(occurrenceDateStr);
@@ -290,32 +322,37 @@ export default async function EventsPage() {
             recurrenceRule: event.recurrenceRule, // Preserve recurrenceRule for consistent display
           };
         });
+
+      if (mappedOccurrences.length === 0) {
+        return buildSimpleFallbackOccurrences();
+      }
+
+      return mappedOccurrences;
     } catch (e) {
-      // If RRule parsing fails, return empty array
-      return [];
+      return buildSimpleFallbackOccurrences();
     }
   };
 
   // Get upcoming events (one-time events + recurring occurrences, starting from today)
   // Use today instead of now to include events happening today even if they've already started
-  // Limit to 2 months ahead for better UX and SEO - showing too many repetitive events isn't helpful
-  const futureDate = new Date(today);
-  futureDate.setMonth(futureDate.getMonth() + 2); // Look ahead 2 months for recurring events
+  // Limit to the next 7 days for a focused “this week” view
+  const oneWeekFromToday = new Date(today);
+  oneWeekFromToday.setDate(oneWeekFromToday.getDate() + 7); // Start of the day one week out
 
   const upcomingOneTimeEvents = allEvents.filter(event => {
     if (event.recurrenceRule) return false;
     const eventDate = new Date(event.startDateTime);
-    // Include events starting today or later
-    return eventDate >= today;
+    // Include events starting today and within the next 7 days (exclusive of the 8th day)
+    return eventDate >= today && eventDate < oneWeekFromToday;
   });
 
   const upcomingRecurringOccurrences = allEvents
     .filter(event => event.recurrenceRule)
-    .flatMap(event => getRecurringEventOccurrences(event, today, futureDate))
+    .flatMap(event => getRecurringEventOccurrences(event, today, oneWeekFromToday))
     .filter(occurrence => {
-      // Filter to only include occurrences that are today or in the future
+      // Keep occurrences happening today through the next 7 days
       const occurrenceDate = new Date(occurrence.startDateTime);
-      return occurrenceDate >= today;
+      return occurrenceDate >= today && occurrenceDate < oneWeekFromToday;
     });
 
   // Combine all upcoming events and sort by start time
@@ -351,14 +388,13 @@ export default async function EventsPage() {
   const [nowYear, nowMonth] = nowDateStr.split('-');
   const currentMonthKey = `${nowYear}-${nowMonth}`;
   
-  // Calculate the cutoff month (2 months from now)
-  const cutoffDate = new Date(today);
-  cutoffDate.setMonth(cutoffDate.getMonth() + 2);
+  // Calculate the cutoff month (one week from now)
+  const cutoffDate = new Date(oneWeekFromToday);
   const cutoffDateStr = getCompanyTimezoneDateString(cutoffDate, 'America/Denver');
   const [cutoffYear, cutoffMonth] = cutoffDateStr.split('-');
   const cutoffMonthKey = `${cutoffYear}-${cutoffMonth}`;
 
-  // Filter to only show events from current month through 2 months ahead
+  // Filter to only show events from current month through the one-week cutoff
   // Sort months chronologically
   const sortedMonths = Array.from(eventsByMonth.entries())
     .filter(([monthKey]) => monthKey <= cutoffMonthKey)
@@ -369,7 +405,8 @@ export default async function EventsPage() {
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 text-white">Upcoming Events</h1>
+          <h1 className="text-4xl md:text-5xl font-bold mb-2 text-white">This Week's Events</h1>
+          <p className="text-purple-300 text-sm mb-4 font-semibold tracking-wide uppercase">Next 7 days</p>
           <div className="w-24 h-1 bg-purple-500 mx-auto mb-8"></div>
           <p className="text-xl text-gray-400 max-w-2xl mx-auto mb-8">
             Join us for live music, trivia nights, and special events. Check back regularly for updates.

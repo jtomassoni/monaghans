@@ -21,6 +21,7 @@ interface DailySpecial {
   timeWindow: string | null;
   startDate: string | null;
   endDate: string | null;
+  image: string | null;
   isActive: boolean;
 }
 
@@ -205,6 +206,7 @@ export default function DailySpecialsList({ initialSpecials }: DailySpecialsList
                 ? specialData.endDate
                 : new Date(specialData.endDate).toISOString().split('T')[0])
             : null,
+          image: specialData.image || null,
           isActive: specialData.isActive,
         });
         setSpecialModalOpen(true);
@@ -242,6 +244,7 @@ export default function DailySpecialsList({ initialSpecials }: DailySpecialsList
                 ? specialData.endDate
                 : new Date(specialData.endDate).toISOString().split('T')[0])
             : null,
+          image: specialData.image || null,
           isActive: false, // Start as inactive so user can review before activating
         });
         setSpecialModalOpen(true);
@@ -777,6 +780,7 @@ export default function DailySpecialsList({ initialSpecials }: DailySpecialsList
           timeWindow: editingSpecial.timeWindow || '',
           startDate: editingSpecial.startDate || '',
           endDate: editingSpecial.endDate || '',
+          image: editingSpecial.image || '',
           isActive: editingSpecial.isActive,
         } : undefined}
         defaultType="food"

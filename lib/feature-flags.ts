@@ -10,6 +10,7 @@ import { prisma } from './prisma';
 export type FeatureFlagKey =
   | 'calendars_events' // Calendar and events management
   | 'specials_management' // Food and drink specials
+  | 'signage_management' // Digital signage management
   | 'menu_management' // Full menu management (beyond specials)
   | 'online_ordering' // Online ordering system
   | 'boh_connections' // BOH connections (KDS, POS integrations, printing)
@@ -42,6 +43,12 @@ const DEFAULT_FEATURE_FLAGS: Omit<FeatureFlag, 'isEnabled'>[] = [
     key: 'specials_management',
     name: 'Specials Management',
     description: 'Food and drink specials management (up to 1 year in advance)',
+    category: 'content',
+  },
+  {
+    key: 'signage_management',
+    name: 'Digital Signage',
+    description: 'TV signage playlist, themes, and custom slides',
     category: 'content',
   },
   {
@@ -131,7 +138,10 @@ export async function initializeFeatureFlags() {
         name: flag.name,
         description: flag.description,
         category: flag.category,
-        isEnabled: flag.key === 'calendars_events' || flag.key === 'specials_management', // Only enable calendars and specials by default
+        isEnabled:
+          flag.key === 'calendars_events' ||
+          flag.key === 'specials_management' ||
+          flag.key === 'signage_management', // Enable core content + signage by default
       },
     });
   }

@@ -628,6 +628,7 @@ export default function DashboardContent({ events: initialEvents, specials, anno
             timeWindow: editingSpecial.timeWindow || '',
             startDate: editingSpecial.startDate || '',
             endDate: editingSpecial.endDate || '',
+            image: editingSpecial.image || '',
           } as any : undefined}
           defaultType={specialType}
           onSuccess={handleModalSuccess}

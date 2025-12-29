@@ -6,6 +6,13 @@ A comprehensive restaurant and bar management platform for owners and managers. 
 
 Monaghan's is a full-featured restaurant management system designed to handle all aspects of running a restaurant or bar. From staff scheduling and menu management to online ordering and profitability analysis, everything you need is integrated into a single platform.
 
+## Specials TV Display
+
+- Designed for 10–30 ft viewing on a wall-mounted TV at `/specials-tv`; renders a read-only playlist of specials, happy hour, events, and custom slides.
+- Uses oversized, high-contrast typography (72–110px headlines; 40–90px supporting text) so older patrons can read at a glance.
+- Strictly separate from the management UI: no forms, no controls, no admin labels—just the slideshow generated from CMS data + signage config.
+- 24/7 usage: open `/specials-tv` in Chrome/Edge, enable full-screen/kiosk, disable OS sleep and browser zoom, and optionally pass `?debug=1` for a small overlay when testing. Content refreshes on page reload; no interaction is required during playback.
+
 ## Features
 
 ### Content Management

@@ -34,3 +34,4 @@ git push
 - Updated `package.json` build script to run `prisma migrate deploy` before building
 - This ensures all pending migrations run automatically on each deployment
 
+
