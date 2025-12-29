@@ -9,7 +9,6 @@ interface Announcement {
   body: string;
   ctaText?: string | null;
   ctaUrl?: string | null;
-  dismissable?: boolean;
 }
 
 interface AnnouncementsHandlerProps {
@@ -17,51 +16,33 @@ interface AnnouncementsHandlerProps {
 }
 
 export default function AnnouncementsHandler({ announcements }: AnnouncementsHandlerProps) {
-  const [currentAnnouncementIndex, setCurrentAnnouncementIndex] = useState<number | null>(null);
-  const [acknowledgedIds, setAcknowledgedIds] = useState<Set<string>>(new Set());
+  const [currentAnnouncementIndex, setCurrentAnnouncementIndex] = useState<number | null>(
+    announcements.length > 0 ? 0 : null
+  );
 
   useEffect(() => {
-    // Always show the first announcement on page load (no localStorage persistence)
     if (announcements.length === 0) {
       setCurrentAnnouncementIndex(null);
       return;
     }
 
-    // Find the first unacknowledged announcement
-    const unacknowledgedIndex = announcements.findIndex(
-      (announcement) => !acknowledgedIds.has(announcement.id)
-    );
+    // Always show the first announcement, rotate through them if multiple
+    setCurrentAnnouncementIndex(0);
+  }, [announcements]);
 
-    if (unacknowledgedIndex !== -1) {
-      setCurrentAnnouncementIndex(unacknowledgedIndex);
-    } else {
-      // If all are acknowledged in this session, hide the banner
-      setCurrentAnnouncementIndex(null);
-    }
-  }, [announcements, acknowledgedIds]);
+  // Auto-rotate through announcements every 10 seconds if multiple exist
+  useEffect(() => {
+    if (announcements.length <= 1) return;
 
-  const handleAcknowledge = () => {
-    if (currentAnnouncementIndex === null) return;
+    const interval = setInterval(() => {
+      setCurrentAnnouncementIndex((prev) => {
+        if (prev === null) return 0;
+        return (prev + 1) % announcements.length;
+      });
+    }, 10000); // Rotate every 10 seconds
 
-    const currentAnnouncement = announcements[currentAnnouncementIndex];
-    if (!currentAnnouncement) return;
-
-    // Mark as acknowledged (only for current session, not persisted)
-    const newAcknowledgedIds = new Set(acknowledgedIds);
-    newAcknowledgedIds.add(currentAnnouncement.id);
-    setAcknowledgedIds(newAcknowledgedIds);
-
-    // Find next unacknowledged announcement
-    const nextIndex = announcements.findIndex(
-      (announcement, index) => index > currentAnnouncementIndex && !newAcknowledgedIds.has(announcement.id)
-    );
-
-    if (nextIndex !== -1) {
-      setCurrentAnnouncementIndex(nextIndex);
-    } else {
-      setCurrentAnnouncementIndex(null);
-    }
-  };
+    return () => clearInterval(interval);
+  }, [announcements.length]);
 
   const currentAnnouncement =
     currentAnnouncementIndex !== null ? announcements[currentAnnouncementIndex] : null;
@@ -70,7 +51,6 @@ export default function AnnouncementsHandler({ announcements }: AnnouncementsHan
     <AnnouncementBanner
       isOpen={currentAnnouncement !== null}
       announcement={currentAnnouncement}
-      onAcknowledge={handleAcknowledge}
     />
   );
 }

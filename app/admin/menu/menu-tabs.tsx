@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { FaPlus } from 'react-icons/fa';
+import { FaPlus, FaUpload } from 'react-icons/fa';
 import AdminMenuSections from './menu-sections-list';
 import MenuItemsList from './menu-items-list';
+import MenuImportModal from '@/components/menu-import-modal';
+import { useFeatureFlag } from '@/lib/use-feature-flags';
 
 interface MenuItem {
   id: string;
@@ -54,6 +56,8 @@ export default function MenuTabs({ sections, items, sectionsForItems }: MenuTabs
   const [activeTab, setActiveTab] = useState<'sections'>('sections');
   const [sectionsViewMode, setSectionsViewMode] = useState<'sections' | 'items'>('sections');
   const [reorderSectionsActive, setReorderSectionsActive] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const menuImportEnabled = useFeatureFlag('menu_import');
 
 
   // Listen for reorder sections state changes
@@ -67,6 +71,7 @@ export default function MenuTabs({ sections, items, sectionsForItems }: MenuTabs
       window.removeEventListener('reorderSectionsStateChanged', handleReorderStateChange);
     };
   }, []);
+
 
   return (
     <div className="flex flex-col h-full overflow-hidden min-h-0">
@@ -119,6 +124,15 @@ export default function MenuTabs({ sections, items, sectionsForItems }: MenuTabs
               <FaPlus className="w-4 h-4" />
               <span>New Section</span>
             </button>
+            {menuImportEnabled && (
+              <button
+                onClick={() => setIsImportModalOpen(true)}
+                className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-green-500/90 dark:bg-green-600/90 hover:bg-green-600 dark:hover:bg-green-700 rounded-lg text-white font-medium text-sm transition-all duration-200"
+              >
+                <FaUpload className="w-4 h-4" />
+                <span>Import</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -210,6 +224,15 @@ export default function MenuTabs({ sections, items, sectionsForItems }: MenuTabs
               <FaPlus className="w-3.5 h-3.5 pointer-events-none" />
               <span className="pointer-events-none">New Section</span>
             </button>
+            {menuImportEnabled && (
+              <button
+                onClick={() => setIsImportModalOpen(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-green-500/90 dark:bg-green-600/90 hover:bg-green-600 dark:hover:bg-green-700 rounded-xl text-white font-medium text-sm transition-all duration-200 hover:scale-105 cursor-pointer active:scale-95 border border-green-400 dark:border-green-500"
+              >
+                <FaUpload className="w-3.5 h-3.5 pointer-events-none" />
+                <span className="pointer-events-none">Import Menu</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -222,6 +245,19 @@ export default function MenuTabs({ sections, items, sectionsForItems }: MenuTabs
           <MenuItemsList initialItems={items} sections={sectionsForItems} />
         )}
       </div>
+
+      {/* Import Modal */}
+      {menuImportEnabled && (
+        <MenuImportModal
+          isOpen={isImportModalOpen}
+          onClose={() => setIsImportModalOpen(false)}
+          onImportComplete={() => {
+            setIsImportModalOpen(false);
+            // Reload the page to show imported items
+            window.location.reload();
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { FeatureFlag } from '@/lib/feature-flags';
 import { FaToggleOn, FaToggleOff } from 'react-icons/fa';
 import { showToast } from '@/components/toast';
+import { clearFeatureFlagsCache } from '@/lib/use-feature-flags';
 
 const CATEGORY_LABELS: Record<string, string> = {
   content: 'Content',
@@ -75,12 +76,18 @@ export default function FeatureFlagsClient() {
         throw new Error(errorData.error || 'Failed to update feature flag');
       }
 
+      // Clear the feature flags cache so other components refresh
+      clearFeatureFlagsCache();
+      
       // Show success toast
       const flagName = flags.find(f => f.key === key)?.name || 'Feature flag';
       showToast(
         `${flagName} ${newValue ? 'enabled' : 'disabled'}`,
         'success'
       );
+      
+      // Trigger a custom event to notify other components
+      window.dispatchEvent(new CustomEvent('featureFlagsUpdated'));
     } catch (err) {
       // Revert on error
       setFlags(prevFlags => 

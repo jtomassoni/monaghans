@@ -16,6 +16,15 @@ interface FeatureFlagsState {
 let cachedFlags: Record<FeatureFlagKey, boolean> | null = null;
 let flagsPromise: Promise<Record<FeatureFlagKey, boolean>> | null = null;
 
+/**
+ * Clear the feature flags cache
+ * Call this when flags are updated to force a refresh
+ */
+export function clearFeatureFlagsCache() {
+  cachedFlags = null;
+  flagsPromise = null;
+}
+
 export function useFeatureFlags(): FeatureFlagsState {
   // Initialize with default disabled flags for safety
   const defaultFlags: Record<FeatureFlagKey, boolean> = {
@@ -23,6 +32,7 @@ export function useFeatureFlags(): FeatureFlagsState {
     specials_management: true, // Default enabled
     signage_management: true, // Default enabled
     menu_management: false,
+    menu_import: false,
     online_ordering: false,
     boh_connections: false,
     staff_scheduling: false,
@@ -41,7 +51,7 @@ export function useFeatureFlags(): FeatureFlagsState {
   const [loading, setLoading] = useState(!cachedFlags);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const fetchFlags = () => {
     // If we have cached flags, use them
     if (cachedFlags) {
       setFlags(cachedFlags);
@@ -97,6 +107,20 @@ export function useFeatureFlags(): FeatureFlagsState {
         // On error, use default flags
         setFlags(defaultFlags);
       });
+  };
+
+  useEffect(() => {
+    fetchFlags();
+
+    // Listen for feature flag updates
+    const handleFeatureFlagsUpdated = () => {
+      clearFeatureFlagsCache();
+      fetchFlags();
+    };
+    window.addEventListener('featureFlagsUpdated', handleFeatureFlagsUpdated);
+    return () => {
+      window.removeEventListener('featureFlagsUpdated', handleFeatureFlagsUpdated);
+    };
   }, []);
 
   return { flags, loading, error };

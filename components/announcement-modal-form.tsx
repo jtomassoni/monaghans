@@ -43,7 +43,6 @@ interface Announcement {
   crossPostInstagram: boolean;
   ctaText?: string;
   ctaUrl?: string;
-  dismissable?: boolean;
 }
 
 interface AnnouncementModalFormProps {
@@ -77,7 +76,6 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
     crossPostInstagram: announcement?.crossPostInstagram ?? false,
     ctaText: announcement?.ctaText || '',
     ctaUrl: announcement?.ctaUrl || '',
-    dismissable: announcement?.dismissable ?? true,
   });
 
   const [initialFormData, setInitialFormData] = useState(formData);
@@ -101,7 +99,6 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
         crossPostInstagram: announcement.crossPostInstagram ?? false,
         ctaText: announcement.ctaText || '',
         ctaUrl: announcement.ctaUrl || '',
-        dismissable: announcement.dismissable ?? true,
       };
     } else {
       setShowCTA(false);
@@ -121,7 +118,6 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
         crossPostInstagram: false,
         ctaText: '',
         ctaUrl: '',
-        dismissable: true,
       };
     }
     setFormData(newFormData);
@@ -178,7 +174,6 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
           crossPostInstagram: announcement.crossPostInstagram ?? false,
           ctaText: announcement.ctaText || '',
           ctaUrl: announcement.ctaUrl || '',
-          dismissable: announcement.dismissable ?? true,
         };
         setFormData(newFormData);
         setInitialFormData(newFormData);
@@ -199,7 +194,6 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
           crossPostInstagram: false,
           ctaText: '',
           ctaUrl: '',
-          dismissable: true,
         };
         setFormData(newFormData);
         setInitialFormData(newFormData);
@@ -466,29 +460,6 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
               <span>Cross-post to Instagram (coming soon)</span>
             </label>
           </div>
-        </div>
-
-        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-4 backdrop-blur-sm space-y-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Display Options</p>
-            <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300 max-w-sm">
-              Control how users interact with this announcement.
-            </p>
-          </div>
-
-          <label
-            htmlFor="dismissable"
-            className="inline-flex items-center gap-3 rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-2 text-sm font-medium text-gray-900 dark:text-white shadow-inner cursor-pointer transition-colors hover:border-blue-400/70 focus-within:ring-2 focus-within:ring-blue-500/30"
-          >
-            <input
-              type="checkbox"
-              id="dismissable"
-              checked={formData.dismissable}
-              onChange={(e) => setFormData({ ...formData, dismissable: e.target.checked })}
-              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            <span>Allow users to dismiss this announcement</span>
-          </label>
         </div>
 
         <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-4 backdrop-blur-sm space-y-3">

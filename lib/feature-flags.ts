@@ -12,6 +12,7 @@ export type FeatureFlagKey =
   | 'specials_management' // Food and drink specials
   | 'signage_management' // Digital signage management
   | 'menu_management' // Full menu management (beyond specials)
+  | 'menu_import' // Menu import from external platforms
   | 'online_ordering' // Online ordering system
   | 'boh_connections' // BOH connections (KDS, POS integrations, printing)
   | 'staff_scheduling' // Staff scheduling and timeclock
@@ -55,6 +56,12 @@ const DEFAULT_FEATURE_FLAGS: Omit<FeatureFlag, 'isEnabled'>[] = [
     key: 'menu_management',
     name: 'Menu Management',
     description: 'Full menu management beyond specials',
+    category: 'operations',
+  },
+  {
+    key: 'menu_import',
+    name: 'Menu Import',
+    description: 'Import menus from external platforms (Toast, Square, CSV, JSON, etc.)',
     category: 'operations',
   },
   {

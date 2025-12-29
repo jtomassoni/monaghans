@@ -15,16 +15,14 @@ interface Announcement {
   body: string;
   ctaText?: string | null;
   ctaUrl?: string | null;
-  dismissable?: boolean;
 }
 
 interface AnnouncementBannerProps {
   isOpen: boolean;
   announcement: Announcement | null;
-  onAcknowledge: () => void;
 }
 
-export default function AnnouncementBanner({ isOpen, announcement, onAcknowledge }: AnnouncementBannerProps) {
+export default function AnnouncementBanner({ isOpen, announcement }: AnnouncementBannerProps) {
   if (!isOpen || !announcement) return null;
 
   return (
@@ -48,7 +46,7 @@ export default function AnnouncementBanner({ isOpen, announcement, onAcknowledge
 
           {/* Content */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2 sm:gap-3">
+            <div className="flex items-start gap-2 sm:gap-3">
               <div className="flex-1 min-w-0">
                 <h3 className="text-sm sm:text-base font-bold text-white mb-1 drop-shadow-sm">
                   {announcement.title}
@@ -72,19 +70,6 @@ export default function AnnouncementBanner({ isOpen, announcement, onAcknowledge
                   </div>
                 )}
               </div>
-              
-              {/* Close Button - Only show if dismissable */}
-              {announcement.dismissable !== false && (
-                <button
-                  onClick={onAcknowledge}
-                  className="flex-shrink-0 p-1 text-white/70 hover:text-white hover:bg-white/20 rounded-lg transition-colors"
-                  aria-label="Dismiss announcement"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              )}
             </div>
           </div>
         </div>

@@ -79,7 +79,6 @@ export async function POST(req: NextRequest) {
         crossPostInstagram: body.crossPostInstagram ?? false,
         ctaText: body.ctaText || null,
         ctaUrl: body.ctaUrl || null,
-        dismissable: body.dismissable ?? true,
       },
     });
 
