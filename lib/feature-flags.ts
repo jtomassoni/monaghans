@@ -8,21 +8,24 @@
 import { prisma } from './prisma';
 
 export type FeatureFlagKey =
-  | 'calendars_events' // Calendar and events management
-  | 'specials_management' // Food and drink specials
-  | 'signage_management' // Digital signage management
-  | 'menu_management' // Full menu management (beyond specials)
-  | 'menu_import' // Menu import from external platforms
   | 'online_ordering' // Online ordering system
   | 'boh_connections' // BOH connections (KDS, POS integrations, printing)
-  | 'staff_scheduling' // Staff scheduling and timeclock
+  | 'staff_management' // Staff management suite (employees, scheduling, availability, timeclock, payroll)
   | 'reporting_analytics' // Reporting and analytics
   | 'social_media' // Social media management
-  | 'homepage_management' // Homepage content management
-  | 'activity_log' // Activity log
-  | 'users_staff_management' // User and staff account management
   | 'purchase_orders' // Purchase orders and suppliers
   | 'ingredients_management'; // Ingredients management
+
+// Feature flag dependencies - flags that require other flags to be enabled
+export const FEATURE_FLAG_DEPENDENCIES: Record<FeatureFlagKey, FeatureFlagKey[]> = {
+  online_ordering: [],
+  boh_connections: [],
+  staff_management: [],
+  reporting_analytics: [],
+  social_media: [], // Social media is standalone (calendars & events is always enabled)
+  purchase_orders: [],
+  ingredients_management: [],
+};
 
 export interface FeatureFlag {
   key: FeatureFlagKey;
@@ -35,93 +38,45 @@ export interface FeatureFlag {
 // Default feature flags configuration
 const DEFAULT_FEATURE_FLAGS: Omit<FeatureFlag, 'isEnabled'>[] = [
   {
-    key: 'calendars_events',
-    name: 'Calendars & Events',
-    description: 'Calendar view and event management',
-    category: 'content',
-  },
-  {
-    key: 'specials_management',
-    name: 'Specials Management',
-    description: 'Food and drink specials management (up to 1 year in advance)',
-    category: 'content',
-  },
-  {
-    key: 'signage_management',
-    name: 'Digital Signage',
-    description: 'TV signage playlist, themes, and custom slides',
-    category: 'content',
-  },
-  {
-    key: 'menu_management',
-    name: 'Menu Management',
-    description: 'Full menu management beyond specials',
-    category: 'operations',
-  },
-  {
-    key: 'menu_import',
-    name: 'Menu Import',
-    description: 'Import menus from external platforms (Toast, Square, CSV, JSON, etc.)',
-    category: 'operations',
-  },
-  {
     key: 'online_ordering',
     name: 'Online Ordering',
-    description: 'Online ordering system for customers',
+    description: 'Enables the Orders page at /admin/orders and the customer ordering interface. When OFF, order management and customer ordering are disabled.',
     category: 'operations',
   },
   {
     key: 'boh_connections',
     name: 'BOH Connections',
-    description: 'Back of house connections (KDS, POS integrations, printing)',
+    description: 'Enables Kitchen Display System (KDS) at /admin/kds and POS Integrations at /admin/pos-integrations. When OFF, BOH connection features are hidden from navigation.',
     category: 'operations',
   },
   {
-    key: 'staff_scheduling',
-    name: 'Staff Scheduling',
-    description: 'Staff scheduling and timeclock management',
+    key: 'staff_management',
+    name: 'Staff Management',
+    description: 'Enables the Staff Management page at /admin/staff for employees, scheduling, availability, timeclock, and payroll. When OFF, staff management is hidden from navigation.',
     category: 'operations',
   },
   {
     key: 'reporting_analytics',
     name: 'Reporting & Analytics',
-    description: 'Reporting dashboard and analytics',
+    description: 'Enables the Reporting page at /admin/reporting with analytics dashboard. When OFF, reporting and analytics are hidden from navigation.',
     category: 'analytics',
   },
   {
     key: 'social_media',
     name: 'Social Media',
-    description: 'Social media management and cross-posting',
+    description: 'Enables the Social Media page at /admin/social for social media management and cross-posting. When OFF, social media features are hidden.',
     category: 'marketing',
-  },
-  {
-    key: 'homepage_management',
-    name: 'Homepage Management',
-    description: 'Homepage content management',
-    category: 'content',
-  },
-  {
-    key: 'activity_log',
-    name: 'Activity Log',
-    description: 'Activity log and audit trail',
-    category: 'administration',
-  },
-  {
-    key: 'users_staff_management',
-    name: 'Users & Staff Management',
-    description: 'User and staff account management',
-    category: 'administration',
   },
   {
     key: 'purchase_orders',
     name: 'Purchase Orders',
-    description: 'Purchase orders and supplier management',
+    description: 'Enables the Purchase Orders page at /admin/purchase-orders for purchase orders and supplier management. When OFF, purchase order features are hidden from navigation.',
     category: 'operations',
   },
   {
     key: 'ingredients_management',
     name: 'Ingredients Management',
-    description: 'Ingredients and inventory management',
+    description: 'Enables the Ingredients page at /admin/ingredients for ingredients and inventory management. When OFF, ingredients management is hidden from navigation.',
     category: 'operations',
   },
 ];
@@ -131,6 +86,77 @@ const DEFAULT_FEATURE_FLAGS: Omit<FeatureFlag, 'isEnabled'>[] = [
  * Only creates flags that don't already exist
  */
 export async function initializeFeatureFlags() {
+  // Handle migration from old flags to new ones (do this first, before initializing)
+  // If old staff_scheduling exists, migrate to staff_management
+  const oldStaffScheduling = await prisma.featureFlag.findUnique({
+    where: { key: 'staff_scheduling' },
+  }).catch(() => null);
+  
+  if (oldStaffScheduling) {
+    // Migrate staff_scheduling to staff_management
+    await prisma.featureFlag.upsert({
+      where: { key: 'staff_management' },
+      update: {
+        isEnabled: oldStaffScheduling.isEnabled,
+      },
+      create: {
+        key: 'staff_management',
+        name: 'Staff Management',
+        description: 'Enables the Staff Management page at /admin/staff for employees, scheduling, availability, timeclock, and payroll. When OFF, staff management is hidden from navigation.',
+        category: 'operations',
+        isEnabled: oldStaffScheduling.isEnabled,
+      },
+    });
+    
+    // Delete old flag
+    await prisma.featureFlag.deleteMany({
+      where: { key: 'staff_scheduling' },
+    }); // deleteMany doesn't throw if no records found
+  }
+  
+  // Remove old users_staff_management flag if it exists
+  await prisma.featureFlag.deleteMany({
+    where: { key: 'users_staff_management' },
+  }); // deleteMany doesn't throw if no records found
+  
+  // Delete old signage flags (no longer using feature flags for signage)
+  await prisma.featureFlag.deleteMany({
+    where: { key: 'digital_signage_enabled' },
+  });
+  await prisma.featureFlag.deleteMany({
+    where: { key: 'digital_signage_ads_enabled' },
+  });
+  await prisma.featureFlag.deleteMany({
+    where: { key: 'signage_management' },
+  });
+  
+  // Remove activity_log flag if it exists (activity log is always enabled, not a feature flag)
+  await prisma.featureFlag.deleteMany({
+    where: { key: 'activity_log' },
+  });
+  
+  // Remove core product flags (always enabled, not feature flags)
+  await prisma.featureFlag.deleteMany({
+    where: { key: 'calendars_events' },
+  });
+  await prisma.featureFlag.deleteMany({
+    where: { key: 'specials_management' },
+  });
+  await prisma.featureFlag.deleteMany({
+    where: { key: 'homepage_management' },
+  });
+  
+  // Remove menu_import flag if it exists (menu import feature removed)
+  await prisma.featureFlag.deleteMany({
+    where: { key: 'menu_import' },
+  });
+  
+  // Remove menu_management flag if it exists (menu management is always enabled, not a feature flag)
+  await prisma.featureFlag.deleteMany({
+    where: { key: 'menu_management' },
+  });
+  
+  // Initialize all feature flags
   for (const flag of DEFAULT_FEATURE_FLAGS) {
     await prisma.featureFlag.upsert({
       where: { key: flag.key },
@@ -145,10 +171,7 @@ export async function initializeFeatureFlags() {
         name: flag.name,
         description: flag.description,
         category: flag.category,
-        isEnabled:
-          flag.key === 'calendars_events' ||
-          flag.key === 'specials_management' ||
-          flag.key === 'signage_management', // Enable core content + signage by default
+        isEnabled: false, // All flags default to disabled
       },
     });
   }
@@ -207,13 +230,66 @@ export async function isFeatureEnabled(key: FeatureFlagKey): Promise<boolean> {
 }
 
 /**
+ * Check if a feature flag's dependencies are met
+ */
+export function checkFeatureFlagDependencies(
+  key: FeatureFlagKey,
+  enabledFlags: Set<FeatureFlagKey>
+): { canEnable: boolean; missingDependencies: FeatureFlagKey[] } {
+  const dependencies = FEATURE_FLAG_DEPENDENCIES[key] || [];
+  const missingDependencies = dependencies.filter(dep => !enabledFlags.has(dep));
+  
+  return {
+    canEnable: missingDependencies.length === 0,
+    missingDependencies,
+  };
+}
+
+/**
  * Update a feature flag (only admin should call this)
+ * Automatically handles dependencies - if enabling, ensures dependencies are enabled
+ * If disabling, warns about dependent features
  */
 export async function updateFeatureFlag(
   key: FeatureFlagKey,
   isEnabled: boolean
 ): Promise<FeatureFlag> {
   await initializeFeatureFlags();
+  
+  // Get all current flags to check dependencies
+  const allFlags = await getAllFeatureFlags();
+  const enabledFlags = new Set(
+    allFlags.filter(f => f.isEnabled).map(f => f.key)
+  );
+  
+  if (isEnabled) {
+    // Check if dependencies are met
+    const { canEnable, missingDependencies } = checkFeatureFlagDependencies(key, enabledFlags);
+    
+    if (!canEnable) {
+      // Auto-enable dependencies
+      for (const dep of missingDependencies) {
+        await prisma.featureFlag.update({
+          where: { key: dep },
+          data: { isEnabled: true },
+        });
+      }
+    }
+  } else {
+    // Check if any other flags depend on this one
+    const dependentFlags = allFlags.filter(flag => {
+      const deps = FEATURE_FLAG_DEPENDENCIES[flag.key] || [];
+      return flag.isEnabled && deps.includes(key);
+    });
+    
+    // Auto-disable dependent flags
+    for (const dependentFlag of dependentFlags) {
+      await prisma.featureFlag.update({
+        where: { key: dependentFlag.key },
+        data: { isEnabled: false },
+      });
+    }
+  }
   
   const flag = await prisma.featureFlag.update({
     where: { key },

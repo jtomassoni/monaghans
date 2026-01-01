@@ -15,7 +15,10 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
+    "db:sync": "tsx scripts/sync-db-schema.ts",
     "db:seed": "tsx scripts/seed.ts",
+    "db:setup": "tsx scripts/setup-local-db.ts",
+    "db:reset": "tsx scripts/reset-db.ts",
     "db:studio": "prisma studio",
     "test:setup": "tsx scripts/setup-test-db.ts",
     "generate-specials": "tsx scripts/generate-daily-specials.ts",
@@ -49,7 +52,9 @@
     "rrule": "^2.8.1",
     "stripe": "^19.3.0",
     "typescript": "^5.9.3",
-    "zod": "^4.1.12"
+    "zod": "^4.1.12",
+    "pdfjs-dist": "^4.0.379",
+    "canvas": "^2.11.2"
   },
   "devDependencies": {
     "@playwright/test": "^1.57.0",
@@ -58,6 +63,7 @@
     "@typescript-eslint/eslint-plugin": "^8.46.3",
     "@typescript-eslint/parser": "^8.46.3",
     "autoprefixer": "^10.4.21",
+    "dotenv": "^16.4.5",
     "dotenv-cli": "^11.0.0",
     "eslint": "^9.39.1",
     "eslint-config-next": "^16.0.7",

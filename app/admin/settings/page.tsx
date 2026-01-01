@@ -2,8 +2,8 @@ import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import SettingsForm from './settings-form';
-import Breadcrumbs from '@/components/breadcrumbs';
+import CombinedSettingsForm from './combined-settings-form';
+import AdminPageHeader from '@/components/admin-page-header';
 
 export default async function AdminSettings() {
   const session = await getServerSession(authOptions);
@@ -11,30 +11,17 @@ export default async function AdminSettings() {
     redirect('/admin/login');
   }
 
-  // Get timezone setting
-  const timezoneSetting = await prisma.setting.findUnique({
-    where: { key: 'timezone' },
-  });
-
-  // Get site title setting
-  const siteTitleSetting = await prisma.setting.findUnique({
-    where: { key: 'siteTitle' },
-  });
-
-  // Get contact setting
-  const contactSetting = await prisma.setting.findUnique({
-    where: { key: 'contact' },
-  });
-
-  // Get hours setting
-  const hoursSetting = await prisma.setting.findUnique({
-    where: { key: 'hours' },
-  });
-
-  // Get map setting
-  const mapSetting = await prisma.setting.findUnique({
-    where: { key: 'mapEmbed' },
-  });
+  // Fetch all settings
+  const [timezoneSetting, siteTitleSetting, contactSetting, hoursSetting, mapSetting, heroSetting, aboutSetting, gallerySetting] = await Promise.all([
+    prisma.setting.findUnique({ where: { key: 'timezone' } }),
+    prisma.setting.findUnique({ where: { key: 'siteTitle' } }),
+    prisma.setting.findUnique({ where: { key: 'contact' } }),
+    prisma.setting.findUnique({ where: { key: 'hours' } }),
+    prisma.setting.findUnique({ where: { key: 'mapEmbed' } }),
+    prisma.setting.findUnique({ where: { key: 'homepageHero' } }),
+    prisma.setting.findUnique({ where: { key: 'homepageAbout' } }),
+    prisma.setting.findUnique({ where: { key: 'homepageGallery' } }),
+  ]);
 
   const timezone = timezoneSetting?.value || 'America/Denver';
   const siteTitle = siteTitleSetting?.value || "Monaghan's Dive Bar";
@@ -42,11 +29,17 @@ export default async function AdminSettings() {
   let contact: any = {};
   let hours: any = {};
   let mapEmbed: any = {};
+  let hero: any = {};
+  let about: any = {};
+  let gallery: any = {};
 
   try {
     contact = contactSetting ? JSON.parse(contactSetting.value) : {};
     hours = hoursSetting ? JSON.parse(hoursSetting.value) : {};
     mapEmbed = mapSetting ? JSON.parse(mapSetting.value) : {};
+    hero = heroSetting ? JSON.parse(heroSetting.value) : {};
+    about = aboutSetting ? JSON.parse(aboutSetting.value) : {};
+    gallery = gallerySetting ? JSON.parse(gallerySetting.value) : {};
   } catch {}
 
   return (
@@ -58,33 +51,29 @@ export default async function AdminSettings() {
       </div>
       
       {/* Header */}
-      <div className="flex-shrink-0 px-4 sm:px-6 py-2 pt-16 md:pt-0 border-b border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm relative z-10">
-        <div className="flex justify-between items-center">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-3 min-w-0">
-            <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">
-              Company Settings
-            </h1>
-            <p className="text-gray-500 dark:text-gray-400 text-[10px] sm:text-xs hidden sm:block">
-              Configure company-wide settings
-            </p>
-          </div>
-        </div>
-      </div>
+      <AdminPageHeader
+        title="Settings & Homepage"
+        description="Configure company settings and homepage content"
+      />
 
       {/* Main Content - Scrollable */}
-      <div className="flex-1 overflow-hidden p-2 sm:p-3 relative z-10">
-        <div className="h-full">
-          <SettingsForm 
-            initialTimezone={timezone} 
-            initialSiteTitle={siteTitle}
-            initialContact={contact}
-            initialHours={hours}
-            initialMapEmbed={mapEmbed}
-            initialHappyHour={{}}
-          />
+      <div className="flex-1 overflow-hidden p-4 relative z-10">
+        <div className="h-full overflow-y-auto">
+          <div className="max-w-4xl mx-auto space-y-6">
+            {/* Settings */}
+            <CombinedSettingsForm 
+              initialTimezone={timezone} 
+              initialSiteTitle={siteTitle}
+              initialContact={contact}
+              initialHours={hours}
+              initialMapEmbed={mapEmbed}
+              initialHero={hero}
+              initialAbout={about}
+              initialGallery={gallery}
+            />
+          </div>
         </div>
       </div>
     </div>
   );
 }
-

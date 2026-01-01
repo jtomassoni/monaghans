@@ -31,9 +31,7 @@ Base URL: `http://localhost:3000`
 - `/admin/print-preview`
 - `/admin/food-specials`
 - `/admin/drink-specials`
-- `/admin/menu`
-- `/admin/menu/items/new`
-- `/admin/menu/items/[id]`
+- `/admin/menu` (items managed via modals)
 - `/admin/orders`
 - `/admin/reporting`
 - `/admin/purchase-orders`
@@ -41,19 +39,11 @@ Base URL: `http://localhost:3000`
 - `/admin/suppliers/[id]`
 - `/admin/ingredients`
 - `/admin/staff`
-- `/admin/users`
-- `/admin/users/new`
-- `/admin/users/[id]`
+- `/admin/users` (managed via modals)
 - `/admin/users-staff`
-- `/admin/announcements`
-- `/admin/announcements/new`
-- `/admin/announcements/[id]`
-- `/admin/specials`
-- `/admin/specials/new`
-- `/admin/specials/[id]`
-- `/admin/events`
-- `/admin/events/new`
-- `/admin/events/[id]`
+- `/admin/announcements` (managed via modals)
+- `/admin/specials` (managed via modals)
+- `/admin/events` (managed via modals)
 - `/admin/private-dining-leads`
 - `/admin/private-dining-leads/[id]`
 - `/admin/social`

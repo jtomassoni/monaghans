@@ -26,7 +26,7 @@ import {
 import { FaMicrophone, FaBrain, FaCalendarAlt, FaUtensils, FaBeer, FaTable, FaCalendarWeek, FaDice, FaBullhorn, FaClock, FaCalendarDay } from 'react-icons/fa';
 import { FaFootball } from 'react-icons/fa6';
 import { HiChevronLeft, HiChevronRight } from 'react-icons/hi';
-import { parseMountainTimeDate, getMountainTimeDateString, getMountainTimeToday } from '@/lib/timezone';
+import { parseMountainTimeDate, getMountainTimeDateString, getMountainTimeToday, getCompanyTimezoneSync, getCompanyTimezoneDateString } from '@/lib/timezone';
 
 interface CalendarEvent {
   id: string;
@@ -95,7 +95,9 @@ interface CalendarViewProps {
 type ViewMode = 'month' | 'week' | 'day';
 
 export default function CalendarView({ events, specials, announcements = [], businessHours, calendarHours, onEventClick, onSpecialClick, onAnnouncementClick, onNewEvent, onNewAnnouncement, onEventUpdate, onEventAdded, onEventDeleted }: CalendarViewProps) {
-  const [currentDate, setCurrentDate] = useState(new Date());
+  // Use company timezone for all date operations, not browser locale
+  const companyTimezone = getCompanyTimezoneSync();
+  const [currentDate, setCurrentDate] = useState(getMountainTimeToday());
   const [hoveredDay, setHoveredDay] = useState<Date | null>(null);
   const [hoveredTimeSlot, setHoveredTimeSlot] = useState<{ day: Date; hour: number } | null>(null);
   // Default to 'week' to avoid hydration mismatch - will update in useEffect
@@ -112,7 +114,7 @@ export default function CalendarView({ events, specials, announcements = [], bus
   const [hasDragged, setHasDragged] = useState(false);
   const [localEvents, setLocalEvents] = useState<CalendarEvent[]>(events);
   const [newEventIds, setNewEventIds] = useState<Set<string>>(new Set());
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const [currentTime, setCurrentTime] = useState(getMountainTimeToday());
   const [showHoursConfig, setShowHoursConfig] = useState(false);
   const [localCalendarHours, setLocalCalendarHours] = useState<{ startHour: number; endHour: number } | null>(calendarHours || null);
   const hoursConfigRef = useRef<HTMLDivElement>(null);
@@ -127,10 +129,10 @@ export default function CalendarView({ events, specials, announcements = [], bus
     }
   }, []);
 
-  // Update current time every minute
+  // Update current time every minute (in company timezone)
   useEffect(() => {
     const updateTime = () => {
-      setCurrentTime(new Date());
+      setCurrentTime(getMountainTimeToday());
     };
     
     updateTime();
@@ -414,8 +416,19 @@ export default function CalendarView({ events, specials, announcements = [], bus
             const startMTMonth = parseInt(startMTParts.find(p => p.type === 'month')!.value) - 1; // 0-indexed
             const startMTDay = parseInt(startMTParts.find(p => p.type === 'day')!.value);
             
-            // Get the day of the week in Mountain Time (0 = Sunday, 1 = Monday, etc.)
-            const startMTDayOfWeek = new Date(startMTYear, startMTMonth, startMTDay).getDay();
+            // Get the day of the week in company timezone (0 = Sunday, 1 = Monday, etc.)
+            // Create date string and parse in company timezone to get correct day of week
+            const startMTDateStr = `${startMTYear}-${String(startMTMonth + 1).padStart(2, '0')}-${String(startMTDay).padStart(2, '0')}`;
+            const startMTDate = parseMountainTimeDate(startMTDateStr);
+            const startMTDayOfWeek = startMTDate.toLocaleDateString('en-US', { 
+              weekday: 'long',
+              timeZone: companyTimezone
+            });
+            const dayOfWeekMap: Record<string, number> = {
+              'Sunday': 0, 'Monday': 1, 'Tuesday': 2, 'Wednesday': 3, 
+              'Thursday': 4, 'Friday': 5, 'Saturday': 6
+            };
+            const startMTDayOfWeekNum = dayOfWeekMap[startMTDayOfWeek] ?? 0;
             
             // Create dtstart at the original time but ensure it represents the correct day in Mountain Time
             let candidateDtstart = createMountainTimeDate(startMTYear, startMTMonth, startMTDay, originalHours, originalMinutes, originalSeconds);
@@ -429,7 +442,7 @@ export default function CalendarView({ events, specials, announcements = [], bus
               const targetDays = bydayStr.split(',').map(d => dayMap[d.trim()]).filter(d => d !== undefined);
               
               // Check if the start date's day of week (in MT) matches any of the target days
-              const startDateMatches = targetDays.includes(startMTDayOfWeek);
+              const startDateMatches = targetDays.includes(startMTDayOfWeekNum);
               
               // Check if the UTC day of week matches any of the target days
               const utcDayMatches = targetDays.includes(candidateUTCDayOfWeek);
@@ -439,10 +452,10 @@ export default function CalendarView({ events, specials, announcements = [], bus
                 // Find the first target day that comes after or on the start date
                 // Sort target days and find the next one
                 const sortedTargetDays = [...targetDays].sort((a, b) => a - b);
-                let targetDay = sortedTargetDays.find(d => d >= startMTDayOfWeek) || sortedTargetDays[0];
+                let targetDay = sortedTargetDays.find(d => d >= startMTDayOfWeekNum) || sortedTargetDays[0];
                 
                 // Calculate days to add to get to the target day
-                let dayDiff = targetDay - startMTDayOfWeek;
+                let dayDiff = targetDay - startMTDayOfWeekNum;
                 if (dayDiff < 0) dayDiff += 7; // Wrap around to next week
                 
                 // Adjust the date to the target day
@@ -589,8 +602,18 @@ export default function CalendarView({ events, specials, announcements = [], bus
                 'SU': 0, 'MO': 1, 'TU': 2, 'WE': 3, 'TH': 4, 'FR': 5, 'SA': 6
               };
               
-              // Check what day of week the occurrence represents in Mountain Time
-              const occurrenceMTDayOfWeek = new Date(occurrenceMTYear, occurrenceMTMonth - 1, occurrenceMTDay).getDay();
+            // Check what day of week the occurrence represents in company timezone
+            const occurrenceMTDateStr = `${occurrenceMTYear}-${String(occurrenceMTMonth).padStart(2, '0')}-${String(occurrenceMTDay).padStart(2, '0')}`;
+            const occurrenceMTDate = parseMountainTimeDate(occurrenceMTDateStr);
+            const occurrenceMTDayOfWeekName = occurrenceMTDate.toLocaleDateString('en-US', { 
+              weekday: 'long',
+              timeZone: companyTimezone
+            });
+            const dayOfWeekMap: Record<string, number> = {
+              'Sunday': 0, 'Monday': 1, 'Tuesday': 2, 'Wednesday': 3, 
+              'Thursday': 4, 'Friday': 5, 'Saturday': 6
+            };
+            const occurrenceMTDayOfWeek = dayOfWeekMap[occurrenceMTDayOfWeekName] ?? 0;
               
               // If BYDAY is specified, check if the occurrence's day matches any of the specified days
               if (bydayMatch) {
@@ -699,33 +722,59 @@ export default function CalendarView({ events, specials, announcements = [], bus
         
         if (special.endDate) {
           const endDateValue = special.endDate as string | Date;
-          endDateStr = typeof endDateValue === 'string' 
-            ? endDateValue.split('T')[0] 
-            : getMountainTimeDateString(endDateValue);
+          if (typeof endDateValue === 'string') {
+            endDateStr = endDateValue.split('T')[0];
+          } else {
+            // For Date objects, get the date string directly in Mountain Time
+            // getMountainTimeDateString handles timezone conversion correctly
+            // Even if endDate is 23:59:59.999 in Mountain Time, it will return the correct date string
+            endDateStr = getMountainTimeDateString(endDateValue);
+          }
         }
         
         const startDate = startDateStr ? parseMountainTimeDate(startDateStr) : null;
         const endDate = endDateStr ? parseMountainTimeDate(endDateStr) : null;
 
-        if (startDate) {
-          // Normalize to start of day in Mountain Time to prevent timezone issues
-          const normalizedStartDate = startOfDay(startDate);
-          const normalizedEndDate = endDate ? startOfDay(endDate) : normalizedStartDate;
+        if (startDate && startDateStr) {
+          // Use date strings directly for comparison (already in Mountain Time format)
+          // Both startDate and endDate were parsed from date strings, so we can compare the strings directly
+          const isSingleDay = !endDateStr || startDateStr === endDateStr;
           
-          // If only startDate is provided, treat it as a single-day special
-          const effectiveEndDate = normalizedEndDate;
-          
-          let date = new Date(Math.max(normalizedStartDate.getTime(), rangeStart.getTime()));
-          const rangeEndDate = new Date(Math.min(effectiveEndDate.getTime(), rangeEnd.getTime()));
-          
-          while (date <= rangeEndDate) {
-            if (isWithinInterval(date, { start: rangeStart, end: rangeEnd })) {
-              items.push({
-                ...special,
-                date: startOfDay(new Date(date)),
-              });
+          if (isSingleDay) {
+            // Single-day special: check if the date string matches any day in the visible range
+            // This is more reliable than using isWithinInterval which can have timezone issues
+            let date = new Date(rangeStart);
+            const rangeEndDate = new Date(rangeEnd);
+            
+            while (date <= rangeEndDate) {
+              const dayDateStr = getMountainTimeDateString(date);
+              // Compare date strings directly to avoid timezone issues
+              if (dayDateStr === startDateStr) {
+                items.push({
+                  ...special,
+                  date: parseMountainTimeDate(dayDateStr),
+                });
+                break; // Found the matching day, no need to continue
+              }
+              date = addDays(date, 1);
             }
-            date = addDays(date, 1);
+          } else {
+            // Multi-day special: show on all days in the range using date string comparison
+            // Iterate through days in the visible range and check if they fall within the special's date range
+            let date = new Date(rangeStart);
+            const rangeEndDate = new Date(rangeEnd);
+            
+            while (date <= rangeEndDate) {
+              const dayDateStr = getMountainTimeDateString(date);
+              // Compare date strings directly to avoid timezone issues
+              if (dayDateStr >= startDateStr && dayDateStr <= (endDateStr || startDateStr)) {
+                items.push({
+                  ...special,
+                  date: parseMountainTimeDate(dayDateStr),
+                });
+              }
+              date = addDays(date, 1);
+            }
           }
         }
       }
@@ -734,8 +783,27 @@ export default function CalendarView({ events, specials, announcements = [], bus
       if (special.type === 'drink') {
         const appliesOn = special.appliesOn ? (typeof special.appliesOn === 'string' ? JSON.parse(special.appliesOn) : special.appliesOn) : [];
         // Parse dates as Mountain Time dates (not UTC) to prevent day shifts
-        const startDateStr = special.startDate ? special.startDate.split('T')[0] : null;
-        const endDateStr = special.endDate ? special.endDate.split('T')[0] : null;
+        let startDateStr: string | null = null;
+        let endDateStr: string | null = null;
+        
+        if (special.startDate) {
+          const startDateValue = special.startDate as string | Date;
+          startDateStr = typeof startDateValue === 'string' 
+            ? startDateValue.split('T')[0] 
+            : getMountainTimeDateString(startDateValue);
+        }
+        
+        if (special.endDate) {
+          const endDateValue = special.endDate as string | Date;
+          if (typeof endDateValue === 'string') {
+            endDateStr = endDateValue.split('T')[0];
+          } else {
+            // Get the date string directly in Mountain Time
+            // getMountainTimeDateString handles timezone conversion correctly
+            endDateStr = getMountainTimeDateString(endDateValue);
+          }
+        }
+        
         const startDate = startDateStr ? parseMountainTimeDate(startDateStr) : null;
         const endDate = endDateStr ? parseMountainTimeDate(endDateStr) : null;
         
@@ -754,8 +822,14 @@ export default function CalendarView({ events, specials, announcements = [], bus
           };
           
           while (date <= rangeEnd) {
-            const dayOfWeek = date.getDay();
-            const dayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dayOfWeek];
+            // Get day of week in company timezone, not browser locale
+            const dateStr = getMountainTimeDateString(date);
+            const dateInCompanyTz = parseMountainTimeDate(dateStr);
+            // Use toLocaleDateString with company timezone to get correct day of week
+            const dayName = dateInCompanyTz.toLocaleDateString('en-US', { 
+              weekday: 'long',
+              timeZone: companyTimezone
+            });
             
             if (appliesOn.includes(dayName) && isWithinInterval(date, { start: rangeStart, end: rangeEnd })) {
               items.push({
@@ -767,18 +841,17 @@ export default function CalendarView({ events, specials, announcements = [], bus
           }
         } else if (startDate) {
           // If date range is set (no weekly recurring)
-          // Normalize to start of day in Mountain Time to prevent timezone issues
-          const normalizedStartDate = startOfDay(startDate);
-          const normalizedEndDate = endDate ? startOfDay(endDate) : normalizedStartDate;
-          
-          let date = new Date(Math.max(normalizedStartDate.getTime(), rangeStart.getTime()));
-          const rangeEndDate = new Date(Math.min(normalizedEndDate.getTime(), rangeEnd.getTime()));
+          // Use date strings for comparison to avoid timezone issues
+          let date = new Date(rangeStart);
+          const rangeEndDate = new Date(rangeEnd);
           
           while (date <= rangeEndDate) {
-            if (isWithinInterval(date, { start: rangeStart, end: rangeEnd })) {
+            const dayDateStr = getMountainTimeDateString(date);
+            // Compare date strings directly to avoid timezone issues
+            if (dayDateStr >= (startDateStr || '') && dayDateStr <= (endDateStr || startDateStr || '')) {
               items.push({
                 ...special,
-                date: startOfDay(new Date(date)),
+                date: parseMountainTimeDate(dayDateStr),
               });
             }
             date = addDays(date, 1);
@@ -843,11 +916,11 @@ export default function CalendarView({ events, specials, announcements = [], bus
     return items.sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [localEvents, specials, announcements, currentDate, calendarStart, calendarEnd, weekStart, weekEnd, dayStart, dayEnd, viewMode]);
 
-  // Group items by date
+  // Group items by date (using Mountain Time to avoid timezone issues)
   const itemsByDate = useMemo(() => {
     const grouped: Record<string, CalendarItem[]> = {};
     getAllItems.forEach((item) => {
-      const dateKey = format(item.date, 'yyyy-MM-dd');
+      const dateKey = getMountainTimeDateString(item.date);
       if (!grouped[dateKey]) {
         grouped[dateKey] = [];
       }
@@ -857,7 +930,7 @@ export default function CalendarView({ events, specials, announcements = [], bus
   }, [getAllItems]);
 
   const getItemsForDate = (date: Date) => {
-    const dateKey = format(date, 'yyyy-MM-dd');
+    const dateKey = getMountainTimeDateString(date);
     const allItems = itemsByDate[dateKey] || [];
     
     const foodSpecials = allItems.filter(item => item.eventType === 'special' && item.type === 'food');
@@ -1192,9 +1265,9 @@ export default function CalendarView({ events, specials, announcements = [], bus
         <div className="grid grid-cols-7 gap-2 px-2" style={{ minHeight: `${dayHeight * 6}px` }}>
           {days.map((day, idx) => {
             const isCurrentMonth = isSameMonth(day, currentDate);
-            const isToday = isSameDay(day, new Date());
+            const isToday = isSameDay(day, getMountainTimeToday());
             const items = getItemsForDate(day);
-            const dateKey = format(day, 'yyyy-MM-dd');
+            const dateKey = getMountainTimeDateString(day);
             const hasAnyItems = (itemsByDate[dateKey]?.length || 0) > 0;
             const isHovered = hoveredDay && isSameDay(day, hoveredDay);
 
@@ -1451,7 +1524,7 @@ export default function CalendarView({ events, specials, announcements = [], bus
 
     // Get all-day items for a day (specials, announcements, and all-day events)
     const getAllDayItems = (day: Date): CalendarItem[] => {
-      const dayKey = format(day, 'yyyy-MM-dd');
+      const dayKey = getMountainTimeDateString(day);
       const allItems = itemsByDate[dayKey] || [];
       
       return allItems.filter((item) => {
@@ -1468,7 +1541,7 @@ export default function CalendarView({ events, specials, announcements = [], bus
 
     // Get items for each day with their time positions (excluding all-day items)
     const getItemsWithPosition = (day: Date) => {
-      const dayKey = format(day, 'yyyy-MM-dd');
+      const dayKey = getMountainTimeDateString(day);
       const allItems = itemsByDate[dayKey] || [];
       
       // Filter out all-day items
@@ -1521,7 +1594,7 @@ export default function CalendarView({ events, specials, announcements = [], bus
           <div className="w-12 sm:w-14 flex-shrink-0 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-widest px-2 sm:px-3 py-2 sm:py-3 border-r border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900"></div>
           <div className="grid grid-cols-7 flex-1">
             {weekDays.map((day, dayIndex) => {
-              const isToday = isSameDay(day, new Date());
+              const isToday = isSameDay(day, getMountainTimeToday());
               return (
                 <div 
                   key={format(day, 'EEE')} 
@@ -1556,7 +1629,7 @@ export default function CalendarView({ events, specials, announcements = [], bus
           <div className="grid grid-cols-7 flex-1">
             {weekDays.map((day, dayIndex) => {
               const allDayItems = getAllDayItems(day);
-              const isToday = isSameDay(day, new Date());
+              const isToday = isSameDay(day, getMountainTimeToday());
               
               return (
                 <div
@@ -1696,7 +1769,7 @@ export default function CalendarView({ events, specials, announcements = [], bus
             <div className="grid grid-cols-7 flex-1">
               {weekDays.map((day, dayIndex) => {
                 const itemsWithPosition = getItemsWithPosition(day);
-                const isToday = isSameDay(day, new Date());
+                const isToday = isSameDay(day, getMountainTimeToday());
                 
                 return (
                   <div
@@ -1901,7 +1974,7 @@ export default function CalendarView({ events, specials, announcements = [], bus
 
     // Get all-day items for the day
     const getAllDayItems = (day: Date): CalendarItem[] => {
-      const dayKey = format(day, 'yyyy-MM-dd');
+      const dayKey = getMountainTimeDateString(day);
       const allItems = itemsByDate[dayKey] || [];
       
       return allItems.filter((item) => {
@@ -1918,7 +1991,7 @@ export default function CalendarView({ events, specials, announcements = [], bus
 
     // Get items for the day with their time positions (excluding all-day items)
     const getItemsWithPosition = (day: Date) => {
-      const dayKey = format(day, 'yyyy-MM-dd');
+      const dayKey = getMountainTimeDateString(day);
       const allItems = itemsByDate[dayKey] || [];
       
       // Filter out all-day items
@@ -1967,7 +2040,7 @@ export default function CalendarView({ events, specials, announcements = [], bus
 
     const allDayItems = getAllDayItems(day);
     const itemsWithPosition = getItemsWithPosition(day);
-    const isToday = isSameDay(day, new Date());
+    const isToday = isSameDay(day, getMountainTimeToday());
 
     return (
       <>

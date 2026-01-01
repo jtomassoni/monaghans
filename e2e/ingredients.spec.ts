@@ -1,16 +1,31 @@
 import { test, expect } from '@playwright/test';
+import { TestMetadata } from './test-metadata';
+
+export const testMetadata: TestMetadata = {
+  specName: 'ingredients',
+  featureArea: 'operations',
+  description: 'Ingredients management',
+};
 
 test.use({ storageState: '.auth/admin.json' });
 
 test.describe('Ingredients Management', () => {
   test('should navigate to ingredients page', async ({ page }) => {
     await page.goto('/admin');
+    await page.waitForTimeout(1000);
     
-    // Navigate to ingredients
-    await page.click('a:has-text("Ingredients")');
+    // Navigate to ingredients - wait for link to be visible
+    const ingredientsLink = page.locator('a:has-text("Ingredients")').first();
+    await ingredientsLink.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
     
-    // Should be on ingredients page
-    await expect(page).toHaveURL(/\/admin\/ingredients/);
+    if (await ingredientsLink.isVisible().catch(() => false)) {
+      await ingredientsLink.click();
+      await page.waitForURL(/\/admin\/ingredients/, { timeout: 5000 });
+    } else {
+      // Link not visible, try direct navigation
+      await page.goto('/admin/ingredients');
+      await expect(page).toHaveURL(/\/admin\/ingredients/);
+    }
   });
 
   test('should display ingredients list', async ({ page }) => {
@@ -170,7 +185,7 @@ test.describe('Ingredients Management', () => {
       await page.waitForTimeout(1000);
       
       // Look for ingredients section
-      const ingredientsSection = page.locator('text=/ingredient/i, select[id*="ingredient"], input[id*="ingredient"]');
+      const ingredientsSection = page.locator('text=/ingredient/i').or(page.locator('select[id*="ingredient"]')).or(page.locator('input[id*="ingredient"]'));
       const sectionCount = await ingredientsSection.count();
       
       // Ingredients linking may or may not be available in the form

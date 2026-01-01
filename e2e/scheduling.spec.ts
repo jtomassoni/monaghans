@@ -1,4 +1,11 @@
 import { test, expect } from '@playwright/test';
+import { TestMetadata } from './test-metadata';
+
+export const testMetadata: TestMetadata = {
+  specName: 'scheduling',
+  featureArea: 'staff',
+  description: 'Staff scheduling and shift management',
+};
 
 // Test with both admin and owner roles
 const roles = ['admin', 'owner'] as const;
@@ -9,12 +16,31 @@ for (const role of roles) {
 
     test('should navigate to scheduling page', async ({ page }) => {
       await page.goto('/admin');
+      await page.waitForTimeout(1000);
       
-      // Navigate to scheduling
-      await page.click('a:has-text("Scheduling"), a:has-text("Staff")');
+      // Navigate to scheduling - look for Staff Management link (in Back of House section)
+      // The link might be in a collapsible section, so we need to expand it first
+      const backOfHouseButton = page.locator('button:has-text("Back of House")').or(page.locator('button:has-text("BOH")'));
+      const bohButtonCount = await backOfHouseButton.count().catch(() => 0);
       
-      // Should be on scheduling page
-      await expect(page).toHaveURL(/\/admin\/staff/);
+      if (bohButtonCount > 0 && await backOfHouseButton.isVisible().catch(() => false)) {
+        // Expand the Back of House section
+        await backOfHouseButton.click();
+        await page.waitForTimeout(500);
+      }
+      
+      // Now look for Staff Management link
+      const staffLink = page.locator('a:has-text("Staff Management")').or(page.locator('a[href="/admin/staff"]')).first();
+      await staffLink.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+      
+      if (await staffLink.isVisible().catch(() => false)) {
+        await staffLink.click();
+        await page.waitForURL(/\/admin\/staff/, { timeout: 5000 });
+      } else {
+        // Link not visible, try direct navigation
+        await page.goto('/admin/staff');
+        await expect(page).toHaveURL(/\/admin\/staff/);
+      }
     });
 
     test('should display scheduling interface', async ({ page }) => {

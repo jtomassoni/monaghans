@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, handleError } from '@/lib/api-helpers';
+import { isFeatureEnabled } from '@/lib/feature-flags';
 import { calculateShiftTimes, type ShiftType, type EmployeeRole } from '@/lib/schedule-helpers';
 import { parseMountainTimeDate } from '@/lib/timezone';
 
@@ -12,6 +13,15 @@ import { parseMountainTimeDate } from '@/lib/timezone';
 export async function GET(req: NextRequest) {
   const authError = await requireAuth(req);
   if (authError) return authError;
+
+  // Check if staff management feature is enabled
+  const isStaffManagementEnabled = await isFeatureEnabled('staff_management');
+  if (!isStaffManagementEnabled) {
+    return NextResponse.json(
+      { error: 'Staff management feature is not enabled' },
+      { status: 403 }
+    );
+  }
 
   try {
     const { searchParams } = new URL(req.url);
@@ -68,6 +78,15 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const authError = await requireAuth(req);
   if (authError) return authError;
+
+  // Check if staff management feature is enabled
+  const isStaffManagementEnabled = await isFeatureEnabled('staff_management');
+  if (!isStaffManagementEnabled) {
+    return NextResponse.json(
+      { error: 'Staff management feature is not enabled' },
+      { status: 403 }
+    );
+  }
 
   try {
     const body = await req.json();

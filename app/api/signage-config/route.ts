@@ -19,9 +19,13 @@ type SignageSlide = {
   footer?: string;
   position?: number;
   isEnabled?: boolean;
+  imageStorageKey?: string;
+  imageUrl?: string;
+  showBorder?: boolean; // For image slides: show border with accent color
 };
 
 type SignageConfig = {
+  includeWelcome: boolean;
   includeFoodSpecials: boolean;
   includeDrinkSpecials: boolean;
   includeHappyHour: boolean;
@@ -33,6 +37,7 @@ type SignageConfig = {
 };
 
 const DEFAULT_CONFIG: SignageConfig = {
+  includeWelcome: true,
   includeFoodSpecials: true,
   includeDrinkSpecials: true,
   includeHappyHour: true,
@@ -50,6 +55,7 @@ function clamp(num: number, min: number, max: number) {
 function sanitizeConfig(payload: any): SignageConfig {
   const base: SignageConfig = { ...DEFAULT_CONFIG };
 
+  if (typeof payload?.includeWelcome === 'boolean') base.includeWelcome = payload.includeWelcome;
   if (typeof payload?.includeFoodSpecials === 'boolean') base.includeFoodSpecials = payload.includeFoodSpecials;
   if (typeof payload?.includeDrinkSpecials === 'boolean') base.includeDrinkSpecials = payload.includeDrinkSpecials;
   if (typeof payload?.includeHappyHour === 'boolean') base.includeHappyHour = payload.includeHappyHour;
@@ -80,6 +86,9 @@ function sanitizeConfig(payload: any): SignageConfig {
           footer: slide.footer ? String(slide.footer) : undefined,
           position: typeof slide.position === 'number' ? slide.position : idx + 1,
           isEnabled: slide.isEnabled !== false,
+          imageStorageKey: slide.imageStorageKey ? String(slide.imageStorageKey) : undefined,
+          imageUrl: slide.imageUrl ? String(slide.imageUrl) : undefined,
+          showBorder: typeof slide.showBorder === 'boolean' ? slide.showBorder : undefined, // undefined means default (true for backward compatibility)
         };
       })
       .filter(Boolean) as SignageSlide[];

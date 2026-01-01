@@ -25,6 +25,14 @@ This directory contains Playwright e2e tests for the Monaghan's application.
    - Create test users from `ADMIN_USERS` and `OWNER_USERS` env vars (defaults: "jt:test" and "owner:test")
    - Set up basic settings needed for tests
 
+4. (Optional) Seed database with sample data for manual QA:
+   ```bash
+   npm run db:seed
+   ```
+   
+   This creates comprehensive sample data (specials, events, announcements, menu items, etc.) useful for manual testing.
+   **Note**: E2E tests clean up their own data and won't interfere with seed data. See `E2E_TEST_DATA_MANAGEMENT.md` for details.
+
 4. Ensure environment variables are set:
    - `ADMIN_USERS` (default: "jt:test") - Format: "username1:password1,username2:password2"
    - `OWNER_USERS` (default: "owner:test") - Format: "username1:password1,username2:password2"

@@ -39,7 +39,7 @@ This application includes comprehensive analytics tracking for SEO auditing and 
 
 ### 2. Configure Environment Variable
 
-Add the following to your `.env.local` file:
+Add the following to your `.env` file:
 
 ```env
 # Google Analytics 4

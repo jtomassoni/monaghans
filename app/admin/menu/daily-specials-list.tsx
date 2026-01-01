@@ -21,6 +21,7 @@ interface DailySpecial {
   timeWindow: string | null;
   startDate: string | null;
   endDate: string | null;
+  appliesOn: string | null; // JSON array of weekdays for recurring specials
   image: string | null;
   isActive: boolean;
 }
@@ -206,6 +207,7 @@ export default function DailySpecialsList({ initialSpecials }: DailySpecialsList
                 ? specialData.endDate
                 : new Date(specialData.endDate).toISOString().split('T')[0])
             : null,
+          appliesOn: specialData.appliesOn || null,
           image: specialData.image || null,
           isActive: specialData.isActive,
         });
@@ -233,6 +235,7 @@ export default function DailySpecialsList({ initialSpecials }: DailySpecialsList
           description: specialData.description || null,
           priceNotes: specialData.priceNotes || null,
           type: specialData.type,
+          appliesOn: specialData.appliesOn || null,
           timeWindow: specialData.timeWindow || null,
           startDate: specialData.startDate 
             ? (typeof specialData.startDate === 'string' 
@@ -307,6 +310,37 @@ export default function DailySpecialsList({ initialSpecials }: DailySpecialsList
     return specialDateStr < mtTodayStr;
   };
 
+
+  const getAppliesOnDays = (appliesOn: string | null): string[] => {
+    if (!appliesOn) return [];
+    try {
+      return JSON.parse(appliesOn);
+    } catch {
+      return [];
+    }
+  };
+
+  const formatDays = (appliesOn: string | null): string => {
+    const days = getAppliesOnDays(appliesOn);
+    if (days.length === 0) return '';
+    if (days.length === 7) return 'Every day';
+    
+    const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const WEEKDAY_ABBREVIATIONS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    
+    // Sort days by weekday order
+    const sortedDays = days.sort((a, b) => WEEKDAYS.indexOf(a) - WEEKDAYS.indexOf(b));
+    
+    // Check for consecutive days
+    if (sortedDays.length === 5 && sortedDays.join(',') === 'Monday,Tuesday,Wednesday,Thursday,Friday') {
+      return 'Weekdays';
+    }
+    if (sortedDays.length === 2 && sortedDays.join(',') === 'Saturday,Sunday') {
+      return 'Weekends';
+    }
+    
+    return sortedDays.map(day => WEEKDAY_ABBREVIATIONS[WEEKDAYS.indexOf(day)]).join(', ');
+  };
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'No date';
@@ -682,6 +716,10 @@ export default function DailySpecialsList({ initialSpecials }: DailySpecialsList
                                     - {formatDate(item.endDate)}
                                   </span>
                                 )}
+                              </span>
+                            ) : item.appliesOn ? (
+                              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Every {formatDays(item.appliesOn)}
                               </span>
                             ) : (
                               <span className="text-sm text-gray-400 dark:text-gray-500 italic">No date</span>

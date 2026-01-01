@@ -11,6 +11,7 @@ interface ConfirmationDialogProps {
   confirmText?: string;
   cancelText?: string;
   variant?: 'danger' | 'warning' | 'info';
+  disabled?: boolean;
 }
 
 export default function ConfirmationDialog({
@@ -22,6 +23,7 @@ export default function ConfirmationDialog({
   confirmText = 'Confirm',
   cancelText = 'Cancel',
   variant = 'danger',
+  disabled = false,
 }: ConfirmationDialogProps) {
   useEffect(() => {
     if (isOpen) {
@@ -36,18 +38,17 @@ export default function ConfirmationDialog({
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!isOpen) return;
+      if (!isOpen || disabled) return;
       
       if (e.key === 'Escape') {
         onClose();
       } else if (e.key === 'Enter') {
         onConfirm();
-        onClose();
       }
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose, onConfirm]);
+  }, [isOpen, onClose, onConfirm, disabled]);
 
   if (!isOpen) return null;
 
@@ -110,16 +111,19 @@ export default function ConfirmationDialog({
         <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
+            disabled={disabled}
+            className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {cancelText}
           </button>
           <button
             onClick={() => {
-              onConfirm();
-              onClose();
+              if (!disabled) {
+                onConfirm();
+              }
             }}
-            className={`px-4 py-2 ${styles.button} text-white rounded-lg text-sm font-semibold transition-all duration-200 hover:scale-105 cursor-pointer`}
+            disabled={disabled}
+            className={`px-4 py-2 ${styles.button} text-white rounded-lg text-sm font-semibold transition-all duration-200 hover:scale-105 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100`}
           >
             {confirmText}
           </button>

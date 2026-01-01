@@ -1,4 +1,11 @@
 import { test, expect } from '@playwright/test';
+import { TestMetadata } from './test-metadata';
+
+export const testMetadata: TestMetadata = {
+  specName: 'availability',
+  featureArea: 'staff',
+  description: 'Employee availability management',
+};
 
 test.use({ storageState: '.auth/admin.json' });
 

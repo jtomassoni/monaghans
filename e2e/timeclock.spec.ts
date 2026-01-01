@@ -1,4 +1,11 @@
 import { test, expect } from '@playwright/test';
+import { TestMetadata } from './test-metadata';
+
+export const testMetadata: TestMetadata = {
+  specName: 'timeclock',
+  featureArea: 'staff',
+  description: 'Timeclock functionality (clock in/out)',
+};
 
 test.use({ storageState: '.auth/admin.json' });
 

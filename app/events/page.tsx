@@ -335,29 +335,30 @@ export default async function EventsPage() {
 
   // Get upcoming events (one-time events + recurring occurrences, starting from today)
   // Use today instead of now to include events happening today even if they've already started
-  // Limit to the next 7 days for a focused “this week” view
-  const oneWeekFromToday = new Date(today);
-  oneWeekFromToday.setDate(oneWeekFromToday.getDate() + 7); // Start of the day one week out
+  // Look ahead far enough to get at least 5 events
+  const futureDate = new Date(today);
+  futureDate.setMonth(futureDate.getMonth() + 3); // Look ahead 3 months for recurring events
 
   const upcomingOneTimeEvents = allEvents.filter(event => {
     if (event.recurrenceRule) return false;
     const eventDate = new Date(event.startDateTime);
-    // Include events starting today and within the next 7 days (exclusive of the 8th day)
-    return eventDate >= today && eventDate < oneWeekFromToday;
+    // Include events starting today and in the future
+    return eventDate >= today;
   });
 
   const upcomingRecurringOccurrences = allEvents
     .filter(event => event.recurrenceRule)
-    .flatMap(event => getRecurringEventOccurrences(event, today, oneWeekFromToday))
+    .flatMap(event => getRecurringEventOccurrences(event, today, futureDate))
     .filter(occurrence => {
-      // Keep occurrences happening today through the next 7 days
+      // Keep occurrences happening today and in the future
       const occurrenceDate = new Date(occurrence.startDateTime);
-      return occurrenceDate >= today && occurrenceDate < oneWeekFromToday;
+      return occurrenceDate >= today;
     });
 
-  // Combine all upcoming events and sort by start time
+  // Combine all upcoming events, sort by start time, and take only the next 5
   const allUpcomingEvents = [...upcomingOneTimeEvents, ...upcomingRecurringOccurrences]
-    .sort((a, b) => new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime());
+    .sort((a, b) => new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime())
+    .slice(0, 5); // Limit to next 5 events
 
   // Group events by month
   const eventsByMonth = new Map<string, typeof allUpcomingEvents>();
@@ -387,17 +388,9 @@ export default async function EventsPage() {
   const nowDateStr = getCompanyTimezoneDateString(now, 'America/Denver');
   const [nowYear, nowMonth] = nowDateStr.split('-');
   const currentMonthKey = `${nowYear}-${nowMonth}`;
-  
-  // Calculate the cutoff month (one week from now)
-  const cutoffDate = new Date(oneWeekFromToday);
-  const cutoffDateStr = getCompanyTimezoneDateString(cutoffDate, 'America/Denver');
-  const [cutoffYear, cutoffMonth] = cutoffDateStr.split('-');
-  const cutoffMonthKey = `${cutoffYear}-${cutoffMonth}`;
 
-  // Filter to only show events from current month through the one-week cutoff
   // Sort months chronologically
   const sortedMonths = Array.from(eventsByMonth.entries())
-    .filter(([monthKey]) => monthKey <= cutoffMonthKey)
     .sort((a, b) => a[0].localeCompare(b[0]));
 
   return (
@@ -405,8 +398,8 @@ export default async function EventsPage() {
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-bold mb-2 text-white">This Week's Events</h1>
-          <p className="text-purple-300 text-sm mb-4 font-semibold tracking-wide uppercase">Next 7 days</p>
+          <h1 className="text-4xl md:text-5xl font-bold mb-2 text-white">Upcoming Events</h1>
+          <p className="text-purple-300 text-sm mb-4 font-semibold tracking-wide uppercase">Next 5 events</p>
           <div className="w-24 h-1 bg-purple-500 mx-auto mb-8"></div>
           <p className="text-xl text-gray-400 max-w-2xl mx-auto mb-8">
             Join us for live music, trivia nights, and special events. Check back regularly for updates.
@@ -506,7 +499,7 @@ export default async function EventsPage() {
                               <span className="text-2xl font-bold text-white">{eventDay}</span>
                             </div>
                             <div className="flex-1">
-                              <h3 className="text-xl font-bold text-white group-hover:text-purple-300 transition-colors mb-1 pr-8">
+                              <h3 className="text-xl font-extrabold text-white group-hover:text-purple-300 transition-colors mb-1 pr-8 border-b-2 border-purple-500/40 pb-1">
                                 {event.title}
                               </h3>
                             </div>
@@ -514,18 +507,18 @@ export default async function EventsPage() {
                           
                           {/* Description */}
                           {event.description && (
-                            <p className="text-gray-300 mb-5 leading-relaxed text-sm line-clamp-2">
+                            <p className="text-gray-400 mb-5 leading-relaxed text-sm line-clamp-2 italic font-light">
                               {event.description}
                             </p>
                           )}
                           
                           {/* Event Details */}
                           <div className="space-y-3 pt-4 border-t border-gray-800/50">
-                            <div className="flex items-center gap-3 text-gray-300">
-                              <svg className="w-5 h-5 text-purple-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div className="flex items-center gap-3">
+                              <svg className="w-5 h-5 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
-                              <span className="text-sm font-medium">
+                              <span className="text-sm font-bold text-blue-300 bg-blue-500/10 px-2 py-1 rounded border border-blue-400/30">
                                 {formatTimeInMountainTime(new Date(event.startDateTime))}
                                 {event.endDateTime &&
                                   ` - ${formatTimeInMountainTime(new Date(event.endDateTime))}`}
@@ -533,12 +526,12 @@ export default async function EventsPage() {
                             </div>
                             
                             {event.venueArea && (
-                              <div className="flex items-center gap-3 text-gray-300">
-                                <svg className="w-5 h-5 text-purple-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <div className="flex items-center gap-3">
+                                <svg className="w-5 h-5 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                                 </svg>
-                                <span className="text-sm font-medium">{event.venueArea}</span>
+                                <span className="text-sm text-emerald-300 font-semibold uppercase tracking-wide">{event.venueArea}</span>
                               </div>
                             )}
                           </div>

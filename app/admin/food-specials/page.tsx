@@ -5,6 +5,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import DailySpecialsList from '../menu/daily-specials-list';
 import NewFoodSpecialButton from './new-food-special-button';
+import AdminPageHeader from '@/components/admin-page-header';
 
 const LoadingFallback = () => (
   <div className="text-center py-16">
@@ -24,6 +25,7 @@ const transformSpecial = (special: any) => ({
   timeWindow: special.timeWindow || null,
   startDate: special.startDate?.toISOString() || null,
   endDate: special.endDate?.toISOString() || null,
+  appliesOn: special.appliesOn || null, // JSON string array of weekdays for recurring specials
   image: special.image || null,
   isActive: special.isActive,
 });
@@ -50,19 +52,11 @@ export default async function AdminFoodSpecials() {
       </div>
 
       {/* Header */}
-      <header className="flex-shrink-0 px-4 sm:px-6 py-3 md:py-4 pt-16 md:pt-0 border-b border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm relative z-10">
-        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3 md:gap-4">
-          <div className="flex flex-col gap-1 min-w-0">
-            <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
-              Food Specials
-            </h1>
-            <p className="text-xs text-gray-500 dark:text-gray-400 hidden md:block">
-              Manage daily food specials
-            </p>
-          </div>
-          <NewFoodSpecialButton />
-        </div>
-      </header>
+      <AdminPageHeader
+        title="Food Specials"
+        description="Manage daily food specials"
+        action={<NewFoodSpecialButton />}
+      />
 
       {/* Main Content */}
       <main className="flex-1 overflow-hidden relative z-10">

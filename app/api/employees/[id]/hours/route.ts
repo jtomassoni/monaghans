@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, handleError } from '@/lib/api-helpers';
+import { isFeatureEnabled } from '@/lib/feature-flags';
 import { calculateHoursWorked, calculateShiftCost } from '@/lib/schedule-helpers';
 
 /**
@@ -13,6 +14,15 @@ export async function GET(
 ) {
   const authError = await requireAuth(req);
   if (authError) return authError;
+
+  // Check if staff management feature is enabled
+  const isStaffManagementEnabled = await isFeatureEnabled('staff_management');
+  if (!isStaffManagementEnabled) {
+    return NextResponse.json(
+      { error: 'Staff management feature is not enabled' },
+      { status: 403 }
+    );
+  }
 
   try {
     const { id } = await params;

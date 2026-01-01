@@ -1,8 +1,26 @@
 import { test, expect } from '@playwright/test';
+import { TestDataTracker } from './test-helpers';
+import { TestMetadata } from './test-metadata';
+
+export const testMetadata: TestMetadata = {
+  specName: 'user-management',
+  featureArea: 'administration',
+  description: 'User account management',
+};
 
 test.use({ storageState: '.auth/admin.json' });
 
 test.describe('User Management', () => {
+  // Track test data for cleanup
+  let tracker: TestDataTracker;
+
+  test.beforeEach(() => {
+    tracker = new TestDataTracker('.auth/admin.json', 'test');
+  });
+
+  test.afterEach(async () => {
+    await tracker.cleanup();
+  });
   test('should navigate to users page', async ({ page }) => {
     await page.goto('/admin');
     
@@ -31,6 +49,22 @@ test.describe('User Management', () => {
     
     await page.waitForTimeout(1000);
     
+    // Intercept API response to capture created user ID
+    page.on('response', async (response) => {
+      if (response.url().includes('/api/users') && response.request().method() === 'POST') {
+        if (response.ok) {
+          try {
+            const data = await response.json();
+            if (data.id) {
+              tracker.trackUser(data.id);
+            }
+          } catch (e) {
+            // Ignore JSON parse errors
+          }
+        }
+      }
+    });
+    
     // Look for "New" or "Add" button
     const newButton = page.locator('button:has-text("New"), button:has-text("Add"), button:has-text("Create"), a:has-text("New")').first();
     const buttonCount = await newButton.count();
@@ -44,7 +78,7 @@ test.describe('User Management', () => {
       const formVisible = await usernameInput.isVisible().catch(() => false);
       
       if (formVisible) {
-        // Fill in user details
+        // Fill in user details with test prefix
         await usernameInput.fill('testuser');
         
         // Fill password if exists

@@ -28,19 +28,11 @@ export function clearFeatureFlagsCache() {
 export function useFeatureFlags(): FeatureFlagsState {
   // Initialize with default disabled flags for safety
   const defaultFlags: Record<FeatureFlagKey, boolean> = {
-    calendars_events: true, // Default enabled
-    specials_management: true, // Default enabled
-    signage_management: true, // Default enabled
-    menu_management: false,
-    menu_import: false,
     online_ordering: false,
     boh_connections: false,
-    staff_scheduling: false,
+    staff_management: false,
     reporting_analytics: false,
     social_media: false,
-    homepage_management: false,
-    activity_log: false,
-    users_staff_management: false,
     purchase_orders: false,
     ingredients_management: false,
   };

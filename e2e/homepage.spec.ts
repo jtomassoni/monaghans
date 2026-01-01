@@ -1,4 +1,11 @@
 import { test, expect } from '@playwright/test';
+import { TestMetadata } from './test-metadata';
+
+export const testMetadata: TestMetadata = {
+  specName: 'homepage',
+  featureArea: 'content',
+  description: 'Public homepage display and content',
+};
 
 test.describe('Public Homepage', () => {
   test('should display homepage content', async ({ page }) => {
@@ -123,7 +130,7 @@ test.describe('Public Homepage', () => {
     await page.waitForTimeout(1000);
     
     // Look for announcements
-    const announcements = page.locator('text=/announcement/i, [data-announcement]');
+    const announcements = page.locator('text=/announcement/i').or(page.locator('[data-announcement]'));
     const announcementCount = await announcements.count();
     
     // Announcements may or may not be displayed
@@ -149,7 +156,7 @@ test.describe('Public Homepage', () => {
     await page.waitForTimeout(1000);
     
     // Look for contact info (phone, address)
-    const contactInfo = page.locator('text=/phone/i, text=/address/i, a[href^="tel:"]');
+    const contactInfo = page.locator('text=/phone/i').or(page.locator('text=/address/i')).or(page.locator('a[href^="tel:"]'));
     const infoCount = await contactInfo.count();
     
     // Contact info should be available
@@ -171,13 +178,18 @@ test.describe('Public Homepage', () => {
 
   test('should navigate to contact page', async ({ page }) => {
     await page.goto('/');
+    await page.waitForTimeout(1000);
     
-    // Look for contact link
-    const contactLink = page.locator('a:has-text("Contact"), a[href*="contact"]');
+    // Look for contact link that goes to /contact (not #contact which is a scroll link)
+    const contactLink = page.locator('a[href="/contact"]').or(page.locator('a[href*="/contact"]').filter({ hasNot: page.locator('[href*="#"]') }));
     const linkCount = await contactLink.count();
     
     if (linkCount > 0) {
       await contactLink.first().click();
+      await page.waitForURL(/\/contact/, { timeout: 5000 });
+    } else {
+      // If no direct link, try navigating directly
+      await page.goto('/contact');
       await expect(page).toHaveURL(/\/contact/);
     }
   });

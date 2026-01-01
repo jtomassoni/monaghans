@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import SignageRotator from '@/components/signage-rotator';
+import SignageAutoRefresh from '@/components/signage-auto-refresh';
 import {
   getMountainTimeWeekday,
   getMountainTimeToday,
@@ -11,11 +12,14 @@ import { startOfDay, endOfDay, format } from 'date-fns';
 import { RRule } from 'rrule';
 import { buildSlides } from './slide-builder';
 import { SlideContent } from './types';
+import { buildSignagePlaylistWithAds } from '@/lib/signage-playlist-builder';
+import { isDigitalSignageEnabled, isAdsEnabledByAdmin } from '@/lib/feature-flags-ads';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 type SignageConfig = {
+  includeWelcome: boolean;
   includeFoodSpecials: boolean;
   includeDrinkSpecials: boolean;
   includeHappyHour: boolean;
@@ -40,6 +44,7 @@ const timeFormatter = new Intl.DateTimeFormat('en-US', {
 });
 
 const DEFAULT_CONFIG: SignageConfig = {
+  includeWelcome: true,
   includeFoodSpecials: true,
   includeDrinkSpecials: true,
   includeHappyHour: true,
@@ -95,11 +100,16 @@ function sanitizeSignageConfig(value: any): SignageConfig {
             accent,
             position: typeof slide?.position === 'number' ? slide.position : idx + 1,
             isEnabled: slide?.isEnabled !== false,
+            // Preserve image fields for custom slides with images
+            imageStorageKey: slide?.imageStorageKey ?? slide?.imageUrl ?? undefined,
+            imageUrl: slide?.imageUrl ?? slide?.imageStorageKey ?? undefined,
+            showBorder: typeof slide?.showBorder === 'boolean' ? slide.showBorder : undefined,
           };
         })
       : [];
 
     return {
+      includeWelcome: parsed?.includeWelcome ?? DEFAULT_CONFIG.includeWelcome,
       includeFoodSpecials: parsed?.includeFoodSpecials ?? DEFAULT_CONFIG.includeFoodSpecials,
       includeDrinkSpecials: parsed?.includeDrinkSpecials ?? DEFAULT_CONFIG.includeDrinkSpecials,
       includeHappyHour: parsed?.includeHappyHour ?? DEFAULT_CONFIG.includeHappyHour,
@@ -562,6 +572,7 @@ export default async function SpecialsTvPage({ searchParams }: SpecialsTvPagePro
   const todayName = getMountainTimeWeekday();
   const now = getMountainTimeNow();
   const debug = getParam('debug') === '1' || getParam('debug') === 'true';
+  const autoRefreshEnabled = getParam('autoRefresh') !== 'false'; // Enabled by default, can be disabled with ?autoRefresh=false
 
   const windowStart = parseMountainTimeDate(getMountainTimeDateString(today));
   const rangeEnd = new Date(now);
@@ -584,6 +595,38 @@ export default async function SpecialsTvPage({ searchParams }: SpecialsTvPagePro
     }),
     prisma.setting.findUnique({ where: { key: 'signageConfig' } }),
   ]);
+
+  // Calculate initial version for auto-refresh
+  // Get the most recent update time from signage-related data
+  const timestamps: Date[] = [];
+  if (signageSetting?.updatedAt) {
+    timestamps.push(new Date(signageSetting.updatedAt));
+  }
+  // Find the most recently updated special
+  const latestSpecial = allSpecials.length > 0
+    ? allSpecials.reduce((latest, current) => {
+        const latestTime = latest.updatedAt ? new Date(latest.updatedAt).getTime() : 0;
+        const currentTime = current.updatedAt ? new Date(current.updatedAt).getTime() : 0;
+        return currentTime > latestTime ? current : latest;
+      })
+    : null;
+  if (latestSpecial?.updatedAt) {
+    timestamps.push(new Date(latestSpecial.updatedAt));
+  }
+  // Find the most recently updated event
+  const latestEvent = allEvents.length > 0
+    ? allEvents.reduce((latest, current) => {
+        const latestTime = latest.updatedAt ? new Date(latest.updatedAt).getTime() : 0;
+        const currentTime = current.updatedAt ? new Date(current.updatedAt).getTime() : 0;
+        return currentTime > latestTime ? current : latest;
+      })
+    : null;
+  if (latestEvent?.updatedAt) {
+    timestamps.push(new Date(latestEvent.updatedAt));
+  }
+  const initialVersion = timestamps.length > 0
+    ? Math.max(...timestamps.map(d => d.getTime()))
+    : Date.now();
 
   const signageConfig = sanitizeSignageConfig(signageSetting?.value);
 
@@ -708,7 +751,24 @@ export default async function SpecialsTvPage({ searchParams }: SpecialsTvPagePro
     });
   }
 
-  const slides: SlideContent[] = buildSlides({
+  // Check if digital signage is enabled via the 'features' setting
+  const digitalSignageEnabled = await isDigitalSignageEnabled();
+  const adsEnabled = await isAdsEnabledByAdmin('admin'); // Use admin role to check flag
+
+  // If digital signage is disabled, show disabled message
+  if (!digitalSignageEnabled) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-[#050608] text-white">
+        <div className="text-center">
+          <h1 className="text-4xl font-bold mb-4">Digital Signage Disabled</h1>
+          <p className="text-xl text-white/80">Digital signage is currently disabled.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Build slide input
+  const slideInput = {
     todayLabel: todayName,
     happyHour: {
       title: happyHour?.title,
@@ -748,17 +808,37 @@ export default async function SpecialsTvPage({ searchParams }: SpecialsTvPagePro
       };
     }),
     config: {
+      includeWelcome: signageConfig.includeWelcome,
       includeFoodSpecials: signageConfig.includeFoodSpecials,
       includeDrinkSpecials: signageConfig.includeDrinkSpecials,
       includeHappyHour: signageConfig.includeHappyHour,
       includeEvents: signageConfig.includeEvents,
       customSlides: signageConfig.customSlides || [],
     },
+  };
+
+  // Build playlist with ads (if enabled)
+  const { slides, embeddedAds } = await buildSignagePlaylistWithAds(slideInput, {
+    includeAds: adsEnabled,
+    adsPerContentSlide: 4, // Insert ad every 4 content slides
   });
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-[#050608] text-white">
-      <SignageRotator slides={slides} slideDurationMs={slideDurationMs} fadeDurationMs={fadeDurationMs} debug={debug} />
+      <SignageRotator
+        slides={slides}
+        slideDurationMs={slideDurationMs}
+        fadeDurationMs={fadeDurationMs}
+        debug={debug}
+        adsEnabled={adsEnabled}
+        embeddedAds={embeddedAds}
+      />
+      <SignageAutoRefresh 
+        initialVersion={initialVersion}
+        // pollIntervalMs={3600000} // Check every hour
+        pollIntervalMs={30000} // Check every 30 seconds
+        enabled={autoRefreshEnabled}
+      />
     </div>
   );
 }

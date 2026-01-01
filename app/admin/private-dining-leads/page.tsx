@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { getPermissions } from '@/lib/permissions';
 import PrivateDiningLeadsList from './leads-list';
+import AdminPageHeader from '@/components/admin-page-header';
 
 export default async function AdminPrivateDiningLeads() {
   const session = await getServerSession(authOptions);
@@ -55,18 +56,10 @@ export default async function AdminPrivateDiningLeads() {
       </div>
 
       {/* Header */}
-      <div className="flex-shrink-0 px-4 sm:px-6 py-3 pt-16 md:pt-0 border-b border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm relative z-[1]">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
-              Private Dining Leads
-            </h1>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-              Manage inquiries and convert leads into events
-            </p>
-          </div>
-        </div>
-      </div>
+      <AdminPageHeader
+        title="Private Dining Leads"
+        description="Manage inquiries and convert leads into events"
+      />
 
       {/* Main Content */}
       <div className="flex-1 overflow-auto p-4 sm:p-6 relative z-10">

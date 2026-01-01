@@ -1,4 +1,12 @@
 import { test, expect } from '@playwright/test';
+import { TestMetadata } from './test-metadata';
+
+export const testMetadata: TestMetadata = {
+  specName: 'specials',
+  featureArea: 'content',
+  description: 'Specials management (create, edit, delete, date ranges)',
+};
+import { TestDataTracker } from './test-helpers';
 
 // Test with both admin and owner roles
 const roles = ['admin', 'owner'] as const;
@@ -6,6 +14,17 @@ const roles = ['admin', 'owner'] as const;
 for (const role of roles) {
   test.describe(`Specials Management (${role})`, () => {
     test.use({ storageState: `.auth/${role}.json` });
+
+    // Track test data for cleanup
+    let tracker: TestDataTracker;
+
+    test.beforeEach(() => {
+      tracker = new TestDataTracker(`.auth/${role}.json`, 'Test ');
+    });
+
+    test.afterEach(async () => {
+      await tracker.cleanup();
+    });
 
     test('should navigate to food specials page', async ({ page }) => {
       await page.goto('/admin');
@@ -43,6 +62,22 @@ for (const role of roles) {
       
       await page.waitForTimeout(1000);
       
+      // Intercept API response to capture created special ID
+      page.on('response', async (response) => {
+        if (response.url().includes('/api/specials') && response.request().method() === 'POST') {
+          if (response.ok) {
+            try {
+              const data = await response.json();
+              if (data.id) {
+                tracker.trackSpecial(data.id);
+              }
+            } catch (e) {
+              // Ignore JSON parse errors
+            }
+          }
+        }
+      });
+      
       // Look for "New" or "Add" button
       const newButton = page.locator('button:has-text("New"), button:has-text("Add"), button:has-text("Create"), a:has-text("New")').first();
       const buttonCount = await newButton.count();
@@ -56,7 +91,7 @@ for (const role of roles) {
         const formVisible = await titleInput.isVisible().catch(() => false);
         
         if (formVisible) {
-          // Fill in special details
+          // Fill in special details with test prefix
           await titleInput.fill('Test Food Special');
           
           // Fill description if exists

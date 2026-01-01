@@ -1,12 +1,24 @@
 import { defineConfig, devices } from '@playwright/test';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
+import * as fs from 'fs';
+import { getDisabledTestSpecs, getEnabledTestSpecs } from './e2e/config';
 
 /**
  * Read environment variables from file.
  * https://github.com/motdotla/dotenv
  */
-dotenv.config({ path: path.resolve(__dirname, '.env') });
+const envPath = path.resolve(process.cwd(), '.env');
+if (fs.existsSync(envPath)) {
+  const result = dotenv.config({ path: envPath });
+  if (result.error) {
+    console.error('⚠️  Error loading .env file:', result.error.message);
+  }
+} else {
+  console.error('❌ .env file not found at:', envPath);
+  console.error('   Please create a .env file with DATABASE_URL set.');
+  process.exit(1);
+}
 
 // Validate DATABASE_URL is set
 if (!process.env.DATABASE_URL) {
@@ -15,11 +27,30 @@ if (!process.env.DATABASE_URL) {
   process.exit(1);
 }
 
+// Get enabled/disabled test specs from config
+const enabledSpecs = getEnabledTestSpecs();
+const disabledSpecs = getDisabledTestSpecs();
+
+// Log test configuration status
+if (disabledSpecs.length > 0) {
+  console.log(`\n📋 Test Configuration:`);
+  console.log(`   ✅ Enabled: ${enabledSpecs.length} test specs`);
+  console.log(`   ⏭️  Skipped: ${disabledSpecs.length} test specs`);
+  console.log(`   Skipped specs: ${disabledSpecs.join(', ')}\n`);
+}
+
+// Build testMatch patterns - Playwright accepts an array of glob patterns
+const testMatchPatterns = disabledSpecs.length > 0
+  ? enabledSpecs.map(spec => `**/${spec}.spec.ts`)
+  : ['**/*.spec.ts'];
+
 /**
  * See https://playwright.dev/docs/test-configuration.
  */
 export default defineConfig({
   testDir: './e2e',
+  /* Only run tests that are enabled in the config */
+  testMatch: testMatchPatterns,
   /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */

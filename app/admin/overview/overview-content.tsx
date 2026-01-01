@@ -74,12 +74,7 @@ interface OverviewContentProps {
   clockedInCount: number;
   featureFlags: {
     online_ordering: boolean;
-    staff_scheduling: boolean;
-    calendars_events: boolean;
-    specials_management: boolean;
-    menu_management: boolean;
-    activity_log: boolean;
-    users_staff_management: boolean;
+    staff_management: boolean;
   };
 }
 
@@ -237,8 +232,8 @@ export default function OverviewContent({
           </div>
 
           {/* Revenue & Quick Stats Row - Conditionally render based on feature flags */}
-          {(featureFlags.online_ordering || featureFlags.staff_scheduling) && (
-            <div className={`grid grid-cols-1 ${featureFlags.online_ordering && featureFlags.staff_scheduling ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-3 flex-shrink-0`}>
+          {(featureFlags.online_ordering || featureFlags.staff_management) && (
+            <div className={`grid grid-cols-1 ${featureFlags.online_ordering && featureFlags.staff_management ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-3 flex-shrink-0`}>
               {/* Today's Revenue - Only if online_ordering enabled */}
               {featureFlags.online_ordering && (
                 <>
@@ -278,8 +273,8 @@ export default function OverviewContent({
                 </>
               )}
 
-              {/* Staff Status - Only if staff_scheduling enabled */}
-              {featureFlags.staff_scheduling && (
+              {/* Staff Status - Only if staff_management enabled */}
+              {featureFlags.staff_management && (
                 <Link
                   href="/admin/staff?tab=clock"
                   className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all duration-200 hover:scale-[1.02] p-4 group"
@@ -302,12 +297,12 @@ export default function OverviewContent({
           )}
 
           {/* Three Column Layout for Orders, Events, and Activity - Conditionally render */}
-          {(featureFlags.online_ordering || (featureFlags.calendars_events || featureFlags.specials_management) || featureFlags.activity_log) && (
+          {(featureFlags.online_ordering || true) && (
             <div className={`grid grid-cols-1 ${(() => {
               const enabledCount = [
                 featureFlags.online_ordering,
-                (featureFlags.calendars_events || featureFlags.specials_management),
-                featureFlags.activity_log
+                true, // events/specials always enabled (core product)
+                true // activity log always enabled
               ].filter(Boolean).length;
               if (enabledCount === 1) return 'lg:grid-cols-1';
               if (enabledCount === 2) return 'lg:grid-cols-2';
@@ -365,9 +360,8 @@ export default function OverviewContent({
                 </div>
               )}
 
-              {/* Upcoming Events - Only if calendars_events or specials_management enabled */}
-              {(featureFlags.calendars_events || featureFlags.specials_management) && (
-                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-4">
+              {/* Upcoming Events - Always enabled (core product) */}
+              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-4">
                   <div className="flex items-center justify-between mb-3">
                     <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
                       <FaClock className="w-4 h-4 text-blue-600 dark:text-blue-400" />
@@ -382,9 +376,9 @@ export default function OverviewContent({
                   </div>
                   {upcomingEvents.length > 0 ? (
                     <div className="space-y-2">
-                      {upcomingEvents.map((event: any) => (
+                      {upcomingEvents.map((event: any, index: number) => (
                         <Link
-                          key={event.id}
+                          key={`${event.id}-${event.startDateTime}-${index}`}
                           href={`/admin?view=list&id=${event.id}`}
                           className="block p-2 rounded border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group"
                         >
@@ -410,11 +404,9 @@ export default function OverviewContent({
                     </p>
                   )}
                 </div>
-              )}
 
-              {/* Recent Activity - Only if activity_log enabled */}
-              {featureFlags.activity_log && (
-                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-4">
+              {/* Recent Activity - Always enabled */}
+              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-4">
                   <div className="flex items-center justify-between mb-3">
                     <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
                       <FaEdit className="w-4 h-4 text-purple-600 dark:text-purple-400" />
@@ -456,7 +448,6 @@ export default function OverviewContent({
                     )}
                   </div>
                 </div>
-              )}
             </div>
           )}
 

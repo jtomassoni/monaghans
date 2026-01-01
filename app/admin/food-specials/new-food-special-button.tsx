@@ -2,22 +2,24 @@
 
 import { useAdminMobileHeader } from '@/components/admin-mobile-header-context';
 import { useEffect } from 'react';
-import { FaPlus } from 'react-icons/fa';
+import AdminActionButton from '@/components/admin-action-button';
 
 export default function NewFoodSpecialButton() {
   const { setRightAction } = useAdminMobileHeader();
+
+  const handleClick = () => {
+    const event = new CustomEvent('openNewSpecial');
+    window.dispatchEvent(event);
+  };
 
   useEffect(() => {
     // Set mobile header action button
     const mobileButton = (
       <button
-        onClick={() => {
-          const event = new CustomEvent('openNewSpecial');
-          window.dispatchEvent(event);
-        }}
-        className="h-9 px-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white font-medium text-xs transition-all duration-200 flex items-center justify-center gap-1.5"
+        onClick={handleClick}
+        className="h-9 px-3 rounded-lg bg-blue-500 dark:bg-blue-600 hover:bg-blue-600 dark:hover:bg-blue-700 text-white font-medium text-xs transition-all duration-200 active:scale-95 flex items-center justify-center gap-1.5 border border-blue-400 dark:border-blue-500 touch-manipulation shadow-sm"
       >
-        <FaPlus className="w-3 h-3" />
+        <span>➕</span>
         <span>New</span>
       </button>
     );
@@ -29,17 +31,12 @@ export default function NewFoodSpecialButton() {
   }, [setRightAction]);
 
   return (
-    <button
-      onClick={() => {
-        const event = new CustomEvent('openNewSpecial');
-        window.dispatchEvent(event);
-      }}
-      className="px-3 py-2 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white font-medium text-sm transition-all duration-200 flex items-center justify-center gap-2"
-    >
-      <FaPlus className="w-4 h-4" />
-      <span className="hidden sm:inline">New Food Special</span>
-      <span className="sm:hidden">New</span>
-    </button>
+    <AdminActionButton
+      onClick={handleClick}
+      label="New Food Special"
+      shortLabel="New"
+      variant="primary"
+    />
   );
 }
 

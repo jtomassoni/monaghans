@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { Suspense } from 'react';
 import AdminAnnouncementsList from './announcements-list';
 import AnnouncementsHeader from './announcements-header';
+import AdminPageHeader from '@/components/admin-page-header';
 
 export default async function AdminAnnouncements() {
   const session = await getServerSession(authOptions);
@@ -39,9 +40,11 @@ export default async function AdminAnnouncements() {
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-rose-200/15 dark:from-rose-900/20 to-transparent rounded-full blur-3xl"></div>
       </div>
       {/* Header */}
-      <div className="flex-shrink-0 px-4 sm:px-6 py-3 pt-16 md:pt-0 border-b border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm relative z-[1]">
-        <AnnouncementsHeader />
-      </div>
+      <AdminPageHeader
+        title="Announcements"
+        description="Post updates and news to your website"
+        action={<AnnouncementsHeader />}
+      />
 
       {/* Main Content */}
       <div className="flex-1 overflow-auto p-4 sm:p-6 relative z-10">

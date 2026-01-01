@@ -590,6 +590,9 @@ export default function EventsList({
                       <span className={`px-2 py-0.5 text-xs rounded-full font-medium capitalize flex-shrink-0 ${typeColor} border`}>
                         {itemType}
                       </span>
+                    </div>
+                    {/* Badges Row */}
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
                       {isRecurring(item) && (
                         <span className="px-2 py-0.5 text-xs rounded-full font-medium flex-shrink-0 bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 border border-teal-200 dark:border-teal-800 flex items-center gap-1">
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">

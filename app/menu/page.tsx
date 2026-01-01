@@ -18,6 +18,15 @@ export default async function MenuPage() {
       include: {
         items: {
           where: { isAvailable: true },
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            price: true,
+            priceNotes: true,
+            modifiers: true,
+            displayOrder: true,
+          },
           orderBy: { displayOrder: 'asc' },
         },
       },
@@ -31,6 +40,15 @@ export default async function MenuPage() {
       include: {
         items: {
           where: { isAvailable: true },
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            price: true,
+            priceNotes: true,
+            modifiers: true,
+            displayOrder: true,
+          },
           orderBy: { displayOrder: 'asc' },
         },
       },
@@ -40,9 +58,6 @@ export default async function MenuPage() {
       where: {
         isActive: true,
         type: 'food',
-        startDate: {
-          lte: tomorrowStart,
-        },
       },
       orderBy: { startDate: 'asc' },
     }),

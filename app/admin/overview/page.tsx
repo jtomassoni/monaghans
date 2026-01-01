@@ -7,6 +7,7 @@ import { getMountainTimeNow, getMountainTimeToday } from '@/lib/timezone';
 import { RRule } from 'rrule';
 import { format } from 'date-fns';
 import OverviewContent from './overview-content';
+import AdminPageHeader from '@/components/admin-page-header';
 
 export default async function AdminOverview() {
   const session = await getServerSession(authOptions);
@@ -19,12 +20,7 @@ export default async function AdminOverview() {
   const flagsMap = new Map(featureFlags.map(flag => [flag.key, flag.isEnabled]));
   
   const isOnlineOrderingEnabled = flagsMap.get('online_ordering') ?? false;
-  const isStaffSchedulingEnabled = flagsMap.get('staff_scheduling') ?? false;
-  const isCalendarsEventsEnabled = flagsMap.get('calendars_events') ?? false;
-  const isSpecialsManagementEnabled = flagsMap.get('specials_management') ?? false;
-  const isMenuManagementEnabled = flagsMap.get('menu_management') ?? false;
-  const isActivityLogEnabled = flagsMap.get('activity_log') ?? false;
-  const isUsersStaffManagementEnabled = flagsMap.get('users_staff_management') ?? false;
+  const isStaffManagementEnabled = flagsMap.get('staff_management') ?? false;
 
   // Use Mountain Time for date calculations to match events page
   const now = getMountainTimeNow();
@@ -52,39 +48,25 @@ export default async function AdminOverview() {
   const promises: Promise<any>[] = [];
   const promiseIndices: Record<string, number> = {};
 
-  // Events & Specials data (if calendars_events or specials_management enabled)
-  if (isCalendarsEventsEnabled || isSpecialsManagementEnabled) {
-    promiseIndices.eventsCount = promises.length;
-    promises.push(prisma.event.count());
-    promiseIndices.activeEventsCount = promises.length;
-    promises.push(prisma.event.count({ where: { isActive: true } }));
-    promiseIndices.specialsCount = promises.length;
-    promises.push(prisma.special.count());
-    promiseIndices.activeSpecialsCount = promises.length;
-    promises.push(prisma.special.count({ where: { isActive: true } }));
-    // We'll handle events separately to include recurring occurrences
-    promiseIndices.upcomingEvents = -1; // Will be handled separately
-  } else {
-    promiseIndices.eventsCount = -1;
-    promiseIndices.activeEventsCount = -1;
-    promiseIndices.specialsCount = -1;
-    promiseIndices.activeSpecialsCount = -1;
-    promiseIndices.upcomingEvents = -1;
-  }
+  // Events & Specials data (always enabled - core product)
+  promiseIndices.eventsCount = promises.length;
+  promises.push(prisma.event.count());
+  promiseIndices.activeEventsCount = promises.length;
+  promises.push(prisma.event.count({ where: { isActive: true } }));
+  promiseIndices.specialsCount = promises.length;
+  promises.push(prisma.special.count());
+  promiseIndices.activeSpecialsCount = promises.length;
+  promises.push(prisma.special.count({ where: { isActive: true } }));
+  // We'll handle events separately to include recurring occurrences
+  promiseIndices.upcomingEvents = -1; // Will be handled separately
 
-  // Menu data (if menu_management enabled)
-  if (isMenuManagementEnabled) {
-    promiseIndices.menuSectionsCount = promises.length;
-    promises.push(prisma.menuSection.count());
-    promiseIndices.menuItemsCount = promises.length;
-    promises.push(prisma.menuItem.count());
-    promiseIndices.inactiveMenuItems = promises.length;
-    promises.push(prisma.menuItem.count({ where: { isAvailable: false } }));
-  } else {
-    promiseIndices.menuSectionsCount = -1;
-    promiseIndices.menuItemsCount = -1;
-    promiseIndices.inactiveMenuItems = -1;
-  }
+  // Menu data (always enabled - core product)
+  promiseIndices.menuSectionsCount = promises.length;
+  promises.push(prisma.menuSection.count());
+  promiseIndices.menuItemsCount = promises.length;
+  promises.push(prisma.menuItem.count());
+  promiseIndices.inactiveMenuItems = promises.length;
+  promises.push(prisma.menuItem.count({ where: { isAvailable: false } }));
 
   // Announcements (always fetch - no specific flag)
   promiseIndices.announcementsCount = promises.length;
@@ -102,35 +84,24 @@ export default async function AdminOverview() {
     })
   );
 
-  // Users (if users_staff_management enabled and admin)
-  if (isUsersStaffManagementEnabled && session.user.role === 'admin') {
-    promiseIndices.usersCount = promises.length;
-    promises.push(prisma.user.count());
-  } else {
-    promiseIndices.usersCount = -1;
-  }
 
-  // Activity log (if activity_log enabled)
-  if (isActivityLogEnabled) {
-    promiseIndices.recentActivities = promises.length;
-    promises.push(
-      (prisma as any).activityLog.findMany({
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
+  // Activity log (always enabled)
+  promiseIndices.recentActivities = promises.length;
+  promises.push(
+    (prisma as any).activityLog.findMany({
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
           },
         },
-        orderBy: { createdAt: 'desc' },
-        take: 3,
-      })
-    );
-  } else {
-    promiseIndices.recentActivities = -1;
-  }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 3,
+    })
+  );
 
   // Orders data (if online_ordering enabled)
   if (isOnlineOrderingEnabled) {
@@ -224,8 +195,8 @@ export default async function AdminOverview() {
     promiseIndices.recentOrders = -1;
   }
 
-  // Staff data (if staff_scheduling enabled)
-  if (isStaffSchedulingEnabled) {
+  // Staff data (if staff_management enabled)
+  if (isStaffManagementEnabled) {
     promiseIndices.activeEmployeesCount = promises.length;
     promises.push(
       prisma.employee.count({
@@ -264,15 +235,15 @@ export default async function AdminOverview() {
   const results = await Promise.all(promises);
   
   // Handle events separately to include recurring occurrences (matching events page logic)
+  // Events are always enabled (core product)
   let upcomingEvents: any[] = [];
-  if (isCalendarsEventsEnabled || isSpecialsManagementEnabled) {
-    // Fetch all active events (including recurring ones)
-    const allEvents = await prisma.event.findMany({
-      where: {
-        isActive: true,
-      },
-      orderBy: { startDateTime: 'asc' },
-    });
+  // Fetch all active events (including recurring ones)
+  const allEvents = await prisma.event.findMany({
+    where: {
+      isActive: true,
+    },
+    orderBy: { startDateTime: 'asc' },
+  });
     
     // Helper function to get recurring event occurrences (simplified version for admin overview)
     const getRecurringEventOccurrences = (event: any, rangeStart: Date, rangeEnd: Date) => {
@@ -329,11 +300,10 @@ export default async function AdminOverview() {
         return occurrenceDate >= today;
       });
     
-    // Combine and sort, then take first 3
-    upcomingEvents = [...upcomingOneTimeEvents, ...upcomingRecurringOccurrences]
-      .sort((a, b) => new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime())
-      .slice(0, 3);
-  }
+  // Combine and sort, then take first 3
+  upcomingEvents = [...upcomingOneTimeEvents, ...upcomingRecurringOccurrences]
+    .sort((a, b) => new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime())
+    .slice(0, 3);
 
   // Extract results using indices
   const getResult = (index: number, defaultValue: any = 0) => 
@@ -347,7 +317,6 @@ export default async function AdminOverview() {
   const menuItemsCount = getResult(promiseIndices.menuItemsCount);
   const announcementsCount = getResult(promiseIndices.announcementsCount);
   const publishedAnnouncementsCount = getResult(promiseIndices.publishedAnnouncementsCount);
-  const usersCount = getResult(promiseIndices.usersCount);
   // upcomingEvents is already handled above
   const recentActivities = getResult(promiseIndices.recentActivities, []);
   const inactiveMenuItems = getResult(promiseIndices.inactiveMenuItems);
@@ -412,8 +381,8 @@ export default async function AdminOverview() {
     });
   }
 
-  // Staff stat (only if staff_scheduling enabled)
-  if (isStaffSchedulingEnabled) {
+  // Staff stat (only if staff_management enabled)
+  if (isStaffManagementEnabled) {
     stats.push({
       title: 'Staff',
       total: activeEmployeesCount,
@@ -429,36 +398,32 @@ export default async function AdminOverview() {
     });
   }
 
-  // Specials & Events stat (only if calendars_events or specials_management enabled)
-  if (isCalendarsEventsEnabled || isSpecialsManagementEnabled) {
-    stats.push({
-      title: 'Specials & Events',
-      total: eventsCount + specialsCount,
-      active: activeEventsCount + activeSpecialsCount,
-      iconName: 'FaCalendarAlt',
-      href: '/admin?view=list',
-      color: 'bg-blue-500/80 dark:bg-blue-600/80',
-      bgColor: 'bg-blue-50 dark:bg-blue-900/20',
-      textColor: 'text-blue-600 dark:text-blue-400',
-      details: `${eventsCount} events • ${specialsCount} specials`,
-    });
-  }
+  // Specials & Events stat (always enabled - core product)
+  stats.push({
+    title: 'Specials & Events',
+    total: eventsCount + specialsCount,
+    active: activeEventsCount + activeSpecialsCount,
+    iconName: 'FaCalendarAlt',
+    href: '/admin?view=list',
+    color: 'bg-blue-500/80 dark:bg-blue-600/80',
+    bgColor: 'bg-blue-50 dark:bg-blue-900/20',
+    textColor: 'text-blue-600 dark:text-blue-400',
+    details: `${eventsCount} events • ${specialsCount} specials`,
+  });
 
-  // Menu stat (only if menu_management enabled)
-  if (isMenuManagementEnabled) {
-    stats.push({
-      title: 'Menu',
-      total: menuSectionsCount + menuItemsCount,
-      active: menuItemsCount - inactiveMenuItems,
-      iconName: 'FaUtensils',
-      href: '/admin/menu',
-      color: 'bg-orange-500/80 dark:bg-orange-600/80',
-      bgColor: 'bg-orange-50 dark:bg-orange-900/20',
-      textColor: 'text-orange-600 dark:text-orange-400',
-      inactive: inactiveMenuItems,
-      details: `${menuSectionsCount} sections • ${menuItemsCount} items`,
-    });
-  }
+  // Menu stat (always enabled - core product)
+  stats.push({
+    title: 'Menu',
+    total: menuSectionsCount + menuItemsCount,
+    active: menuItemsCount - inactiveMenuItems,
+    iconName: 'FaUtensils',
+    href: '/admin/menu',
+    color: 'bg-orange-500/80 dark:bg-orange-600/80',
+    bgColor: 'bg-orange-50 dark:bg-orange-900/20',
+    textColor: 'text-orange-600 dark:text-orange-400',
+    inactive: inactiveMenuItems,
+    details: `${menuSectionsCount} sections • ${menuItemsCount} items`,
+  });
 
   // Announcements stat (always show)
   stats.push({
@@ -473,20 +438,6 @@ export default async function AdminOverview() {
     unpublished: unpublishedAnnouncements.length,
   });
 
-  // Users stat (only if users_staff_management enabled and admin)
-  if (isUsersStaffManagementEnabled && session.user.role === 'admin') {
-    stats.push({
-      title: 'Users',
-      total: usersCount,
-      active: usersCount,
-      iconName: 'FaUserCog',
-      href: '/admin/users',
-      color: 'bg-gray-500/80 dark:bg-gray-600/80',
-      bgColor: 'bg-gray-50 dark:bg-gray-800',
-      textColor: 'text-gray-600 dark:text-gray-400',
-      details: `${usersCount} users`,
-    });
-  }
 
   // Format recent orders
   const formattedRecentOrders = recentOrders.map((order: any) => ({
@@ -502,18 +453,10 @@ export default async function AdminOverview() {
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-rose-200/15 dark:from-rose-900/20 to-transparent rounded-full blur-3xl"></div>
       </div>
       {/* Header */}
-      <div className="flex-shrink-0 px-4 sm:px-6 py-3 pt-16 md:pt-0 border-b border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm relative z-10">
-        <div className="flex justify-between items-center">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 min-w-0">
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-              Overview
-            </h1>
-            <p className="text-gray-500 dark:text-gray-400 text-xs hidden sm:block">
-              Real-time operations, orders, staff, and revenue overview
-            </p>
-          </div>
-        </div>
-      </div>
+      <AdminPageHeader
+        title="Overview"
+        description="Real-time operations, orders, staff, and revenue overview"
+      />
 
       {/* Main Content */}
       <OverviewContent
@@ -527,12 +470,7 @@ export default async function AdminOverview() {
         clockedInCount={clockedInCount}
         featureFlags={{
           online_ordering: isOnlineOrderingEnabled,
-          staff_scheduling: isStaffSchedulingEnabled,
-          calendars_events: isCalendarsEventsEnabled,
-          specials_management: isSpecialsManagementEnabled,
-          menu_management: isMenuManagementEnabled,
-          activity_log: isActivityLogEnabled,
-          users_staff_management: isUsersStaffManagementEnabled,
+          staff_management: isStaffManagementEnabled,
         }}
       />
     </div>

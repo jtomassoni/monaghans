@@ -1,74 +1,400 @@
 import { PrismaClient } from '@prisma/client';
+import { getMountainTimeToday, parseMountainTimeDate, getMountainTimeDateString, getCompanyTimezone } from '@/lib/timezone';
+import { createAssetFromUpload } from '@/lib/asset-processor';
 
 const prisma = new PrismaClient();
 
+/**
+ * Safely delete from a table, ignoring errors if the table doesn't exist
+ */
+async function safeDeleteMany(deleteFn: () => Promise<any>, tableName: string) {
+  try {
+    await deleteFn();
+  } catch (error: any) {
+    // Ignore errors about tables not existing (P2021)
+    if (error?.code === 'P2021') {
+      console.log(`⚠️  Table ${tableName} does not exist, skipping...`);
+    } else {
+      throw error;
+    }
+  }
+}
+
 async function main() {
   console.log('🌱 Seeding database...');
+  console.log('🗑️  Clearing all existing data...');
 
-  // Clear existing data
-  await prisma.postQueue.deleteMany();
-  await prisma.announcement.deleteMany();
-  await prisma.event.deleteMany();
-  await prisma.special.deleteMany();
-  await prisma.menuItem.deleteMany();
-  await prisma.menuSection.deleteMany();
-  await prisma.setting.deleteMany();
+  // Delete in order to respect foreign key constraints (child tables first)
+  // Order matters due to foreign key relationships
+  
+  // Delete child/junction tables first
+  await safeDeleteMany(() => prisma.orderItem.deleteMany(), 'OrderItem');
+  await safeDeleteMany(() => prisma.pOSSaleItem.deleteMany(), 'POSSaleItem');
+  await safeDeleteMany(() => prisma.menuItemIngredient.deleteMany(), 'MenuItemIngredient');
+  await safeDeleteMany(() => prisma.purchaseOrderItem.deleteMany(), 'PurchaseOrderItem');
+  await safeDeleteMany(() => prisma.supplierPricing.deleteMany(), 'SupplierPricing');
+  await safeDeleteMany(() => prisma.leadNote.deleteMany(), 'LeadNote');
+  await safeDeleteMany(() => prisma.leadContact.deleteMany(), 'LeadContact');
+  await safeDeleteMany(() => prisma.activityLog.deleteMany(), 'ActivityLog');
+  await safeDeleteMany(() => prisma.shift.deleteMany(), 'Shift');
+  await safeDeleteMany(() => prisma.schedule.deleteMany(), 'Schedule');
+  await safeDeleteMany(() => prisma.employeeAvailability.deleteMany(), 'EmployeeAvailability');
+  await safeDeleteMany(() => prisma.shiftRequirement.deleteMany(), 'ShiftRequirement');
+  await safeDeleteMany(() => prisma.weeklyScheduleTemplate.deleteMany(), 'WeeklyScheduleTemplate');
+  
+  // Delete parent tables
+  await safeDeleteMany(() => prisma.order.deleteMany(), 'Order');
+  await safeDeleteMany(() => prisma.pOSSale.deleteMany(), 'POSSale');
+  await safeDeleteMany(() => prisma.pOSIntegration.deleteMany(), 'POSIntegration');
+  await safeDeleteMany(() => prisma.privateDiningLead.deleteMany(), 'PrivateDiningLead');
+  await safeDeleteMany(() => prisma.event.deleteMany(), 'Event');
+  await safeDeleteMany(() => prisma.special.deleteMany(), 'Special');
+  await safeDeleteMany(() => prisma.announcement.deleteMany(), 'Announcement');
+  await safeDeleteMany(() => prisma.postQueue.deleteMany(), 'PostQueue');
+  await safeDeleteMany(() => prisma.facebookPost.deleteMany(), 'FacebookPost');
+  await safeDeleteMany(() => prisma.menuItem.deleteMany(), 'MenuItem');
+  await safeDeleteMany(() => prisma.menuSection.deleteMany(), 'MenuSection');
+  await safeDeleteMany(() => prisma.ingredient.deleteMany(), 'Ingredient');
+  await safeDeleteMany(() => prisma.supplierProduct.deleteMany(), 'SupplierProduct');
+  await safeDeleteMany(() => prisma.supplierConnection.deleteMany(), 'SupplierConnection');
+  await safeDeleteMany(() => prisma.supplier.deleteMany(), 'Supplier');
+  await safeDeleteMany(() => prisma.purchaseOrder.deleteMany(), 'PurchaseOrder');
+  await safeDeleteMany(() => prisma.employee.deleteMany(), 'Employee');
+  await safeDeleteMany(() => prisma.featureFlag.deleteMany(), 'FeatureFlag');
+  
+  // Delete digital signage tables (child tables first)
+  // Note: These models may not exist if migrations haven't been run, so we use safeDeleteMany
+  try {
+    await safeDeleteMany(() => (prisma as any).slide.deleteMany(), 'Slide');
+    await safeDeleteMany(() => (prisma as any).adCreative.deleteMany(), 'AdCreative');
+    await safeDeleteMany(() => (prisma as any).adCampaign.deleteMany(), 'AdCampaign');
+    await safeDeleteMany(() => (prisma as any).asset.deleteMany(), 'Asset');
+    await safeDeleteMany(() => (prisma as any).upload.deleteMany(), 'Upload');
+  } catch (error) {
+    console.log('⚠️  Some digital signage tables may not exist yet, continuing...');
+  }
+  
+  // Delete independent tables (Settings and Users - keep users for auth, but clear activity logs)
+  // Note: We're keeping User table for authentication, but clearing ActivityLog
+  // Note: We delete settings but will recreate signageConfig with custom slides later
+  await safeDeleteMany(() => prisma.setting.deleteMany(), 'Setting');
+  
+  console.log('✅ All existing data cleared');
+  console.log('');
 
-  // Create sample specials
-  const tuesdaySpecial = await prisma.special.create({
-    data: {
+  // Create a seed user for uploads (if no users exist)
+  console.log('👤 Creating seed user for uploads...');
+  let systemUser = await prisma.user.findFirst({
+    where: {
+      role: {
+        in: ['owner', 'admin'],
+      },
+    },
+    orderBy: {
+      createdAt: 'asc',
+    },
+  });
+
+  // If no admin user exists, create a seed user
+  if (!systemUser) {
+    systemUser = await prisma.user.findFirst({
+      orderBy: {
+        createdAt: 'asc',
+      },
+    });
+  }
+
+  if (!systemUser) {
+    try {
+      systemUser = await prisma.user.create({
+        data: {
+          email: 'seed@monaghans.local',
+          name: 'Seed User',
+          role: 'admin',
+          isActive: true,
+        },
+      });
+      console.log('✅ Created seed user for uploads');
+    } catch (error: any) {
+      console.error('❌ Failed to create seed user:', error.message);
+      // Continue anyway - we'll handle this in custom slides section
+    }
+  } else {
+    console.log('✅ Using existing user for uploads');
+  }
+
+  // Create weekly recurring specials (food and drink)
+  console.log('');
+  console.log('🍽️  Creating weekly recurring specials...');
+  
+  const weeklySpecials = [
+    // Food specials
+    {
+      title: 'Chicken Fried Steak and Eggs',
+      description: 'Breaded steak with country gravy, served with two eggs and hash browns',
+      priceNotes: '$12.99',
+      type: 'food',
+      appliesOn: ['Sunday'],
+      timeWindow: 'All Day',
+    },
+    {
       title: 'Taco Tuesday',
       description: 'All tacos $2.50 every Tuesday',
       priceNotes: '$2.50 per taco',
-      appliesOn: JSON.stringify(['Tuesday']),
-      timeWindow: '4pm-10pm',
-      isActive: true,
+      type: 'food',
+      appliesOn: ['Tuesday'],
+      timeWindow: 'All Day',
     },
-  });
-
-  const happyHour = await prisma.special.create({
-    data: {
-      title: 'Happy Hour',
-      description: 'Half-price drafts and well drinks',
-      priceNotes: '50% off drafts, well drinks',
-      appliesOn: JSON.stringify(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']),
-      timeWindow: '4pm-6pm',
-      isActive: true,
+    // Drink specials
+    {
+      title: 'Whiskey Wednesday',
+      description: 'Half-price whiskey shots and whiskey cocktails',
+      priceNotes: '50% off all whiskey',
+      type: 'drink',
+      appliesOn: ['Wednesday'],
+      timeWindow: 'All Day',
     },
+    {
+      title: 'Tequila Thursday',
+      description: 'Tequila shots and margaritas special',
+      priceNotes: '$5 tequila shots, $6 margaritas',
+      type: 'drink',
+      appliesOn: ['Thursday'],
+      timeWindow: 'All Day',
+    },
+    {
+      title: 'Taco Tuesday Drink Special',
+      description: '$1 off all Mexican beers: Modelo, Tecate, Corona, Dos Equis',
+      priceNotes: '$1 off Mexican beers',
+      type: 'drink',
+      appliesOn: ['Tuesday'],
+      timeWindow: 'All Day',
+    },
+  ];
+
+  const createdWeeklySpecials = [];
+  for (const special of weeklySpecials) {
+    try {
+      const created = await prisma.special.create({
+        data: {
+          title: special.title,
+          description: special.description,
+          priceNotes: special.priceNotes,
+          type: special.type,
+          appliesOn: JSON.stringify(special.appliesOn),
+          timeWindow: special.timeWindow,
+          image: '/pics/taco-platter.png', // Seed image for testing
+          isActive: true,
+        },
+      });
+      createdWeeklySpecials.push(created);
+      console.log(`✅ Created weekly special: ${created.title} (${special.appliesOn.join(', ')})`);
+    } catch (error) {
+      console.error(`❌ Failed to create weekly special "${special.title}":`, error);
+    }
+  }
+
+  // Generate daily food specials for the upcoming month
+  console.log('');
+  console.log('🍽️  Generating daily food specials for the next 30 days...');
+  
+  const foodSpecials = [
+    { title: 'Fish & Chips', description: 'Hand-battered cod with crispy fries and house tartar sauce', priceNotes: '$12.99' },
+    { title: 'Buffalo Wings', description: '10 wings tossed in your choice of sauce', priceNotes: '$9.99' },
+    { title: 'Bacon Cheeseburger', description: 'Angus beef patty with bacon, cheddar, lettuce, tomato, and onion', priceNotes: '$11.99' },
+    { title: 'Nachos Grande', description: 'Loaded nachos with beef, jalapeños, cheese, sour cream, and guacamole', priceNotes: '$10.99' },
+    { title: 'Chicken Quesadilla', description: 'Grilled chicken with cheese, peppers, and onions', priceNotes: '$9.99' },
+    { title: 'Taco Platter', description: 'Three tacos with your choice of protein', priceNotes: '$10.99' },
+    { title: 'BBQ Pulled Pork Sandwich', description: 'Slow-cooked pulled pork with coleslaw on a brioche bun', priceNotes: '$11.99' },
+    { title: 'Chicken Tenders', description: 'Five crispy chicken tenders with your choice of dipping sauce', priceNotes: '$9.99' },
+    { title: 'Caesar Salad', description: 'Romaine lettuce with grilled chicken, parmesan, and house caesar dressing', priceNotes: '$10.99' },
+    { title: 'Philly Cheesesteak', description: 'Shaved beef with peppers, onions, and melted provolone', priceNotes: '$12.99' },
+    { title: 'Chili Cheese Fries', description: 'Crispy fries topped with house chili and melted cheese', priceNotes: '$8.99' },
+    { title: 'Fried Shrimp Basket', description: 'Golden fried shrimp with fries and coleslaw', priceNotes: '$13.99' },
+    { title: 'Mac & Cheese', description: 'Creamy macaroni and cheese with your choice of add-ons', priceNotes: '$9.99' },
+    { title: 'Reuben Sandwich', description: 'Corned beef, sauerkraut, swiss cheese, and thousand island on rye', priceNotes: '$12.99' },
+    { title: 'Chicken Wrap', description: 'Grilled chicken with lettuce, tomato, and chipotle mayo', priceNotes: '$9.99' },
+    { title: 'Potato Skins', description: 'Loaded potato skins with bacon, cheese, and sour cream', priceNotes: '$8.99' },
+    { title: 'Cobb Salad', description: 'Mixed greens with grilled chicken, bacon, egg, avocado, and blue cheese', priceNotes: '$11.99' },
+    { title: 'Brisket Sandwich', description: 'Slow-smoked brisket with pickles and BBQ sauce', priceNotes: '$12.99' },
+    { title: 'Mozzarella Sticks', description: 'Fried mozzarella with marinara sauce', priceNotes: '$7.99' },
+    { title: 'BLT Sandwich', description: 'Crispy bacon, lettuce, and tomato on toasted bread', priceNotes: '$9.99' },
+    { title: 'Chicken Fajitas', description: 'Sizzling chicken fajitas with peppers, onions, and tortillas', priceNotes: '$13.99' },
+    { title: 'Sliders', description: 'Three mini burgers with cheese, pickles, and special sauce', priceNotes: '$10.99' },
+    { title: 'Fish Tacos', description: 'Two grilled fish tacos with cabbage slaw and chipotle aioli', priceNotes: '$10.99' },
+    { title: 'Chicken Fried Steak', description: 'Breaded steak with country gravy and mashed potatoes', priceNotes: '$12.99' },
+    { title: 'Queso & Chips', description: 'House queso dip with crispy tortilla chips', priceNotes: '$7.99' },
+    { title: 'Monte Cristo Sandwich', description: 'Ham, turkey, and swiss cheese grilled to perfection', priceNotes: '$11.99' },
+    { title: 'Chicken Parmesan', description: 'Breaded chicken with marinara and melted mozzarella', priceNotes: '$13.99' },
+    { title: 'Loaded Baked Potato', description: 'Baked potato with your choice of toppings', priceNotes: '$8.99' },
+    { title: 'French Dip Sandwich', description: 'Roast beef on a hoagie roll with au jus', priceNotes: '$11.99' },
+    { title: 'Grilled Chicken Sandwich', description: 'Marinated grilled chicken with lettuce, tomato, and mayo', priceNotes: '$10.99' },
+  ];
+
+  const timeWindows = ['All Day', '11am-3pm', '4pm-9pm', '5pm-9pm', '11am-2pm', '3pm-6pm'];
+  
+  // Use company timezone for all date operations
+  const companyTimezone = await getCompanyTimezone();
+  const today = getMountainTimeToday();
+  const todayStr = getMountainTimeDateString(today);
+  
+  // First, identify all Tuesdays in the next 30 days to skip them
+  // (Taco Tuesday weekly recurring special will cover those days)
+  const tuesdayDates = new Set<string>();
+  
+  // Find the next Tuesday in company timezone
+  const todayParts = today.toLocaleDateString('en-US', { 
+    weekday: 'long',
+    timeZone: companyTimezone
   });
+  const weekdayMap: Record<string, number> = {
+    'Sunday': 0, 'Monday': 1, 'Tuesday': 2, 'Wednesday': 3,
+    'Thursday': 4, 'Friday': 5, 'Saturday': 6
+  };
+  const todayDayOfWeek = weekdayMap[todayParts] ?? 0;
+  const daysUntilNextTuesday = todayDayOfWeek === 2 ? 0 : (2 - todayDayOfWeek + 7) % 7 || 7; // 2 = Tuesday
+  
+  // Get today's date string in company timezone
+  const todayDateStr = getMountainTimeDateString(today, companyTimezone);
+  const [todayYear, todayMonth, todayDay] = todayDateStr.split('-').map(Number);
+  
+  // Calculate first Tuesday by adding days to today's date string
+  const firstTuesdayDateStr = (() => {
+    const firstTuesday = new Date(today);
+    firstTuesday.setTime(today.getTime() + daysUntilNextTuesday * 24 * 60 * 60 * 1000);
+    return getMountainTimeDateString(firstTuesday, companyTimezone);
+  })();
+  
+  // Collect all Tuesday dates in the next 30 days
+  for (let i = 0; i < 5; i++) { // Up to 5 Tuesdays in ~30 days
+    // Calculate Tuesday date by adding weeks to first Tuesday
+    const tuesdayDate = parseMountainTimeDate(firstTuesdayDateStr, companyTimezone);
+    tuesdayDate.setTime(tuesdayDate.getTime() + (i * 7 * 24 * 60 * 60 * 1000));
+    const tuesdayDateStr = getMountainTimeDateString(tuesdayDate, companyTimezone);
+    
+    // Skip if beyond 30 days
+    const tuesdayDateParsed = parseMountainTimeDate(tuesdayDateStr, companyTimezone);
+    const daysDiff = Math.floor((tuesdayDateParsed.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    if (daysDiff > 30) break;
+    
+    // Store as date string (YYYY-MM-DD) in company timezone
+    tuesdayDates.add(tuesdayDateStr);
+  }
+  
+  const dailySpecials = [];
+  const usedIndices = new Set<number>();
+  const usedDates = new Set<string>(); // Track which dates we've used to avoid duplicates
+  
+  for (let i = 0; i < 30; i++) {
+    // Calculate date in company timezone by adding days to today
+    const date = new Date(today);
+    date.setTime(today.getTime() + i * 24 * 60 * 60 * 1000);
+    const dateStr = getMountainTimeDateString(date, companyTimezone);
+    
+    // Skip Tuesdays - Taco Tuesday covers those days
+    if (tuesdayDates.has(dateStr)) {
+      continue;
+    }
+    
+    // Skip if we've already used this date (shouldn't happen, but safety check)
+    if (usedDates.has(dateStr)) {
+      continue;
+    }
+    usedDates.add(dateStr);
+    
+    // Pick a random special that we haven't used recently
+    // Use a rotating pattern to avoid too many repeats
+    let specialIndex;
+    if (usedIndices.size >= foodSpecials.length) {
+      usedIndices.clear();
+    }
+    
+    do {
+      specialIndex = Math.floor(Math.random() * foodSpecials.length);
+    } while (usedIndices.has(specialIndex));
+    
+    usedIndices.add(specialIndex);
+    
+    const foodSpecial = foodSpecials[specialIndex];
+    // Use timezone-aware date parsing to ensure dates are in Mountain Time
+    const startDate = parseMountainTimeDate(dateStr, companyTimezone);
+    // End date is start of next day minus 1 millisecond (23:59:59.999 in Mountain Time)
+    const nextDayStart = new Date(startDate.getTime() + 24 * 60 * 60 * 1000);
+    const endDate = new Date(nextDayStart.getTime() - 1);
+    
+    const timeWindow = timeWindows[Math.floor(Math.random() * timeWindows.length)];
+    
+    try {
+      const special = await prisma.special.create({
+        data: {
+          title: foodSpecial.title,
+          description: foodSpecial.description,
+          priceNotes: foodSpecial.priceNotes,
+          type: 'food',
+          appliesOn: JSON.stringify([]), // Empty array for date-specific specials
+          timeWindow: timeWindow,
+          startDate: startDate,
+          endDate: endDate, // Same as startDate to ensure single-day special
+          image: '/pics/taco-platter.png', // Seed image for testing
+          isActive: true,
+        },
+      });
+      
+      dailySpecials.push(special);
+    } catch (error) {
+      console.error(`❌ Failed to create special for ${dateStr}:`, error);
+    }
+  }
+  
+  console.log(`✅ Created ${dailySpecials.length} daily food specials for the next 30 days`);
+  console.log(`✅ Created ${createdWeeklySpecials.length} weekly recurring specials (including Taco Tuesday)`);
 
-  console.log('✅ Created specials:', { tuesdaySpecial, happyHour });
+  // Create sample events with upcoming dates
+  // Reuse the 'today' variable already declared above, just reset hours
+  today.setHours(0, 0, 0, 0);
+  
+  // Find next Monday for Poker Night
+  const nextMonday = new Date(today);
+  const daysUntilMonday = (1 - today.getDay() + 7) % 7 || 7; // 1 = Monday
+  nextMonday.setDate(today.getDate() + daysUntilMonday);
+  nextMonday.setHours(19, 0, 0, 0); // 7 PM
 
-  // Create sample events
-  const triviaNight = await prisma.event.create({
+  const pokerNight = await prisma.event.create({
     data: {
-      title: 'Trivia Night',
-      description: 'Weekly trivia with prizes!',
-      startDateTime: new Date('2024-01-09T19:00:00'), // Next Tuesday
-      endDateTime: new Date('2024-01-09T21:00:00'),
+      title: 'Poker Night',
+      description: 'Weekly poker tournament',
+      startDateTime: nextMonday,
+      endDateTime: new Date(nextMonday.getTime() + 4 * 60 * 60 * 1000), // 4 hours later (11 PM)
       venueArea: 'bar',
-      recurrenceRule: 'FREQ=WEEKLY;BYDAY=TU',
+      recurrenceRule: 'FREQ=WEEKLY;BYDAY=MO',
       isAllDay: false,
-      tags: JSON.stringify(['trivia', 'weekly']),
+      tags: JSON.stringify(['poker', 'weekly']),
       isActive: true,
     },
   });
 
-  const liveMusic = await prisma.event.create({
+  // Find next Friday for Karaoke
+  const nextFriday = new Date(today);
+  const daysUntilFriday = (5 - today.getDay() + 7) % 7 || 7; // 5 = Friday
+  nextFriday.setDate(today.getDate() + daysUntilFriday);
+  nextFriday.setHours(19, 0, 0, 0); // 7 PM
+
+  const karaoke = await prisma.event.create({
     data: {
-      title: 'Live Music: Local Band',
-      description: 'Local band playing covers and originals',
-      startDateTime: new Date('2024-01-13T20:00:00'), // Saturday
-      endDateTime: new Date('2024-01-13T23:00:00'),
+      title: 'Karaoke',
+      description: 'Sing your favorite songs!',
+      startDateTime: nextFriday,
+      endDateTime: new Date(nextFriday.getTime() + 4 * 60 * 60 * 1000), // 4 hours later (11 PM)
       venueArea: 'stage',
-      recurrenceRule: 'FREQ=WEEKLY;BYDAY=SA',
+      recurrenceRule: 'FREQ=WEEKLY;BYDAY=FR,SA',
       isAllDay: false,
-      tags: JSON.stringify(['live-music', 'weekly']),
+      tags: JSON.stringify(['karaoke', 'weekly']),
       isActive: true,
     },
   });
 
-  console.log('✅ Created events:', { triviaNight, liveMusic });
+  const createdEvents = [pokerNight, karaoke];
+  console.log('✅ Created events:', { pokerNight, karaoke });
 
   // Create sample announcement
   const announcement = await prisma.announcement.create({
@@ -82,6 +408,7 @@ async function main() {
     },
   });
 
+  const createdAnnouncements = [announcement];
   console.log('✅ Created announcement:', announcement);
 
   // Create default settings
@@ -127,6 +454,7 @@ async function main() {
     },
   });
 
+  const createdSettings = [hours, contact, mapEmbed];
   console.log('✅ Created settings:', { hours, contact, mapEmbed });
 
   // Create menu sections and items
@@ -239,9 +567,195 @@ async function main() {
     },
   });
 
+  const createdMenuSections = [startersSection, burgersSection, mexicanSection, saladsSection, addOnsSection, saucesSection];
   console.log('✅ Created menu sections:', { startersSection, burgersSection, mexicanSection, saladsSection, addOnsSection, saucesSection });
 
-  console.log('🎉 Seeding completed!');
+  // Create custom slides (image-based and text-based)
+  console.log('');
+  console.log('🖼️  Creating custom slides...');
+  
+  try {
+    // Get the system user we created earlier (or find existing one)
+    if (!systemUser) {
+      systemUser = await prisma.user.findFirst({
+        orderBy: {
+          createdAt: 'asc',
+        },
+      });
+    }
+
+    if (!systemUser) {
+      console.error('❌ No user found to associate with upload. Skipping custom slide creation.');
+      console.error('   💡 Tip: Create a user first, or the seed script will create one automatically.');
+    } else {
+      console.log(`   👤 Using user: ${systemUser.email} (${systemUser.role})`);
+      // Get or create signageConfig
+      const signageConfig = await prisma.setting.findUnique({
+        where: { key: 'signageConfig' },
+      });
+
+      const defaultConfig = {
+        includeFoodSpecials: true,
+        includeDrinkSpecials: true,
+        includeHappyHour: true,
+        includeEvents: true,
+        eventsTileCount: 6,
+        slideDurationSec: 10,
+        fadeDurationSec: 0.8,
+        customSlides: [],
+      };
+
+      let config: any = defaultConfig;
+      if (signageConfig?.value) {
+        try {
+          config = typeof signageConfig.value === 'string' 
+            ? JSON.parse(signageConfig.value) 
+            : signageConfig.value;
+          if (!Array.isArray(config.customSlides)) {
+            config.customSlides = [];
+          }
+        } catch {
+          config = defaultConfig;
+        }
+      }
+
+      // 1. Create image-based slide with lawn-mowing-ad.png
+      console.log('   Creating image-based slide: King Street Landscaping...');
+      try {
+        // Create Upload record for the lawn-mowing-ad.png file
+        const imagePath = '/pics/lawn-mowing-ad.png';
+        const uploadId = `upload-seed-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+        
+        // Get file stats to determine size
+        const fs = await import('fs');
+        const path = await import('path');
+        const filePath = path.join(process.cwd(), 'public', imagePath);
+        let fileSize = 0;
+        try {
+          const stats = await fs.promises.stat(filePath);
+          fileSize = stats.size;
+          console.log(`   📁 Found image file: ${filePath} (${fileSize} bytes)`);
+        } catch (error: any) {
+          console.error(`   ⚠️  Could not find image file at ${filePath}:`, error.message);
+          throw new Error(`Image file not found: ${filePath}`);
+        }
+
+        console.log(`   📤 Creating Upload record...`);
+        const upload = await (prisma as any).upload.create({
+          data: {
+            id: uploadId,
+            originalFilename: 'lawn-mowing-ad.png',
+            mimeType: 'image/png',
+            sizeBytes: fileSize,
+            storageKey: imagePath,
+            createdByUserId: systemUser.id,
+          },
+        });
+        console.log(`   ✅ Created Upload: ${upload.id}`);
+
+        console.log(`   🖼️  Creating Asset from Upload...`);
+        // Create Asset from the Upload
+        const asset = await createAssetFromUpload(
+          upload.id,
+          imagePath,
+          'IMAGE'
+        );
+
+        console.log(`   ✅ Created Asset: ${asset.id} (storageKey: ${asset.storageKey})`);
+
+        // Add the image-based custom slide
+        const imageSlideEntry = {
+          id: 'seed-king-street-landscaping',
+          label: 'Custom',
+          title: 'King Street Landscaping Ad',
+          subtitle: '',
+          body: '',
+          accent: 'accent' as const,
+          footer: 'www.ecolawnsdenver.com',
+          position: 1,
+          isEnabled: true,
+          slideType: 'image' as const,
+          imageStorageKey: asset.storageKey, // Use the asset's storageKey so it can be reused
+          imageUrl: asset.storageKey,
+        };
+
+        config.customSlides.push(imageSlideEntry);
+        console.log('   ✅ Added image-based custom slide to config');
+      } catch (error: any) {
+        console.error('   ❌ Failed to create image-based slide:', error.message || error);
+        console.error('   Stack:', error.stack);
+      }
+
+      // 2. Create text-based slide
+      console.log('   Creating text-based slide: Daily Specials Info...');
+      try {
+        const textSlideEntry = {
+          id: 'seed-daily-specials-info',
+          label: 'Custom',
+          title: 'Daily Specials',
+          subtitle: 'Check Out Our Specials',
+          body: 'We offer rotating daily specials on food and drinks!\n\n• Fresh Food Specials Every Day\n• Drink Specials & Happy Hour\n• Weekly Events & Entertainment\n• Private Event Space Available',
+          accent: 'accent' as const,
+          footer: 'Ask your server about today\'s specials!',
+          position: 2,
+          isEnabled: true,
+          slideType: 'text' as const,
+        };
+
+        config.customSlides.push(textSlideEntry);
+        console.log('   ✅ Added text-based custom slide');
+      } catch (error) {
+        console.error('   ❌ Failed to create text-based slide:', error);
+      }
+
+      // Sort slides by position
+      config.customSlides.sort((a: any, b: any) => (a.position || 0) - (b.position || 0));
+
+      console.log(`   💾 Saving signageConfig with ${config.customSlides.length} custom slide(s)...`);
+      console.log(`   📋 Custom slides:`, config.customSlides.map((s: any) => ({ id: s.id, title: s.title, type: s.slideType })));
+
+      // Update the setting
+      const savedSetting = await prisma.setting.upsert({
+        where: { key: 'signageConfig' },
+        update: {
+          value: JSON.stringify(config),
+        },
+        create: {
+          key: 'signageConfig',
+          value: JSON.stringify(config),
+          description: 'Digital signage configuration',
+        },
+      });
+
+      // Verify it was saved
+      const verifySetting = await prisma.setting.findUnique({
+        where: { key: 'signageConfig' },
+      });
+      
+      if (verifySetting) {
+        const verifyConfig = JSON.parse(verifySetting.value as string);
+        console.log(`   ✅ Verified: signageConfig saved with ${verifyConfig.customSlides?.length || 0} custom slide(s)`);
+      } else {
+        console.error('   ❌ ERROR: signageConfig was not saved!');
+      }
+
+      console.log(`✅ Created ${config.customSlides.length} custom slide(s) in signageConfig settings`);
+    }
+  } catch (error) {
+    console.error('❌ Failed to create custom slides:', error);
+  }
+
+  // Summary
+  console.log('');
+  console.log('📊 Seeding Summary:');
+  console.log(`   ✅ ${createdWeeklySpecials.length} weekly recurring specials (including Taco Tuesday food + drink)`);
+  console.log(`   ✅ ${dailySpecials.length} daily food specials for the next 30 days (excluding Tuesdays)`);
+  console.log(`   ✅ ${createdEvents.length} recurring events (Poker Night, Karaoke)`);
+  console.log(`   ✅ ${createdAnnouncements.length} announcement${createdAnnouncements.length !== 1 ? 's' : ''}`);
+  console.log(`   ✅ ${createdSettings.length} settings (hours, contact, map)`);
+  console.log(`   ✅ ${createdMenuSections.length} menu sections with items`);
+  console.log('');
+  console.log('🎉 Database seeding completed! All old data has been cleared and replaced with fresh seed data.');
 }
 
 main()

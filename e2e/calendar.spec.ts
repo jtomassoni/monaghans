@@ -1,4 +1,11 @@
 import { test, expect } from '@playwright/test';
+import { TestMetadata } from './test-metadata';
+
+export const testMetadata: TestMetadata = {
+  specName: 'calendar',
+  featureArea: 'content',
+  description: 'Calendar view and navigation',
+};
 
 test.use({ storageState: '.auth/admin.json' });
 

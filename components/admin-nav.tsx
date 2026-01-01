@@ -100,25 +100,24 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
       id: 'overview',
       title: 'Overview',
       items: [
-        ...(permissions.canAccessAdmin && featureFlags.calendars_events ? [{ href: '/admin/overview', label: 'Overview', icon: FaHome }] : []),
+        ...(permissions.canAccessAdmin ? [{ href: '/admin/overview', label: 'Overview', icon: FaHome }] : []),
       ],
     },
     {
       id: 'guest-experience',
       title: 'Guest Experience',
       items: [
-        ...(permissions.canAccessAdmin && featureFlags.calendars_events ? [{ href: '/admin', label: 'Calendar & Events', icon: FaCalendarAlt }] : []),
-        ...(permissions.canAccessAdmin && featureFlags.homepage_management ? [{ href: '/admin/homepage', label: 'Homepage', icon: FaEdit }] : []),
-        ...(permissions.canAccessAdmin && featureFlags.signage_management ? [{ href: '/admin/signage', label: 'Digital Signage', icon: FaGlobe }] : []),
+        ...(permissions.canAccessAdmin ? [{ href: '/admin', label: 'Calendar & Events', icon: FaCalendarAlt }] : []),
+        ...(permissions.canAccessAdmin ? [{ href: '/admin/signage', label: 'Digital Signage', icon: FaGlobe }] : []),
       ],
     },
     {
       id: 'menus-specials',
       title: 'Menus & Specials',
       items: [
-        ...(permissions.canManageMenu && featureFlags.menu_management ? [{ href: '/admin/menu', label: 'Menu', icon: FaUtensils }] : []),
-        ...(permissions.canManageMenu && featureFlags.specials_management ? [{ href: '/admin/food-specials', label: 'Food Specials', icon: FaDrumstickBite }] : []),
-        ...(permissions.canManageMenu && featureFlags.specials_management ? [{ href: '/admin/drink-specials', label: 'Drink Specials', icon: FaWineGlass }] : []),
+        ...(permissions.canManageMenu ? [{ href: '/admin/menu', label: 'Menu', icon: FaUtensils }] : []),
+        ...(permissions.canManageMenu ? [{ href: '/admin/food-specials', label: 'Food Specials', icon: FaDrumstickBite }] : []),
+        ...(permissions.canManageMenu ? [{ href: '/admin/drink-specials', label: 'Drink Specials', icon: FaWineGlass }] : []),
       ],
     },
     {
@@ -133,7 +132,7 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
       id: 'back-of-house',
       title: 'Back of House',
       items: [
-        ...(permissions.canManageStaff && featureFlags.staff_scheduling ? [{ href: '/admin/staff', label: 'Staff Scheduling', icon: FaClock }] : []),
+        ...(permissions.canManageStaff && featureFlags.staff_management ? [{ href: '/admin/staff', label: 'Staff Management', icon: FaClock }] : []),
         ...(permissions.canAccessKDS && featureFlags.boh_connections ? [{ href: '/admin/kds', label: 'Kitchen Display', icon: FaUtensils }] : []),
         ...(permissions.canAccessAdmin && featureFlags.boh_connections ? [{ href: '/admin/pos-integrations', label: 'POS Integrations', icon: FaCashRegister }] : []),
         ...(permissions.canAccessAdmin && featureFlags.purchase_orders ? [{ href: '/admin/purchase-orders', label: 'Purchase Orders', icon: FaUtensils }] : []),
@@ -152,14 +151,14 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
       title: 'Insights',
       items: [
         ...(permissions.canAccessReporting && featureFlags.reporting_analytics ? [{ href: '/admin/reporting', label: 'Reporting', icon: FaChartLine }] : []),
-        ...(permissions.canAccessAdmin && featureFlags.activity_log ? [{ href: '/admin/activity', label: 'Activity', icon: FaHistory }] : []),
+        ...(permissions.canAccessAdmin ? [{ href: '/admin/activity', label: 'Activity', icon: FaHistory }] : []),
       ],
     },
     {
       id: 'settings',
       title: 'Settings',
       items: [
-        ...(permissions.canAccessAdmin ? [{ href: '/admin/settings', label: 'Company Settings', icon: FaCog }] : []),
+        ...(permissions.canAccessAdmin ? [{ href: '/admin/settings', label: 'Settings & Homepage', icon: FaCog }] : []),
       ],
     },
   ].filter(group => group.items.length > 0); // Remove empty groups
@@ -216,11 +215,6 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
       }
     }
     // Also check Administration sections
-    if (permissions.canManageUsers && featureFlags.users_staff_management) {
-      if (isActive('/admin/users-staff') || isActive('/admin/users')) {
-        newOpenSections.add('administration');
-      }
-    }
     if (userRole === 'admin' && isActive('/admin/feature-flags')) {
       newOpenSections.add('administration');
     }
@@ -334,7 +328,7 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
         )}
 
         {/* Administration section */}
-        {(permissions.canManageUsers && featureFlags.users_staff_management) || userRole === 'admin' ? (
+        {userRole === 'admin' ? (
           <div className="space-y-0.5 pt-1">
             {!sidebarCompact && (
               <button
@@ -363,21 +357,6 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
               }`}
             >
               <div className="space-y-0.5">
-                {permissions.canManageUsers && featureFlags.users_staff_management && (
-                  <Link
-                    href="/admin/users-staff"
-                    onClick={closeMobileMenu}
-                    className={`flex items-center gap-2 ${sidebarCompact ? 'px-2 py-1.5' : 'px-3 py-2'} rounded-lg transition-all duration-200 group cursor-pointer ${
-                      isActive('/admin/users-staff') || isActive('/admin/users')
-                        ? 'bg-blue-500/90 dark:bg-blue-600/90 text-white border border-blue-400 dark:border-blue-500'
-                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
-                    }`}
-                  >
-                    <FaUsers className={`group-hover:scale-110 transition-transform duration-200 flex-shrink-0 ${sidebarCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} />
-                    <span className={`font-medium ${sidebarCompact ? 'text-xs' : 'text-sm'}`}>Users & Staff</span>
-                  </Link>
-                )}
-                
                 {userRole === 'admin' && (
                   <Link
                     href="/admin/feature-flags"
@@ -504,11 +483,11 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
     if (path?.startsWith('/admin/private-dining-leads')) return 'Private Dining Leads';
     if (path?.startsWith('/admin/kds')) return 'Kitchen Display';
     if (path?.startsWith('/admin/pos-integrations')) return 'POS Integrations';
-    if (path?.startsWith('/admin/homepage')) return 'Homepage';
+    if (path?.startsWith('/admin/homepage')) return 'Settings & Homepage';
     if (path?.startsWith('/admin/social')) return 'Social Media';
     if (path?.startsWith('/admin/reporting')) return 'Reporting';
-    if (path?.startsWith('/admin/users-staff')) return 'Users & Staff';
-    if (path?.startsWith('/admin/settings')) return 'Settings';
+    if (path?.startsWith('/admin/staff')) return 'Staff Management';
+    if (path?.startsWith('/admin/settings')) return 'Settings & Homepage';
     if (path?.startsWith('/admin/announcements')) return 'Announcements';
     if (path?.startsWith('/admin/purchase-orders')) return 'Purchase Orders';
     if (path?.startsWith('/admin/ingredients')) return 'Ingredients';

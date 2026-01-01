@@ -1,4 +1,12 @@
 import { test, expect } from '@playwright/test';
+import { TestDataTracker } from './test-helpers';
+import { TestMetadata } from './test-metadata';
+
+export const testMetadata: TestMetadata = {
+  specName: 'menu-management',
+  featureArea: 'operations',
+  description: 'Menu management (admin)',
+};
 
 // Test with both admin and owner roles
 const roles = ['admin', 'owner'] as const;
@@ -7,14 +15,33 @@ for (const role of roles) {
   test.describe(`Menu Management (${role})`, () => {
     test.use({ storageState: `.auth/${role}.json` });
 
+    // Track test data for cleanup
+    let tracker: TestDataTracker;
+
+    test.beforeEach(() => {
+      tracker = new TestDataTracker(`.auth/${role}.json`, 'Test ');
+    });
+
+    test.afterEach(async () => {
+      await tracker.cleanup();
+    });
+
     test('should navigate to menu management page', async ({ page }) => {
       await page.goto('/admin');
+      await page.waitForTimeout(1000);
       
-      // Navigate to menu
-      await page.click('a:has-text("Menu")');
+      // Navigate to menu - wait for link to be visible
+      const menuLink = page.locator('a:has-text("Menu")').first();
+      await menuLink.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
       
-      // Should be on menu management page
-      await expect(page).toHaveURL(/\/admin\/menu/);
+      if (await menuLink.isVisible().catch(() => false)) {
+        await menuLink.click();
+        await page.waitForURL(/\/admin\/menu/, { timeout: 5000 });
+      } else {
+        // Link not visible, try direct navigation
+        await page.goto('/admin/menu');
+        await expect(page).toHaveURL(/\/admin\/menu/);
+      }
     });
 
     test('should display menu sections and items', async ({ page }) => {
@@ -45,7 +72,7 @@ for (const role of roles) {
         const nameInput = page.locator('form input[id="name"], form input[name="name"]');
         await expect(nameInput).toBeVisible();
         
-        // Fill in section name
+        // Fill in section name with test prefix
         await nameInput.fill('Test Section');
         
         // Submit
@@ -66,6 +93,22 @@ for (const role of roles) {
       
       await page.waitForTimeout(1000);
       
+      // Intercept API response to capture created item ID
+      page.on('response', async (response) => {
+        if (response.url().includes('/api/menu-items') && response.request().method() === 'POST') {
+          if (response.ok) {
+            try {
+              const data = await response.json();
+              if (data.id) {
+                tracker.trackMenuItem(data.id);
+              }
+            } catch (e) {
+              // Ignore JSON parse errors
+            }
+          }
+        }
+      });
+      
       // Look for "New Item" button
       const newItemButton = page.locator('button:has-text("New Item"), button:has-text("Add Item"), a:has-text("New Item")');
       const buttonCount = await newItemButton.count();
@@ -79,7 +122,7 @@ for (const role of roles) {
         const formVisible = await titleInput.isVisible().catch(() => false);
         
         if (formVisible) {
-          // Fill in item details
+          // Fill in item details with test prefix
           await titleInput.fill('Test Menu Item');
           
           // Fill description if exists

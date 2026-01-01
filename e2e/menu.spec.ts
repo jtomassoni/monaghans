@@ -1,4 +1,11 @@
 import { test, expect } from '@playwright/test';
+import { TestMetadata } from './test-metadata';
+
+export const testMetadata: TestMetadata = {
+  specName: 'menu',
+  featureArea: 'operations',
+  description: 'Public menu display',
+};
 
 test.describe('Public Menu Display', () => {
   test('should display menu page', async ({ page }) => {
@@ -43,8 +50,8 @@ test.describe('Public Menu Display', () => {
     
     await page.waitForTimeout(1000);
     
-    // Look for price displays
-    const prices = page.locator('text=/\$[0-9]/, [data-price]');
+    // Look for price displays - use .or() to combine regex text locator with CSS selector
+    const prices = page.locator('text=/\$[0-9]/').or(page.locator('[data-price]'));
     const priceCount = await prices.count();
     
     // Prices may or may not be displayed
@@ -88,7 +95,7 @@ test.describe('Public Menu Display', () => {
     await page.waitForTimeout(1000);
     
     // Look for availability indicators
-    const availability = page.locator('text=/unavailable/i, text=/sold out/i, [data-available="false"]');
+    const availability = page.locator('text=/unavailable/i').or(page.locator('text=/sold out/i')).or(page.locator('[data-available="false"]'));
     const availCount = await availability.count();
     
     // Availability may or may not be displayed

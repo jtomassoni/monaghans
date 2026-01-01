@@ -10,6 +10,13 @@
  * - Homepage hero section
  */
 import { test, expect } from '@playwright/test';
+import { TestMetadata } from './test-metadata';
+
+export const testMetadata: TestMetadata = {
+  specName: 'timezone-handling',
+  featureArea: 'content',
+  description: 'Timezone conversion and display',
+};
 import {
   formatDateTimeLocal,
   formatDateLocal,
@@ -347,7 +354,7 @@ test.describe('Timezone Handling', () => {
     await expect(page.locator('body')).toBeVisible();
 
     // Look for hero section or events section
-    const heroSection = page.locator('text=/today|tonight|event/i, h1, [class*="hero"]').first();
+    const heroSection = page.locator('text=/today|tonight|event/i').or(page.locator('h1')).or(page.locator('[class*="hero"]')).first();
     const heroCount = await heroSection.count();
 
     // Hero section should exist (structure check)

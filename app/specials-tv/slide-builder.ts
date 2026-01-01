@@ -23,6 +23,7 @@ export type SlideBuilderInput = {
   drink: SlideItem[];
   events: SlideItem[];
   config: {
+    includeWelcome: boolean;
     includeFoodSpecials: boolean;
     includeDrinkSpecials: boolean;
     includeHappyHour: boolean;
@@ -92,7 +93,7 @@ function chunkIntoSlides(
 }
 
 /**
- * Deterministic slide order for the TV: Happy Hour (with drink specials) → Food → Events → Custom → Fallback.
+ * Deterministic slide order for the TV: Welcome → Happy Hour (with drink specials) → Food → Events → Custom → Fallback.
  * This keeps the wall display predictable and separates playlist generation from the admin UI.
  */
 export function buildSlides(input: SlideBuilderInput): SlideContent[] {
@@ -103,6 +104,29 @@ export function buildSlides(input: SlideBuilderInput): SlideContent[] {
   const addSlide = (slide: Omit<SlideContent, 'sequence'>) => {
     slides.push({ ...slide, sequence: sequence++ });
   };
+
+  // Welcome screen - shown first if enabled
+  if (config.includeWelcome) {
+    addSlide({
+      id: 'welcome',
+      label: 'Welcome',
+      title: "Welcome to Monaghan's",
+      subtitle: "Established 1892",
+      body: 'Denver\'s Second-Oldest Bar\n\nCold drinks, warm people.\nYour neighborhood dive bar.',
+      footer: '3889 S King St, Denver, CO • (303) 789-7208',
+      accent: 'gold',
+      source: 'welcome',
+      slideType: 'image',
+      items: [
+        {
+          title: '',
+          image: '/pics/hero.png',
+          note: '',
+          detail: '',
+        },
+      ],
+    });
+  }
 
   // Happy Hour (always shown if enabled, since it's 7 days a week)
   // Includes drink specials as items when available
@@ -179,8 +203,8 @@ export function buildSlides(input: SlideBuilderInput): SlideContent[] {
       const baseSlide: Omit<SlideContent, 'sequence' | 'items'> = {
         id: 'food-specials',
         label: 'Food Specials',
-        title: `Today's Food`,
-        subtitle: cleanText(input.todayLabel, TEXT_LIMITS.subtitle),
+        title: '',
+        subtitle: undefined,
         accent: 'accent',
         footer: 'Ask about our drink specials',
         source: 'food',
@@ -195,14 +219,13 @@ export function buildSlides(input: SlideBuilderInput): SlideContent[] {
   if (config.includeEvents && input.events.length > 0) {
     const cleaned = input.events.map(cleanItem).filter(Boolean) as SlideItem[];
     if (cleaned.length > 0) {
-      const eventCountLabel = cleaned.length === 1 ? '1 upcoming event' : `${cleaned.length} upcoming events`;
       const baseSlide: Omit<SlideContent, 'sequence' | 'items'> = {
         id: 'events',
         label: 'Upcoming Events',
         title: '', // no hero title to reduce wasted space
-        subtitle: cleanText(eventCountLabel, TEXT_LIMITS.subtitle),
-        accent: 'accent',
-        footer: 'Tell your crew',
+        subtitle: undefined, // removed - count is now in the label
+        accent: 'green', // Use green for Irish pub theme - welcoming and festive
+        footer: undefined,
         source: 'events',
       };
       const chunked = chunkIntoSlides(cleaned, baseSlide, sequence, EVENTS_MAX_ITEMS_PER_SLIDE);
@@ -221,21 +244,79 @@ export function buildSlides(input: SlideBuilderInput): SlideContent[] {
     .sort((a, b) => (a.position || 0) - (b.position || 0));
 
   for (const custom of customSlides) {
+    // Check if this is an image-based slide
+    const slideType = custom.slideType || (custom.imageStorageKey || custom.imageUrl ? 'image' : 'text');
+    const imageStorageKey = custom.imageStorageKey || custom.imageUrl;
+    const hasValidImage = Boolean(
+      slideType === 'image' &&
+      imageStorageKey && 
+      typeof imageStorageKey === 'string' && 
+      imageStorageKey.trim() !== '' &&
+      imageStorageKey !== 'NO IMAGE KEY' &&
+      imageStorageKey !== 'NO IMAGE URL'
+    );
+    
     const title = cleanText(custom.title, TEXT_LIMITS.title);
     if (!title) continue;
+    
     // Valid accent colors - preserve the selected accent color
     const validAccents = ['accent', 'gold', 'blue', 'green', 'purple', 'orange', 'teal', 'pink', 'cyan'];
     const accent = validAccents.includes(custom.accent) ? custom.accent : 'accent';
-    addSlide({
-      id: String(custom.id || `custom-${slides.length + 1}`),
-      label: cleanText(custom.label || 'Custom', TEXT_LIMITS.subtitle) || 'Custom',
-      title,
-      subtitle: cleanText(custom.subtitle, TEXT_LIMITS.subtitle),
-      body: cleanText(custom.body, TEXT_LIMITS.body, { preserveNewlines: true }),
-      footer: cleanText(custom.footer, TEXT_LIMITS.footer),
-      accent,
-      source: 'custom',
-    });
+    
+    // If it's an image-based slide, create a slide with the image as an item
+    if (hasValidImage && slideType === 'image') {
+      // Create a text-based slide with a single item containing the image
+      const imagePath = imageStorageKey.trim();
+      const slideWithImage = {
+        id: String(custom.id || `custom-${slides.length + 1}`),
+        label: cleanText(custom.label || 'Custom', TEXT_LIMITS.subtitle) || 'Custom',
+        title, // Title kept for admin organization but won't be displayed
+        subtitle: cleanText(custom.subtitle, TEXT_LIMITS.subtitle),
+        body: cleanText(custom.body, TEXT_LIMITS.body, { preserveNewlines: true }),
+        footer: '', // No footer for image-based slides
+        accent,
+        source: 'custom' as const,
+        slideType: 'image' as const, // Mark as image-based
+        showBorder: typeof custom.showBorder === 'boolean' ? custom.showBorder : undefined, // Pass through showBorder
+        items: [
+          {
+            title: '', // No title on image
+            image: imagePath,
+            note: '',
+            detail: '',
+          },
+        ],
+        // Set asset for image-based custom slides (used by rotator)
+        asset: {
+          id: String(custom.id || `custom-${slides.length + 1}`),
+          storageKey: imagePath,
+          width: null,
+          height: null,
+        },
+      };
+      console.log('[Slide Builder] Creating custom slide with image:', {
+        id: slideWithImage.id,
+        title: slideWithImage.title,
+        imagePath,
+        hasItems: !!slideWithImage.items,
+        itemCount: slideWithImage.items?.length,
+        itemImage: slideWithImage.items[0]?.image,
+        fullItem: slideWithImage.items[0],
+      });
+      addSlide(slideWithImage);
+    } else {
+      // Text-based custom slide without image
+      addSlide({
+        id: String(custom.id || `custom-${slides.length + 1}`),
+        label: cleanText(custom.label || 'Custom', TEXT_LIMITS.subtitle) || 'Custom',
+        title,
+        subtitle: cleanText(custom.subtitle, TEXT_LIMITS.subtitle),
+        body: cleanText(custom.body, TEXT_LIMITS.body, { preserveNewlines: true }),
+        footer: cleanText(custom.footer, TEXT_LIMITS.footer),
+        accent,
+        source: 'custom',
+      });
+    }
   }
 
   if (slides.length === 0) {

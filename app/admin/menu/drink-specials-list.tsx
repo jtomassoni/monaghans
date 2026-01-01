@@ -415,6 +415,9 @@ export default function DrinkSpecialsList({ initialSpecials }: DrinkSpecialsList
                       <span className="px-2 py-0.5 text-xs rounded-full font-medium capitalize flex-shrink-0 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
                         Drink Special
                       </span>
+                    </div>
+                    {/* Badges Row */}
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
                       {isWeeklyRecurring && (
                         <span className="px-2 py-0.5 text-xs rounded-full font-medium flex-shrink-0 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800 flex items-center gap-1">
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">

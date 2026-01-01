@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import SignageForm from './signage-form';
 
 type SignageConfig = {
+  includeWelcome: boolean;
   includeFoodSpecials: boolean;
   includeDrinkSpecials: boolean;
   includeHappyHour: boolean;
@@ -18,6 +19,7 @@ type SignageConfig = {
 };
 
 const DEFAULT_CONFIG: SignageConfig = {
+  includeWelcome: true,
   includeFoodSpecials: true,
   includeDrinkSpecials: true,
   includeHappyHour: true,
@@ -70,19 +72,19 @@ export default async function AdminSignagePage() {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-gradient-to-r from-indigo-200/10 dark:from-indigo-900/20 to-transparent rounded-full blur-3xl"></div>
       </div>
 
-      <div className="flex-shrink-0 px-6 py-4 pt-20 md:pt-4 border-b border-gray-200/50 dark:border-gray-800/50 bg-white/70 dark:bg-gray-900/70 backdrop-blur-md shadow-lg relative z-10">
+      <div className="flex-shrink-0 px-6 py-5 pt-20 md:pt-5 border-b border-gray-200/60 dark:border-gray-800/60 bg-white/80 dark:bg-gray-900/80 backdrop-blur-lg shadow-sm relative z-10">
         <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="p-2.5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg">
+              <div className="p-3 bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 rounded-xl shadow-lg ring-2 ring-blue-500/20">
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Digital Signage Manager</h1>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">
-                  Configure TV display settings and custom slides
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">Digital Signage Manager</h1>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  Configure TV display settings, content slides, and ad campaigns
                 </p>
               </div>
             </div>
@@ -90,7 +92,7 @@ export default async function AdminSignagePage() {
               href="/specials-tv"
               target="_blank"
               rel="noopener noreferrer"
-              className="hidden sm:flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors"
+              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-gray-100 to-gray-50 dark:from-gray-800 dark:to-gray-700 hover:from-gray-200 hover:to-gray-100 dark:hover:from-gray-700 dark:hover:to-gray-600 rounded-xl text-sm font-semibold text-gray-700 dark:text-gray-200 transition-all shadow-sm hover:shadow-md border border-gray-200/50 dark:border-gray-700/50"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -102,7 +104,7 @@ export default async function AdminSignagePage() {
       </div>
 
       <div className="flex-1 overflow-auto p-6 relative z-10">
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-7xl mx-auto h-full">
           <SignageForm initialConfig={initialConfig} />
         </div>
       </div>

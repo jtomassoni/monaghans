@@ -647,43 +647,8 @@ export default async function HomePage() {
     return 'Open Daily';
   };
 
-  // Determine hero image based on available content
+  // Hero image is always the hero pic
   const getHeroImage = () => {
-    // First check if hero image is explicitly set in settings (not empty string)
-    if (hero?.image && hero.image.trim() !== '') {
-      return hero.image;
-    }
-    
-    // Priority: events > drink specials > food specials > default
-    if (todaysEvents.length > 0) {
-      // Check if any event mentions karaoke
-      const hasKaraoke = todaysEvents.some(e => 
-        e.title.toLowerCase().includes('karaoke') || 
-        e.title.toLowerCase().includes('kareoke') ||
-        e.description?.toLowerCase().includes('karaoke') ||
-        e.description?.toLowerCase().includes('kareoke')
-      );
-      if (hasKaraoke) return '/pics/monaghans-kareoke.jpg';
-      return '/pics/monaghans-beer-and-shot.jpg';
-    }
-    if (todaysDrinkSpecial) {
-      return '/pics/monaghans-beer-and-shot.jpg';
-    }
-    if (todaysFoodSpecials.length > 0) {
-      // Use the special's image field if available
-      const firstSpecial = todaysFoodSpecials[0];
-      if (firstSpecial.image) {
-        return firstSpecial.image;
-      }
-      // Fallback to title-based logic if no image specified
-      if (firstSpecial.title.toLowerCase().includes('breakfast') || firstSpecial.title.toLowerCase().includes('biscuit')) {
-        return '/pics/monaghans-breakfast-biscut.jpg';
-      }
-      if (firstSpecial.title.toLowerCase().includes('fish') || firstSpecial.title.toLowerCase().includes('taco')) {
-        return '/pics/monaghans-taco-platter.jpg';
-      }
-    }
-    // Default hero image
     return '/pics/hero.png';
   };
 
@@ -772,8 +737,12 @@ export default async function HomePage() {
               return (
                 <div 
                   key={`${event.id}-${event.startDateTime}`} 
-                  className="group relative bg-gradient-to-br from-purple-900/60 via-purple-800/50 to-indigo-900/60 backdrop-blur-md rounded-2xl p-3 sm:p-4 border-l-4 border-purple-400 shadow-xl hover:shadow-2xl hover:shadow-purple-500/20 overflow-hidden"
+                  className="group relative rounded-2xl p-3 sm:p-4 border-l-4 border-purple-400 shadow-xl hover:shadow-2xl hover:shadow-purple-500/20 overflow-hidden"
                 >
+                  {/* Solid background layer for maximum opacity */}
+                  <div className="absolute inset-0 bg-purple-900 rounded-2xl"></div>
+                  {/* Gradient overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-purple-900/98 via-purple-800/98 to-indigo-900/98 backdrop-blur-md rounded-2xl"></div>
                   {/* Decorative pattern overlay */}
                   <div className="absolute inset-0 opacity-10">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-purple-400/20 rounded-full blur-3xl"></div>
@@ -1130,9 +1099,9 @@ export default async function HomePage() {
               {upcomingEvents.map((event) => (
                 <div
                   key={`${event.id}-${event.startDateTime}`}
-                  className="bg-blue-50 dark:bg-blue-950/20 border-l-4 border-blue-500 dark:border-blue-400 rounded-lg p-6 shadow-md hover:shadow-lg transition-shadow duration-300"
+                  className="bg-blue-50 dark:bg-blue-950/20 border-l-4 border-blue-500 dark:border-blue-400 rounded-lg p-6 shadow-md hover:shadow-lg transition-shadow duration-300 flex flex-col items-center justify-center text-center min-h-[200px]"
                 >
-                  <div className="flex items-start gap-3 mb-3">
+                  <div className="flex flex-col items-center gap-3 mb-3">
                     <div className="flex-shrink-0 w-12 h-12 bg-blue-100 dark:bg-blue-900/50 rounded-lg flex items-center justify-center">
                       <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -1146,8 +1115,8 @@ export default async function HomePage() {
                     <p className="text-gray-700 dark:text-gray-300 mb-4 leading-relaxed text-sm">{event.description}</p>
                   )}
                   
-                  <div className="space-y-2 pt-4 border-t border-blue-200 dark:border-blue-800">
-                    <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400 font-medium">
+                  <div className="space-y-2 pt-4 border-t border-blue-200 dark:border-blue-800 w-full">
+                    <div className="flex items-center justify-center gap-2 text-blue-700 dark:text-blue-400 font-medium">
                       <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
@@ -1161,7 +1130,7 @@ export default async function HomePage() {
                       </span>
                     </div>
                     
-                    <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400 font-medium">
+                    <div className="flex items-center justify-center gap-2 text-blue-700 dark:text-blue-400 font-medium">
                       <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
@@ -1181,7 +1150,7 @@ export default async function HomePage() {
                     </div>
                     
                     {event.venueArea && (
-                      <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400 font-medium">
+                      <div className="flex items-center justify-center gap-2 text-blue-700 dark:text-blue-400 font-medium">
                         <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
