@@ -627,18 +627,6 @@ export async function cleanupMenuSection(id: string, storageState: string = '.au
   }
 }
 
-/**
- * Delete a user by ID (only non-admin users)
- */
-export async function cleanupUser(id: string, storageState: string = '.auth/admin.json'): Promise<boolean> {
-  try {
-    const response = await apiRequest('DELETE', `/api/users/${id}`, storageState);
-    return response.ok;
-  } catch (error) {
-    console.error(`Failed to cleanup user ${id}:`, error);
-    return false;
-  }
-}
 
 /**
  * Find and cleanup test entities by title prefix
@@ -705,7 +693,6 @@ export class TestDataTracker {
   private specials: string[] = [];
   private menuItems: string[] = [];
   private menuSections: string[] = [];
-  private users: string[] = [];
   private storageState: string;
   private testPrefix: string;
 
@@ -732,10 +719,6 @@ export class TestDataTracker {
 
   trackMenuSection(id: string) {
     this.menuSections.push(id);
-  }
-
-  trackUser(id: string) {
-    this.users.push(id);
   }
 
   /**
@@ -774,10 +757,6 @@ export class TestDataTracker {
       promises.push(cleanupSpecial(id, this.storageState));
     }
 
-    for (const id of this.users) {
-      promises.push(cleanupUser(id, this.storageState));
-    }
-
     await Promise.allSettled(promises);
 
     // Also cleanup by title prefix as a fallback
@@ -791,6 +770,5 @@ export class TestDataTracker {
     this.specials = [];
     this.menuItems = [];
     this.menuSections = [];
-    this.users = [];
   }
 }

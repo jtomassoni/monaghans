@@ -167,13 +167,6 @@ export const TEST_SPEC_METADATA: Record<FeatureArea, TestSpecMetadata[]> = {
       enabled: true,
     },
     {
-      specName: 'user-management',
-      specPath: 'e2e/user-management.spec.ts',
-      featureArea: 'administration',
-      description: 'User account management',
-      enabled: true,
-    },
-    {
       specName: 'owner-permissions',
       specPath: 'e2e/owner-permissions.spec.ts',
       featureArea: 'administration',

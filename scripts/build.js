@@ -48,23 +48,6 @@ try {
   
   const hasDatabaseUrl = Boolean(process.env.DATABASE_URL);
 
-  // One-time cleanup: Delete all users if CLEANUP_USERS env var is set
-  // This is safe because users are auto-created from env vars on login
-  if (process.env.CLEANUP_USERS === 'true' && hasDatabaseUrl) {
-    try {
-      console.log('🧹 Cleaning up users (one-time cleanup)...');
-      execSync('tsx scripts/delete-all-users.ts', {
-        stdio: 'inherit',
-        timeout: 10000
-      });
-      console.log('✅ User cleanup completed');
-      console.log('⚠️  Note: Set CLEANUP_USERS=false or remove it after this deploy to prevent re-running');
-    } catch (error) {
-      console.warn('⚠️  User cleanup failed (non-critical):', error.message);
-      // Don't fail the build if cleanup fails
-    }
-  }
-
   // Sync database schema (skip if SKIP_MIGRATIONS is set)
   // We use db push as primary method since it's more reliable and automatically
   // creates missing tables/columns without requiring migration files

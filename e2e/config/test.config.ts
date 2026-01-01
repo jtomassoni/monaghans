@@ -65,7 +65,6 @@ export const testConfig = {
   // Administration Feature Tests (not controlled by feature flags - managed via env vars)
   administration: {
     settings: true, // Application settings management
-    'user-management': true, // User account management
     'owner-permissions': true, // Owner role permissions and restrictions
   },
   

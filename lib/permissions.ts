@@ -9,9 +9,6 @@
 export type UserRole = 'admin' | 'owner';
 
 export interface Permissions {
-  // User management
-  canManageUsers: boolean;
-  
   // Admin features
   canAccessAdmin: boolean;
   canManageMenu: boolean;
@@ -39,7 +36,6 @@ export function getPermissions(role: string | null | undefined): Permissions {
     case 'admin':
       // Admin has full permissions
       return {
-        canManageUsers: true,
         canAccessAdmin: true,
         canManageMenu: true,
         canManageEvents: true,
@@ -58,7 +54,6 @@ export function getPermissions(role: string | null | undefined): Permissions {
     case 'owner':
       // Owner has full permissions (same as admin)
       return {
-        canManageUsers: true,
         canAccessAdmin: true,
         canManageMenu: true,
         canManageEvents: true,
@@ -82,7 +77,6 @@ export function getPermissions(role: string | null | undefined): Permissions {
 function getDefaultPermissions(): Permissions {
   // Default to no permissions
   return {
-    canManageUsers: false,
     canAccessAdmin: false,
     canManageMenu: false,
     canManageEvents: false,
@@ -99,51 +93,3 @@ function getDefaultPermissions(): Permissions {
   };
 }
 
-/**
- * Check if a user can perform an action on another user
- */
-export function canManageUser(
-  currentUserRole: string | null | undefined,
-  targetUserRole: string | null | undefined
-): boolean {
-  if (!currentUserRole || !targetUserRole) return false;
-  
-  // Only admin and owner can manage users, and they can only manage other admin/owner users
-  if (currentUserRole !== 'admin' && currentUserRole !== 'owner') {
-    return false;
-  }
-  
-  // Admin and owner can manage each other
-  if (targetUserRole === 'admin' || targetUserRole === 'owner') {
-    return true;
-  }
-  
-  return false;
-}
-
-/**
- * Check if a user can create a user with a specific role
- */
-export function canCreateRole(
-  currentUserRole: string | null | undefined,
-  targetRole: string
-): boolean {
-  if (!currentUserRole) return false;
-  
-  // Only admin and owner can create users
-  if (currentUserRole !== 'admin' && currentUserRole !== 'owner') {
-    return false;
-  }
-  
-  // Admin can create all roles
-  if (currentUserRole === 'admin') {
-    return true;
-  }
-  
-  // Owner can create manager, cook, bartender, barback roles, but NOT owner or admin
-  if (currentUserRole === 'owner') {
-    return targetRole === 'manager' || targetRole === 'cook' || targetRole === 'bartender' || targetRole === 'barback';
-  }
-  
-  return false;
-}
