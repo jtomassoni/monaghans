@@ -15,11 +15,12 @@ const nextConfig = {
     // These are optional dependencies that may not be available in all environments
     if (isServer) {
       config.externals = config.externals || [];
-      // Make pdf-poppler and pdf2pic optional (won't cause build errors if missing)
+      // Make PDF processing libraries optional (won't cause build errors if missing)
       config.resolve.fallback = {
         ...config.resolve.fallback,
         'pdf-poppler': false,
         'pdf2pic': false,
+        'canvas': false, // Optional - requires native dependencies
       };
     }
     return config;

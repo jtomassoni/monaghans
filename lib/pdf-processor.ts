@@ -10,7 +10,7 @@ export interface PdfPageImage {
 }
 
 /**
- * Convert PDF pages to images using pdfjs-dist and canvas
+if  * Convert PDF pages to images using pdfjs-dist and canvas
  * Requires: npm install pdfjs-dist canvas
  * On macOS, canvas also requires: brew install pkg-config cairo pango libpng jpeg giflib librsvg
  */
@@ -31,7 +31,19 @@ export async function convertPdfToImages(
   try {
     // Use dynamic imports that won't be analyzed at build time
     const pdfjs = await dynamicImport('pdfjs-dist');
-    const canvasModule = await dynamicImport('canvas');
+    
+    // Canvas is optional - may not be available in all environments (e.g., Vercel builds)
+    let canvasModule;
+    try {
+      canvasModule = await dynamicImport('canvas');
+    } catch (canvasError) {
+      throw new Error(
+        'Canvas module is not available. PDF processing requires the canvas package with native dependencies. ' +
+        'This feature may not be available in serverless environments like Vercel. ' +
+        `Original error: ${canvasError instanceof Error ? canvasError.message : 'Unknown error'}`
+      );
+    }
+    
     const { createCanvas } = canvasModule;
     
     // Read the PDF file
