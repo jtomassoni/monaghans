@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// Build script for Next.js application
 
 const { execSync } = require('child_process');
 const fs = require('fs');
