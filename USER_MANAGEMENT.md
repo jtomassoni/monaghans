@@ -21,7 +21,20 @@ User authentication in this application is handled via **environment variables**
 
 Since authentication is via env vars, you can safely delete all `User` records from the database. They will be automatically recreated when users log in.
 
-### Using the Delete Script
+### Automatic Cleanup on Next Deploy (Recommended)
+
+The easiest way is to set an environment variable in Vercel that will automatically delete users on the next deployment:
+
+1. **In Vercel Dashboard:**
+   - Go to your project → Settings → Environment Variables
+   - Add: `CLEANUP_USERS` = `true`
+   - Deploy (or push a commit to trigger deployment)
+
+2. **After deployment:**
+   - Remove or set `CLEANUP_USERS` = `false` to prevent it from running again
+   - Users will be automatically recreated when they log in
+
+### Using the Delete Script Manually
 
 ```bash
 # Delete all users (and their activity logs/uploads via cascade)
