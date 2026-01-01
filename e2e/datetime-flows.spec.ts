@@ -618,14 +618,19 @@ test.describe('Datetime Flows', () => {
         const testTitle = `E2E Test All Day Event ${Date.now()}`;
         await titleInput.fill(testTitle);
 
-        // Check all-day checkbox - use force click if intercepted by sidebar
+        // Check all-day checkbox - try normal click, scroll if needed, then force
         const allDayCheckbox = page.locator('input[id*="allDay"], input[name*="allDay"], input[type="checkbox"]').first();
         if (await allDayCheckbox.count() > 0) {
-          // Try normal click first, if intercepted use force
+          // Try normal click first, if intercepted try scrolling, then force
           try {
             await allDayCheckbox.click({ timeout: 3000 });
           } catch {
-            await allDayCheckbox.click({ force: true });
+            try {
+              await allDayCheckbox.scrollIntoViewIfNeeded();
+              await allDayCheckbox.click({ timeout: 3000 });
+            } catch {
+              await allDayCheckbox.click({ force: true });
+            }
           }
           await page.waitForTimeout(500);
         }

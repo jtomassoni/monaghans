@@ -135,6 +135,15 @@ export function canCreateRole(
     return false;
   }
   
-  // Can only create admin or owner roles
-  return targetRole === 'admin' || targetRole === 'owner';
+  // Admin can create all roles
+  if (currentUserRole === 'admin') {
+    return true;
+  }
+  
+  // Owner can create manager, cook, bartender, barback roles, but NOT owner or admin
+  if (currentUserRole === 'owner') {
+    return targetRole === 'manager' || targetRole === 'cook' || targetRole === 'bartender' || targetRole === 'barback';
+  }
+  
+  return false;
 }

@@ -12,12 +12,18 @@ test.use({ storageState: '.auth/admin.json' });
 test.describe('Settings Management', () => {
   test('should navigate to settings page', async ({ page }) => {
     await page.goto('/admin');
+    await page.waitForLoadState('networkidle');
     
-    // Navigate to settings
-    await page.click('a:has-text("Settings")');
+    // Wait for navigation to be ready
+    await page.waitForTimeout(500);
+    
+    // Navigate to settings - wait for link to be visible
+    const settingsLink = page.locator('a:has-text("Settings")');
+    await settingsLink.waitFor({ state: 'visible', timeout: 5000 });
+    await settingsLink.click();
     
     // Should be on settings page
-    await expect(page).toHaveURL(/\/admin\/settings/);
+    await expect(page).toHaveURL(/\/admin\/settings/, { timeout: 10000 });
   });
 
   test('should display settings form', async ({ page }) => {
@@ -60,29 +66,53 @@ test.describe('Settings Management', () => {
 
   test('should update business information', async ({ page }) => {
     await page.goto('/admin/settings');
-    
+    await page.waitForLoadState('networkidle');
     await page.waitForTimeout(1000);
     
-    // Look for address/phone inputs
-    const addressInput = page.locator('input[id*="address"], textarea[id*="address"], input[name*="address"]');
-    const phoneInput = page.locator('input[id*="phone"], input[name*="phone"]');
+    // Wait for form to be visible
+    await page.waitForSelector('form, input, textarea', { state: 'visible', timeout: 10000 });
     
-    if (await addressInput.count() > 0) {
-      await addressInput.first().fill('123 Test Street');
-      
-      if (await phoneInput.count() > 0) {
-        await phoneInput.first().fill('(555) 123-4567');
+    // Look for address/phone inputs - try multiple selectors
+    const addressInput = page.locator('input[id*="address"], textarea[id*="address"], input[name*="address"], textarea[name*="address"]').first();
+    const phoneInput = page.locator('input[id*="phone"], input[name*="phone"]').first();
+    
+    const addressCount = await addressInput.count().catch(() => 0);
+    const phoneCount = await phoneInput.count().catch(() => 0);
+    
+    if (addressCount > 0 || phoneCount > 0) {
+      if (addressCount > 0) {
+        await addressInput.waitFor({ state: 'visible', timeout: 5000 });
+        await addressInput.fill('123 Test Street');
       }
       
-      // Save
-      const saveButton = page.locator('button[type="submit"], button:has-text("Save")');
-      if (await saveButton.count() > 0) {
-        await saveButton.first().click();
-        await page.waitForTimeout(2000);
+      if (phoneCount > 0) {
+        await phoneInput.waitFor({ state: 'visible', timeout: 5000 });
+        await phoneInput.fill('(555) 123-4567');
+      }
+      
+      // Save - look for any save button
+      const saveButton = page.locator('button[type="submit"]:not([disabled]), button:has-text("Save"):not([disabled])').first();
+      const saveCount = await saveButton.count().catch(() => 0);
+      
+      if (saveCount > 0) {
+        await saveButton.waitFor({ state: 'visible', timeout: 5000 });
+        await saveButton.click();
         
-        const successVisible = await page.locator('text=/success|saved|updated/i').isVisible().catch(() => false);
+        // Wait for success message or network idle
+        await Promise.race([
+          page.waitForSelector('text=/success|saved|updated/i', { state: 'visible', timeout: 5000 }).catch(() => null),
+          page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => null),
+        ]);
+        
+        const successVisible = await page.locator('text=/success|saved|updated/i').isVisible({ timeout: 2000 }).catch(() => false);
         expect(successVisible).toBeTruthy();
+      } else {
+        // No save button found - might auto-save or feature not available
+        test.skip();
       }
+    } else {
+      // No inputs found - feature might not be available
+      test.skip();
     }
   });
 
@@ -139,7 +169,7 @@ test.describe('Settings Management', () => {
       const options = await timezoneSelect.locator('option').count();
       if (options > 1) {
         // Select the second option (index 1)
-        await timezoneSelect.selectIndex(1);
+        await timezoneSelect.selectOption({ index: 1 });
         // Wait for the select value to change
         await expect(timezoneSelect).not.toHaveValue(currentValue, { timeout: 2000 }).catch(() => {});
         
@@ -147,7 +177,7 @@ test.describe('Settings Management', () => {
         const newValue = await timezoneSelect.inputValue().catch(() => '');
         if (newValue === currentValue && options > 2) {
           // Value didn't change, try next option
-          await timezoneSelect.selectIndex(2);
+          await timezoneSelect.selectOption({ index: 2 });
           await expect(timezoneSelect).not.toHaveValue(currentValue, { timeout: 2000 }).catch(() => {});
         }
         

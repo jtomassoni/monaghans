@@ -68,7 +68,7 @@ test.describe('Ingredients Management', () => {
           if (await categoryInput.first().evaluate(el => el.tagName === 'SELECT')) {
             const options = await categoryInput.locator('option').count();
             if (options > 1) {
-              await categoryInput.selectIndex(1);
+              await categoryInput.selectOption({ index: 1 });
             }
           } else {
             await categoryInput.first().fill('Test Category');
@@ -87,7 +87,7 @@ test.describe('Ingredients Management', () => {
           if (await unitInput.first().evaluate(el => el.tagName === 'SELECT')) {
             const options = await unitInput.locator('option').count();
             if (options > 1) {
-              await unitInput.selectIndex(1);
+              await unitInput.selectOption({ index: 1 });
             }
           } else {
             await unitInput.first().fill('lb');
@@ -171,11 +171,24 @@ test.describe('Ingredients Management', () => {
     
     await page.waitForTimeout(1000);
     
-    // Navigate to items tab if exists
-    const itemsTab = page.locator('button:has-text("Items"), [role="tab"]:has-text("Items")');
-    if (await itemsTab.count() > 0) {
-      await itemsTab.first().click();
-      await page.waitForTimeout(1000);
+    // Navigate to items tab if exists - look for "All Items" button
+    // The button is only visible when sections tab is active
+    const itemsTab = page.locator('button:has-text("All Items"), button:has-text("Items"), [role="tab"]:has-text("Items"), [role="tab"]:has-text("All Items")');
+    const tabCount = await itemsTab.count();
+    if (tabCount > 0) {
+      // Check if button is visible
+      const isVisible = await itemsTab.first().isVisible().catch(() => false);
+      if (isVisible) {
+        try {
+          await itemsTab.first().click({ timeout: 3000 });
+          await page.waitForTimeout(1000);
+        } catch {
+          // If click fails, try force click
+          await itemsTab.first().click({ force: true, timeout: 3000 });
+          await page.waitForTimeout(1000);
+        }
+      }
+      // If button exists but isn't visible, continue anyway - items might already be shown
     }
     
     // Edit an item

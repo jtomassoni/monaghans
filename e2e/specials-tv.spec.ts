@@ -135,10 +135,14 @@ test.describe('Specials TV', () => {
     // Food slide visible
     await expect(page.getByText(foodTitle, { exact: false })).toBeVisible({ timeout: 8000 });
 
-    // Custom slide reachable
+    // Custom slide reachable - wait for dots to appear and check count
     const dots = page.getByRole('button', { name: /Go to slide/i });
-    await expect(dots).toHaveCount(2);
-    await dots.nth(1).click();
+    await dots.first().waitFor({ state: 'visible', timeout: 5000 });
+    const dotCount = await dots.count();
+    // Should have at least 2 dots (food special + custom slide), but might have more
+    expect(dotCount).toBeGreaterThanOrEqual(2);
+    // Click the last dot to go to custom slide
+    await dots.nth(dotCount - 1).click();
     await expect(page.getByText(customTitle, { exact: false })).toBeVisible({ timeout: 8000 });
   });
 

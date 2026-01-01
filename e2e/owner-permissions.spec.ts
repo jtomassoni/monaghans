@@ -39,22 +39,35 @@ test.describe('Owner Permissions', () => {
     // Wait for page content to load
     await page.waitForSelector('body', { state: 'visible' });
     
-    // Try to find a way to create a user - look for "New" or "Add" button
-    const newButton = page.locator('button:has-text("New")').or(page.locator('button:has-text("Add")')).or(page.locator('button:has-text("Create")')).first();
+    // Try to find a way to create a user - look for "Add Person" or "New" or "Add" button
+    const newButton = page.locator('button:has-text("Add Person")').or(page.locator('button:has-text("New")')).or(page.locator('button:has-text("Add")')).or(page.locator('button:has-text("Create")')).first();
     const buttonCount = await newButton.count().catch(() => 0);
     
-    if (buttonCount > 0) {
+      if (buttonCount > 0) {
       await newButton.waitFor({ state: 'visible', timeout: 5000 });
       if (await newButton.isVisible().catch(() => false)) {
-        // Try normal click first, if intercepted use force
+        // Try normal click first
+        let buttonClicked = false;
         try {
           await newButton.click({ timeout: 3000 });
+          buttonClicked = true;
         } catch {
-          await newButton.click({ force: true });
+          // Click failed, try scrolling and clicking again
+          try {
+            await newButton.scrollIntoViewIfNeeded();
+            await newButton.click({ timeout: 3000 });
+            buttonClicked = true;
+          } catch {
+            // Still failed, use force as last resort
+            await newButton.click({ force: true });
+            buttonClicked = true;
+          }
         }
         
-        // Wait for form/modal to appear - wait for form inputs
-        await page.waitForSelector('select, input[type="text"], input[type="email"], [role="dialog"]', { state: 'visible', timeout: 5000 });
+        if (buttonClicked) {
+          // Wait for form/modal to appear - wait for form inputs
+          await page.waitForSelector('select, input[type="text"], input[type="email"], [role="dialog"]', { state: 'visible', timeout: 5000 });
+        }
         
         // Check if owner role option is available in the form
         const ownerOption = page.locator('select option[value="owner"]').or(page.locator('input[value="owner"]'));
@@ -83,18 +96,31 @@ test.describe('Owner Permissions', () => {
     const newButton = page.locator('button:has-text("New")').or(page.locator('button:has-text("Add")')).or(page.locator('button:has-text("Create")')).first();
     const buttonCount = await newButton.count().catch(() => 0);
     
-    if (buttonCount > 0) {
+      if (buttonCount > 0) {
       await newButton.waitFor({ state: 'visible', timeout: 5000 });
       if (await newButton.isVisible().catch(() => false)) {
-        // Try normal click first, if intercepted use force
+        // Try normal click first
+        let buttonClicked = false;
         try {
           await newButton.click({ timeout: 3000 });
+          buttonClicked = true;
         } catch {
-          await newButton.click({ force: true });
+          // Click failed, try scrolling and clicking again
+          try {
+            await newButton.scrollIntoViewIfNeeded();
+            await newButton.click({ timeout: 3000 });
+            buttonClicked = true;
+          } catch {
+            // Still failed, use force as last resort
+            await newButton.click({ force: true });
+            buttonClicked = true;
+          }
         }
         
-        // Wait for form/modal to appear - wait for form inputs
-        await page.waitForSelector('select, input[type="text"], input[type="email"], [role="dialog"]', { state: 'visible', timeout: 5000 });
+        if (buttonClicked) {
+          // Wait for form/modal to appear - wait for form inputs
+          await page.waitForSelector('select, input[type="text"], input[type="email"], [role="dialog"]', { state: 'visible', timeout: 5000 });
+        }
         
         // Check if manager and staff role options are available
         const managerOption = page.locator('select option[value="manager"]').or(page.locator('input[value="manager"]'));
@@ -112,4 +138,5 @@ test.describe('Owner Permissions', () => {
     }
   });
 });
+
 

@@ -3,6 +3,51 @@
  * These helpers ensure consistent test data creation and common operations
  */
 
+import { resetDatabaseToSeedState } from './db-reset';
+
+// Track which test files have already reset the database
+// Using a Map to track by worker to handle parallel execution
+const resetFiles = new Map<number, Set<string>>();
+
+/**
+ * Reset database to seed state once per test file
+ * 
+ * This should be called in a beforeEach hook at the file level
+ * to ensure each test spec starts with a clean database state.
+ * 
+ * The function tracks which files have already reset, so it's safe
+ * to call it in every beforeEach - it will only actually reset once per file.
+ * 
+ * Note: This function extracts the file path from the call stack, which works
+ * but is less reliable than using the fixture approach. Prefer using the
+ * `test` and `expect` from `./fixtures` instead.
+ * 
+ * Example usage:
+ * ```typescript
+ * test.beforeEach(async () => {
+ *   await resetDatabaseOncePerFile();
+ * });
+ * ```
+ */
+export async function resetDatabaseOncePerFile(workerIndex: number = 0) {
+  // Extract file path from call stack
+  const callStack = new Error().stack;
+  const fileMatch = callStack?.match(/at.*\(.*\/([^\/]+\.spec\.ts)/);
+  const filePath = fileMatch ? fileMatch[1] : 'unknown';
+  
+  // Get or create the set for this worker
+  if (!resetFiles.has(workerIndex)) {
+    resetFiles.set(workerIndex, new Set());
+  }
+  const workerResetFiles = resetFiles.get(workerIndex)!;
+  
+  // Only reset once per file per worker
+  if (!workerResetFiles.has(filePath)) {
+    await resetDatabaseToSeedState(true); // Silent mode to reduce noise
+    workerResetFiles.add(filePath);
+  }
+}
+
 /**
  * Format date in YYYY-MM-DDTHH:mm format for datetime-local inputs
  * Uses Mountain Time timezone
@@ -140,6 +185,318 @@ export async function clickIfExists(
     return true;
   }
   return false;
+}
+
+/**
+ * Wait for network to be idle (no pending requests)
+ * More deterministic than waitForTimeout
+ * 
+ * @throws Error with context if network doesn't become idle
+ */
+export async function waitForNetworkIdle(
+  page: any,
+  timeout: number = 5000,
+  context?: string
+): Promise<void> {
+  try {
+    await page.waitForLoadState('networkidle', { timeout });
+  } catch (error) {
+    // If networkidle times out, wait a bit more for any pending requests
+    await page.waitForTimeout(500);
+    
+    // Check if still not idle
+    try {
+      await page.waitForLoadState('networkidle', { timeout: 1000 });
+    } catch {
+      const url = page.url();
+      throw new Error(
+        `❌ Network did not become idle after ${timeout}ms${context ? ` (${context})` : ''}\n` +
+        `   URL: ${url}\n` +
+        `   This usually means:\n` +
+        `   - API requests are still pending\n` +
+        `   - Background polling is active\n` +
+        `   - Network timeout is too short\n` +
+        `   Check network tab in browser devtools or increase timeout`
+      );
+    }
+  }
+}
+
+/**
+ * Wait for success message (toast or notification) to appear
+ * Tries multiple selectors and patterns
+ * 
+ * @throws Error with context if success message is not found
+ */
+export async function waitForSuccessMessage(
+  page: any,
+  timeout: number = 5000,
+  context?: string
+): Promise<boolean> {
+  const selectors = [
+    '.bg-green-900, .bg-green-800, [class*="bg-green"]',
+    '[role="alert"]',
+    '[class*="toast"]',
+    'text=/success|created|saved|updated/i',
+  ];
+
+  const triedSelectors: string[] = [];
+
+  for (const selector of selectors) {
+    triedSelectors.push(selector);
+    try {
+      const locator = page.locator(selector).filter({ hasText: /success|created|saved|updated/i });
+      await locator.waitFor({ state: 'visible', timeout });
+      return true;
+    } catch (error) {
+      // Try next selector
+    }
+  }
+
+  // Fallback: wait for any text matching success pattern
+  try {
+    await page.waitForSelector('text=/success|created|saved|updated/i', { 
+      state: 'visible', 
+      timeout: Math.min(timeout, 2000) 
+    });
+    return true;
+  } catch {
+    // Generate helpful error message for CI
+    const url = page.url();
+    const pageTitle = await page.title().catch(() => 'unknown');
+    const errorMsg = `❌ Success message not found after ${timeout}ms${context ? ` (${context})` : ''}\n` +
+      `   URL: ${url}\n` +
+      `   Page title: ${pageTitle}\n` +
+      `   Tried selectors: ${triedSelectors.join(', ')}\n` +
+      `   This usually means:\n` +
+      `   - Form submission failed silently\n` +
+      `   - Success toast didn't appear\n` +
+      `   - Network request is still pending\n` +
+      `   Check screenshot/video for visual context`;
+    
+    console.error(errorMsg);
+    throw new Error(errorMsg);
+  }
+}
+
+/**
+ * Wait for form submission to complete
+ * Waits for network idle and checks for success/error messages
+ * 
+ * @throws Error with context if form submission fails
+ */
+export async function waitForFormSubmission(
+  page: any,
+  options: {
+    waitForNetworkIdle?: boolean;
+    waitForSuccess?: boolean;
+    waitForModalClose?: boolean;
+    timeout?: number;
+    context?: string;
+  } = {}
+): Promise<boolean> {
+  const {
+    waitForNetworkIdle: waitNetwork = true,
+    waitForSuccess: waitSuccess = true,
+    waitForModalClose: waitModal = false,
+    timeout = 5000,
+    context = 'form submission',
+  } = options;
+
+  const startTime = Date.now();
+
+  // Wait for network to settle
+  if (waitNetwork) {
+    try {
+      await waitForNetworkIdle(page, timeout);
+    } catch (error) {
+      const elapsed = Date.now() - startTime;
+      const url = page.url();
+      throw new Error(
+        `❌ Network did not become idle after ${elapsed}ms during ${context}\n` +
+        `   URL: ${url}\n` +
+        `   This usually means:\n` +
+        `   - API request is hanging\n` +
+        `   - Background requests are still pending\n` +
+        `   - Network timeout is too short\n` +
+        `   Check network tab in browser devtools`
+      );
+    }
+  }
+
+  // Wait for modal to close if it was open
+  if (waitModal) {
+    try {
+      await page.waitForSelector('[role="dialog"]', { 
+        state: 'hidden', 
+        timeout: Math.min(timeout, 3000) 
+      }).catch(() => {});
+    } catch {
+      // Modal might not have been open - not a failure
+    }
+  }
+
+  // Wait for success message
+  if (waitSuccess) {
+    try {
+      return await waitForSuccessMessage(page, timeout, context);
+    } catch (error) {
+      // Re-throw with additional context
+      const elapsed = Date.now() - startTime;
+      const url = page.url();
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `❌ Form submission failed: ${context}\n` +
+        `   Time elapsed: ${elapsed}ms\n` +
+        `   URL: ${url}\n` +
+        `   ${errorMessage}\n` +
+        `   Check screenshot/video for visual context`
+      );
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Wait for element to appear with retries
+ * More reliable than single waitForSelector
+ */
+export async function waitForElementWithRetry(
+  page: any,
+  selector: string,
+  options: {
+    timeout?: number;
+    retries?: number;
+    retryDelay?: number;
+  } = {}
+): Promise<boolean> {
+  const {
+    timeout = 5000,
+    retries = 3,
+    retryDelay = 500,
+  } = options;
+
+  for (let i = 0; i < retries; i++) {
+    try {
+      await page.waitForSelector(selector, { 
+        state: 'visible', 
+        timeout: Math.floor(timeout / retries) 
+      });
+      return true;
+    } catch {
+      if (i < retries - 1) {
+        await page.waitForTimeout(retryDelay);
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Ensure seed data exists for tests that depend on it
+ * This helps with test isolation when tests run in parallel
+ */
+export async function ensureSeedDataExists(
+  page: any,
+  type: 'announcement' | 'event',
+  minCount: number = 1
+): Promise<boolean> {
+  try {
+    // Navigate to the admin page for the type
+    const url = type === 'announcement' ? '/admin/announcements' : '/admin/events';
+    await page.goto(url);
+    await waitForNetworkIdle(page, 5000);
+
+    // Wait a bit for data to load
+    await page.waitForTimeout(1000);
+
+    // Check if we have enough items
+    // For announcements, look for cards or list items
+    // For events, look for event items
+    const selector = type === 'announcement' 
+      ? '.group\\/item, [class*="bg-white"][class*="rounded-lg"], [class*="bg-gray-800"][class*="rounded-lg"]'
+      : '[class*="event"], [data-testid*="event"], tr, .event-item';
+
+    const count = await page.locator(selector).count();
+    
+    if (count < minCount) {
+      console.warn(`⚠️  Only found ${count} ${type}(s), expected at least ${minCount}. Test may be flaky.`);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error(`Failed to check seed data for ${type}:`, error);
+    return false;
+  }
+}
+
+/**
+ * Capture console errors and network failures for better CI debugging
+ * Call this at the start of a test to capture errors
+ */
+export function captureErrors(page: any): {
+  consoleErrors: string[];
+  networkFailures: Array<{ url: string; status: number; method: string }>;
+  clear: () => void;
+} {
+  const consoleErrors: string[] = [];
+  const networkFailures: Array<{ url: string; status: number; method: string }> = [];
+
+  // Capture console errors
+  page.on('console', (msg: any) => {
+    if (msg.type() === 'error') {
+      consoleErrors.push(msg.text());
+    }
+  });
+
+  // Capture network failures
+  page.on('response', (response: any) => {
+    if (response.status() >= 400) {
+      networkFailures.push({
+        url: response.url(),
+        status: response.status(),
+        method: response.request().method(),
+      });
+    }
+  });
+
+  return {
+    consoleErrors,
+    networkFailures,
+    clear: () => {
+      consoleErrors.length = 0;
+      networkFailures.length = 0;
+    },
+  };
+}
+
+/**
+ * Format captured errors for CI output
+ */
+export function formatErrorsForCI(
+  consoleErrors: string[],
+  networkFailures: Array<{ url: string; status: number; method: string }>
+): string {
+  let output = '';
+
+  if (consoleErrors.length > 0) {
+    output += `\n❌ Console Errors (${consoleErrors.length}):\n`;
+    consoleErrors.forEach((error, i) => {
+      output += `   ${i + 1}. ${error}\n`;
+    });
+  }
+
+  if (networkFailures.length > 0) {
+    output += `\n❌ Network Failures (${networkFailures.length}):\n`;
+    networkFailures.forEach((failure, i) => {
+      output += `   ${i + 1}. ${failure.method} ${failure.url} → ${failure.status}\n`;
+    });
+  }
+
+  return output;
 }
 
 /**
@@ -331,6 +688,16 @@ export async function cleanupByTitlePrefix(
 
 /**
  * Test data tracker - tracks created entities for cleanup
+ * 
+ * OPTIMIZATION NOTE: Most tests should follow natural workflows (create → use → delete),
+ * which means they clean themselves up. TestDataTracker is primarily a safety net for:
+ * 
+ * 1. Tests that fail before cleanup runs
+ * 2. Tests that only create (don't test delete workflow)
+ * 3. Edge cases where deletion isn't part of the test workflow
+ * 
+ * Best practice: Structure tests to follow natural workflows when possible.
+ * Use TestDataTracker as a safety net, not the primary cleanup mechanism.
  */
 export class TestDataTracker {
   private announcements: string[] = [];
@@ -373,6 +740,12 @@ export class TestDataTracker {
 
   /**
    * Clean up all tracked entities
+   * 
+   * This is a safety net - ideally tests clean up as part of their workflow.
+   * This ensures cleanup even if:
+   * - Test fails before natural cleanup
+   * - Test only creates (doesn't test delete)
+   * - Test runs in parallel and can't share cleanup state
    */
   async cleanup(): Promise<void> {
     // Clean up in reverse order to handle dependencies
@@ -421,8 +794,3 @@ export class TestDataTracker {
     this.users = [];
   }
 }
-
-
-
-
-

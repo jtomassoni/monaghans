@@ -123,12 +123,13 @@ test.describe('Homepage Management', () => {
         await saveButton.click();
         await page.waitForTimeout(3000);
         
-        // Check for success message OR that the form was submitted (button might be disabled after save)
-        const successVisible = await page.locator('text=/success|saved|updated/i').isVisible().catch(() => false);
+        // Check for toast notification with success message
+        const toastMessage = page.locator('.bg-green-900, .bg-green-800').filter({ hasText: /success|saved|updated/i });
+        const successVisible = await toastMessage.isVisible({ timeout: 3000 }).catch(() => false);
         // Also check if save button is now disabled (indicates save was processed)
         await page.waitForTimeout(1000);
         const buttonDisabled = await saveButton.isDisabled().catch(() => false);
-        // Success if we see success message OR button is disabled (save processed)
+        // Success if we see toast message OR button is disabled (save processed)
         expect(successVisible || buttonDisabled).toBeTruthy();
       } else {
         // Try to find any enabled save button
@@ -136,7 +137,8 @@ test.describe('Homepage Management', () => {
         if (await anySaveButton.count() > 0) {
           await anySaveButton.click();
           await page.waitForTimeout(3000);
-          const successVisible = await page.locator('text=/success|saved|updated/i').isVisible().catch(() => false);
+          const toastMessage = page.locator('.bg-green-900, .bg-green-800').filter({ hasText: /success|saved|updated/i });
+          const successVisible = await toastMessage.isVisible({ timeout: 3000 }).catch(() => false);
           expect(successVisible).toBeTruthy();
         }
       }

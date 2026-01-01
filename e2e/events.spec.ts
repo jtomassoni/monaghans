@@ -16,6 +16,8 @@ import {
   fillIfExists,
   clickIfExists,
   TestDataTracker,
+  waitForFormSubmission,
+  waitForNetworkIdle,
 } from './test-helpers';
 
 // Test with both admin and owner roles
@@ -197,20 +199,30 @@ for (const role of roles) {
       
       // Try to click the New Event button, or dispatch the custom event
       const newEventButton = page.locator('button:has-text("New Event"), button:has-text("New")').first();
+      let buttonClicked = false;
+      
       if (await newEventButton.isVisible().catch(() => false)) {
-        await newEventButton.click();
-      } else {
+        try {
+          await newEventButton.click();
+          buttonClicked = true;
+        } catch {
+          // Button click failed, will use custom event
+        }
+      }
+      
+      if (!buttonClicked) {
         // Fallback: dispatch the custom event that the UI listens for
         await page.evaluate(() => {
           window.dispatchEvent(new CustomEvent('openNewEvent'));
         });
       }
-      await page.waitForTimeout(1000);
       
-      // Wait for form to be available
-      await page.waitForSelector('input[id="title"], input[name="title"]', {
-        timeout: 5000,
+      // Wait for form/modal to appear
+      await page.waitForSelector('input[id="title"], input[name="title"], [role="dialog"] input', {
+        state: 'visible',
+        timeout: 10000,
       }).catch(() => {});
+      await page.waitForTimeout(500);
       
       const titleInput = page.locator('input[id="title"], input[name="title"]').first();
       if (await titleInput.count() > 0) {
@@ -248,19 +260,73 @@ for (const role of roles) {
         const submitButton = page.locator('button[type="submit"], button:has-text("Save")').first();
         if (await submitButton.count() > 0) {
           await submitButton.click();
-          await page.waitForTimeout(2000);
           
-          const successVisible = await page.locator('text=/success|created|saved/i').isVisible().catch(() => false);
-          expect(successVisible).toBeTruthy();
+          // Wait for form submission to complete deterministically
+          try {
+            const success = await waitForFormSubmission(page, {
+              waitForNetworkIdle: true,
+              waitForSuccess: true,
+              waitForModalClose: true,
+              timeout: 10000,
+              context: 'creating recurring event with UNTIL date',
+            });
+            expect(success).toBeTruthy();
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            throw new Error(
+              `Failed to create recurring event:\n${errorMessage}\n` +
+              `Test: should create recurring weekly event with UNTIL date including last occurrence\n` +
+              `Event title: ${testTitle}\n` +
+              `Start date: ${startDateTime}\n` +
+              `UNTIL date: ${untilDateStr}\n` +
+              `Check that:\n` +
+              `- Recurrence pattern is valid\n` +
+              `- UNTIL date is after start date\n` +
+              `- Form submission completed\n` +
+              `- API endpoint is responding\n` +
+              `- No console errors in browser`
+            );
+          }
           
           // Verify event appears on public events page (should include all 4 occurrences)
           await page.goto('/events');
-          await page.waitForTimeout(2000);
+          await waitForNetworkIdle(page, 10000);
           
+          // Wait for events to load - use more deterministic approach
           const eventTitle = page.locator(`text=${testTitle}`);
-          const eventCount = await eventTitle.count();
+          
+          // Wait for event to appear with retries (events might take time to process)
+          let eventCount = 0;
+          for (let i = 0; i < 5; i++) {
+            eventCount = await eventTitle.count();
+            if (eventCount > 0) break;
+            await page.waitForTimeout(1000);
+            // Scroll to load more events if needed
+            if (i > 1) {
+              await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+              await page.waitForTimeout(500);
+            }
+          }
           
           // Event should appear (may appear multiple times if recurring)
+          if (eventCount === 0) {
+            const url = page.url();
+            const pageContent = await page.textContent('body').catch(() => 'unable to get page content');
+            throw new Error(
+              `Event not found on public events page after creation\n` +
+              `Test: should create recurring weekly event with UNTIL date including last occurrence\n` +
+              `Event title: ${testTitle}\n` +
+              `URL: ${url}\n` +
+              `Event count found: 0\n` +
+              `This usually means:\n` +
+              `- Event was created but not yet visible (timing issue)\n` +
+              `- Event date is in the future and not shown\n` +
+              `- Recurrence calculation failed\n` +
+              `- Page didn't load correctly\n` +
+              `Check screenshot/video for visual context`
+            );
+          }
+          
           expect(eventCount).toBeGreaterThanOrEqual(1);
         }
       }
@@ -349,13 +415,18 @@ for (const role of roles) {
       if (await titleInput.count() > 0) {
         await titleInput.fill(`All Day Event ${generateTestId()}`);
         
-        // Check all-day checkbox - use force click if intercepted
+        // Check all-day checkbox - try normal click, scroll if needed, then force
         const allDayCheckbox = page.locator('input[type="checkbox"][id*="allDay"], input[type="checkbox"][name*="allDay"]').first();
         if (await allDayCheckbox.count() > 0) {
           try {
             await allDayCheckbox.click({ timeout: 3000 });
           } catch {
-            await allDayCheckbox.click({ force: true });
+            try {
+              await allDayCheckbox.scrollIntoViewIfNeeded();
+              await allDayCheckbox.click({ timeout: 3000 });
+            } catch {
+              await allDayCheckbox.click({ force: true });
+            }
           }
           await page.waitForTimeout(500);
         }

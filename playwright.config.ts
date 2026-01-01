@@ -51,6 +51,8 @@ export default defineConfig({
   testDir: './e2e',
   /* Only run tests that are enabled in the config */
   testMatch: testMatchPatterns,
+  /* Global setup - runs seed script before all tests */
+  globalSetup: require.resolve('./e2e/global-setup.ts'),
   /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
@@ -64,25 +66,30 @@ export default defineConfig({
     ? (process.env.PLAYWRIGHT_WORKERS ? parseInt(process.env.PLAYWRIGHT_WORKERS) : 4)
     : undefined,
   /* Maximum number of test failures before stopping */
-  maxFailures: process.env.CI ? undefined : 5,
+  maxFailures: undefined, // Temporarily removed limit to run full suite
   /* Reporter configuration - multiple reporters for better visibility */
   reporter: process.env.CI
     ? [
+        [require.resolve('./e2e/performance-reporter.ts')], // Performance tracking (runs first for clean output)
         ['list', { printSteps: true }], // Detailed console output
         ['html', { open: 'never', outputFolder: 'playwright-report' }], // HTML report
         ['github'], // GitHub Actions annotations
       ]
-    : [['html', { open: 'on-failure' }], ['list']],
+    : [
+        [require.resolve('./e2e/performance-reporter.ts')], // Performance tracking (runs first for clean output)
+        ['html', { open: 'on-failure' }], 
+        ['list']
+      ],
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
     baseURL: process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://localhost:3000',
     /* Collect trace - always in CI for better debugging */
     trace: process.env.CI ? 'on' : 'on-first-retry',
-    /* Screenshot on failure */
-    screenshot: 'only-on-failure',
-    /* Video on failure in CI, on retry locally */
-    video: process.env.CI ? 'on-first-retry' : 'retain-on-failure',
+    /* Screenshot on failure - always in CI for debugging */
+    screenshot: process.env.CI ? 'only-on-failure' : 'only-on-failure',
+    /* Video on failure in CI for better debugging */
+    video: process.env.CI ? 'retain-on-failure' : 'retain-on-failure',
     /* Action timeout */
     actionTimeout: 15 * 1000,
     /* Navigation timeout */

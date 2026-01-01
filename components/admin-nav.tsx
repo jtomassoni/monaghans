@@ -206,7 +206,7 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
     return pathname?.startsWith(href);
   };
 
-  // Auto-open sections that contain the active page
+  // Auto-open sections that contain the active page, and expand main sections by default
   useEffect(() => {
     const newOpenSections = new Set<string>();
     for (const group of navGroups) {
@@ -216,6 +216,17 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
     }
     // Also check Administration sections
     if (userRole === 'admin' && isActive('/admin/feature-flags')) {
+      newOpenSections.add('administration');
+    }
+    // Expand main sections by default for better UX
+    const mainSections = ['guest-experience', 'menus-specials', 'back-of-house', 'settings'];
+    mainSections.forEach(sectionId => {
+      if (navGroups.some(g => g.id === sectionId)) {
+        newOpenSections.add(sectionId);
+      }
+    });
+    // Also expand administration section for admin users
+    if (userRole === 'admin') {
       newOpenSections.add('administration');
     }
     setOpenSections(newOpenSections);
@@ -358,18 +369,32 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
             >
               <div className="space-y-0.5">
                 {userRole === 'admin' && (
-                  <Link
-                    href="/admin/feature-flags"
-                    onClick={closeMobileMenu}
-                    className={`flex items-center gap-2 ${sidebarCompact ? 'px-2 py-1.5' : 'px-3 py-2'} rounded-lg transition-all duration-200 group cursor-pointer ${
-                      isActive('/admin/feature-flags')
-                        ? 'bg-blue-500/90 dark:bg-blue-600/90 text-white border border-blue-400 dark:border-blue-500'
-                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
-                    }`}
-                  >
-                    <FaCog className={`group-hover:scale-110 transition-transform duration-200 flex-shrink-0 ${sidebarCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} />
-                    <span className={`font-medium ${sidebarCompact ? 'text-xs' : 'text-sm'}`}>Feature Flags</span>
-                  </Link>
+                  <>
+                    <Link
+                      href="/admin/users-staff"
+                      onClick={closeMobileMenu}
+                      className={`flex items-center gap-2 ${sidebarCompact ? 'px-2 py-1.5' : 'px-3 py-2'} rounded-lg transition-all duration-200 group cursor-pointer ${
+                        isActive('/admin/users-staff') || isActive('/admin/users')
+                          ? 'bg-blue-500/90 dark:bg-blue-600/90 text-white border border-blue-400 dark:border-blue-500'
+                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+                      }`}
+                    >
+                      <FaUsers className={`group-hover:scale-110 transition-transform duration-200 flex-shrink-0 ${sidebarCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} />
+                      <span className={`font-medium ${sidebarCompact ? 'text-xs' : 'text-sm'}`}>Users & Staff</span>
+                    </Link>
+                    <Link
+                      href="/admin/feature-flags"
+                      onClick={closeMobileMenu}
+                      className={`flex items-center gap-2 ${sidebarCompact ? 'px-2 py-1.5' : 'px-3 py-2'} rounded-lg transition-all duration-200 group cursor-pointer ${
+                        isActive('/admin/feature-flags')
+                          ? 'bg-blue-500/90 dark:bg-blue-600/90 text-white border border-blue-400 dark:border-blue-500'
+                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+                      }`}
+                    >
+                      <FaCog className={`group-hover:scale-110 transition-transform duration-200 flex-shrink-0 ${sidebarCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} />
+                      <span className={`font-medium ${sidebarCompact ? 'text-xs' : 'text-sm'}`}>Feature Flags</span>
+                    </Link>
+                  </>
                 )}
               </div>
             </div>

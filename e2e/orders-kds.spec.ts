@@ -54,7 +54,7 @@ test.describe('Orders and KDS Management', () => {
       if (await statusFilter.first().evaluate(el => el.tagName === 'SELECT')) {
         const options = await statusFilter.locator('option').count();
         if (options > 1) {
-          await statusFilter.selectIndex(1);
+          await statusFilter.selectOption({ index: 1 });
           await page.waitForTimeout(1000);
           
           // Filter should be applied
@@ -83,7 +83,7 @@ test.describe('Orders and KDS Management', () => {
       if (await statusControls.first().evaluate(el => el.tagName === 'SELECT')) {
         const options = await statusControls.locator('option').count();
         if (options > 1) {
-          await statusControls.selectIndex(1);
+          await statusControls.selectOption({ index: 1 });
           await page.waitForTimeout(1000);
           
           // Should see update
@@ -125,11 +125,20 @@ test.describe('Orders and KDS Management', () => {
     if (itemCount > 0) {
       await orderItem.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
       if (await orderItem.isVisible().catch(() => false)) {
-        // Try clicking, use force if intercepted
+        // Try clicking, scroll if needed, then force if intercepted
+        let itemClicked = false;
         try {
           await orderItem.click({ timeout: 3000 });
+          itemClicked = true;
         } catch {
-          await orderItem.click({ force: true });
+          try {
+            await orderItem.scrollIntoViewIfNeeded();
+            await orderItem.click({ timeout: 3000 });
+            itemClicked = true;
+          } catch {
+            await orderItem.click({ force: true });
+            itemClicked = true;
+          }
         }
         
         // Wait for either URL change, modal to open, or order details to appear
@@ -250,4 +259,5 @@ test.describe('Orders and KDS Management', () => {
     }
   });
 });
+
 

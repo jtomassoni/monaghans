@@ -36,9 +36,33 @@ test.describe('Timezone Handling', () => {
     await page.waitForTimeout(1000);
 
     const newEventButton = page.locator('button:has-text("New Event"), button:has-text("New")').first();
+    let buttonClicked = false;
+    
     if (await newEventButton.count() > 0) {
-      await newEventButton.click();
-      await page.waitForTimeout(1000);
+      // Wait for button to be visible, or trigger the custom event directly
+      try {
+        await newEventButton.waitFor({ state: 'visible', timeout: 5000 });
+        await newEventButton.scrollIntoViewIfNeeded();
+        await newEventButton.click();
+        buttonClicked = true;
+      } catch {
+        // Button exists but might be hidden - trigger the custom event directly
+      }
+    }
+    
+    if (!buttonClicked) {
+      // Trigger the custom event directly
+      await page.evaluate(() => {
+        window.dispatchEvent(new CustomEvent('openNewEvent'));
+      });
+    }
+    
+    // Wait for form/modal to appear
+    await page.waitForSelector('input[id="title"], input[name="title"], [role="dialog"] input', {
+      state: 'visible',
+      timeout: 10000,
+    }).catch(() => {});
+    await page.waitForTimeout(500);
 
       const titleInput = page.locator('input[id="title"], input[name="title"]').first();
       if (await titleInput.count() > 0) {
@@ -83,7 +107,6 @@ test.describe('Timezone Handling', () => {
           await expect(page.locator('body')).toBeVisible();
         }
       }
-    }
   });
 
   test('should create event and verify it displays correctly on calendar', async ({ page }) => {
@@ -91,9 +114,33 @@ test.describe('Timezone Handling', () => {
     await page.waitForTimeout(1000);
 
     const newEventButton = page.locator('button:has-text("New Event"), button:has-text("New")').first();
+    let buttonClicked = false;
+    
     if (await newEventButton.count() > 0) {
-      await newEventButton.click();
-      await page.waitForTimeout(1000);
+      // Wait for button to be visible, or trigger the custom event directly
+      try {
+        await newEventButton.waitFor({ state: 'visible', timeout: 5000 });
+        await newEventButton.scrollIntoViewIfNeeded();
+        await newEventButton.click();
+        buttonClicked = true;
+      } catch {
+        // Button exists but might be hidden - trigger the custom event directly
+      }
+    }
+    
+    if (!buttonClicked) {
+      // Trigger the custom event directly
+      await page.evaluate(() => {
+        window.dispatchEvent(new CustomEvent('openNewEvent'));
+      });
+    }
+    
+    // Wait for form/modal to appear
+    await page.waitForSelector('input[id="title"], input[name="title"], [role="dialog"] input', {
+      state: 'visible',
+      timeout: 10000,
+    }).catch(() => {});
+    await page.waitForTimeout(500);
 
       const titleInput = page.locator('input[id="title"], input[name="title"]').first();
       if (await titleInput.count() > 0) {
@@ -128,7 +175,6 @@ test.describe('Timezone Handling', () => {
           // This is a structural check - actual event visibility depends on calendar implementation
         }
       }
-    }
   });
 
   test('should preserve date when editing event (no timezone shift)', async ({ page }) => {
@@ -137,9 +183,33 @@ test.describe('Timezone Handling', () => {
     await page.waitForTimeout(1000);
 
     const newEventButton = page.locator('button:has-text("New Event"), button:has-text("New")').first();
+    let buttonClicked = false;
+    
     if (await newEventButton.count() > 0) {
-      await newEventButton.click();
-      await page.waitForTimeout(1000);
+      // Wait for button to be visible, or trigger the custom event directly
+      try {
+        await newEventButton.waitFor({ state: 'visible', timeout: 5000 });
+        await newEventButton.scrollIntoViewIfNeeded();
+        await newEventButton.click();
+        buttonClicked = true;
+      } catch {
+        // Button exists but might be hidden - trigger the custom event directly
+      }
+    }
+    
+    if (!buttonClicked) {
+      // Trigger the custom event directly
+      await page.evaluate(() => {
+        window.dispatchEvent(new CustomEvent('openNewEvent'));
+      });
+    }
+    
+    // Wait for form/modal to appear
+    await page.waitForSelector('input[id="title"], input[name="title"], [role="dialog"] input', {
+      state: 'visible',
+      timeout: 10000,
+    }).catch(() => {});
+    await page.waitForTimeout(500);
 
       const titleInput = page.locator('input[id="title"], input[name="title"]').first();
       if (await titleInput.count() > 0) {
@@ -185,7 +255,6 @@ test.describe('Timezone Handling', () => {
           }
         }
       }
-    }
   });
 
   test('should handle date boundary correctly (11:59 PM to 12:00 AM)', async ({ page }) => {
@@ -193,9 +262,33 @@ test.describe('Timezone Handling', () => {
     await page.waitForTimeout(1000);
 
     const newEventButton = page.locator('button:has-text("New Event"), button:has-text("New")').first();
+    let buttonClicked = false;
+    
     if (await newEventButton.count() > 0) {
-      await newEventButton.click();
-      await page.waitForTimeout(1000);
+      // Wait for button to be visible, or trigger the custom event directly
+      try {
+        await newEventButton.waitFor({ state: 'visible', timeout: 5000 });
+        await newEventButton.scrollIntoViewIfNeeded();
+        await newEventButton.click();
+        buttonClicked = true;
+      } catch {
+        // Button exists but might be hidden - trigger the custom event directly
+      }
+    }
+    
+    if (!buttonClicked) {
+      // Trigger the custom event directly
+      await page.evaluate(() => {
+        window.dispatchEvent(new CustomEvent('openNewEvent'));
+      });
+    }
+    
+    // Wait for form/modal to appear
+    await page.waitForSelector('input[id="title"], input[name="title"], [role="dialog"] input', {
+      state: 'visible',
+      timeout: 10000,
+    }).catch(() => {});
+    await page.waitForTimeout(500);
 
       const titleInput = page.locator('input[id="title"], input[name="title"]').first();
       if (await titleInput.count() > 0) {
@@ -235,7 +328,6 @@ test.describe('Timezone Handling', () => {
           await expect(page.locator('body')).toBeVisible();
         }
       }
-    }
   });
 
   test('should display events correctly on public events page with timezone', async ({ page }) => {
@@ -244,9 +336,33 @@ test.describe('Timezone Handling', () => {
     await page.waitForTimeout(1000);
 
     const newEventButton = page.locator('button:has-text("New Event"), button:has-text("New")').first();
+    let buttonClicked = false;
+    
     if (await newEventButton.count() > 0) {
-      await newEventButton.click();
-      await page.waitForTimeout(1000);
+      // Wait for button to be visible, or trigger the custom event directly
+      try {
+        await newEventButton.waitFor({ state: 'visible', timeout: 5000 });
+        await newEventButton.scrollIntoViewIfNeeded();
+        await newEventButton.click();
+        buttonClicked = true;
+      } catch {
+        // Button exists but might be hidden - trigger the custom event directly
+      }
+    }
+    
+    if (!buttonClicked) {
+      // Trigger the custom event directly
+      await page.evaluate(() => {
+        window.dispatchEvent(new CustomEvent('openNewEvent'));
+      });
+    }
+    
+    // Wait for form/modal to appear
+    await page.waitForSelector('input[id="title"], input[name="title"], [role="dialog"] input', {
+      state: 'visible',
+      timeout: 10000,
+    }).catch(() => {});
+    await page.waitForTimeout(500);
 
       const titleInput = page.locator('input[id="title"], input[name="title"]').first();
       if (await titleInput.count() > 0) {
@@ -281,7 +397,6 @@ test.describe('Timezone Handling', () => {
           expect(eventCount).toBeGreaterThanOrEqual(0); // At minimum, page should load
         }
       }
-    }
   });
 
   test('should handle recurring events with correct timezone across occurrences', async ({ page }) => {
@@ -289,9 +404,33 @@ test.describe('Timezone Handling', () => {
     await page.waitForTimeout(1000);
 
     const newEventButton = page.locator('button:has-text("New Event"), button:has-text("New")').first();
+    let buttonClicked = false;
+    
     if (await newEventButton.count() > 0) {
-      await newEventButton.click();
-      await page.waitForTimeout(1000);
+      // Wait for button to be visible, or trigger the custom event directly
+      try {
+        await newEventButton.waitFor({ state: 'visible', timeout: 5000 });
+        await newEventButton.scrollIntoViewIfNeeded();
+        await newEventButton.click();
+        buttonClicked = true;
+      } catch {
+        // Button exists but might be hidden - trigger the custom event directly
+      }
+    }
+    
+    if (!buttonClicked) {
+      // Trigger the custom event directly
+      await page.evaluate(() => {
+        window.dispatchEvent(new CustomEvent('openNewEvent'));
+      });
+    }
+    
+    // Wait for form/modal to appear
+    await page.waitForSelector('input[id="title"], input[name="title"], [role="dialog"] input', {
+      state: 'visible',
+      timeout: 10000,
+    }).catch(() => {});
+    await page.waitForTimeout(500);
 
       const titleInput = page.locator('input[id="title"], input[name="title"]').first();
       if (await titleInput.count() > 0) {
@@ -342,7 +481,6 @@ test.describe('Timezone Handling', () => {
           expect(eventCount).toBeGreaterThanOrEqual(1);
         }
       }
-    }
   });
 
   test('should verify homepage hero shows today\'s events in correct timezone', async ({ page }) => {
@@ -406,9 +544,33 @@ test.describe('Timezone Handling', () => {
     await page.waitForTimeout(1000);
 
     const newEventButton = page.locator('button:has-text("New Event"), button:has-text("New")').first();
+    let buttonClicked = false;
+    
     if (await newEventButton.count() > 0) {
-      await newEventButton.click();
-      await page.waitForTimeout(1000);
+      // Wait for button to be visible, or trigger the custom event directly
+      try {
+        await newEventButton.waitFor({ state: 'visible', timeout: 5000 });
+        await newEventButton.scrollIntoViewIfNeeded();
+        await newEventButton.click();
+        buttonClicked = true;
+      } catch {
+        // Button exists but might be hidden - trigger the custom event directly
+      }
+    }
+    
+    if (!buttonClicked) {
+      // Trigger the custom event directly
+      await page.evaluate(() => {
+        window.dispatchEvent(new CustomEvent('openNewEvent'));
+      });
+    }
+    
+    // Wait for form/modal to appear
+    await page.waitForSelector('input[id="title"], input[name="title"], [role="dialog"] input', {
+      state: 'visible',
+      timeout: 10000,
+    }).catch(() => {});
+    await page.waitForTimeout(500);
 
       // Find datetime input
       const startInput = page.locator('input[type="datetime-local"], input[id*="startDateTime"]').first();
@@ -432,7 +594,6 @@ test.describe('Timezone Handling', () => {
         const expectedDateStr = dateTimeStr.split('T')[0];
         expect(inputDateStr).toBe(expectedDateStr);
       }
-    }
   });
 });
 

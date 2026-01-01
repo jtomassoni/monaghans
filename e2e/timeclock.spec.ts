@@ -80,7 +80,7 @@ test.describe('Timeclock', () => {
       if (filterCount > 0) {
         const options = await employeeFilter.locator('option').count();
         if (options > 1) {
-          await employeeFilter.selectIndex(1);
+          await employeeFilter.selectOption({ index: 1 });
           await page.waitForTimeout(1000);
           
           // Filter should be applied

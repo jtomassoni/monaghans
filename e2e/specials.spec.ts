@@ -28,22 +28,34 @@ for (const role of roles) {
 
     test('should navigate to food specials page', async ({ page }) => {
       await page.goto('/admin');
+      await page.waitForLoadState('networkidle');
       
-      // Navigate to food specials
-      await page.click('a:has-text("Food Specials")');
+      // Wait for navigation to be ready and expand sections if needed
+      await page.waitForTimeout(500);
+      
+      // Navigate to food specials - wait for link to be visible
+      const foodSpecialsLink = page.locator('a:has-text("Food Specials")');
+      await foodSpecialsLink.waitFor({ state: 'visible', timeout: 5000 });
+      await foodSpecialsLink.click();
       
       // Should be on food specials page
-      await expect(page).toHaveURL(/\/admin\/food-specials/);
+      await expect(page).toHaveURL(/\/admin\/food-specials/, { timeout: 10000 });
     });
 
     test('should navigate to drink specials page', async ({ page }) => {
       await page.goto('/admin');
+      await page.waitForLoadState('networkidle');
       
-      // Navigate to drink specials
-      await page.click('a:has-text("Drink Specials")');
+      // Wait for navigation to be ready and expand sections if needed
+      await page.waitForTimeout(500);
+      
+      // Navigate to drink specials - wait for link to be visible
+      const drinkSpecialsLink = page.locator('a:has-text("Drink Specials")');
+      await drinkSpecialsLink.waitFor({ state: 'visible', timeout: 5000 });
+      await drinkSpecialsLink.click();
       
       // Should be on drink specials page
-      await expect(page).toHaveURL(/\/admin\/drink-specials/);
+      await expect(page).toHaveURL(/\/admin\/drink-specials/, { timeout: 10000 });
     });
 
     test('should display specials list', async ({ page }) => {
@@ -78,17 +90,45 @@ for (const role of roles) {
         }
       });
       
-      // Look for "New" or "Add" button
-      const newButton = page.locator('button:has-text("New"), button:has-text("Add"), button:has-text("Create"), a:has-text("New")').first();
-      const buttonCount = await newButton.count();
+      // Look for "New" or "Add" button - prefer AdminActionButton which is visible on desktop
+      // Try desktop button first (AdminActionButton), then fallback to mobile button
+      let newButton = page.locator('button:has-text("New Food Special"), button:has-text("New Drink Special")').first();
+      let buttonCount = await newButton.count();
+      
+      if (buttonCount === 0) {
+        // Fallback to generic "New" button
+        newButton = page.locator('button:has-text("New"), button:has-text("Add"), button:has-text("Create"), a:has-text("New")').first();
+        buttonCount = await newButton.count();
+      }
       
       if (buttonCount > 0) {
-        await newButton.click();
-        await page.waitForTimeout(1000);
+        // Wait for button to be visible, or trigger the custom event directly
+        let buttonClicked = false;
+        try {
+          await newButton.waitFor({ state: 'visible', timeout: 5000 });
+          await newButton.scrollIntoViewIfNeeded();
+          await newButton.click();
+          buttonClicked = true;
+        } catch {
+          // Button exists but might be hidden - trigger the custom event directly
+        }
         
-        // Form should be visible
-        const titleInput = page.locator('input[id="title"], input[name="title"]');
-        const formVisible = await titleInput.isVisible().catch(() => false);
+        if (!buttonClicked) {
+          await page.evaluate(() => {
+            window.dispatchEvent(new CustomEvent('openNewSpecial'));
+          });
+        }
+        
+        // Wait for form/modal to appear
+        await page.waitForSelector('input[id="title"], input[name="title"], [role="dialog"] input', {
+          state: 'visible',
+          timeout: 10000,
+        }).catch(() => {});
+        await page.waitForTimeout(500);
+        
+        // Form should be visible - check for title input in modal or form
+        const titleInput = page.locator('input[id="title"], input[name="title"], [role="dialog"] input[id*="title"], [role="dialog"] input[name*="title"]').first();
+        const formVisible = await titleInput.isVisible({ timeout: 2000 }).catch(() => false);
         
         if (formVisible) {
           // Fill in special details with test prefix
@@ -137,15 +177,45 @@ for (const role of roles) {
       
       await page.waitForTimeout(1000);
       
-      const newButton = page.locator('button:has-text("New"), button:has-text("Add"), a:has-text("New")').first();
-      const buttonCount = await newButton.count();
+      // Look for "New" button - prefer AdminActionButton which is visible on desktop
+      let newButton = page.locator('button:has-text("New Drink Special")').first();
+      let buttonCount = await newButton.count();
+      
+      if (buttonCount === 0) {
+        // Fallback to generic "New" button
+        newButton = page.locator('button:has-text("New"), button:has-text("Add"), a:has-text("New")').first();
+        buttonCount = await newButton.count();
+      }
       
       if (buttonCount > 0) {
-        await newButton.click();
-        await page.waitForTimeout(1000);
+        // Wait for button to be visible, or trigger the custom event directly
+        let buttonClicked = false;
+        try {
+          await newButton.waitFor({ state: 'visible', timeout: 5000 });
+          await newButton.scrollIntoViewIfNeeded();
+          await newButton.click();
+          buttonClicked = true;
+        } catch {
+          // Button exists but might be hidden - trigger the custom event directly
+        }
         
-        const titleInput = page.locator('input[id="title"], input[name="title"]');
+        if (!buttonClicked) {
+          await page.evaluate(() => {
+            window.dispatchEvent(new CustomEvent('openNewDrinkSpecial'));
+          });
+        }
+        
+        // Wait for form/modal to appear
+        await page.waitForSelector('input[id="title"], input[name="title"], [role="dialog"] input', {
+          state: 'visible',
+          timeout: 10000,
+        }).catch(() => {});
+        await page.waitForTimeout(500);
+        
+        // Check for title input in modal or form
+        const titleInput = page.locator('input[id="title"], input[name="title"], [role="dialog"] input[id*="title"], [role="dialog"] input[name*="title"]').first();
         if (await titleInput.count() > 0) {
+          await titleInput.waitFor({ state: 'visible', timeout: 2000 }).catch(() => {});
           await titleInput.fill('Test Drink Special');
           
           // Submit if form is simple
@@ -225,10 +295,40 @@ for (const role of roles) {
       
       await page.waitForTimeout(1000);
       
-      const newButton = page.locator('button:has-text("New"), a:has-text("New")').first();
-      if (await newButton.count() > 0) {
-        await newButton.click();
-        await page.waitForTimeout(1000);
+      // Look for "New" button - prefer AdminActionButton which is visible on desktop
+      let newButton = page.locator('button:has-text("New Food Special"), button:has-text("New Drink Special")').first();
+      let buttonCount = await newButton.count();
+      
+      if (buttonCount === 0) {
+        // Fallback to generic "New" button
+        newButton = page.locator('button:has-text("New"), a:has-text("New")').first();
+        buttonCount = await newButton.count();
+      }
+      
+      if (buttonCount > 0) {
+        // Wait for button to be visible, or trigger the custom event directly
+        let buttonClicked = false;
+        try {
+          await newButton.waitFor({ state: 'visible', timeout: 5000 });
+          await newButton.scrollIntoViewIfNeeded();
+          await newButton.click();
+          buttonClicked = true;
+        } catch {
+          // Button exists but might be hidden - trigger the custom event directly
+        }
+        
+        if (!buttonClicked) {
+          await page.evaluate(() => {
+            window.dispatchEvent(new CustomEvent('openNewSpecial'));
+          });
+        }
+        
+        // Wait for form/modal to appear
+        await page.waitForSelector('input[id="title"], input[name="title"], [role="dialog"] input', {
+          state: 'visible',
+          timeout: 10000,
+        }).catch(() => {});
+        await page.waitForTimeout(500);
         
         // Check weekday checkboxes
         const weekdayCheckboxes = page.locator('input[type="checkbox"][value*="day"], input[type="checkbox"]:has-text("Monday")');

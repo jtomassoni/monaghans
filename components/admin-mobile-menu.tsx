@@ -157,6 +157,7 @@ export default function AdminMobileMenu({
       id: 'administration',
       title: 'Administration',
       items: [
+        ...(userRole === 'admin' ? [{ href: '/admin/users-staff', label: 'Users & Staff', icon: FaUsers }] : []),
         ...(userRole === 'admin' ? [{ href: '/admin/feature-flags', label: 'Feature Flags', icon: FaCog }] : []),
       ],
     },

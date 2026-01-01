@@ -30,103 +30,41 @@ export default function SignageRotator({
   embeddedAds = [],
 }: Props) {
   const [index, setIndex] = useState(0);
-  const [nextIndex, setNextIndex] = useState<number | null>(null);
-  const [fadeProgress, setFadeProgress] = useState(0); // 0 = current slide fully visible, 1 = next slide fully visible
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const [showControls, setShowControls] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
   const hideControlsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const fadeAnimationFrame = useRef<number | null>(null);
-  const fadeStartTime = useRef<number | null>(null);
+  const slideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const safeSlides = useMemo(() => slides.filter(Boolean), [slides]);
-  const clampedSlideDuration = Math.max(slideDurationMs, fadeDurationMs + 300);
-  const clampedFadeDuration = Math.min(fadeDurationMs, clampedSlideDuration - 200);
-
-  // Smooth easing functions for professional transitions
-  // Ease-in-out cubic bezier for smooth, natural fades
-  const easeInOutCubic = (t: number): number => {
-    return t < 0.5
-      ? 4 * t * t * t
-      : 1 - Math.pow(-2 * t + 2, 3) / 2;
-  };
-
-  // Ease-out for smoother fade-out (current slide)
-  const easeOutCubic = (t: number): number => {
-    return 1 - Math.pow(1 - t, 3);
-  };
-
-  // Ease-in for smoother fade-in (next slide)
-  const easeInCubic = (t: number): number => {
-    return t * t * t;
-  };
-
-  // Combined smooth fade function - uses ease-in-out for balanced transitions
-  const smoothFade = (t: number): number => {
-    // Apply ease-in-out cubic for the most natural feel
-    return easeInOutCubic(t);
-  };
+  const fadeDuration = Math.min(fadeDurationMs, slideDurationMs - 200);
 
   useEffect(() => {
     setIndex(0);
-    setNextIndex(null);
-    setFadeProgress(0);
-    // Reset failed images when slides change
+    setIsTransitioning(false);
     setFailedImages(new Set());
   }, [safeSlides.length]);
 
-  // Cross-fade animation with smooth easing
+  // Simple slide timer - just advance to next slide
   useEffect(() => {
-    if (fadeStartTime.current === null) return;
+    if (safeSlides.length <= 1 || isPaused || isTransitioning) return;
 
-    const animate = (currentTime: number) => {
-      if (fadeStartTime.current === null) return;
-      
-      const elapsed = currentTime - fadeStartTime.current;
-      const rawProgress = Math.min(elapsed / clampedFadeDuration, 1);
-      
-      // Apply smooth easing function for professional fade
-      const easedProgress = smoothFade(rawProgress);
-      
-      setFadeProgress(easedProgress);
-
-      if (rawProgress < 1) {
-        fadeAnimationFrame.current = requestAnimationFrame(animate);
-      } else {
-        // Transition complete - ensure we're at exactly 1.0
-        setFadeProgress(1);
-        // Use requestAnimationFrame to ensure smooth final state update
-        requestAnimationFrame(() => {
-          setIndex(nextIndex!);
-          setNextIndex(null);
-          setFadeProgress(0);
-          fadeStartTime.current = null;
-        });
-      }
-    };
-
-    fadeAnimationFrame.current = requestAnimationFrame(animate);
+    slideTimer.current = setTimeout(() => {
+      setIsTransitioning(true);
+      // Wait for fade out, then change slide and fade in
+      setTimeout(() => {
+        setIndex((prev) => (prev + 1) % safeSlides.length);
+        setIsTransitioning(false);
+      }, fadeDuration);
+    }, slideDurationMs - fadeDuration);
 
     return () => {
-      if (fadeAnimationFrame.current) {
-        cancelAnimationFrame(fadeAnimationFrame.current);
+      if (slideTimer.current) {
+        clearTimeout(slideTimer.current);
       }
     };
-  }, [nextIndex, clampedFadeDuration]);
-
-  useEffect(() => {
-    if (safeSlides.length <= 1 || isPaused) return;
-
-    const startFadeTimer = setTimeout(() => {
-      const next = (index + 1) % safeSlides.length;
-      setNextIndex(next);
-      fadeStartTime.current = performance.now();
-    }, clampedSlideDuration - clampedFadeDuration);
-
-    return () => {
-      clearTimeout(startFadeTimer);
-    };
-  }, [index, safeSlides.length, clampedSlideDuration, clampedFadeDuration, isPaused]);
+  }, [index, safeSlides.length, slideDurationMs, fadeDuration, isPaused, isTransitioning]);
 
   useEffect(() => {
     return () => {
@@ -146,33 +84,36 @@ export default function SignageRotator({
 
   const goToSlide = (targetIndex: number) => {
     if (targetIndex === index) return;
-    setNextIndex(null);
-    setFadeProgress(0);
-    fadeStartTime.current = null;
-    if (fadeAnimationFrame.current) {
-      cancelAnimationFrame(fadeAnimationFrame.current);
+    if (slideTimer.current) {
+      clearTimeout(slideTimer.current);
     }
-    setIndex((targetIndex + safeSlides.length) % safeSlides.length);
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setIndex((targetIndex + safeSlides.length) % safeSlides.length);
+      setIsTransitioning(false);
+    }, fadeDuration);
   };
 
   const goToPrevious = () => {
-    setNextIndex(null);
-    setFadeProgress(0);
-    fadeStartTime.current = null;
-    if (fadeAnimationFrame.current) {
-      cancelAnimationFrame(fadeAnimationFrame.current);
+    if (slideTimer.current) {
+      clearTimeout(slideTimer.current);
     }
-    setIndex((prev) => (prev - 1 + safeSlides.length) % safeSlides.length);
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setIndex((prev) => (prev - 1 + safeSlides.length) % safeSlides.length);
+      setIsTransitioning(false);
+    }, fadeDuration);
   };
 
   const goToNext = () => {
-    setNextIndex(null);
-    setFadeProgress(0);
-    fadeStartTime.current = null;
-    if (fadeAnimationFrame.current) {
-      cancelAnimationFrame(fadeAnimationFrame.current);
+    if (slideTimer.current) {
+      clearTimeout(slideTimer.current);
     }
-    setIndex((prev) => (prev + 1) % safeSlides.length);
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setIndex((prev) => (prev + 1) % safeSlides.length);
+      setIsTransitioning(false);
+    }, fadeDuration);
   };
 
   if (safeSlides.length === 0) {
@@ -293,7 +234,6 @@ export default function SignageRotator({
   };
 
   const currentSlide = safeSlides[index];
-  const nextSlide = nextIndex !== null ? safeSlides[nextIndex] : null;
   const isAdSlide = currentSlide?.isAd === true;
   const isWelcomeSlide = currentSlide?.source === 'welcome';
   // Check if this is an image-based custom slide or welcome slide (for container sizing and display)
@@ -328,7 +268,6 @@ export default function SignageRotator({
   }
   
   const currentSlideProps = (isAdSlide || isImageCustomSlide) ? null : getSlideProps(currentSlide);
-  const nextSlideProps = nextSlide && !nextSlide.isAd && !(nextSlide.source === 'custom' && nextSlide.asset && nextSlide.asset.storageKey && typeof nextSlide.asset.storageKey === 'string' && nextSlide.asset.storageKey.trim() !== '') ? getSlideProps(nextSlide) : null;
   
   // For backward compatibility, keep these for the render function
   const slide = currentSlide;
@@ -361,38 +300,17 @@ export default function SignageRotator({
   
   const pageTextureUrl = '/pics/monaghans-patio.jpg';
   
-  // Calculate opacities for cross-fade with smooth transitions
-  // Use a small threshold to ensure elements are fully hidden when opacity is very low
-  const OPACITY_THRESHOLD = 0.01;
+  // Simple opacity - just fade out when transitioning
+  const slideOpacity = isTransitioning ? 0 : 1;
   
-  // Apply separate easing for fade-out (current) and fade-in (next) for smoother transitions
-  const currentOpacity = nextIndex !== null 
-    ? Math.max(0, Math.min(1, 1 - fadeProgress)) 
-    : 1;
-  const nextOpacity = nextIndex !== null 
-    ? Math.max(0, Math.min(1, fadeProgress)) 
-    : 0;
-  
-  // Smooth visibility transitions with threshold
-  const currentVisible = currentOpacity > OPACITY_THRESHOLD;
-  const nextVisible = nextOpacity > OPACITY_THRESHOLD;
-  
-  // CSS transition timing function for smooth hardware-accelerated transitions
-  const TRANSITION_EASING = 'cubic-bezier(0.4, 0, 0.2, 1)'; // Material Design standard easing
-  const TRANSITION_DURATION = `${clampedFadeDuration}ms`;
+  // Simple CSS transition
+  const TRANSITION_DURATION = `${fadeDuration}ms`;
 
   return (
     <div
       className="relative h-screen w-screen overflow-hidden bg-[#050608] text-white"
       onMouseMove={revealControls}
-      style={{
-        // Ensure smooth transitions for the entire container
-        willChange: nextIndex !== null ? 'contents' : 'auto',
-        backfaceVisibility: 'hidden',
-        WebkitBackfaceVisibility: 'hidden',
-        transform: 'translateZ(0)',
-        WebkitTransform: 'translateZ(0)',
-      }}
+      style={{}}
     >
       <div
         className="pointer-events-none absolute inset-0 -z-20"
@@ -402,13 +320,8 @@ export default function SignageRotator({
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           filter: 'blur(10px) saturate(1.05)',
-          transform: 'scale(1.04) translateZ(0)',
-          WebkitTransform: 'scale(1.04) translateZ(0)',
+          transform: 'scale(1.04)',
           opacity: 0.65,
-          willChange: 'opacity, transform',
-          backfaceVisibility: 'hidden',
-          WebkitBackfaceVisibility: 'hidden',
-          transition: `opacity ${TRANSITION_DURATION} ${TRANSITION_EASING}`,
         }}
       />
       <div
@@ -416,12 +329,6 @@ export default function SignageRotator({
         style={{
           background: `radial-gradient(circle at 20% 20%, ${accentSurfaceStrong || 'rgba(220, 38, 38, 0.18)'}, transparent 40%), radial-gradient(circle at 80% 30%, ${accentSurfaceColor || 'rgba(220, 38, 38, 0.1)'}, transparent 38%), linear-gradient(135deg, #0b0c10, #050608)`,
           filter: 'saturate(1.1)',
-          willChange: 'background, opacity',
-          backfaceVisibility: 'hidden',
-          WebkitBackfaceVisibility: 'hidden',
-          transform: 'translateZ(0)',
-          WebkitTransform: 'translateZ(0)',
-          transition: `background ${TRANSITION_DURATION} ${TRANSITION_EASING}, opacity ${TRANSITION_DURATION} ${TRANSITION_EASING}`,
         }}
       />
 
@@ -430,46 +337,21 @@ export default function SignageRotator({
           <p className="font-semibold">Debug</p>
           <p className="text-white/80">
             Slide {index + 1} / {safeSlides.length} · {slide.source}
-            {nextIndex !== null && ` → ${nextIndex + 1}`}
           </p>
-          <p className="text-white/60">Duration {Math.round(clampedSlideDuration / 1000)}s · Fade {Math.round(clampedFadeDuration)}ms · Progress {Math.round(fadeProgress * 100)}%</p>
+          <p className="text-white/60">Duration {Math.round(slideDurationMs / 1000)}s · Fade {fadeDuration}ms</p>
         </div>
       )}
 
-      {/* Slide container - renders both current and next slide during transition */}
+      {/* Slide container */}
       <div 
         className="absolute inset-0 flex items-center justify-center" 
-        style={{ 
-          contain: 'layout style paint',
-          willChange: nextIndex !== null ? 'contents' : 'auto',
-          backfaceVisibility: 'hidden',
-          WebkitBackfaceVisibility: 'hidden',
-          transform: 'translateZ(0)',
-          WebkitTransform: 'translateZ(0)',
-        }}
       >
         {/* Current slide */}
         <div
           className="absolute inset-0 flex items-center justify-center"
           style={{ 
-            opacity: currentOpacity,
-            visibility: currentVisible ? 'visible' : 'hidden',
-            transition: nextIndex === null 
-              ? 'none' 
-              : `opacity ${TRANSITION_DURATION} ${TRANSITION_EASING}, visibility ${TRANSITION_DURATION} ${TRANSITION_EASING}`,
-            pointerEvents: currentOpacity > 0.5 ? 'auto' : 'none',
-            willChange: nextIndex !== null ? 'opacity, transform' : 'auto',
-            backfaceVisibility: 'hidden',
-            transform: 'translateZ(0)',
-            WebkitBackfaceVisibility: 'hidden',
-            WebkitTransform: 'translateZ(0)',
-            isolation: 'isolate',
-            contain: 'layout style paint',
-            width: '100%',
-            height: '100%',
-            // Force hardware acceleration for smooth transitions
-            perspective: '1000px',
-            transformStyle: 'preserve-3d',
+            opacity: slideOpacity,
+            transition: `opacity ${TRANSITION_DURATION} ease-in-out`,
           }}
         >
         {/* Ad slide or CONTENT slide rendering (full-screen image) */}
@@ -564,7 +446,7 @@ export default function SignageRotator({
                 WebkitBackfaceVisibility: 'hidden',
                 transform: 'translateZ(0)',
                 WebkitTransform: 'translateZ(0)',
-                transition: `opacity ${TRANSITION_DURATION} ${TRANSITION_EASING}`,
+                transition: `opacity ${TRANSITION_DURATION} ease-in-out`,
               }}
               onError={(e) => {
                 console.error('Failed to load image:', {
@@ -583,7 +465,7 @@ export default function SignageRotator({
                 const img = e.target as HTMLImageElement;
                 img.style.opacity = '0';
                 requestAnimationFrame(() => {
-                  img.style.transition = `opacity 600ms ${TRANSITION_EASING}`;
+                  img.style.transition = `opacity 600ms ease-in-out`;
                   requestAnimationFrame(() => {
                     img.style.opacity = '1';
                   });
@@ -1173,7 +1055,7 @@ export default function SignageRotator({
                         style={{
                           background: `radial-gradient(circle at 18% 20%, ${accentSurfaceColor}, transparent 40%), radial-gradient(circle at 82% 8%, ${accentSurfaceColor}, transparent 34%)`,
                           opacity: '0.2', // Reduced opacity for overlay since base is now more opaque
-                          transition: `opacity ${TRANSITION_DURATION} ${TRANSITION_EASING}, background ${TRANSITION_DURATION} ${TRANSITION_EASING}`,
+                          transition: `opacity ${TRANSITION_DURATION} ease-in-out, background ${TRANSITION_DURATION} ease-in-out`,
                           willChange: 'opacity, background',
                           backfaceVisibility: 'hidden',
                           WebkitBackfaceVisibility: 'hidden',
@@ -1605,7 +1487,7 @@ export default function SignageRotator({
                                 WebkitBackfaceVisibility: 'hidden',
                                 transform: 'translateZ(0)',
                                 WebkitTransform: 'translateZ(0)',
-                                transition: `opacity 600ms ${TRANSITION_EASING}`,
+                                transition: `opacity 600ms ease-in-out`,
                               }}
                               onError={(e) => {
                                 console.error('[Signage Rotator] Image failed to load:', item.image, e);
@@ -1619,7 +1501,7 @@ export default function SignageRotator({
                                 const img = e.target as HTMLImageElement;
                                 img.style.opacity = '0';
                                 requestAnimationFrame(() => {
-                                  img.style.transition = `opacity 600ms ${TRANSITION_EASING}`;
+                                  img.style.transition = `opacity 600ms ease-in-out`;
                                   requestAnimationFrame(() => {
                                     img.style.opacity = '1';
                                   });
@@ -1633,7 +1515,7 @@ export default function SignageRotator({
                                 className="absolute inset-0 pointer-events-none"
                                 style={{
                                   background: 'linear-gradient(to bottom, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.4))',
-                                  transition: `opacity ${TRANSITION_DURATION} ${TRANSITION_EASING}, background ${TRANSITION_DURATION} ${TRANSITION_EASING}`,
+                                  transition: `opacity ${TRANSITION_DURATION} ease-in-out, background ${TRANSITION_DURATION} ease-in-out`,
                                   willChange: 'opacity',
                                   backfaceVisibility: 'hidden',
                                   WebkitBackfaceVisibility: 'hidden',
@@ -1650,7 +1532,7 @@ export default function SignageRotator({
                                 style={{
                                   boxShadow: `inset 0 0 80px ${accentGlowColor}20, inset 0 0 40px ${accentGlowColor}10`,
                                   borderRadius: '2px',
-                                  transition: `opacity ${TRANSITION_DURATION} ${TRANSITION_EASING}, box-shadow ${TRANSITION_DURATION} ${TRANSITION_EASING}`,
+                                  transition: `opacity ${TRANSITION_DURATION} ease-in-out, box-shadow ${TRANSITION_DURATION} ease-in-out`,
                                   willChange: 'opacity, box-shadow',
                                   backfaceVisibility: 'hidden',
                                   WebkitBackfaceVisibility: 'hidden',
@@ -1783,529 +1665,7 @@ export default function SignageRotator({
             })()}
           </div>
         )}
-      </div>
-
-        {/* Next slide (during transition) */}
-        {nextSlide && (
-          <div
-            className="absolute inset-0 flex items-center justify-center"
-            style={{ 
-              opacity: nextOpacity,
-              visibility: nextVisible ? 'visible' : 'hidden',
-              transition: `opacity ${TRANSITION_DURATION} ${TRANSITION_EASING}, visibility ${TRANSITION_DURATION} ${TRANSITION_EASING}`,
-              pointerEvents: nextOpacity > 0.5 ? 'auto' : 'none',
-              willChange: 'opacity, transform',
-              backfaceVisibility: 'hidden',
-              transform: 'translateZ(0)',
-              WebkitBackfaceVisibility: 'hidden',
-              WebkitTransform: 'translateZ(0)',
-              isolation: 'isolate',
-              contain: 'layout style paint',
-              width: '100%',
-              height: '100%',
-              // Force hardware acceleration for smooth transitions
-              perspective: '1000px',
-              transformStyle: 'preserve-3d',
-            }}
-          >
-            {(() => {
-              // Check if next slide is an ad or CONTENT slide (image-based)
-              const isNextImageCustomSlide = Boolean(
-                nextSlide.source === 'custom' && 
-                nextSlide.asset && 
-                nextSlide.asset.storageKey &&
-                typeof nextSlide.asset.storageKey === 'string' &&
-                nextSlide.asset.storageKey.trim() !== ''
-              );
-              const showBorderForNextImageSlide = isNextImageCustomSlide 
-                ? (nextSlide?.showBorder === true) // Only show border when explicitly true
-                : true;
-              const hasNextImageAsset = Boolean(
-                nextSlide.asset && 
-                nextSlide.asset.storageKey &&
-                typeof nextSlide.asset.storageKey === 'string' &&
-                nextSlide.asset.storageKey.trim() !== ''
-              );
-              if (hasNextImageAsset && (nextSlide.isAd || nextSlide.isContentSlide || isNextImageCustomSlide) && nextSlide.asset) {
-                return (
-                  <div 
-                    className="relative w-full h-full flex items-center justify-center bg-black" 
-                    style={(() => {
-                      if (isNextImageCustomSlide && showBorderForNextImageSlide) {
-                        // Get accent color for border
-                        const slideAccent = nextSlide.accent || 'accent';
-                        const colorMap: Record<string, string> = {
-                          accent: '#dc2626',
-                          gold: '#eab308',
-                          blue: '#3b82f6',
-                          green: '#228B22',
-                          purple: '#a855f7',
-                          orange: '#f97316',
-                          teal: '#14b8a6',
-                          pink: '#ec4899',
-                          cyan: '#06b6d4',
-                        };
-                        const borderColor = colorMap[slideAccent] || colorMap.accent;
-                        // Convert hex to rgba for glow
-                        const hexToRgba = (hex: string, alpha: number) => {
-                          const r = parseInt(hex.slice(1, 3), 16);
-                          const g = parseInt(hex.slice(3, 5), 16);
-                          const b = parseInt(hex.slice(5, 7), 16);
-                          return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-                        };
-                        return {
-                          boxSizing: 'border-box' as const,
-                          contain: 'layout style paint' as const,
-                          padding: '32px',
-                          borderRadius: '40px',
-                          border: `16px solid ${borderColor}`,
-                          boxShadow: `
-                            inset 0 0 100px ${hexToRgba(borderColor, 0.5)},
-                            inset 0 0 60px ${hexToRgba(borderColor, 0.4)},
-                            inset 0 0 30px ${hexToRgba(borderColor, 0.6)},
-                            inset 0 0 15px ${hexToRgba(borderColor, 0.8)},
-                            0 0 80px ${hexToRgba(borderColor, 0.7)},
-                            0 0 150px ${hexToRgba(borderColor, 0.5)},
-                            0 0 220px ${hexToRgba(borderColor, 0.3)},
-                            0 0 300px ${hexToRgba(borderColor, 0.15)},
-                            0 20px 80px rgba(0, 0, 0, 0.8),
-                            inset 0 4px 8px rgba(255, 255, 255, 0.2),
-                            inset 0 -4px 8px rgba(0, 0, 0, 0.3)
-                          `,
-                        };
-                      }
-                      return {
-                        boxSizing: 'border-box' as const,
-                        contain: 'layout style paint' as const,
-                      };
-                    })()}
-                  >
-                    <img
-                      src={nextSlide.asset.storageKey}
-                      alt={nextSlide.isAd ? 'Advertisement' : nextSlide.title || 'Content'}
-                      className="object-contain"
-                      style={{
-                        width: (isNextImageCustomSlide && !showBorderForNextImageSlide) ? '100%' : 'calc(100% - 64px)',
-                        height: (isNextImageCustomSlide && !showBorderForNextImageSlide) ? '100%' : 'calc(100% - 64px)',
-                        maxWidth: (isNextImageCustomSlide && !showBorderForNextImageSlide) ? '100%' : 'calc(100% - 64px)',
-                        maxHeight: (isNextImageCustomSlide && !showBorderForNextImageSlide) ? '100%' : 'calc(100% - 64px)',
-                        willChange: 'opacity, transform',
-                        backfaceVisibility: 'hidden',
-                        WebkitBackfaceVisibility: 'hidden',
-                        transform: 'translateZ(0)',
-                        WebkitTransform: 'translateZ(0)',
-                        transition: `opacity ${TRANSITION_DURATION} ${TRANSITION_EASING}`,
-                      }}
-                      onError={(e) => {
-                        console.error('Failed to load next slide image:', nextSlide.asset?.storageKey);
-                        // Fallback: hide the broken image
-                        (e.target as HTMLImageElement).style.display = 'none';
-                      }}
-                      onLoad={(e) => {
-                        // Smooth fade-in on load with hardware acceleration
-                        const img = e.target as HTMLImageElement;
-                        img.style.opacity = '0';
-                        requestAnimationFrame(() => {
-                          img.style.transition = `opacity 600ms ${TRANSITION_EASING}`;
-                          requestAnimationFrame(() => {
-                            img.style.opacity = '1';
-                          });
-                        });
-                      }}
-                    />
-                    {/* Display title for content slides (not ads, not image-based custom slides) */}
-                    {nextSlide.isContentSlide && !nextSlide.isAd && !isNextImageCustomSlide && nextSlide.title && (
-                      <div className="absolute top-8 left-8 right-8 z-10">
-                        <h2
-                          className="font-extrabold leading-tight text-center"
-                          style={{
-                            fontSize: 'clamp(118px, 23.52vw, 281px)',
-                            color: 'rgba(255, 255, 255, 1)',
-                            textShadow: '0 0 30px rgba(0, 0, 0, 0.8), 0 8px 24px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.4)',
-                          }}
-                        >
-                          {nextSlide.title}
-                        </h2>
-                      </div>
-                    )}
-                    {nextSlide.isAd && nextSlide.adCreative?.destinationUrl && (
-                      <a
-                        href={nextSlide.adCreative.destinationUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="absolute inset-0"
-                        aria-label="Visit advertiser website"
-                      />
-                    )}
-                    {nextSlide.isAd && nextSlide.adCreative?.qrEnabled && nextSlide.adCreative?.destinationUrl && (
-                      <div className="absolute bottom-4 right-4 bg-white p-2 rounded">
-                        <div className="w-16 h-16 bg-gray-200 flex items-center justify-center text-xs text-gray-600">
-                          QR
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              }
-
-              // Temporarily override variables for next slide rendering
-              const slide = nextSlide;
-              const hasNextImageItems = slide?.source === 'custom' && slide?.items && slide.items.some(item => item.image);
-              const {
-                accentColor = '#dc2626',
-                accentGlowColor = 'rgba(220, 38, 38, 0.55)',
-                accentSurfaceColor = 'rgba(220, 38, 38, 0.1)',
-                accentSurfaceStrong = 'rgba(220, 38, 38, 0.18)',
-                isEventSlide = false,
-                isHappyHourSlide = false,
-                isDrinkSlide = false,
-                isFoodSlide = false,
-                showLabel = false,
-                gridColumns = 'default',
-                itemCount = 0,
-                isDenseEvents = false,
-                eventColumnCount = undefined,
-                eventRowCount = undefined,
-                eventRowMin = undefined,
-                backgroundImageUrl = null,
-              } = nextSlideProps || {};
-              
-              // Render next slide (duplicate the slide rendering logic)
-              return (isHappyHourSlide || (isDrinkSlide && backgroundImageUrl)) ? (
-                // Special creative layout for Happy Hour slide - Two column layout
-                <div 
-                  className="relative z-10 flex h-full w-full items-center justify-center overflow-hidden rounded-[48px] border border-white/10 p-8 md:p-12 shadow-[0_30px_120px_-60px_rgba(0,0,0,0.9)] backdrop-blur-lg"
-                  style={{
-                    backgroundImage: backgroundImageUrl ? `linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.5)), url(${backgroundImageUrl})` : undefined,
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                    backgroundRepeat: 'no-repeat',
-                    boxSizing: 'border-box',
-                    contain: 'layout style paint',
-                  }}
-                >
-                  <div 
-                    className="pointer-events-none absolute inset-0 z-0"
-                    style={{
-                      background: 'radial-gradient(circle at center, rgba(255, 255, 255, 0.05), transparent 70%)',
-                    }}
-                  />
-                  
-                  {/* Two-column layout - centered when only one column, side-by-side when both */}
-                  <div className={`relative z-10 flex flex-row items-stretch justify-center w-full h-full gap-8 md:gap-12 px-6 py-6 md:py-8 ${slide.footer ? 'pb-32 md:pb-40' : ''} ${(!isHappyHourSlide || !slide.items || slide.items.length === 0) && (isDrinkSlide && !isHappyHourSlide && slide.items && slide.items.length > 0) ? 'justify-center' : ''}`}>
-                    {/* Left Column: Happy Hour */}
-                    {isHappyHourSlide && (slide.subtitle || slide.title || slide.body) && (
-                      <div className={`flex flex-col items-center justify-center text-center min-w-0 ${slide.items && slide.items.length > 0 ? 'flex-1 max-w-[48%]' : 'max-w-[60%]'}`}>
-                        {/* Subtle header */}
-                        {showLabel && (
-                          <div className="mb-6 md:mb-8">
-                            <div
-                              className="inline-block rounded-full px-6 py-3 md:px-8 md:py-4 font-bold uppercase tracking-wider text-white shadow-lg"
-                              style={{ 
-                                backgroundColor: `${accentColor}70`, 
-                                border: `3px solid ${accentColor}`,
-                                fontSize: 'clamp(38px, 6.5vw, 60px)',
-                                boxShadow: `0 0 20px ${accentGlowColor}, 0 8px 24px rgba(0,0,0,0.4), inset 0 0 10px ${accentColor}40`
-                              }}
-                            >
-                              {slide.label}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Happy Hour Content */}
-                        <div className="relative rounded-2xl border border-white/20 bg-white/10 backdrop-blur-md p-6 md:p-8 shadow-lg w-full" style={{ boxShadow: `0 8px 32px -16px ${accentGlowColor}` }}>
-                          <div className="flex flex-col items-center text-center gap-3 md:gap-4">
-                            {/* Times */}
-                            {slide.subtitle && (
-                              <div
-                                className="font-bold uppercase tracking-[0.15em] text-white drop-shadow-[0_8px_24px_rgba(0,0,0,0.6)]"
-                                style={{ fontSize: 'clamp(59px, 10.29vw, 118px)', marginBottom: '0.15em' }}
-                              >
-                                {slide.subtitle}
-                              </div>
-                            )}
-
-                            {/* Main title */}
-                            {slide.title && (
-                              <h1
-                                className="text-balance font-black leading-[0.92] tracking-tight drop-shadow-[0_20px_60px_rgba(0,0,0,0.6)]"
-                                style={{ fontSize: 'clamp(118px, 20.58vw, 235px)', marginTop: slide.subtitle ? '0.1em' : '0', marginBottom: slide.body ? '0.15em' : '0' }}
-                              >
-                                {slide.title}
-                              </h1>
-                            )}
-
-                            {/* Description/Body */}
-                            {slide.body && (
-                              <p
-                                className="w-full font-semibold leading-[1.2] text-white/95 drop-shadow-[0_12px_40px_rgba(0,0,0,0.5)]"
-                                style={{ fontSize: 'clamp(59px, 11.76vw, 118px)', marginTop: '0.1em' }}
-                              >
-                                {slide.body}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Vertical Divider - only show when both happy hour and drink specials */}
-                    {isHappyHourSlide && slide.items && slide.items.length > 0 && (slide.subtitle || slide.title || slide.body) && (
-                      <div className="flex flex-col items-center justify-center w-px relative">
-                        <div 
-                          className="absolute inset-0 w-px bg-gradient-to-b from-transparent via-white/30 to-transparent"
-                          style={{
-                            boxShadow: `0 0 20px ${accentGlowColor}40, 0 0 40px ${accentGlowColor}20`,
-                          }}
-                        />
-                        <div 
-                          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 rounded-full"
-                          style={{
-                            backgroundColor: accentColor,
-                            boxShadow: `0 0 20px ${accentGlowColor}, 0 0 40px ${accentGlowColor}60`,
-                          }}
-                        />
-                      </div>
-                    )}
-
-                    {/* Right Column: Drink Specials OR Drink-only centered */}
-                    {slide.items && slide.items.length > 0 && (
-                      <div className={`flex flex-col items-center justify-center text-center min-w-0 ${isHappyHourSlide && (slide.subtitle || slide.title || slide.body) ? 'flex-1 max-w-[48%]' : 'max-w-[60%]'}`}>
-                        {/* Subtle header for drink specials */}
-                        {isHappyHourSlide && (
-                          <div className="mb-6 md:mb-8">
-                            <div
-                              className="inline-block rounded-full px-5 py-2.5 md:px-6 md:py-3 font-bold uppercase tracking-wider text-white/90"
-                              style={{ 
-                                backgroundColor: `${accentColor}40`, 
-                                border: `2px solid ${accentColor}80`,
-                                fontSize: 'clamp(32px, 5.25vw, 50px)'
-                              }}
-                            >
-                              Drink Specials
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Drink-only slide header */}
-                        {isDrinkSlide && !isHappyHourSlide && showLabel && (
-                          <div className="mb-6 md:mb-8">
-                            <div
-                              className="inline-block rounded-full px-6 py-3 md:px-8 md:py-4 font-bold uppercase tracking-wider text-white shadow-lg"
-                              style={{ 
-                                backgroundColor: `${accentColor}70`, 
-                                border: `3px solid ${accentColor}`,
-                                fontSize: 'clamp(38px, 6.5vw, 60px)',
-                                boxShadow: `0 0 20px ${accentGlowColor}, 0 8px 24px rgba(0,0,0,0.4), inset 0 0 10px ${accentColor}40`
-                              }}
-                            >
-                              {slide.label}
-                            </div>
-                          </div>
-                        )}
-                        
-                        {/* Drink Special Items */}
-                        <div className="space-y-5 md:space-y-6 w-full">
-                          {slide.items.map((item, itemIdx) => (
-                            <div
-                              key={`${slide.id}-item-${itemIdx}`}
-                              className="relative rounded-2xl border border-white/20 bg-white/10 backdrop-blur-md p-6 md:p-8 shadow-lg"
-                              style={{ boxShadow: `0 8px 32px -16px ${accentGlowColor}` }}
-                            >
-                              <div className="flex flex-col items-center text-center gap-3 md:gap-4">
-                                {/* Title - matching happy hour title size */}
-                                <h3
-                                  className="font-black leading-[0.92] tracking-tight text-white drop-shadow-[0_20px_60px_rgba(0,0,0,0.6)]"
-                                  style={{ fontSize: 'clamp(118px, 20.58vw, 235px)', marginBottom: (item.note || item.time || item.detail) ? '0.1em' : '0' }}
-                                >
-                                  {item.title}
-                                </h3>
-                                {/* Note/Price - matching happy hour body size */}
-                                {item.note && (
-                                  <p
-                                    className="font-semibold leading-[1.2] text-white/95 drop-shadow-[0_12px_40px_rgba(0,0,0,0.5)]"
-                                    style={{ fontSize: 'clamp(59px, 11.76vw, 118px)', marginTop: '0.05em', marginBottom: (item.time || item.detail) ? '0.1em' : '0' }}
-                                  >
-                                    {item.note}
-                                  </p>
-                                )}
-                                {/* Time - matching happy hour subtitle size */}
-                                {item.time && (
-                                  <p
-                                    className="font-bold uppercase tracking-[0.15em] text-white drop-shadow-[0_8px_24px_rgba(0,0,0,0.6)]"
-                                    style={{ fontSize: 'clamp(59px, 10.29vw, 118px)', marginTop: '0.05em', marginBottom: item.detail ? '0.1em' : '0' }}
-                                  >
-                                    {item.time}
-                                  </p>
-                                )}
-                                {/* Detail - matching happy hour body size */}
-                                {item.detail && (
-                                  <div
-                                    className="mt-1 font-semibold leading-[1.2] text-white/95 drop-shadow-[0_12px_40px_rgba(0,0,0,0.5)] [&_ul]:list-disc [&_ul]:ml-6 [&_ul]:space-y-2 [&_li]:mb-1 [&_ol]:list-decimal [&_ol]:ml-6 [&_ol]:space-y-2 [&_p]:mb-2"
-                                    style={{ fontSize: 'clamp(59px, 11.76vw, 118px)', marginTop: '0.1em' }}
-                                    dangerouslySetInnerHTML={{ __html: marked.parse(item.detail) }}
-                                  />
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Footer - moved to bottom, much bigger */}
-                  {slide.footer && (
-                    <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10">
-                      <div
-                        className="font-semibold text-white/80 drop-shadow-[0_4px_16px_rgba(0,0,0,0.5)]"
-                        style={{ fontSize: 'clamp(70px, 11.76vw, 140px)' }}
-                      >
-                        {slide.footer}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Monaghan's branding in corner */}
-                  <span 
-                    className="absolute top-8 right-8 font-semibold text-white/70" 
-                    style={{ fontSize: 'clamp(42px, 7.35vw, 76px)' }}
-                  >
-                    Monaghan&apos;s
-                  </span>
-                </div>
-              ) : (
-                // Standard layout for other slides - simplified for next slide
-                <div 
-                  className="relative z-10 flex h-full w-full flex-col overflow-hidden rounded-[48px] bg-white/5 shadow-[0_30px_120px_-60px_rgba(0,0,0,0.9)] backdrop-blur-lg"
-                  style={{
-                    padding: isCustomSlide ? '12px' : undefined,
-                    border: isCustomSlide ? `8px solid ${accentColor}` : '1px solid rgba(255, 255, 255, 0.1)',
-                    boxShadow: isCustomSlide 
-                      ? `0 0 30px ${accentGlowColor}, 0 30px 120px -60px rgba(0,0,0,0.9)`
-                      : '0 30px 120px -60px rgba(0,0,0,0.9)',
-                    boxSizing: 'border-box',
-                    contain: 'layout style paint',
-                  }}
-                >
-                  <div className="pointer-events-none absolute inset-x-10 top-0 z-0 h-40 bg-gradient-to-b from-white/10 via-white/0 to-transparent blur-2xl" />
-                  <header className={`relative ${isCustomSlide ? 'mb-4 p-7 md:p-10' : ''} ${isFoodSlide ? 'grid grid-cols-2 gap-8 items-start px-8 pt-4 pb-2' : 'flex items-start justify-between gap-6 px-8 pt-8 pb-4'}`}>
-                    {/* Left column */}
-                    <div className={`flex flex-col ${isFoodSlide ? 'gap-2' : 'flex-wrap items-center gap-4'}`}>
-                      {showLabel && (
-                        <span
-                          className={`rounded-full px-6 py-2.5 font-black uppercase tracking-wide text-black shadow-[0_16px_45px_-28px_rgba(0,0,0,0.65)] ${isFoodSlide ? 'self-start' : ''}`}
-                          style={{ backgroundColor: accentColor, boxShadow: `0 0 0 2px ${accentColor}`, fontSize: 'clamp(64px, 11.76vw, 123px)' }}
-                        >
-                          {slide.label}
-                        </span>
-                      )}
-                      {!isCustomSlide && !isEventSlide && slide.subtitle && (
-                        <span
-                          className={`font-semibold uppercase tracking-[0.12em] text-white/80 drop-shadow-[0_6px_18px_rgba(0,0,0,0.45)] ${isFoodSlide ? 'self-start' : ''}`}
-                          style={{ fontSize: 'clamp(59px, 12.35vw, 129px)' }}
-                        >
-                          {slide.subtitle}
-                        </span>
-                      )}
-                    </div>
-                    {/* Right column */}
-                    {!hasNextImageItems && (
-                      <div className={`flex flex-col ${isFoodSlide ? 'items-end justify-start gap-3' : ''}`}>
-                        <span className="font-semibold text-white/70" style={{ fontSize: 'clamp(64px, 11.76vw, 123px)' }}>
-                          Monaghan&apos;s
-                        </span>
-                      </div>
-                    )}
-                  </header>
-
-                  <main className={`flex min-h-0 flex-1 flex-col gap-6 md:gap-8 ${isCustomSlide ? 'px-7 md:px-10 justify-start pt-8 md:pt-12' : 'mt-6 md:mt-8 justify-start'}`}>
-                    {(slide.title || slide.body || slide.footer || (isCustomSlide && slide.subtitle)) && (
-                      <div className={`flex flex-col ${isCustomSlide ? 'gap-8 md:gap-10 items-center text-center w-full max-w-[90vw] mx-auto' : 'gap-4 md:gap-5 w-full'}`}>
-                        {isCustomSlide && slide.subtitle && (
-                          <p
-                            className="text-sm font-semibold uppercase tracking-[0.2em] text-white/70 drop-shadow-[0_4px_12px_rgba(0,0,0,0.4)]"
-                            style={{ fontSize: 'clamp(41px, 7.35vw, 70px)' }}
-                          >
-                            {slide.subtitle}
-                          </p>
-                        )}
-                        {slide.title && (
-                          <h1
-                            className={`text-balance font-black leading-[0.95] tracking-tight drop-shadow-[0_18px_48px_rgba(0,0,0,0.45)] ${isCustomSlide ? 'text-center' : ''}`}
-                            style={{ 
-                              fontSize: 'clamp(123px, 23.52vw, 270px)',
-                              ...(isCustomSlide ? { 
-                                color: accentColor,
-                                textShadow: `0 0 20px ${accentGlowColor}, 0 18px 48px rgba(0,0,0,0.45)`
-                              } : {})
-                            }}
-                          >
-                            {slide.title}
-                          </h1>
-                        )}
-                        {slide.body && (
-                          isCustomSlide ? (
-                            <div
-                              className="w-full max-w-[85vw] font-semibold leading-[1.2] drop-shadow-[0_12px_32px_rgba(0,0,0,0.35)] mt-8 md:mt-12 mx-auto [&_*]:text-white [&_p]:text-[clamp(70px,13.23vw,140px)] [&_h1]:text-[clamp(83px,16.17vw,165px)]"
-                              style={{ fontSize: 'clamp(70px, 13.23vw, 140px)' }}
-                            >
-                              <ReactMarkdown
-                                components={{
-                                  ul: ({ children }) => (
-                                    <ul style={{ listStyle: 'none', paddingLeft: 0, margin: '1em 0' }}>
-                                      {children}
-                                    </ul>
-                                  ),
-                                  li: ({ children }) => (
-                                    <li style={{ marginBottom: '1.2em', paddingLeft: '1.8em', position: 'relative', listStyle: 'none', display: 'block', textAlign: 'left' }}>
-                                      <span style={{ position: 'absolute', left: 0, color: accentColor, fontWeight: 'bold', fontSize: '1.3em', lineHeight: '1.2' }}>•</span>
-                                      <span style={{ color: 'white', display: 'inline-block', marginLeft: '0.5em' }}>{children}</span>
-                                    </li>
-                                  ),
-                                }}
-                              >
-                                {slide.body}
-                              </ReactMarkdown>
-                            </div>
-                          ) : (
-                            <p
-                              className="w-full font-semibold leading-[1.08] text-white/90 drop-shadow-[0_12px_32px_rgba(0,0,0,0.35)] overflow-hidden"
-                              style={{ 
-                                fontSize: 'clamp(77px, 16.46vw, 158px)',
-                                display: '-webkit-box', 
-                                WebkitLineClamp: 3, 
-                                WebkitBoxOrient: 'vertical'
-                              }}
-                            >
-                              {slide.body}
-                            </p>
-                          )
-                        )}
-                        {isCustomSlide && slide.footer && (
-                          <p
-                            className="w-full max-w-[85vw] font-semibold leading-[1.2] drop-shadow-[0_8px_24px_rgba(0,0,0,0.35)] text-center mt-6 md:mt-8 mx-auto"
-                            style={{ 
-                              fontSize: 'clamp(53px, 10.29vw, 94px)',
-                              color: accentColor,
-                              textShadow: `0 0 15px ${accentGlowColor}, 0 8px 24px rgba(0,0,0,0.35)`
-                            }}
-                          >
-                            {slide.footer}
-                          </p>
-                        )}
-                      </div>
-                    )}
-                    {/* Items rendering would go here but simplified for now */}
-                  </main>
-
-                  {!isCustomSlide && slide.footer && <footer className="mt-8 md:mt-10 text-[99px] md:text-[112px] font-semibold text-white/80">{slide.footer}</footer>}
-                </div>
-              );
-            })()}
-          </div>
-        )}
+        </div>
       </div>
 
       {/* AdZone for embedded ads (only show on non-ad, non-content slides when ads are enabled) */}
@@ -2332,7 +1692,7 @@ export default function SignageRotator({
                 }}
                 className={`h-3 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black ${isActive ? 'w-14 bg-[var(--accent)] shadow-[0_0_0_1px_rgba(255,255,255,0.3)]' : 'w-10 bg-white/25'}`}
                 style={{
-                  transition: `width 400ms ${TRANSITION_EASING}, background-color 400ms ${TRANSITION_EASING}, box-shadow 400ms ${TRANSITION_EASING}`,
+                  transition: `width 400ms ease-in-out, background-color 400ms ease-in-out, box-shadow 400ms ease-in-out`,
                   willChange: 'width, background-color, box-shadow',
                   backfaceVisibility: 'hidden',
                   WebkitBackfaceVisibility: 'hidden',
@@ -2358,7 +1718,7 @@ export default function SignageRotator({
           className={`absolute right-6 top-6 z-30 rounded-full border border-white/20 bg-black/40 px-4 py-2 text-sm font-semibold text-white shadow-lg backdrop-blur pointer-events-auto`}
           style={{ 
             opacity: showControls ? 1 : 0,
-            transition: `opacity 300ms ${TRANSITION_EASING}, transform 300ms ${TRANSITION_EASING}`,
+            transition: `opacity 300ms ease-in-out, transform 300ms ease-in-out`,
             willChange: 'opacity, transform',
             transform: 'translateZ(0)',
             WebkitTransform: 'translateZ(0)',
@@ -2382,7 +1742,7 @@ export default function SignageRotator({
             className={`group absolute left-6 top-1/2 z-30 -translate-y-1/2 rounded-full border border-white/20 bg-black/30 px-5 py-4 text-xl font-semibold text-white shadow-lg backdrop-blur pointer-events-auto`}
             style={{ 
               opacity: showControls ? 1 : 0,
-              transition: `opacity 300ms ${TRANSITION_EASING}, transform 300ms ${TRANSITION_EASING}`,
+              transition: `opacity 300ms ease-in-out, transform 300ms ease-in-out`,
               willChange: 'opacity, transform',
               transform: 'translateY(-50%) translateZ(0)',
               WebkitTransform: 'translateY(-50%) translateZ(0)',
@@ -2402,7 +1762,7 @@ export default function SignageRotator({
             className={`group absolute right-6 top-1/2 z-30 -translate-y-1/2 rounded-full border border-white/20 bg-black/30 px-5 py-4 text-xl font-semibold text-white shadow-lg backdrop-blur pointer-events-auto`}
             style={{ 
               opacity: showControls ? 1 : 0,
-              transition: `opacity 300ms ${TRANSITION_EASING}, transform 300ms ${TRANSITION_EASING}`,
+              transition: `opacity 300ms ease-in-out, transform 300ms ease-in-out`,
               willChange: 'opacity, transform',
               transform: 'translateY(-50%) translateZ(0)',
               WebkitTransform: 'translateY(-50%) translateZ(0)',

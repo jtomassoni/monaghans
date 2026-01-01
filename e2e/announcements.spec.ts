@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { TestDataTracker } from './test-helpers';
+import { TestDataTracker, waitForFormSubmission, waitForNetworkIdle, ensureSeedDataExists } from './test-helpers';
 import { TestMetadata } from './test-metadata';
 
 export const testMetadata: TestMetadata = {
@@ -116,11 +116,16 @@ for (const role of roles) {
     });
 
     test('should edit an existing announcement', async ({ page }) => {
+      // Ensure seed data exists (helps with test isolation)
+      const hasSeedData = await ensureSeedDataExists(page, 'announcement', 1);
+      if (!hasSeedData) {
+        console.warn('⚠️  No seed announcements found - test may fail');
+      }
+      
       await page.goto('/admin/announcements');
       
-      // Wait for page to load
-      await page.waitForLoadState('networkidle');
-      await page.waitForTimeout(2000);
+      // Wait for page to load deterministically
+      await waitForNetworkIdle(page, 10000);
       
       // Look for announcement cards - try multiple selectors
       // First try the specific class, then fallback to more general
@@ -137,16 +142,27 @@ for (const role of roles) {
         // Get first card and try to click it
         const firstCard = announcementCards.first();
         // Try clicking the card directly, or the clickable area inside
+        let cardClicked = false;
         try {
           const clickableArea = firstCard.locator('.flex-1').first();
           if (await clickableArea.count() > 0) {
             await clickableArea.click({ timeout: 3000 });
+            cardClicked = true;
           } else {
             await firstCard.click({ timeout: 3000 });
+            cardClicked = true;
           }
         } catch {
-          // If click fails, try force click
-          await firstCard.click({ force: true });
+          // If click fails, try scrolling and clicking again
+          try {
+            await firstCard.scrollIntoViewIfNeeded();
+            await firstCard.click({ timeout: 3000 });
+            cardClicked = true;
+          } catch {
+            // Still failed, use force as last resort
+            await firstCard.click({ force: true });
+            cardClicked = true;
+          }
         }
         await page.waitForTimeout(1500);
         
@@ -158,26 +174,46 @@ for (const role of roles) {
             const updatedTitle = `${currentValue} - Updated`;
             await titleInput.fill(updatedTitle);
             
-            // Save
-            const submitButton = page.locator('button[type="submit"], button:has-text("Save")');
-            if (await submitButton.count() > 0) {
-              await submitButton.first().click();
-              await page.waitForTimeout(2000);
-              
-              // Wait for modal to close or updated title to appear in list
-              const updatedRow = page.locator(`text=${updatedTitle}`).first();
-              const successVisible = await page
-                .locator('text=/success|updated|saved/i')
-                .isVisible()
-                .catch(() => false);
-              if (!successVisible) {
-                await updatedRow.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+              // Save
+              const submitButton = page.locator('button[type="submit"], button:has-text("Save")');
+              if (await submitButton.count() > 0) {
+                await submitButton.first().click();
+                
+                // Wait for form submission to complete deterministically
+                try {
+                  const success = await waitForFormSubmission(page, {
+                    waitForNetworkIdle: true,
+                    waitForSuccess: true,
+                    waitForModalClose: true,
+                    timeout: 10000,
+                    context: 'editing announcement',
+                  });
+                  expect(success).toBeTruthy();
+                } catch (error) {
+                  // Fallback: check for updated title in list
+                  const updatedRow = page.locator(`text=${updatedTitle}`).first();
+                  const rowVisible = await updatedRow.waitFor({ 
+                    state: 'visible', 
+                    timeout: 3000 
+                  }).catch(() => false);
+                  
+                  if (!rowVisible) {
+                    // Neither success message nor updated row found
+                    const errorMessage = error instanceof Error ? error.message : String(error);
+                    throw new Error(
+                      `Failed to edit announcement:\n${errorMessage}\n` +
+                      `Test: should edit an existing announcement\n` +
+                      `Original title: ${currentValue}\n` +
+                      `Updated title: ${updatedTitle}\n` +
+                      `Check that:\n` +
+                      `- Announcement exists in seed data\n` +
+                      `- Form submission completed\n` +
+                      `- API endpoint is responding\n` +
+                      `- No console errors in browser`
+                    );
+                  }
+                }
               }
-              // Expect either toast or updated row
-              const sawUpdate =
-                successVisible || (await updatedRow.isVisible().catch(() => false));
-              expect(sawUpdate).toBeTruthy();
-            }
           }
         }
       }
