@@ -17,7 +17,7 @@ Tests are organized into the following feature areas in `test.config.ts`:
 - **Operations** - Menu, ingredients, orders, KDS
 - **Staff** - Scheduling, timeclock, availability
 - **Analytics** - Reporting
-- **Administration** - Settings, user management, permissions
+- **Administration** - Settings, permissions
 - **UI Components** - Date pickers, forms
 
 ## Enabling/Disabling Tests

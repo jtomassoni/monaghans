@@ -39,8 +39,6 @@ Base URL: `http://localhost:3000`
 - `/admin/suppliers/[id]`
 - `/admin/ingredients`
 - `/admin/staff`
-- `/admin/users` (managed via modals)
-- `/admin/users-staff`
 - `/admin/announcements` (managed via modals)
 - `/admin/specials` (managed via modals)
 - `/admin/events` (managed via modals)

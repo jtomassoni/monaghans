@@ -45,8 +45,8 @@ Monaghan's Restaurant Management System v1.0 is a comprehensive platform for man
 - **Supplier Management**: Manage suppliers, purchase orders, and track ingredient costs
 
 ### Security & Access
-- **Role-Based Access Control**: Admin, owner, manager, cook, bartender, barback roles
-- **User Management**: User and employee management with activity logging
+- **Role-Based Access Control**: Admin, owner roles
+- **Authentication**: Environment variable-based authentication with automatic user creation
 - **Activity Log**: Comprehensive audit trail of all user actions
 - **Feature Flags**: Database-driven feature flags allow admins to enable or disable specific features, controlling visibility of calendars, menu management, online ordering, staff scheduling, reporting, social media, and more
 

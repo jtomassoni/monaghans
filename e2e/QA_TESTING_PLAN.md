@@ -197,21 +197,6 @@ This document outlines the complete QA testing strategy for the Monaghan's appli
 - [ ] Edit shift times
 - [ ] Delete shift record
 
-### 8. MEDIUM: User Management
-**Priority: P2 - Administration**
-
-#### 8.1 User CRUD
-- [ ] Create user
-- [ ] Edit user
-- [ ] Delete user
-- [ ] Assign role (admin/owner/employee)
-- [ ] Activate/deactivate user
-- [ ] Filter users
-- [ ] Search users
-
-#### 8.2 Permissions
-- [ ] Admin can access admin features
-- [ ] Owner can access owner features
 - [ ] Employee cannot access admin features
 - [ ] Role restrictions work correctly
 
@@ -352,8 +337,7 @@ This document outlines the complete QA testing strategy for the Monaghan's appli
 5. Event editing and deletion
 
 ### Can Run on Schedule (Lower Priority)
-1. Full user management suite
-2. Full reporting suite
+1. Full reporting suite
 3. Full settings suite
 4. Full ingredients suite
 

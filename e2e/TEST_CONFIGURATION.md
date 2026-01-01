@@ -47,7 +47,6 @@ Tests are organized into 6 feature areas:
 
 ### 5. Administration (`administration.config.ts`)
 - `settings` - Application settings
-- `user-management` - User accounts
 - `owner-permissions` - Owner role permissions
 
 ### 6. UI Components (`ui-components.config.ts`)

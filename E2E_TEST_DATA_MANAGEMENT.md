@@ -30,7 +30,6 @@ This is perfect for manual QA testing with realistic data.
 - ✅ `specials.spec.ts`
 - ✅ `announcements.spec.ts`
 - ✅ `menu-management.spec.ts`
-- ✅ `user-management.spec.ts`
 
 **Tests that create data but need cleanup**:
 - ⚠️ `datetime-flows.spec.ts` - Creates events but doesn't clean up

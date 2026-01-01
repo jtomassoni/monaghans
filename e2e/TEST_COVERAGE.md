@@ -57,7 +57,6 @@ These tests run on every PR but are less critical:
 6. **Timeclock** (`timeclock.spec.ts`)
 
 ### Medium Priority Tests (P2 - Can Run on Schedule)
-1. **User Management** (`user-management.spec.ts`)
 2. **Settings** (`settings.spec.ts`)
 3. **Reporting** (`reporting.spec.ts`)
 4. **Ingredients** (`ingredients.spec.ts`)

@@ -175,10 +175,11 @@ Monaghan's is a full-featured restaurant management system designed to handle al
 - Post scheduling via queue system
 - Facebook post analytics
 
-**User Management**
-- Role-based access control (admin, owner, manager, cook, bartender, barback)
+**Authentication**
+- Role-based access control (admin, owner)
 - User activity logging
 - Permission-based feature access
+- Authentication via environment variables
 
 **Settings**
 - Business hours and contact information

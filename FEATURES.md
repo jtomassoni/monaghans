@@ -77,21 +77,17 @@ Monaghan's is a comprehensive restaurant/bar management system designed for owne
   - `app/timeclock/page.tsx` - Public timeclock page
   - `lib/schedule-helpers.ts` - Hours/cost calculation functions
 
-### 5. Users / Roles / Auth
+### 5. Authentication / Roles / Auth
 
 - **Status:** Working
-- **Description:** User management with role-based access control. Roles include: admin, owner, manager, cook, bartender, barback. NextAuth integration for authentication.
+- **Description:** Authentication via environment variables with role-based access control. Roles include: admin, owner. NextAuth integration for authentication.
 - **Key User Flows:**
   - User login/logout
-  - Create/edit/delete users
-  - Assign roles to users
   - Role-based permission checks throughout app
   - Activity logging for user actions
 - **Key Files/Routes:**
   - `lib/auth.ts` - Authentication configuration
   - `lib/permissions.ts` - Permission checking logic
-  - `app/admin/users/` - User management pages
-  - `app/api/users/route.ts` - User API
   - `app/api/auth/route.ts` - Auth API
 
 ### 6. Events Management

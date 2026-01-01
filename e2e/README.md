@@ -82,7 +82,6 @@ npx playwright test e2e/homepage.spec.ts
 - `settings.spec.ts` - Tests for settings management (business hours, contact info, timezone, shift types, online ordering toggle)
 - `ingredients.spec.ts` - Tests for ingredients management (CRUD, categories, costs, units, linking to menu items)
 - `orders-kds.spec.ts` - Tests for orders and KDS (order list, status updates, filtering, KDS interface, search)
-- `user-management.spec.ts` - Tests for user management (CRUD, role assignment, activation/deactivation, filtering, search)
 - `owner-permissions.spec.ts` - Tests for owner role permissions (access control, role restrictions)
 
 ### Setup
