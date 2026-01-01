@@ -3,11 +3,17 @@
 
 set -e
 
-echo "Installing dependencies (excluding optional canvas)..."
-npm install --legacy-peer-deps --ignore-scripts
-
-echo "Attempting to install canvas (optional, will continue if it fails)..."
-npm install --legacy-peer-deps canvas 2>&1 || echo "⚠️  Canvas installation failed (expected in Vercel) - continuing..."
+echo "Installing dependencies..."
+# Install all dependencies first (canvas will fail but npm should continue)
+npm install --legacy-peer-deps || {
+  echo "⚠️  Some dependencies failed to install (likely canvas) - checking if critical deps are present..."
+  # Check if critical dependencies are installed
+  if [ ! -d "node_modules/sharp" ]; then
+    echo "❌ Critical dependency 'sharp' is missing!"
+    exit 1
+  fi
+  echo "✅ Critical dependencies are present, continuing..."
+}
 
 echo "✅ Installation complete"
 
