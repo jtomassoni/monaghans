@@ -23,6 +23,7 @@
     "test:setup": "tsx scripts/setup-test-db.ts",
     "generate-specials": "tsx scripts/generate-daily-specials.ts",
     "set-social": "tsx scripts/set-social-media.ts",
+    "fix-taco-platter": "tsx scripts/fix-taco-platter.ts",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed"
