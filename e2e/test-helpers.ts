@@ -234,31 +234,46 @@ export async function waitForSuccessMessage(
   context?: string
 ): Promise<boolean> {
   const selectors = [
-    '.bg-green-900, .bg-green-800, [class*="bg-green"]',
+    '.bg-green-900', // Primary toast selector (most specific)
+    '.bg-green-800',
+    '[class*="bg-green"]',
     '[role="alert"]',
     '[class*="toast"]',
-    'text=/success|created|saved|updated/i',
   ];
 
   const triedSelectors: string[] = [];
 
+  // First try the specific green toast selector with filter
   for (const selector of selectors) {
     triedSelectors.push(selector);
     try {
+      // Try with filter first (more specific)
       const locator = page.locator(selector).filter({ hasText: /success|created|saved|updated/i });
-      await locator.waitFor({ state: 'visible', timeout });
+      await locator.waitFor({ state: 'visible', timeout: Math.min(timeout, 3000) });
       return true;
     } catch (error) {
-      // Try next selector
+      // Try without filter (less specific, but might catch it)
+      try {
+        const locator = page.locator(selector);
+        const visible = await locator.isVisible({ timeout: 1000 }).catch(() => false);
+        if (visible) {
+          // Check if it has success text
+          const text = await locator.textContent().catch(() => '');
+          if (/success|created|saved|updated/i.test(text)) {
+            return true;
+          }
+        }
+      } catch {
+        // Continue to next selector
+      }
     }
   }
 
-  // Fallback: wait for any text matching success pattern
+  // Fallback: wait for any text matching success pattern anywhere on page
+  triedSelectors.push('text=/success|created|saved|updated/i');
   try {
-    await page.waitForSelector('text=/success|created|saved|updated/i', { 
-      state: 'visible', 
-      timeout: Math.min(timeout, 2000) 
-    });
+    const textLocator = page.locator('text=/success|created|saved|updated/i');
+    await textLocator.waitFor({ state: 'visible', timeout: Math.min(timeout, 2000) });
     return true;
   } catch {
     // Generate helpful error message for CI
@@ -632,7 +647,7 @@ export async function cleanupMenuSection(id: string, storageState: string = '.au
  * Find and cleanup test entities by title prefix
  */
 export async function cleanupByTitlePrefix(
-  type: 'announcement' | 'event' | 'special',
+  type: 'announcement' | 'event' | 'special' | 'menuSection' | 'menuItem',
   titlePrefix: string,
   storageState: string = '.auth/admin.json'
 ): Promise<number> {
@@ -645,8 +660,20 @@ export async function cleanupByTitlePrefix(
       headers['Cookie'] = cookie;
     }
 
+    // Determine API endpoint based on type
+    let endpoint: string;
+    if (type === 'special') {
+      endpoint = '/api/specials';
+    } else if (type === 'menuSection') {
+      endpoint = '/api/menu-sections';
+    } else if (type === 'menuItem') {
+      endpoint = '/api/menu-items';
+    } else {
+      endpoint = `/api/${type}s`;
+    }
+
     // Fetch all items
-    const response = await fetch(`${BASE_URL}/api/${type === 'special' ? 'specials' : `${type}s`}`, {
+    const response = await fetch(`${BASE_URL}${endpoint}`, {
       method: 'GET',
       headers,
     });
@@ -654,15 +681,31 @@ export async function cleanupByTitlePrefix(
     if (!response.ok) return 0;
 
     const items = await response.json();
-    const testItems = items.filter((item: any) => 
-      item.title && item.title.startsWith(titlePrefix)
-    );
+    // For menu sections/items, check 'name' field instead of 'title'
+    const nameField = (type === 'menuSection' || type === 'menuItem') ? 'name' : 'title';
+    const testItems = items.filter((item: any) => {
+      const fieldValue = item[nameField];
+      // Handle empty prefix - match items that start with common test prefixes
+      if (!titlePrefix || titlePrefix.trim() === '') {
+        return fieldValue && (
+          fieldValue.startsWith('Test ') ||
+          fieldValue.startsWith('E2E Test ') ||
+          fieldValue.startsWith('test-') ||
+          fieldValue.startsWith('Food TV') ||
+          fieldValue.startsWith('Drink TV') ||
+          fieldValue.startsWith('Food Only')
+        );
+      }
+      return fieldValue && fieldValue.startsWith(titlePrefix);
+    });
 
     // Delete all test items
     const deletePromises = testItems.map((item: any) => {
       if (type === 'announcement') return cleanupAnnouncement(item.id, storageState);
       if (type === 'event') return cleanupEvent(item.id, storageState);
       if (type === 'special') return cleanupSpecial(item.id, storageState);
+      if (type === 'menuSection') return cleanupMenuSection(item.id, storageState);
+      if (type === 'menuItem') return cleanupMenuItem(item.id, storageState);
       return Promise.resolve(false);
     });
 
@@ -672,6 +715,38 @@ export async function cleanupByTitlePrefix(
     console.error(`Failed to cleanup ${type}s by prefix:`, error);
     return 0;
   }
+}
+
+/**
+ * Set up automatic tracking for API responses
+ * Call this at the start of a test to automatically track created entities
+ */
+export function setupAutoTracking(page: any, tracker: TestDataTracker) {
+  page.on('response', async (response: any) => {
+    const url = response.url();
+    const method = response.request().method();
+    
+    if (method === 'POST' && response.ok) {
+      try {
+        const data = await response.json();
+        if (data.id) {
+          if (url.includes('/api/events')) {
+            tracker.trackEvent(data.id);
+          } else if (url.includes('/api/specials')) {
+            tracker.trackSpecial(data.id);
+          } else if (url.includes('/api/announcements')) {
+            tracker.trackAnnouncement(data.id);
+          } else if (url.includes('/api/menu-items')) {
+            tracker.trackMenuItem(data.id);
+          } else if (url.includes('/api/menu-sections')) {
+            tracker.trackMenuSection(data.id);
+          }
+        }
+      } catch (e) {
+        // Ignore JSON parse errors
+      }
+    }
+  });
 }
 
 /**
@@ -759,10 +834,14 @@ export class TestDataTracker {
 
     await Promise.allSettled(promises);
 
-    // Also cleanup by title prefix as a fallback
-    await cleanupByTitlePrefix('announcement', this.testPrefix, this.storageState);
-    await cleanupByTitlePrefix('event', this.testPrefix, this.storageState);
-    await cleanupByTitlePrefix('special', this.testPrefix, this.storageState);
+    // Also cleanup by title prefix as a fallback (only if prefix is not empty)
+    if (this.testPrefix && this.testPrefix.trim() !== '') {
+      await cleanupByTitlePrefix('announcement', this.testPrefix, this.storageState);
+      await cleanupByTitlePrefix('event', this.testPrefix, this.storageState);
+      await cleanupByTitlePrefix('special', this.testPrefix, this.storageState);
+      await cleanupByTitlePrefix('menuSection', this.testPrefix, this.storageState);
+      await cleanupByTitlePrefix('menuItem', this.testPrefix, this.storageState);
+    }
 
     // Clear tracked IDs
     this.announcements = [];

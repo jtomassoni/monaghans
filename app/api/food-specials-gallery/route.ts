@@ -266,7 +266,7 @@ export async function DELETE(req: NextRequest) {
     await logActivity(
       user.id,
       'delete',
-      'image',
+      'asset',
       imagePath,
       filename,
       undefined,

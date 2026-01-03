@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { TestDataTracker } from './test-helpers';
+import { TestDataTracker, setupAutoTracking } from './test-helpers';
 import { TestMetadata } from './test-metadata';
 
 export const testMetadata: TestMetadata = {
@@ -81,6 +81,9 @@ test.describe('Datetime Flows', () => {
   }
 
   test('should create one-time event with Mountain Time timezone', async ({ page }) => {
+    // Set up automatic tracking for created entities
+    setupAutoTracking(page, tracker);
+
     await page.goto('/admin?view=list');
     await page.waitForTimeout(1000);
 
@@ -141,6 +144,9 @@ test.describe('Datetime Flows', () => {
   });
 
   test('should create recurring weekly event with UNTIL date including last occurrence', async ({ page }) => {
+    // Set up automatic tracking for created entities
+    setupAutoTracking(page, tracker);
+
     await page.goto('/admin?view=list');
     await page.waitForTimeout(1000);
 
@@ -285,6 +291,9 @@ test.describe('Datetime Flows', () => {
   });
 
   test('should handle events that span midnight in Mountain Time', async ({ page }) => {
+    // Set up automatic tracking for created entities
+    setupAutoTracking(page, tracker);
+
     await page.goto('/admin?view=list');
     await page.waitForTimeout(1000);
 
@@ -345,6 +354,9 @@ test.describe('Datetime Flows', () => {
   });
 
   test('should create monthly recurring event on specific day', async ({ page }) => {
+    // Set up automatic tracking for created entities
+    setupAutoTracking(page, tracker);
+
     await page.goto('/admin?view=list');
     await page.waitForTimeout(1000);
 

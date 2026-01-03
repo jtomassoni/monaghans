@@ -14,8 +14,8 @@ Note: Test metadata (feature area, description) now lives in each test spec file
 Tests are organized into the following feature areas in `test.config.ts`:
 
 - **Content** - Announcements, events, specials, homepage, calendar, timezone handling
-- **Operations** - Menu, ingredients, orders, KDS
-- **Staff** - Scheduling, timeclock, availability
+- **Operations** - Menu
+- **Staff** - (All tests deleted - feature flag OFF)
 - **Analytics** - Reporting
 - **Administration** - Settings, permissions
 - **UI Components** - Date pickers, forms

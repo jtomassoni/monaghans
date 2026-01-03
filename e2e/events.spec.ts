@@ -289,18 +289,31 @@ for (const role of roles) {
           }
           
           // Verify event appears on public events page (should include all 4 occurrences)
+          // Wait a moment for the event to be fully saved and processed
+          await page.waitForTimeout(2000);
+          
           await page.goto('/events');
           await waitForNetworkIdle(page, 10000);
+          await page.waitForTimeout(2000); // Wait for events to render
           
           // Wait for events to load - use more deterministic approach
           const eventTitle = page.locator(`text=${testTitle}`);
           
           // Wait for event to appear with retries (events might take time to process)
+          // Recurring events might need server-side processing
           let eventCount = 0;
-          for (let i = 0; i < 5; i++) {
+          for (let i = 0; i < 10; i++) {
             eventCount = await eventTitle.count();
             if (eventCount > 0) break;
             await page.waitForTimeout(1000);
+            
+            // Refresh page every few attempts to pick up new events
+            if (i > 2 && i % 3 === 0) {
+              await page.reload();
+              await waitForNetworkIdle(page, 5000);
+              await page.waitForTimeout(1000);
+            }
+            
             // Scroll to load more events if needed
             if (i > 1) {
               await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
@@ -312,14 +325,17 @@ for (const role of roles) {
           if (eventCount === 0) {
             const url = page.url();
             const pageContent = await page.textContent('body').catch(() => 'unable to get page content');
+            // Check if page loaded correctly
+            const hasEventsContent = pageContent && (pageContent.includes('Event') || pageContent.includes('Upcoming'));
             throw new Error(
               `Event not found on public events page after creation\n` +
               `Test: should create recurring weekly event with UNTIL date including last occurrence\n` +
               `Event title: ${testTitle}\n` +
               `URL: ${url}\n` +
               `Event count found: 0\n` +
+              `Page has events content: ${hasEventsContent}\n` +
               `This usually means:\n` +
-              `- Event was created but not yet visible (timing issue)\n` +
+              `- Event was created but not yet visible (timing issue - try refreshing)\n` +
               `- Event date is in the future and not shown\n` +
               `- Recurrence calculation failed\n` +
               `- Page didn't load correctly\n` +

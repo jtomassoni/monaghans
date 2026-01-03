@@ -7,6 +7,7 @@ import { showToast } from '@/components/toast';
 import StatusToggle from '@/components/status-toggle';
 import DateTimePicker from '@/components/date-time-picker';
 import DatePicker from '@/components/date-picker';
+import FoodSpecialsGallerySelector from '@/components/food-specials-gallery-selector';
 
 interface Event {
   id?: string;
@@ -116,6 +117,7 @@ function buildRRULE(frequency: string, days: string[], monthDay?: number): strin
 export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: initialItemType, onSuccess }: UnifiedItemModalFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [showGallery, setShowGallery] = useState(false);
   
   // Determine item type from existing item or initial type
   const getItemType = (): ItemType => {
@@ -437,120 +439,159 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
       onClose={onClose}
       title={title}
     >
-      <form onSubmit={handleSubmit} className="space-y-3">
+      <form onSubmit={handleSubmit} className="space-y-5">
         {/* Item Type Selector - only show when creating new */}
         {!isEditing && (
-          <div>
-            <label className="block mb-1 text-sm font-medium">Item Type *</label>
-            <div className="flex gap-3 flex-wrap">
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="radio"
-                  name="itemType"
-                  checked={currentItemType === 'event'}
-                  onChange={() => setCurrentItemType('event')}
-                  className="w-4 h-4"
-                />
-                <span className="text-sm">Event</span>
-              </label>
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="radio"
-                  name="itemType"
-                  checked={currentItemType === 'food'}
-                  onChange={() => setCurrentItemType('food')}
-                  className="w-4 h-4"
-                />
-                <span className="text-sm">Food Special</span>
-              </label>
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="radio"
-                  name="itemType"
-                  checked={currentItemType === 'drink'}
-                  onChange={() => setCurrentItemType('drink')}
-                  className="w-4 h-4"
-                />
-                <span className="text-sm">Drink Special</span>
-              </label>
+          <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-5 backdrop-blur-sm">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400 mb-3">Item Type</p>
+              <div className="flex flex-wrap gap-3">
+                <label
+                  className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all cursor-pointer ${
+                    currentItemType === 'event'
+                      ? 'border-blue-500 bg-blue-50 text-blue-600 dark:border-blue-500/80 dark:bg-blue-900/30 dark:text-blue-200 shadow-sm'
+                      : 'border-gray-200/70 dark:border-gray-700/60 text-gray-700 dark:text-gray-200 hover:border-blue-400/70'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="itemType"
+                    checked={currentItemType === 'event'}
+                    onChange={() => setCurrentItemType('event')}
+                    className="sr-only"
+                  />
+                  Event
+                </label>
+                <label
+                  className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all cursor-pointer ${
+                    currentItemType === 'food'
+                      ? 'border-orange-500 bg-orange-50 text-orange-600 dark:border-orange-500/80 dark:bg-orange-900/30 dark:text-orange-200 shadow-sm'
+                      : 'border-gray-200/70 dark:border-gray-700/60 text-gray-700 dark:text-gray-200 hover:border-orange-400/70'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="itemType"
+                    checked={currentItemType === 'food'}
+                    onChange={() => setCurrentItemType('food')}
+                    className="sr-only"
+                  />
+                  Food Special
+                </label>
+                <label
+                  className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all cursor-pointer ${
+                    currentItemType === 'drink'
+                      ? 'border-purple-500 bg-purple-50 text-purple-600 dark:border-purple-500/80 dark:bg-purple-900/30 dark:text-purple-200 shadow-sm'
+                      : 'border-gray-200/70 dark:border-gray-700/60 text-gray-700 dark:text-gray-200 hover:border-purple-400/70'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="itemType"
+                    checked={currentItemType === 'drink'}
+                    onChange={() => setCurrentItemType('drink')}
+                    className="sr-only"
+                  />
+                  Drink Special
+                </label>
+              </div>
             </div>
           </div>
         )}
 
-        {/* Status Toggle */}
-        <StatusToggle
-          type="active"
-          value={currentItemType === 'event' ? eventData.isActive : specialData.isActive}
-          onChange={(value) => {
-            if (currentItemType === 'event') {
-              setEventData({ ...eventData, isActive: value });
-            } else {
-              setSpecialData({ ...specialData, isActive: value });
-            }
-          }}
-          label="Status"
-        />
+        {/* Basic Information Section */}
+        <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-5 backdrop-blur-sm space-y-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Status</p>
+              <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                Control whether this item appears publicly.
+              </p>
+            </div>
+            <StatusToggle
+              type="active"
+              value={currentItemType === 'event' ? eventData.isActive : specialData.isActive}
+              onChange={(value) => {
+                if (currentItemType === 'event') {
+                  setEventData({ ...eventData, isActive: value });
+                } else {
+                  setSpecialData({ ...specialData, isActive: value });
+                }
+              }}
+              className="shrink-0"
+            />
+          </div>
 
-        {/* Title - Common Field */}
-        <div>
-          <label htmlFor="title" className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
-            Title *
-          </label>
-          <input
-            id="title"
-            type="text"
-            value={currentItemType === 'event' ? eventData.title : specialData.title}
-            onChange={(e) => {
-              if (currentItemType === 'event') {
-                setEventData({ ...eventData, title: e.target.value });
-              } else {
-                setSpecialData({ ...specialData, title: e.target.value });
-              }
-            }}
-            required
-            className="w-full px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-white text-sm"
-          />
-        </div>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label htmlFor="title" className="text-sm font-medium text-gray-900 dark:text-white">
+                Title *
+              </label>
+              <input
+                id="title"
+                type="text"
+                value={currentItemType === 'event' ? eventData.title : specialData.title}
+                onChange={(e) => {
+                  if (currentItemType === 'event') {
+                    setEventData({ ...eventData, title: e.target.value });
+                  } else {
+                    setSpecialData({ ...specialData, title: e.target.value });
+                  }
+                }}
+                required
+                className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+              />
+            </div>
 
-        {/* Description - Common Field */}
-        <div>
-          <label htmlFor="description" className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
-            Description
-          </label>
-          <textarea
-            id="description"
-            value={currentItemType === 'event' ? eventData.description : specialData.description}
-            onChange={(e) => {
-              if (currentItemType === 'event') {
-                setEventData({ ...eventData, description: e.target.value });
-              } else {
-                setSpecialData({ ...specialData, description: e.target.value });
-              }
-            }}
-            rows={2}
-            className="w-full px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-white text-sm"
-          />
+            <div className="space-y-1.5">
+              <label htmlFor="description" className="text-sm font-medium text-gray-900 dark:text-white">
+                Description
+              </label>
+              <textarea
+                id="description"
+                value={currentItemType === 'event' ? eventData.description : specialData.description}
+                onChange={(e) => {
+                  if (currentItemType === 'event') {
+                    setEventData({ ...eventData, description: e.target.value });
+                  } else {
+                    setSpecialData({ ...specialData, description: e.target.value });
+                  }
+                }}
+                rows={3}
+                className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all resize-none"
+              />
+            </div>
+          </div>
         </div>
 
         {/* Event-specific fields */}
         {currentItemType === 'event' && (
           <>
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="isAllDay"
-                  checked={eventData.isAllDay}
-                  onChange={(e) => handleAllDayChange(e.target.checked)}
-                  className="w-4 h-4"
-                />
-                <label htmlFor="isAllDay" className="cursor-pointer text-sm text-gray-900 dark:text-white">
+            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-5 backdrop-blur-sm space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Schedule</p>
+                  <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                    Choose the start and end for this event.
+                  </p>
+                </div>
+                <label
+                  htmlFor="isAllDay"
+                  className="inline-flex items-center gap-2 rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-1.5 text-xs font-medium text-gray-900 dark:text-white shadow-inner cursor-pointer transition-colors hover:border-blue-400/70 focus-within:ring-2 focus-within:ring-blue-500/30"
+                >
+                  <input
+                    type="checkbox"
+                    id="isAllDay"
+                    checked={eventData.isAllDay}
+                    onChange={(e) => handleAllDayChange(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
                   All Day Event
                 </label>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="relative isolate">
                   {eventData.isAllDay ? (
                     <DatePicker
                       label="Start Date"
@@ -570,7 +611,7 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
                     />
                   )}
                 </div>
-                <div>
+                <div className="relative isolate">
                   {eventData.isAllDay ? (
                     <DatePicker
                       label="End Date"
@@ -590,114 +631,148 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
                 </div>
               </div>
               {dateError && (
-                <p className="text-xs text-red-400 mt-1">{dateError}</p>
+                <p className="text-xs text-red-500 dark:text-red-400 mt-1">
+                  {dateError}
+                </p>
               )}
+            </div>
 
+            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-5 backdrop-blur-sm space-y-4">
               <div>
-                <label className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
-                  Repeats
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Recurrence</p>
+                <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                  Define how this event repeats across your calendar.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <label
+                  className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-medium transition-all cursor-pointer ${
+                    recurrenceType === 'none'
+                      ? 'border-blue-500 bg-blue-50 text-blue-600 dark:border-blue-500/80 dark:bg-blue-900/30 dark:text-blue-200 shadow-sm'
+                      : 'border-gray-200/70 dark:border-gray-700/60 text-gray-700 dark:text-gray-200 hover:border-blue-400/70'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="recurrence"
+                    checked={recurrenceType === 'none'}
+                    onChange={() => {
+                      setRecurrenceType('none');
+                      setRecurrenceDays([]);
+                    }}
+                    className="sr-only"
+                  />
+                  One-time event
                 </label>
-                <div className="space-y-2">
-                  <div className="flex gap-3 flex-wrap">
-                    <label className="flex items-center gap-1.5 cursor-pointer text-gray-900 dark:text-white">
-                      <input
-                        type="radio"
-                        name="recurrence"
-                        checked={recurrenceType === 'none'}
-                        onChange={() => {
-                          setRecurrenceType('none');
-                          setRecurrenceDays([]);
-                        }}
-                        className="w-4 h-4"
-                      />
-                      <span className="text-sm">One-time event</span>
-                    </label>
-                    <label className="flex items-center gap-1.5 cursor-pointer text-gray-900 dark:text-white">
-                      <input
-                        type="radio"
-                        name="recurrence"
-                        checked={recurrenceType === 'weekly'}
-                        onChange={() => {
-                          setRecurrenceType('weekly');
-                          if (recurrenceDays.length === 0 && eventData.startDateTime) {
-                            const startDate = new Date(eventData.startDateTime);
-                            const dayOfWeek = startDate.getDay();
-                            const dayMap: Record<number, string> = {
-                              0: 'Sunday', 1: 'Monday', 2: 'Tuesday', 3: 'Wednesday',
-                              4: 'Thursday', 5: 'Friday', 6: 'Saturday'
-                            };
-                            const dayName = dayMap[dayOfWeek];
-                            if (dayName && WEEKDAYS.includes(dayName)) {
-                              setRecurrenceDays([dayName]);
-                            }
-                          }
-                        }}
-                        className="w-4 h-4"
-                      />
-                      <span className="text-sm">Weekly</span>
-                    </label>
-                    <label className="flex items-center gap-1.5 cursor-pointer text-gray-900 dark:text-white">
-                      <input
-                        type="radio"
-                        name="recurrence"
-                        checked={recurrenceType === 'monthly'}
-                        onChange={() => {
-                          setRecurrenceType('monthly');
-                          if (eventData.startDateTime) {
-                            const startDate = new Date(eventData.startDateTime);
-                            setMonthDay(startDate.getDate());
-                          }
-                        }}
-                        className="w-4 h-4"
-                      />
-                      <span className="text-sm">Monthly</span>
-                    </label>
-                  </div>
+                <label
+                  className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-medium transition-all cursor-pointer ${
+                    recurrenceType === 'weekly'
+                      ? 'border-blue-500 bg-blue-50 text-blue-600 dark:border-blue-500/80 dark:bg-blue-900/30 dark:text-blue-200 shadow-sm'
+                      : 'border-gray-200/70 dark:border-gray-700/60 text-gray-700 dark:text-gray-200 hover:border-blue-400/70'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="recurrence"
+                    checked={recurrenceType === 'weekly'}
+                    onChange={() => {
+                      setRecurrenceType('weekly');
+                      if (recurrenceDays.length === 0 && eventData.startDateTime) {
+                        const startDate = new Date(eventData.startDateTime);
+                        const dayOfWeek = startDate.getDay();
+                        const dayMap: Record<number, string> = {
+                          0: 'Sunday', 1: 'Monday', 2: 'Tuesday', 3: 'Wednesday',
+                          4: 'Thursday', 5: 'Friday', 6: 'Saturday'
+                        };
+                        const dayName = dayMap[dayOfWeek];
+                        if (dayName && WEEKDAYS.includes(dayName)) {
+                          setRecurrenceDays([dayName]);
+                        }
+                      }
+                    }}
+                    className="sr-only"
+                  />
+                  Weekly
+                </label>
+                <label
+                  className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-medium transition-all cursor-pointer ${
+                    recurrenceType === 'monthly'
+                      ? 'border-blue-500 bg-blue-50 text-blue-600 dark:border-blue-500/80 dark:bg-blue-900/30 dark:text-blue-200 shadow-sm'
+                      : 'border-gray-200/70 dark:border-gray-700/60 text-gray-700 dark:text-gray-200 hover:border-blue-400/70'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="recurrence"
+                    checked={recurrenceType === 'monthly'}
+                    onChange={() => {
+                      setRecurrenceType('monthly');
+                      if (eventData.startDateTime) {
+                        const startDate = new Date(eventData.startDateTime);
+                        setMonthDay(startDate.getDate());
+                      }
+                    }}
+                    className="sr-only"
+                  />
+                  Monthly
+                </label>
+              </div>
 
-                  {recurrenceType === 'weekly' && (
-                    <div className="ml-4 p-3 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-700">
-                      <p className="text-xs text-gray-700 dark:text-gray-300 mb-2">Repeat on:</p>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        {WEEKDAYS.map((day) => (
-                          <label key={day} className="flex items-center gap-1.5 cursor-pointer text-gray-900 dark:text-white">
-                            <input
-                              type="checkbox"
-                              checked={recurrenceDays.includes(day)}
-                              onChange={() => toggleRecurrenceDay(day)}
-                              className="w-3.5 h-3.5"
-                            />
-                            <span className="text-xs">{day}</span>
-                          </label>
-                        ))}
-                      </div>
-                      {recurrenceDays.length === 0 && (
-                        <p className="text-[10px] text-yellow-600 dark:text-yellow-400 mt-1.5">Select at least one day</p>
-                      )}
-                    </div>
-                  )}
-
-                  {recurrenceType === 'monthly' && (
-                    <div className="ml-4 p-3 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-700">
-                      <p className="text-xs text-gray-700 dark:text-gray-300 mb-2">Repeat on day of month:</p>
-                      <div className="flex items-center gap-2">
-                        <select
-                          value={monthDay}
-                          onChange={(e) => setMonthDay(parseInt(e.target.value))}
-                          className="px-2 py-1 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-white text-sm"
+              {recurrenceType === 'weekly' && (
+                <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/70 dark:bg-gray-900/40 p-3 shadow-inner space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Repeat on</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                    {WEEKDAYS.map((day) => {
+                      const isSelected = recurrenceDays.includes(day);
+                      return (
+                        <label
+                          key={day}
+                          className={`flex items-center justify-center rounded-lg border px-2 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+                            isSelected
+                              ? 'border-blue-500 bg-blue-600 text-white shadow-sm shadow-blue-500/30'
+                              : 'border-gray-200/70 dark:border-gray-700/60 text-gray-700 dark:text-gray-200 bg-white/80 dark:bg-gray-900/40 hover:border-blue-400/70'
+                          }`}
                         >
-                          {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
-                            <option key={day} value={day}>
-                              {day}
-                              {day === 1 || day === 21 || day === 31 ? 'st' : day === 2 || day === 22 ? 'nd' : day === 3 || day === 23 ? 'rd' : 'th'}
-                            </option>
-                          ))}
-                        </select>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">of each month</span>
-                      </div>
-                    </div>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleRecurrenceDay(day)}
+                            className="sr-only"
+                          />
+                          {day}
+                        </label>
+                      );
+                    })}
+                  </div>
+                  {recurrenceDays.length === 0 && (
+                    <p className="text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                      Select at least one day for the recurrence.
+                    </p>
                   )}
                 </div>
-              </div>
+              )}
+
+              {recurrenceType === 'monthly' && (
+                <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/70 dark:bg-gray-900/40 p-3 shadow-inner space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Repeat on day</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <select
+                      value={monthDay}
+                      onChange={(e) => setMonthDay(parseInt(e.target.value))}
+                      className="rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-2.5 py-1.5 text-xs text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500"
+                    >
+                      {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                        <option key={day} value={day}>
+                          {day}
+                          {day === 1 || day === 21 || day === 31 ? 'st' : day === 2 || day === 22 ? 'nd' : day === 3 || day === 23 ? 'rd' : 'th'}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="text-xs text-gray-600 dark:text-gray-300">of each month</span>
+                  </div>
+                </div>
+              )}
             </div>
           </>
         )}
@@ -705,106 +780,178 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
         {/* Special-specific fields */}
         {currentItemType !== 'event' && (
           <>
+            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-5 backdrop-blur-sm space-y-4">
               <div>
-                <label htmlFor="priceNotes" className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
-                  Price Notes {currentItemType === 'food' ? '(optional)' : ''}
-                </label>
-                <input
-                  id="priceNotes"
-                  type="text"
-                  value={specialData.priceNotes}
-                  onChange={(e) => setSpecialData({ ...specialData, priceNotes: e.target.value })}
-                  placeholder={currentItemType === 'food' ? "e.g., $12.99 (or leave empty if prices are in description)" : "e.g., $3 drafts, Happy hour prices"}
-                  className="w-full px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-white text-sm"
-                />
-                {currentItemType === 'food' && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    If your special has multiple prices, you can list them in the Description field instead.
-                  </p>
-                )}
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Pricing & Details</p>
+                <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                  Set the price and additional information for this special.
+                </p>
               </div>
 
-            {currentItemType === 'drink' && (
-              <div>
-                <label className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">Applies On (optional for date-specific specials)</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {WEEKDAYS.map((day) => (
-                    <label key={day} className="flex items-center gap-2 cursor-pointer text-gray-900 dark:text-white">
-                      <input
-                        type="checkbox"
-                        checked={specialData.appliesOn.includes(day)}
-                        onChange={() => toggleSpecialDay(day)}
-                        className="w-4 h-4"
-                      />
-                      <span className="text-sm">{day}</span>
-                    </label>
-                  ))}
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <label htmlFor="priceNotes" className="text-sm font-medium text-gray-900 dark:text-white">
+                    Price {currentItemType === 'food' ? '(optional)' : ''}
+                  </label>
+                  <input
+                    id="priceNotes"
+                    type="text"
+                    value={specialData.priceNotes}
+                    onChange={(e) => setSpecialData({ ...specialData, priceNotes: e.target.value })}
+                    placeholder={currentItemType === 'food' ? "e.g., $12.99 (or leave empty if prices are in description)" : "e.g., $3 drafts, Happy hour prices"}
+                    className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+                  />
+                  {currentItemType === 'food' && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      If your special has multiple prices, you can list them in the Description field instead.
+                    </p>
+                  )}
                 </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Select which days this special applies. Leave empty if using start/end dates.
-                </p>
+
+                {currentItemType === 'drink' && (
+                  <div className="space-y-1.5">
+                    <label htmlFor="timeWindow" className="text-sm font-medium text-gray-900 dark:text-white">
+                      Time Window
+                    </label>
+                    <input
+                      id="timeWindow"
+                      type="text"
+                      value={specialData.timeWindow}
+                      onChange={(e) => setSpecialData({ ...specialData, timeWindow: e.target.value })}
+                      placeholder="e.g., 11am-3pm, Happy Hour"
+                      className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {currentItemType === 'drink' && (
+              <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-5 backdrop-blur-sm space-y-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Weekly Schedule</p>
+                  <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                    Select which days this special applies each week. Leave empty if using start/end dates.
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/70 dark:bg-gray-900/40 p-3 shadow-inner space-y-2.5">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Applies On</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {WEEKDAYS.map((day) => {
+                      const isSelected = specialData.appliesOn.includes(day);
+                      return (
+                        <label
+                          key={day}
+                          className={`flex items-center justify-center rounded-lg border px-2 py-2.5 text-xs font-semibold transition-all cursor-pointer ${
+                            isSelected
+                              ? 'border-blue-500 bg-blue-600 text-white shadow-sm shadow-blue-500/30'
+                              : 'border-gray-200/70 dark:border-gray-700/60 text-gray-700 dark:text-gray-200 bg-white/80 dark:bg-gray-900/40 hover:border-blue-400/70'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleSpecialDay(day)}
+                            className="sr-only"
+                          />
+                          {day}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             )}
 
-            <div>
-              <label htmlFor="timeWindow" className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
-                Time Window
-              </label>
-              <input
-                id="timeWindow"
-                type="text"
-                value={specialData.timeWindow}
-                onChange={(e) => setSpecialData({ ...specialData, timeWindow: e.target.value })}
-                placeholder="e.g., 11am-3pm, Happy Hour"
-                className="w-full px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-white text-sm"
-              />
+            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-5 backdrop-blur-sm space-y-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">
+                  {currentItemType === 'food' ? 'Date' : 'Timing'}
+                </p>
+                <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                  {currentItemType === 'food' 
+                    ? 'Select the date this daily special applies (full day).'
+                    : 'Set when this special is available.'}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="relative isolate">
+                  <DatePicker
+                    label={currentItemType === 'food' ? 'Date *' : 'Start Date (optional)'}
+                    value={currentItemType === 'food' ? (specialData.startDate || '') : (specialData.startDate || '')}
+                    onChange={(value) => {
+                      if (currentItemType === 'food') {
+                        setSpecialData({ ...specialData, startDate: value || '', endDate: value || '' });
+                      } else {
+                        setSpecialData({ ...specialData, startDate: value || '' });
+                      }
+                    }}
+                    required={currentItemType === 'food'}
+                    dateOnly={true}
+                    min={currentItemType === 'drink' ? undefined : undefined}
+                  />
+                </div>
+                {currentItemType === 'drink' && (
+                  <div className="relative isolate">
+                    <DatePicker
+                      label="End Date (optional)"
+                      value={specialData.endDate || ''}
+                      onChange={(value) => setSpecialData({ ...specialData, endDate: value || '' })}
+                      min={specialData.startDate || undefined}
+                      dateOnly={true}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label htmlFor="startDate" className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
-                  Start Date (optional)
-                </label>
-                <DatePicker
-                  value={specialData.startDate || ''}
-                  onChange={(value) => setSpecialData({ ...specialData, startDate: value })}
-                  dateOnly={true}
-                />
-              </div>
-              <div>
-                <label htmlFor="endDate" className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
-                  End Date (optional)
-                </label>
-                <DatePicker
-                  value={specialData.endDate || ''}
-                  onChange={(value) => setSpecialData({ ...specialData, endDate: value })}
-                  min={specialData.startDate || undefined}
-                  dateOnly={true}
-                />
-              </div>
-            </div>
+            {currentItemType === 'food' && (
+              <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-5 backdrop-blur-sm space-y-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Image</p>
+                  <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                    Add an image to showcase this food special.
+                  </p>
+                </div>
 
-            <div>
-              <label htmlFor="image" className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
-                Image Path (optional)
-              </label>
-              <input
-                id="image"
-                type="text"
-                value={specialData.image}
-                onChange={(e) => setSpecialData({ ...specialData, image: e.target.value })}
-                placeholder="/uploads/special-image.jpg"
-                className="w-full px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-white text-sm"
-              />
-            </div>
+                <div className="space-y-1.5">
+                  <label htmlFor="image" className="text-sm font-medium text-gray-900 dark:text-white">
+                    Image Path (optional)
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      id="image"
+                      type="text"
+                      value={specialData.image}
+                      onChange={(e) => setSpecialData({ ...specialData, image: e.target.value })}
+                      placeholder="/pics/food-specials/your-image.jpg"
+                      className="flex-1 rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowGallery(true)}
+                      className="px-4 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl transition-colors flex items-center gap-2 shadow-sm"
+                      title="Select from gallery"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <span className="hidden sm:inline">Gallery</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </>
         )}
 
-        <div className="flex gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex flex-wrap items-center justify-end gap-2 shrink-0 pt-4">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold transition-colors"
+            className="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
           >
             Cancel
           </button>
@@ -816,7 +963,7 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
               (currentItemType === 'food' && !specialData.startDate && !specialData.endDate) ||
               (currentItemType === 'drink' && specialData.appliesOn.length === 0 && !specialData.startDate && !specialData.endDate)
             }
-            className="px-4 py-2 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-blue-500/20"
+            className="px-3 py-1.5 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-blue-500/20 cursor-pointer"
           >
             {loading 
               ? (item?.id ? 'Saving...' : 'Creating...')
@@ -824,6 +971,18 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
           </button>
         </div>
       </form>
+
+      <FoodSpecialsGallerySelector
+        isOpen={showGallery}
+        onClose={() => setShowGallery(false)}
+        onSelect={(imagePath) => {
+          if (currentItemType === 'food' || currentItemType === 'drink') {
+            setSpecialData({ ...specialData, image: imagePath });
+          }
+          setShowGallery(false);
+        }}
+        currentImagePath={currentItemType === 'food' || currentItemType === 'drink' ? specialData.image : undefined}
+      />
     </Modal>
   );
 }

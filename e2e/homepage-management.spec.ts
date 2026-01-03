@@ -88,8 +88,8 @@ test.describe('Homepage Management', () => {
         }
       }
     } else {
-      // If no hero input found, that's okay - might not have hero section
-      test.skip();
+      // If no hero input found, fail with helpful message
+      throw new Error('Hero title input (id="heroTitle") not found. Hero section may not be available.');
     }
   });
 
@@ -143,8 +143,8 @@ test.describe('Homepage Management', () => {
         }
       }
     } else {
-      // No about textarea found - skip
-      test.skip();
+      // No about textarea found - fail with helpful message
+      throw new Error('About section textarea not found. About section may not be available.');
     }
   });
 

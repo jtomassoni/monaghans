@@ -183,7 +183,7 @@ async function main() {
           type: special.type,
           appliesOn: JSON.stringify(special.appliesOn),
           timeWindow: special.timeWindow,
-          image: '/pics/taco-platter.png', // Seed image for testing
+          image: null, // No default image - use gallery to assign images
           isActive: true,
         },
       });
@@ -317,10 +317,12 @@ async function main() {
     
     const foodSpecial = foodSpecials[specialIndex];
     // Use timezone-aware date parsing to ensure dates are in Mountain Time
+    // For single-day specials, both startDate and endDate should be the same date
+    // This ensures the calendar UI correctly identifies them as single-day specials
     const startDate = parseMountainTimeDate(dateStr, companyTimezone);
-    // End date is start of next day minus 1 millisecond (23:59:59.999 in Mountain Time)
-    const nextDayStart = new Date(startDate.getTime() + 24 * 60 * 60 * 1000);
-    const endDate = new Date(nextDayStart.getTime() - 1);
+    // Set endDate to the same date string to ensure it produces the same date string
+    // when the calendar UI reads it back (prevents day rollover issues)
+    const endDate = parseMountainTimeDate(dateStr, companyTimezone);
     
     const timeWindow = timeWindows[Math.floor(Math.random() * timeWindows.length)];
     
@@ -335,7 +337,7 @@ async function main() {
           timeWindow: timeWindow,
           startDate: startDate,
           endDate: endDate, // Same as startDate to ensure single-day special
-          image: '/pics/taco-platter.png', // Seed image for testing
+          image: null, // No default image - use gallery to assign images
           isActive: true,
         },
       });
@@ -397,19 +399,33 @@ async function main() {
   console.log('✅ Created events:', { pokerNight, karaoke });
 
   // Create sample announcement
-  const announcement = await prisma.announcement.create({
-    data: {
-      title: 'Welcome to Monaghan\'s!',
-      body: 'We\'re excited to have you here. Come grab a cold drink and enjoy the warm atmosphere.',
-      publishAt: new Date(),
-      isPublished: true,
-      crossPostFacebook: false,
-      crossPostInstagram: false,
-    },
-  });
+  console.log('');
+  console.log('📢 Creating announcement...');
+  let createdAnnouncements = [];
+  try {
+    const publishDate = new Date();
+    const expireDate = new Date();
+    expireDate.setDate(expireDate.getDate() + 7); // Expires 1 week from now
+    
+    const announcement = await prisma.announcement.create({
+      data: {
+        title: 'Welcome to Monaghan\'s!',
+        body: 'We\'re excited to have you here. Come grab a cold drink and enjoy the warm atmosphere.',
+        publishAt: publishDate,
+        expiresAt: expireDate, // Required for calendar display
+        isPublished: true,
+        crossPostFacebook: false,
+        crossPostInstagram: false,
+      },
+    });
 
-  const createdAnnouncements = [announcement];
-  console.log('✅ Created announcement:', announcement);
+    createdAnnouncements = [announcement];
+    console.log('✅ Created announcement:', announcement);
+  } catch (error: any) {
+    console.error('❌ Failed to create announcement:', error.message || error);
+    console.error('   Stack:', error.stack);
+    // Continue seeding even if announcement creation fails
+  }
 
   // Create default settings
   const hours = await prisma.setting.create({

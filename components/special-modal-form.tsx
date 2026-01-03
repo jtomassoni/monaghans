@@ -2,12 +2,13 @@
 
 import { useState, FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { FaTrash, FaTimes, FaSave, FaCheck } from 'react-icons/fa';
+import { FaTrash, FaTimes, FaSave, FaCheck, FaImage } from 'react-icons/fa';
 import Modal from '@/components/modal';
 import { showToast } from '@/components/toast';
 import ConfirmationDialog from '@/components/confirmation-dialog';
 import StatusToggle from '@/components/status-toggle';
 import DatePicker from '@/components/date-picker';
+import FoodSpecialsGallerySelector from '@/components/food-specials-gallery-selector';
 import { useUnsavedChangesWarning } from '@/lib/use-unsaved-changes-warning';
 import { getMountainTimeDateString, parseMountainTimeDate } from '@/lib/timezone';
 
@@ -41,6 +42,7 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showGallery, setShowGallery] = useState(false);
   const isFoodOnly = defaultType === 'food';
   const resolveType = (currentSpecial?: Special): 'food' | 'drink' => {
     if (isFoodOnly) return 'food';
@@ -402,16 +404,27 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
                 <label htmlFor="image" className="block text-sm font-semibold text-gray-900 dark:text-white">
                   Image Path
                 </label>
-                <input
-                  id="image"
-                  type="text"
-                  value={formData.image}
-                  onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                  placeholder="/pics/your-image.jpg"
-                  className="w-full rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 text-base text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all min-h-[44px] touch-manipulation"
-                />
+                <div className="flex gap-2">
+                  <input
+                    id="image"
+                    type="text"
+                    value={formData.image}
+                    onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+                    placeholder="/pics/food-specials/your-image.jpg"
+                    className="flex-1 rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 text-base text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all min-h-[44px] touch-manipulation"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowGallery(true)}
+                    className="px-4 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors flex items-center gap-2 min-h-[44px] touch-manipulation"
+                    title="Select from gallery"
+                  >
+                    <FaImage className="w-4 h-4" />
+                    <span className="hidden sm:inline">Gallery</span>
+                  </button>
+                </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Path to the image file (optional, e.g., /pics/your-image.jpg)
+                  Path to the image file (optional). Click Gallery to select from uploaded images.
                 </p>
               </div>
             )}
@@ -613,6 +626,16 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
         confirmText="Delete"
         cancelText="Cancel"
         variant="danger"
+      />
+
+      <FoodSpecialsGallerySelector
+        isOpen={showGallery}
+        onClose={() => setShowGallery(false)}
+        onSelect={(imagePath) => {
+          setFormData({ ...formData, image: imagePath });
+          setShowGallery(false);
+        }}
+        currentImagePath={formData.image}
       />
     </Modal>
   );

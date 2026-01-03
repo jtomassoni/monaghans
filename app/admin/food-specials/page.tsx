@@ -5,6 +5,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import DailySpecialsList from '../menu/daily-specials-list';
 import NewFoodSpecialButton from './new-food-special-button';
+import GalleryButton from './gallery-button';
 import AdminPageHeader from '@/components/admin-page-header';
 
 const LoadingFallback = () => (
@@ -55,7 +56,12 @@ export default async function AdminFoodSpecials() {
       <AdminPageHeader
         title="Food Specials"
         description="Manage daily food specials"
-        action={<NewFoodSpecialButton />}
+        action={
+          <div className="flex gap-2">
+            <GalleryButton />
+            <NewFoodSpecialButton />
+          </div>
+        }
       />
 
       {/* Main Content */}

@@ -35,31 +35,24 @@ export const testConfig = {
     menu: true, // Core product - Public menu display
     'menu-management': true, // Core product - Menu management (admin)
     
-    'online-ordering': false, // online_ordering - Online ordering system
+    'online-ordering': false, // online_ordering - Online ordering system (OFF - tests deleted)
     
-    'orders-kds': true, // boh_connections - Kitchen Display System (KDS) and order management
-    
-    'purchase-orders': false, // purchase_orders - Purchase orders and supplier management
-    
-    ingredients: true, // ingredients_management - Ingredients and inventory management
+    'purchase-orders': false, // purchase_orders - Purchase orders and supplier management (OFF - tests deleted)
   },
   
-  // Staff Management Feature Tests - staff_management flag
+  // Staff Management Feature Tests - staff_management flag (OFF - all tests deleted)
   staff: {
-    scheduling: true, // staff_management - Staff scheduling and shift management
-    timeclock: true, // staff_management - Timeclock functionality (clock in/out)
-    availability: true, // staff_management - Employee availability management
+    // All staff management tests deleted - feature flag is OFF
   },
   
-  // Analytics Feature Tests
+  // Analytics Feature Tests (OFF - all tests deleted)
   analytics: {
-    reporting: true, // reporting_analytics - Reporting and analytics dashboard
-    'activity-log': true, // activity_log - Activity log and audit trail
+    // All analytics tests deleted - feature flag is OFF
   },
   
-  // Marketing Feature Tests
+  // Marketing Feature Tests (OFF - all tests deleted)
   marketing: {
-    'social-media': true, // social_media - Social media management and cross-posting (requires calendars_events)
+    // All marketing tests deleted - feature flag is OFF
   },
   
   // Administration Feature Tests (not controlled by feature flags - managed via env vars)

@@ -51,9 +51,9 @@ for (const role of roles) {
       
       // Intercept API response to capture created announcement ID
       let createdId: string | null = null;
-      page.on('response', async (response) => {
+      page.on('response', async (response: any) => {
         if (response.url().includes('/api/announcements') && response.request().method() === 'POST') {
-          if (response.ok) {
+          if (response.status() >= 200 && response.status() < 300) {
             try {
               const data = await response.json();
               if (data.id) {

@@ -19,6 +19,8 @@ import {
   fillIfExists,
   clickIfExists,
   generateTestId,
+  TestDataTracker,
+  setupAutoTracking,
 } from './test-helpers';
 
 test.use({ storageState: '.auth/admin.json' });
@@ -45,6 +47,16 @@ async function openNewEventModal(page: any) {
 }
 
 test.describe('Date Pickers and Forms', () => {
+  // Track test data for cleanup
+  let tracker: TestDataTracker;
+
+  test.beforeEach(() => {
+    tracker = new TestDataTracker('.auth/admin.json', 'Test ');
+  });
+
+  test.afterEach(async () => {
+    await tracker.cleanup();
+  });
   
   test('should open and close date picker', async ({ page }) => {
     await openNewEventModal(page);
@@ -77,6 +89,9 @@ test.describe('Date Pickers and Forms', () => {
   });
 
   test('should handle date picker in event creation form', async ({ page }) => {
+    // Set up automatic tracking for created entities
+    setupAutoTracking(page, tracker);
+
     await openNewEventModal(page);
 
     const titleInput = page.locator('input[id="title"], input[name="title"]').first();
@@ -162,6 +177,9 @@ test.describe('Date Pickers and Forms', () => {
   });
 
   test('should preserve form data on validation errors', async ({ page }) => {
+    // Set up automatic tracking for created entities
+    setupAutoTracking(page, tracker);
+
     await openNewEventModal(page);
 
     const testTitle = `Form Data Test ${generateTestId()}`;
@@ -207,6 +225,9 @@ test.describe('Date Pickers and Forms', () => {
   });
 
   test('should handle events spanning midnight', async ({ page }) => {
+    // Set up automatic tracking for created entities
+    setupAutoTracking(page, tracker);
+
     await openNewEventModal(page);
 
     const titleInput = page.locator('input[id="title"], input[name="title"]').first();

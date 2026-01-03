@@ -111,52 +111,12 @@ export const TEST_SPEC_METADATA: Record<FeatureArea, TestSpecMetadata[]> = {
       description: 'Menu management (admin)',
       enabled: true,
     },
-    {
-      specName: 'ingredients',
-      specPath: 'e2e/ingredients.spec.ts',
-      featureArea: 'operations',
-      description: 'Ingredients management',
-      enabled: true,
-    },
-    {
-      specName: 'orders-kds',
-      specPath: 'e2e/orders-kds.spec.ts',
-      featureArea: 'operations',
-      description: 'Kitchen Display System (KDS) and order management',
-      enabled: true,
-    },
   ],
   staff: [
-    {
-      specName: 'scheduling',
-      specPath: 'e2e/scheduling.spec.ts',
-      featureArea: 'staff',
-      description: 'Staff scheduling and shift management',
-      enabled: true,
-    },
-    {
-      specName: 'timeclock',
-      specPath: 'e2e/timeclock.spec.ts',
-      featureArea: 'staff',
-      description: 'Timeclock functionality (clock in/out)',
-      enabled: true,
-    },
-    {
-      specName: 'availability',
-      specPath: 'e2e/availability.spec.ts',
-      featureArea: 'staff',
-      description: 'Employee availability management',
-      enabled: true,
-    },
+    // All staff management tests deleted - feature flag is OFF
   ],
   analytics: [
-    {
-      specName: 'reporting',
-      specPath: 'e2e/reporting.spec.ts',
-      featureArea: 'analytics',
-      description: 'Reporting and analytics dashboard',
-      enabled: true,
-    },
+    // All analytics tests deleted - feature flag is OFF
   ],
   administration: [
     {

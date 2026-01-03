@@ -140,23 +140,29 @@ for (const role of roles) {
             await descriptionInput.fill('Test description');
           }
           
-          // Set weekday (e.g., Monday)
-          const mondayCheckbox = page.locator('input[type="checkbox"][value="Monday"], input[type="checkbox"][value="1"]');
-          if (await mondayCheckbox.count() > 0) {
-            await mondayCheckbox.first().click();
-          }
-          
-          // Set date range (optional)
-          const startDateInput = page.locator('input[type="date"][id*="start"], input[type="date"][name*="start"]');
-          if (await startDateInput.count() > 0) {
+          // Food specials require a date field (not weekly recurring)
+          const dateInput = page.locator('input[type="date"][id*="date"], input[type="date"][name*="date"], input[type="date"]').first();
+          if (await dateInput.count() > 0) {
             const tomorrow = new Date();
             tomorrow.setDate(tomorrow.getDate() + 1);
-            await startDateInput.fill(tomorrow.toISOString().split('T')[0]);
+            const dateStr = tomorrow.toISOString().split('T')[0];
+            await dateInput.fill(dateStr);
+            await page.waitForTimeout(500); // Wait for form validation
+          }
+          
+          // Wait for submit button to be enabled (not disabled)
+          const submitButton = page.locator('button[type="submit"]:not([disabled])');
+          await submitButton.first().waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+          
+          // Check if button is enabled
+          const isEnabled = await submitButton.first().isEnabled().catch(() => false);
+          if (!isEnabled) {
+            // Button is still disabled, wait a bit more for validation
+            await page.waitForTimeout(1000);
           }
           
           // Submit
-          const submitButton = page.locator('button[type="submit"], button:has-text("Save"), button:has-text("Create")');
-          if (await submitButton.count() > 0) {
+          if (await submitButton.count() > 0 && await submitButton.first().isEnabled().catch(() => false)) {
             await submitButton.first().click();
             await page.waitForTimeout(2000);
             
@@ -218,14 +224,58 @@ for (const role of roles) {
           await titleInput.waitFor({ state: 'visible', timeout: 2000 }).catch(() => {});
           await titleInput.fill('Test Drink Special');
           
-          // Submit if form is simple
-          const submitButton = page.locator('button[type="submit"], button:has-text("Save")');
-          if (await submitButton.count() > 0) {
+          // Drink specials require either weekly days OR date range (both start and end)
+          // Try to set a weekday first (e.g., Monday)
+          // The checkbox is intercepted by a label, so click the label instead
+          const mondayLabel = page.locator('label:has-text("Monday")').first();
+          const mondayCheckbox = page.locator('input[type="checkbox"][value="Monday"], input[type="checkbox"][name*="appliesOn"][value="Monday"]').first();
+          
+          if (await mondayLabel.count() > 0) {
+            // Click the label instead of the checkbox (label intercepts clicks)
+            await mondayLabel.click();
+            await page.waitForTimeout(500); // Wait for form validation
+          } else if (await mondayCheckbox.count() > 0) {
+            // Fallback: try clicking checkbox with force
+            await mondayCheckbox.click({ force: true });
+            await page.waitForTimeout(500);
+          } else {
+            // Fallback: set date range (both start and end required)
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            const dateStr = tomorrow.toISOString().split('T')[0];
+            
+            const startDateInput = page.locator('input[type="date"][id*="start"], input[type="date"][name*="start"]').first();
+            const endDateInput = page.locator('input[type="date"][id*="end"], input[type="date"][name*="end"]').first();
+            
+            if (await startDateInput.count() > 0 && await endDateInput.count() > 0) {
+              await startDateInput.fill(dateStr);
+              await endDateInput.fill(dateStr);
+              await page.waitForTimeout(500); // Wait for form validation
+            }
+          }
+          
+          // Wait for submit button to be enabled (not disabled)
+          const submitButton = page.locator('button[type="submit"]:not([disabled])');
+          await submitButton.first().waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+          
+          // Check if button is enabled
+          const isEnabled = await submitButton.first().isEnabled().catch(() => false);
+          if (!isEnabled) {
+            // Button is still disabled, wait a bit more for validation
+            await page.waitForTimeout(1000);
+          }
+          
+          // Submit
+          if (await submitButton.count() > 0 && await submitButton.first().isEnabled().catch(() => false)) {
             await submitButton.first().click();
             await page.waitForTimeout(2000);
             
             const successVisible = await page.locator('text=/success|created|saved/i').isVisible().catch(() => false);
             expect(successVisible).toBeTruthy();
+          } else {
+            // Button is disabled - form validation issue
+            const buttonTitle = await submitButton.first().getAttribute('title').catch(() => '');
+            throw new Error(`Submit button is disabled. ${buttonTitle || 'Form validation may be failing. Please check required fields.'}`);
           }
         }
       }

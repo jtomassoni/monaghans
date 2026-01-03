@@ -53,6 +53,8 @@ export default defineConfig({
   testMatch: testMatchPatterns,
   /* Global setup - runs seed script before all tests */
   globalSetup: require.resolve('./e2e/global-setup.ts'),
+  /* Global teardown - cleans up any remaining test data */
+  globalTeardown: require.resolve('./e2e/global-teardown.ts'),
   /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */

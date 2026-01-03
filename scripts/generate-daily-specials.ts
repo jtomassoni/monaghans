@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { getMountainTimeToday, parseMountainTimeDate, getMountainTimeDateString, getCompanyTimezone } from '@/lib/timezone';
 
 const prisma = new PrismaClient();
 
@@ -55,16 +56,18 @@ const timeWindows = [
 async function generateDailySpecials() {
   console.log('🍽️  Generating 30 daily food specials for the next month...');
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const companyTimezone = await getCompanyTimezone();
+  const today = getMountainTimeToday();
   
   // Generate specials for the next 30 days
   const specials = [];
   const usedIndices = new Set<number>();
   
   for (let i = 0; i < 30; i++) {
+    // Calculate date in company timezone by adding days to today
     const date = new Date(today);
-    date.setDate(date.getDate() + i);
+    date.setTime(today.getTime() + i * 24 * 60 * 60 * 1000);
+    const dateStr = getMountainTimeDateString(date, companyTimezone);
     
     // Pick a random special that we haven't used yet (or reset if we've used them all)
     let specialIndex;
@@ -79,10 +82,13 @@ async function generateDailySpecials() {
     usedIndices.add(specialIndex);
     
     const foodSpecial = foodSpecials[specialIndex];
-    const startDate = new Date(date);
-    startDate.setHours(0, 0, 0, 0);
-    const endDate = new Date(date);
-    endDate.setHours(23, 59, 59, 999);
+    // Use timezone-aware date parsing to ensure dates are in Mountain Time
+    // For single-day specials, both startDate and endDate should be the same date
+    // This ensures the calendar UI correctly identifies them as single-day specials
+    const startDate = parseMountainTimeDate(dateStr, companyTimezone);
+    // Set endDate to the same date string to ensure it produces the same date string
+    // when the calendar UI reads it back (prevents day rollover issues)
+    const endDate = parseMountainTimeDate(dateStr, companyTimezone);
     
     const timeWindow = timeWindows[Math.floor(Math.random() * timeWindows.length)];
     
@@ -102,9 +108,9 @@ async function generateDailySpecials() {
       });
       
       specials.push(special);
-      console.log(`✅ Created special for ${date.toLocaleDateString()}: ${foodSpecial.title}`);
+      console.log(`✅ Created special for ${dateStr}: ${foodSpecial.title}`);
     } catch (error) {
-      console.error(`❌ Failed to create special for ${date.toLocaleDateString()}:`, error);
+      console.error(`❌ Failed to create special for ${dateStr}:`, error);
     }
   }
   

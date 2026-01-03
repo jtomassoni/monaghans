@@ -81,14 +81,6 @@ function getAllRoleCredentials(): {
     owner: [...ownerUser, ...ownerUsers],
   };
 
-  // Debug logging (only in development)
-  if (process.env.NODE_ENV !== 'production') {
-    console.log('[Auth Debug] ADMIN_USER env var:', process.env.ADMIN_USER ? 'SET' : 'NOT SET');
-    console.log('[Auth Debug] ADMIN_USERS env var:', process.env.ADMIN_USERS ? 'SET' : 'NOT SET');
-    console.log('[Auth Debug] Parsed admin credentials:', result.admin);
-    console.log('[Auth Debug] Parsed owner credentials:', result.owner);
-  }
-
   // Validate in production
   if (process.env.NODE_ENV === 'production') {
     const hasAnyCredentials = result.admin.length > 0 || result.owner.length > 0;
@@ -117,29 +109,11 @@ function checkCredentialsAgainstRoles(
 ): { role: 'admin' | 'owner'; matchedUsername: string } | null {
   const allCredentials = getAllRoleCredentials();
 
-  // Debug logging (only in development)
-  if (process.env.NODE_ENV !== 'production') {
-    console.log('[Auth Debug] Checking credentials for username:', username);
-    console.log('[Auth Debug] Available admin users:', allCredentials.admin.map(c => c.username));
-    console.log('[Auth Debug] Available owner users:', allCredentials.owner.map(c => c.username));
-  }
-
   // Check admin first (higher privilege), then owner
   for (const cred of allCredentials.admin) {
     const usernameMatch = cred.username.trim() === username.trim();
     const passwordMatch = cred.password === password;
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('[Auth Debug] Comparing admin:', {
-        storedUsername: cred.username,
-        inputUsername: username,
-        usernameMatch,
-        passwordMatch,
-      });
-    }
     if (usernameMatch && passwordMatch) {
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('[Auth Debug] ✓ Matched admin credentials');
-      }
       return { role: 'admin', matchedUsername: cred.username };
     }
   }
@@ -147,25 +121,11 @@ function checkCredentialsAgainstRoles(
   for (const cred of allCredentials.owner) {
     const usernameMatch = cred.username.trim() === username.trim();
     const passwordMatch = cred.password === password;
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('[Auth Debug] Comparing owner:', {
-        storedUsername: cred.username,
-        inputUsername: username,
-        usernameMatch,
-        passwordMatch,
-      });
-    }
     if (usernameMatch && passwordMatch) {
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('[Auth Debug] ✓ Matched owner credentials');
-      }
       return { role: 'owner', matchedUsername: cred.username };
     }
   }
 
-  if (process.env.NODE_ENV !== 'production') {
-    console.log('[Auth Debug] ✗ No matching credentials found');
-  }
   return null;
 }
 
@@ -179,17 +139,7 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         try {
-          // Debug logging (only in development)
-          if (process.env.NODE_ENV !== 'production') {
-            console.log('[Auth Debug] authorize() called with username:', credentials?.username);
-            console.log('[Auth Debug] ADMIN_USER env var exists:', !!process.env.ADMIN_USER);
-            console.log('[Auth Debug] ADMIN_USER value:', process.env.ADMIN_USER);
-          }
-
           if (!credentials?.username || !credentials?.password) {
-            if (process.env.NODE_ENV !== 'production') {
-              console.log('[Auth Debug] Missing username or password');
-            }
             return null;
           }
 
@@ -197,9 +147,6 @@ export const authOptions: NextAuthOptions = {
           const match = checkCredentialsAgainstRoles(credentials.username, credentials.password);
           
           if (!match) {
-            if (process.env.NODE_ENV !== 'production') {
-              console.log('[Auth Debug] No match found for credentials');
-            }
             return null;
           }
 
@@ -240,7 +187,7 @@ export const authOptions: NextAuthOptions = {
             role: user.role,
           };
         } catch (error) {
-          console.error('[Auth Debug] Error in authorize():', error);
+          console.error('Error in authorize():', error);
           return null;
         }
       },
