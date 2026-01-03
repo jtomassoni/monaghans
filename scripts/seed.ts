@@ -82,8 +82,74 @@ async function main() {
   console.log('✅ All existing data cleared');
   console.log('');
 
-  // Create a seed user for uploads (if no users exist)
-  console.log('👤 Creating seed user for uploads...');
+  // Create test users for e2e tests (from env vars)
+  console.log('👤 Creating test users...');
+  
+  // Parse credentials from env vars (same format as auth.setup.ts)
+  function parseUserCredentials(envVar: string | undefined): Array<{username: string, password: string}> {
+    if (!envVar) return [];
+    return envVar
+      .split(',')
+      .map(pair => {
+        const [username, password] = pair.split(':').map(s => s.trim());
+        if (username && password) {
+          return { username, password };
+        }
+        return null;
+      })
+      .filter((cred): cred is {username: string, password: string} => cred !== null);
+  }
+
+  const adminUsers = parseUserCredentials(process.env.ADMIN_USERS || 'jt:test');
+  const ownerUsers = parseUserCredentials(process.env.OWNER_USERS || 'owner:test');
+
+  // Create admin users
+  for (const cred of adminUsers) {
+    try {
+      await prisma.user.upsert({
+        where: { email: cred.username },
+        update: {
+          name: 'Test Admin',
+          role: 'admin',
+          isActive: true,
+        },
+        create: {
+          email: cred.username,
+          name: 'Test Admin',
+          role: 'admin',
+          isActive: true,
+        },
+      });
+      console.log(`✅ Created/updated admin user: ${cred.username}`);
+    } catch (error: any) {
+      console.error(`❌ Failed to create admin user ${cred.username}:`, error.message);
+    }
+  }
+
+  // Create owner users
+  for (const cred of ownerUsers) {
+    try {
+      await prisma.user.upsert({
+        where: { email: cred.username },
+        update: {
+          name: 'Test Owner',
+          role: 'owner',
+          isActive: true,
+        },
+        create: {
+          email: cred.username,
+          name: 'Test Owner',
+          role: 'owner',
+          isActive: true,
+        },
+      });
+      console.log(`✅ Created/updated owner user: ${cred.username}`);
+    } catch (error: any) {
+      console.error(`❌ Failed to create owner user ${cred.username}:`, error.message);
+    }
+  }
+
+  // Get system user for uploads (use first admin if available)
   let systemUser = await prisma.user.findFirst({
     where: {
       role: {
@@ -95,16 +161,8 @@ async function main() {
     },
   });
 
-  // If no admin user exists, create a seed user
   if (!systemUser) {
-    systemUser = await prisma.user.findFirst({
-      orderBy: {
-        createdAt: 'asc',
-      },
-    });
-  }
-
-  if (!systemUser) {
+    // Fallback: create a seed user for uploads
     try {
       systemUser = await prisma.user.create({
         data: {

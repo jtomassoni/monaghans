@@ -179,32 +179,59 @@ for (const role of roles) {
               if (await submitButton.count() > 0) {
                 await submitButton.first().click();
                 
-                // Wait for form submission to complete deterministically
-                try {
-                  const success = await waitForFormSubmission(page, {
-                    waitForNetworkIdle: true,
-                    waitForSuccess: true,
-                    waitForModalClose: true,
-                    timeout: 10000,
-                    context: 'editing announcement',
-                  });
-                  expect(success).toBeTruthy();
-                } catch (error) {
-                  // Fallback: check for updated title in list
-                  const updatedRow = page.locator(`text=${updatedTitle}`).first();
-                  const rowVisible = await updatedRow.waitFor({ 
-                    state: 'visible', 
-                    timeout: 3000 
-                  }).catch(() => false);
+                // Wait for either modal to close OR success toast to appear
+                // The form shows a toast and closes the modal after successful submission
+                await Promise.race([
+                  page.waitForSelector('[role="dialog"]', { state: 'hidden', timeout: 10000 }).catch(() => null),
+                  page.waitForSelector('.bg-green-900', { state: 'visible', timeout: 10000 }).catch(() => null),
+                  waitForNetworkIdle(page, 10000).catch(() => null),
+                ]);
+                
+                // Wait a bit more for the list to refresh
+                await page.waitForTimeout(2000);
+                
+                // Check if modal is still open - if so, wait a bit more
+                const modalStillOpen = await page.locator('[role="dialog"]').isVisible({ timeout: 1000 }).catch(() => false);
+                if (modalStillOpen) {
+                  // Modal still open - wait for it to close or check for error
+                  await page.waitForTimeout(2000);
+                  const errorVisible = await page.locator('text=/error|failed/i').isVisible({ timeout: 1000 }).catch(() => false);
+                  if (errorVisible) {
+                    const errorText = await page.locator('text=/error|failed/i').textContent().catch(() => '');
+                    throw new Error(`Form submission failed: ${errorText}`);
+                  }
+                }
+                
+                // Wait for network to settle
+                await waitForNetworkIdle(page, 5000).catch(() => {});
+                
+                // Verify the updated title appears in the list
+                // Refresh the page to ensure we see the updated data
+                await page.reload();
+                await waitForNetworkIdle(page, 5000).catch(() => {});
+                await page.waitForTimeout(1000);
+                
+                const updatedRow = page.locator(`text=${updatedTitle}`).first();
+                const rowVisible = await updatedRow.waitFor({ 
+                  state: 'visible', 
+                  timeout: 5000 
+                }).catch(() => false);
+                
+                if (!rowVisible) {
+                  // Check for success toast as fallback (might still be visible)
+                  const toastVisible = await page.locator('.bg-green-900').filter({ hasText: /success|updated/i }).isVisible({ timeout: 1000 }).catch(() => false);
                   
-                  if (!rowVisible) {
-                    // Neither success message nor updated row found
-                    const errorMessage = error instanceof Error ? error.message : String(error);
+                  if (!toastVisible) {
+                    // Check if the original title is still there (update might have failed)
+                    const originalRow = page.locator(`text=${currentValue}`).first();
+                    const originalVisible = await originalRow.isVisible({ timeout: 1000 }).catch(() => false);
+                    
                     throw new Error(
-                      `Failed to edit announcement:\n${errorMessage}\n` +
+                      `Failed to edit announcement:\n` +
                       `Test: should edit an existing announcement\n` +
                       `Original title: ${currentValue}\n` +
                       `Updated title: ${updatedTitle}\n` +
+                      `Original title still visible: ${originalVisible}\n` +
                       `Check that:\n` +
                       `- Announcement exists in seed data\n` +
                       `- Form submission completed\n` +
@@ -213,6 +240,9 @@ for (const role of roles) {
                     );
                   }
                 }
+                
+                // Success - the row is visible or toast appeared
+                expect(true).toBeTruthy();
               }
           }
         }

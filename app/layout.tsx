@@ -13,11 +13,18 @@ const heroImageUrl = `${baseUrl}/pics/hero.png`;
 
 export async function generateMetadata(): Promise<Metadata> {
   // Fetch site title from database
-  const siteTitleSetting = await prisma.setting.findUnique({
-    where: { key: 'siteTitle' },
-  });
+  // During build time, database may not be available, so handle gracefully
+  let siteTitle = "Monaghan's Dive Bar";
+  try {
+    const siteTitleSetting = await prisma.setting.findUnique({
+      where: { key: 'siteTitle' },
+    });
+    siteTitle = siteTitleSetting?.value || "Monaghan's Dive Bar";
+  } catch (error) {
+    // During build, database may not be available - use default
+    console.warn('Could not fetch site title from database during build:', error);
+  }
   
-  const siteTitle = siteTitleSetting?.value || "Monaghan's Dive Bar";
   const defaultDescription = 'Cold drinks, warm people. Your neighborhood dive bar.';
 
   return {

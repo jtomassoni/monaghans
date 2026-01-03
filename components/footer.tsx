@@ -2,21 +2,24 @@ import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 
 export default async function Footer() {
-  const contactSetting = await prisma.setting.findUnique({
-    where: { key: 'contact' },
-  });
+  let contactSetting, socialSetting, hoursSetting, mapSetting;
   
-  const socialSetting = await prisma.setting.findUnique({
-    where: { key: 'social' },
-  });
-
-  const hoursSetting = await prisma.setting.findUnique({
-    where: { key: 'hours' },
-  });
-
-  const mapSetting = await prisma.setting.findUnique({
-    where: { key: 'mapEmbed' },
-  });
+  // During build time, database may not be available, so handle gracefully
+  try {
+    [contactSetting, socialSetting, hoursSetting, mapSetting] = await Promise.all([
+      prisma.setting.findUnique({ where: { key: 'contact' } }),
+      prisma.setting.findUnique({ where: { key: 'social' } }),
+      prisma.setting.findUnique({ where: { key: 'hours' } }),
+      prisma.setting.findUnique({ where: { key: 'mapEmbed' } }),
+    ]);
+  } catch (error) {
+    // During build, database may not be available - use empty defaults
+    console.warn('Could not fetch settings from database during build:', error);
+    contactSetting = null;
+    socialSetting = null;
+    hoursSetting = null;
+    mapSetting = null;
+  }
 
   let contact: any = {};
   let social: any = {};

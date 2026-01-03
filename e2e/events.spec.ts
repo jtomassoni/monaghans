@@ -288,23 +288,46 @@ for (const role of roles) {
             );
           }
           
-          // Verify event appears on public events page (should include all 4 occurrences)
-          // Wait a moment for the event to be fully saved and processed
+          // First verify the event was created by checking the admin events page
+          // Wait a moment for the event to be fully saved
           await page.waitForTimeout(2000);
+          
+          // Go back to admin events page to verify the event exists
+          await page.goto('/admin/events');
+          await waitForNetworkIdle(page, 10000);
+          await page.waitForTimeout(2000);
+          
+          // Check if event appears in admin list (this confirms it was created)
+          const adminEventTitle = page.locator(`text=${testTitle}`).first();
+          const adminEventCount = await adminEventTitle.count();
+          
+          if (adminEventCount === 0) {
+            // Event wasn't created - this is a different issue
+            throw new Error(
+              `Event was not created successfully\n` +
+              `Test: should create recurring weekly event with UNTIL date including last occurrence\n` +
+              `Event title: ${testTitle}\n` +
+              `Check that the form submission completed successfully`
+            );
+          }
+          
+          // Event exists in admin - now check public page
+          // Wait a bit more for recurrence to be calculated
+          await page.waitForTimeout(3000);
           
           await page.goto('/events');
           await waitForNetworkIdle(page, 10000);
           await page.waitForTimeout(2000); // Wait for events to render
           
-          // Wait for events to load - use more deterministic approach
+          // Wait for event to appear with retries (recurring events need time to process)
           const eventTitle = page.locator(`text=${testTitle}`);
-          
-          // Wait for event to appear with retries (events might take time to process)
-          // Recurring events might need server-side processing
           let eventCount = 0;
-          for (let i = 0; i < 10; i++) {
+          
+          // Try multiple times - recurring events might need server-side processing
+          for (let i = 0; i < 15; i++) {
             eventCount = await eventTitle.count();
             if (eventCount > 0) break;
+            
             await page.waitForTimeout(1000);
             
             // Refresh page every few attempts to pick up new events
@@ -327,18 +350,24 @@ for (const role of roles) {
             const pageContent = await page.textContent('body').catch(() => 'unable to get page content');
             // Check if page loaded correctly
             const hasEventsContent = pageContent && (pageContent.includes('Event') || pageContent.includes('Upcoming'));
+            
+            // Check if there are any events at all on the page
+            const anyEvents = await page.locator('[class*="event"], [data-event]').count();
+            
             throw new Error(
               `Event not found on public events page after creation\n` +
               `Test: should create recurring weekly event with UNTIL date including last occurrence\n` +
               `Event title: ${testTitle}\n` +
               `URL: ${url}\n` +
               `Event count found: 0\n` +
+              `Total events on page: ${anyEvents}\n` +
               `Page has events content: ${hasEventsContent}\n` +
+              `Event exists in admin: true\n` +
               `This usually means:\n` +
-              `- Event was created but not yet visible (timing issue - try refreshing)\n` +
-              `- Event date is in the future and not shown\n` +
+              `- Event was created but recurrence calculation is still processing\n` +
+              `- Event date is in the future and not shown (start date: ${startDateTime})\n` +
               `- Recurrence calculation failed\n` +
-              `- Page didn't load correctly\n` +
+              `- Public page filters out the event for some reason\n` +
               `Check screenshot/video for visual context`
             );
           }

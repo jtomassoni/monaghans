@@ -143,8 +143,11 @@ export default defineConfig({
       DATABASE_URL: process.env.DATABASE_URL!,
       NEXTAUTH_URL: process.env.NEXTAUTH_URL || 'http://localhost:3000',
       NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET || 'test-secret-for-ci-only-do-not-use-in-production',
-      ADMIN_USERS: process.env.ADMIN_USERS || 'jt:test',
-      OWNER_USERS: process.env.OWNER_USERS || 'owner:test',
+      // Support both singular and plural forms for user credentials
+      ADMIN_USER: process.env.ADMIN_USER || '',
+      ADMIN_USERS: process.env.ADMIN_USERS || process.env.ADMIN_USER || 'jt:test',
+      OWNER_USER: process.env.OWNER_USER || '',
+      OWNER_USERS: process.env.OWNER_USERS || process.env.OWNER_USER || 'owner:test',
       ENABLE_ONLINE_ORDERING: process.env.ENABLE_ONLINE_ORDERING || 'false',
       ENABLE_SOCIAL_POSTING: process.env.ENABLE_SOCIAL_POSTING || 'false',
     },

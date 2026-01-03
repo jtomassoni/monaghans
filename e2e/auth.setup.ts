@@ -5,18 +5,49 @@ const adminAuthFile = path.join(__dirname, '../.auth/admin.json');
 const ownerAuthFile = path.join(__dirname, '../.auth/owner.json');
 
 // Helper function to parse credentials from env var
+// Supports both JSON and colon-separated formats (matches lib/auth.ts)
 function parseUserCredentials(envVar: string | undefined): Array<{username: string, password: string}> {
   if (!envVar) return [];
-  return envVar
-    .split(',')
-    .map(pair => {
-      const [username, password] = pair.split(':').map(s => s.trim());
-      if (username && password) {
-        return { username, password };
-      }
-      return null;
-    })
-    .filter((cred): cred is {username: string, password: string} => cred !== null);
+  
+  // First try JSON format
+  try {
+    const parsed = JSON.parse(envVar);
+    
+    // If it's an array, return it directly
+    if (Array.isArray(parsed)) {
+      return parsed.filter((cred): cred is {username: string, password: string} => 
+        cred && typeof cred === 'object' && 
+        typeof cred.username === 'string' && 
+        typeof cred.password === 'string'
+      );
+    }
+    
+    // If it's a single object, wrap it in an array
+    if (parsed && typeof parsed === 'object' && 
+        typeof parsed.username === 'string' && 
+        typeof parsed.password === 'string') {
+      return [parsed];
+    }
+  } catch (error) {
+    // Not JSON, try colon-separated format
+    // Format: "username1:password1,username2:password2"
+    const credentials = envVar
+      .split(',')
+      .map(pair => {
+        const [username, password] = pair.split(':').map(s => s.trim());
+        if (username && password) {
+          return { username, password };
+        }
+        return null;
+      })
+      .filter((cred): cred is {username: string, password: string} => cred !== null);
+    
+    if (credentials.length > 0) {
+      return credentials;
+    }
+  }
+  
+  return [];
 }
 
 // Helper function to authenticate a user
@@ -36,153 +67,152 @@ async function authenticateUser(page: any, username: string, password: string) {
   await page.waitForSelector('button[type="submit"]:not([disabled])', { timeout: 5000 });
   const submitButton = page.locator('button[type="submit"]:not([disabled])');
   
-  // Set up navigation promise BEFORE clicking
-  const navigationPromise = page.waitForURL(/\/admin/, { timeout: 30000 }).catch(() => null);
-  
-  // Click submit and wait for navigation
+  // Click submit - the form uses client-side navigation (router.push)
   await submitButton.click();
   
-  // Wait for navigation - could go to /admin or /admin/overview or stay on /admin/login if error
-  try {
-    await navigationPromise;
-    
-    // Additional wait to ensure page has loaded
-    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+  // Wait for navigation - client-side navigation might take a moment
+  // Try multiple approaches: URL change, admin content appearing, or network idle
+  let loggedIn = false;
+  
+  // Wait up to 15 seconds for successful login
+  for (let i = 0; i < 15; i++) {
     await page.waitForTimeout(1000);
     
-    // Verify we're actually on an admin page
     const currentUrl = page.url();
-    if (!currentUrl.includes('/admin') || currentUrl.includes('/admin/login')) {
-      throw new Error(`Navigation completed but still on login page: ${currentUrl}`);
+    
+    // Check if we navigated away from login page
+    if (!currentUrl.includes('/admin/login') && currentUrl.includes('/admin')) {
+      // We're on an admin page - verify we're logged in by checking for admin content
+      await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
+      
+      // Check for admin content (nav, Monaghan's text, etc.)
+      const adminContent = await page.locator('nav').or(page.locator('text=Monaghan\'s')).or(page.locator('[class*="admin"]')).first().isVisible({ timeout: 2000 }).catch(() => false);
+      
+      if (adminContent) {
+        loggedIn = true;
+        break;
+      }
     }
-  } catch (error) {
-    // If navigation failed, check if we're still on login page (might be an error)
-    const currentUrl = page.url();
+    
+    // Check if we're still on login page - might be an error
     if (currentUrl.includes('/admin/login')) {
       // Check for error message
-      const errorVisible = await page.locator('text=/error|invalid|incorrect/i').isVisible().catch(() => false);
+      const errorVisible = await page.locator('text=/error|invalid|incorrect/i').isVisible({ timeout: 500 }).catch(() => false);
       if (errorVisible) {
-        throw new Error('Login failed - check credentials');
+        const errorText = await page.locator('text=/error|invalid|incorrect/i').textContent().catch(() => '');
+        throw new Error(`Login failed - error message: ${errorText}`);
       }
-      // Otherwise wait a bit more and try again - sometimes redirect is slow
-      await page.waitForTimeout(3000);
-      try {
-        await page.waitForURL(/\/admin/, { timeout: 15000 });
-      } catch (retryError) {
-        // If still failing, check if we're actually logged in by looking for admin content
-        // Try multiple ways to detect if we're logged in
-        await page.waitForTimeout(2000);
-        const currentUrl = page.url();
-        
-        // If we're not on login page, try to verify we're logged in
-        if (!currentUrl.includes('/admin/login')) {
-          // We navigated away from login - check for admin content
-          await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
-          const adminContent = await page.locator('text=Monaghan\'s').or(page.locator('nav')).or(page.locator('[class*="admin"]')).first().isVisible({ timeout: 3000 }).catch(() => false);
-          if (adminContent) {
-            // We're logged in!
-            return;
-          }
-        }
-        
-        // Still on login or no admin content - check for error message
-        const errorText = await page.locator('text=/error|invalid|incorrect|failed/i').textContent().catch(() => '');
-        if (errorText) {
-          throw new Error(`Login failed - error message: ${errorText}. Current URL: ${currentUrl}`);
-        }
-        
-        // No error but still on login - might be a timing issue
-        // Try navigating directly to /admin to see if we're actually logged in
-        await page.goto('/admin');
-        await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
-        await page.waitForTimeout(2000);
-        
-        const afterDirectNav = page.url();
-        if (afterDirectNav.includes('/admin/login')) {
-          // Redirected back to login - credentials are wrong or user doesn't exist
-          throw new Error(`Login failed - redirected back to login page. Credentials may be incorrect or user doesn't exist. Username: ${username}`);
-        }
-        
-        // We're on an admin page - check for content
-        const adminContentAfterNav = await page.locator('text=Monaghan\'s').or(page.locator('nav')).first().isVisible({ timeout: 3000 }).catch(() => false);
-        if (adminContentAfterNav) {
-          // We're logged in!
-          return;
-        }
-        
-        throw new Error(`Login failed - navigated to ${afterDirectNav} but no admin content found`);
-      }
-    } else {
-      // Not on login page, might have navigated somewhere else
-      throw error;
     }
   }
   
-  // Verify we're logged in by checking URL - if we're on /admin (not /admin/login), we're good
-  const finalUrl = page.url();
-  if (finalUrl.includes('/admin/login')) {
-    // Still on login page - check for error message
-    const errorVisible = await page.locator('text=/error|invalid|incorrect/i').isVisible().catch(() => false);
-    if (errorVisible) {
-      throw new Error('Login failed - check credentials');
-    }
-    // No error but still on login - might be a timing issue, wait a bit more and check again
-    await page.waitForTimeout(3000);
-    const stillOnLogin = page.url().includes('/admin/login');
-    if (stillOnLogin) {
-      // Try one more time - sometimes the redirect happens after a delay
-      await page.waitForTimeout(2000);
-      const finalCheck = page.url();
-      if (finalCheck.includes('/admin/login')) {
-        // Check if we can see admin content even though URL says login (might be a redirect issue)
-        const adminContent = await page.locator('text=Monaghan\'s').or(page.locator('nav')).isVisible({ timeout: 2000 }).catch(() => false);
-        if (!adminContent) {
-          // Check if there's an error message on the page
-          const errorText = await page.locator('text=/error|invalid|incorrect|failed/i').textContent().catch(() => '');
-          if (errorText) {
-            throw new Error(`Login failed - error message: ${errorText}. Final URL: ${finalCheck}`);
-          }
-          // Try navigating directly to /admin to see if we're actually logged in
-          await page.goto('/admin');
-          await page.waitForTimeout(2000);
-          const afterDirectNav = page.url();
-          if (afterDirectNav.includes('/admin/login')) {
-            throw new Error(`Login failed - could not navigate away from login page. Final URL: ${finalCheck}`);
-          }
-          // If we're not on login page after direct nav, we're logged in
-          return;
-        }
+  if (!loggedIn) {
+    // Check if we're still on login page - might have an error message
+    const currentUrl = page.url();
+    if (currentUrl.includes('/admin/login')) {
+      // Check for error message on the page
+      const errorText = await page.locator('text=/error|invalid|incorrect|failed/i').textContent({ timeout: 2000 }).catch(() => '');
+      if (errorText) {
+        throw new Error(`Login failed - error message: "${errorText}". Username: ${username}`);
       }
+      
+      // Try navigating directly to /admin to see if we're actually logged in (session might have been created)
+      await page.goto('/admin');
+      await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+      await page.waitForTimeout(2000);
+      
+      const finalUrl = page.url();
+      if (finalUrl.includes('/admin/login')) {
+        // Still redirected to login - credentials are definitely wrong or not configured
+        throw new Error(
+          `Login failed - redirected back to login page.\n` +
+          `Username: ${username}\n` +
+          `This usually means:\n` +
+          `- ADMIN_USERS env var is not set correctly on the server\n` +
+          `- Password doesn't match the env var\n` +
+          `- Check that .env file has ADMIN_USERS="jt:test" (or your custom credentials)\n` +
+          `- Verify the dev server has restarted after changing env vars`
+        );
+      }
+      
+      // We're on an admin page - check for content
+      const adminContent = await page.locator('nav').or(page.locator('text=Monaghan\'s')).first().isVisible({ timeout: 3000 }).catch(() => false);
+      if (!adminContent) {
+        throw new Error(`Login failed - navigated to ${finalUrl} but no admin content found`);
+      }
+      
+      // Success - we're logged in!
+      return;
     }
   }
-  // If we're here and not on login page, we're logged in
+  
+  // Verify we're logged in
+  const finalUrl = page.url();
+  if (finalUrl.includes('/admin/login')) {
+    throw new Error('Login failed - still on login page after all attempts');
+  }
+  
+  // Success - we're logged in
 }
 
 setup('authenticate as admin', async ({ page }) => {
-  // Get first admin user from env (default: jt:test)
-  const adminUsers = parseUserCredentials(process.env.ADMIN_USERS || 'jt:test');
+  // Get first admin user from env - support both ADMIN_USER and ADMIN_USERS
+  const adminUsers = parseUserCredentials(process.env.ADMIN_USERS || process.env.ADMIN_USER || 'jt:test');
   if (adminUsers.length === 0) {
-    throw new Error('ADMIN_USERS must be set with at least one user');
+    throw new Error('ADMIN_USERS or ADMIN_USER must be set with at least one user');
   }
   
   const { username, password } = adminUsers[0];
-  await authenticateUser(page, username, password);
+  
+  // Log credentials being used (username only, not password)
+  console.log(`🔐 Attempting to authenticate as admin user: ${username}`);
+  
+  try {
+    await authenticateUser(page, username, password);
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `Failed to authenticate as admin:\n${errorMsg}\n\n` +
+      `Troubleshooting:\n` +
+      `1. Check that .env file has ADMIN_USERS="jt:test" (or your custom credentials)\n` +
+      `2. Verify the dev server has the env vars (check webServer.env in playwright.config.ts)\n` +
+      `3. Restart the dev server if you just changed env vars\n` +
+      `4. Check server logs for authentication errors`
+    );
+  }
   
   // Save signed-in state
   await page.context().storageState({ path: adminAuthFile });
+  console.log(`✅ Successfully authenticated as admin and saved auth state`);
 });
 
 setup('authenticate as owner', async ({ page }) => {
-  // Get first owner user from env (default: owner:test)
-  const ownerUsers = parseUserCredentials(process.env.OWNER_USERS || 'owner:test');
+  // Get first owner user from env - support both OWNER_USER and OWNER_USERS
+  const ownerUsers = parseUserCredentials(process.env.OWNER_USERS || process.env.OWNER_USER || 'owner:test');
   if (ownerUsers.length === 0) {
-    throw new Error('OWNER_USERS must be set with at least one user');
+    throw new Error('OWNER_USERS or OWNER_USER must be set with at least one user');
   }
   
   const { username, password } = ownerUsers[0];
-  await authenticateUser(page, username, password);
+  
+  // Log credentials being used (username only, not password)
+  console.log(`🔐 Attempting to authenticate as owner user: ${username}`);
+  
+  try {
+    await authenticateUser(page, username, password);
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `Failed to authenticate as owner:\n${errorMsg}\n\n` +
+      `Troubleshooting:\n` +
+      `1. Check that .env file has OWNER_USERS="owner:test" (or your custom credentials)\n` +
+      `2. Verify the dev server has the env vars (check webServer.env in playwright.config.ts)\n` +
+      `3. Restart the dev server if you just changed env vars\n` +
+      `4. Check server logs for authentication errors`
+    );
+  }
   
   // Save signed-in state
   await page.context().storageState({ path: ownerAuthFile });
+  console.log(`✅ Successfully authenticated as owner and saved auth state`);
 });
 
