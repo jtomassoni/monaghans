@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import SignageForm from './signage-form';
+import HelpButton from '@/components/help-button';
 
 type SignageConfig = {
   includeWelcome: boolean;
@@ -88,17 +89,20 @@ export default async function AdminSignagePage() {
                 </p>
               </div>
             </div>
-            <a
-              href="/specials-tv"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-gray-100 to-gray-50 dark:from-gray-800 dark:to-gray-700 hover:from-gray-200 hover:to-gray-100 dark:hover:from-gray-700 dark:hover:to-gray-600 rounded-xl text-sm font-semibold text-gray-700 dark:text-gray-200 transition-all shadow-sm hover:shadow-md border border-gray-200/50 dark:border-gray-700/50"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-              </svg>
-              Preview TV Display
-            </a>
+            <div className="flex items-center gap-2">
+              <HelpButton feature="signage" variant="button" />
+              <a
+                href="/specials-tv"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-gray-100 to-gray-50 dark:from-gray-800 dark:to-gray-700 hover:from-gray-200 hover:to-gray-100 dark:hover:from-gray-700 dark:hover:to-gray-600 rounded-xl text-sm font-semibold text-gray-700 dark:text-gray-200 transition-all shadow-sm hover:shadow-md border border-gray-200/50 dark:border-gray-700/50"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                Preview TV Display
+              </a>
+            </div>
           </div>
         </div>
       </div>

@@ -11,6 +11,7 @@ import EventsList from '@/app/admin/specials-events-list';
 import { FaCalendarAlt, FaList, FaPlus } from 'react-icons/fa';
 import { useAdminMobileHeader } from '@/components/admin-mobile-header-context';
 import NewItemSelectionModal from '@/components/new-item-selection-modal';
+import HelpButton from '@/components/help-button';
 
 interface CalendarEvent {
   id: string;
@@ -466,6 +467,8 @@ export default function DashboardContent({ events: initialEvents, specials, anno
             
             {/* Right side actions */}
             <div className="flex items-center gap-2 flex-shrink-0">
+              {/* Help Button */}
+              <HelpButton feature="events" variant="button" />
               {/* New Button */}
               <button
                 onClick={() => setNewItemSelectionModalOpen(true)}

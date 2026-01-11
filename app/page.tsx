@@ -652,29 +652,17 @@ export default async function HomePage() {
     return '/pics/hero.png';
   };
 
-  // For food specials, only show the first/most relevant one to avoid clutter
-  // Sort by startDate to ensure the most recent/current one shows first
-  // This ensures only one food special appears in the hero at a time
-  const sortedFoodSpecials = [...todaysFoodSpecials].sort((a, b) => {
-    const aStartDate = a.startDate as string | Date | null;
-    const bStartDate = b.startDate as string | Date | null;
-    const aDate = aStartDate ? (typeof aStartDate === 'string' ? aStartDate.split('T')[0] : getMountainTimeDateString(aStartDate)) : '';
-    const bDate = bStartDate ? (typeof bStartDate === 'string' ? bStartDate.split('T')[0] : getMountainTimeDateString(bStartDate)) : '';
-    return bDate.localeCompare(aDate); // Most recent first
-  });
-  const displayFoodSpecial = sortedFoodSpecials.length > 0 ? [sortedFoodSpecials[0]] : [];
-  
   // Collect all available content for dynamic display
   // Note: Announcements are shown as modals, not in the grid
+  // Note: Food specials are not shown in the hero section
   const allContent = [
     ...todaysEvents,
-    ...displayFoodSpecial,
     ...(todaysDrinkSpecial ? [todaysDrinkSpecial] : []),
     ...(shouldShowHappyHour ? ['happyHour'] : []),
   ];
 
   // Calculate total number of items for dynamic grid layout
-  const totalItems = todaysEvents.length + displayFoodSpecial.length + (todaysDrinkSpecial ? 1 : 0) + (shouldShowHappyHour ? 1 : 0);
+  const totalItems = todaysEvents.length + (todaysDrinkSpecial ? 1 : 0) + (shouldShowHappyHour ? 1 : 0);
   
   // Determine grid columns and max width based on number of items
   const getGridCols = () => {
@@ -691,7 +679,7 @@ export default async function HomePage() {
   return (
     <main id="main-content" className="min-h-screen bg-[var(--color-background)] text-[var(--color-foreground)] scroll-smooth" role="main" aria-label="Main content">
       {/* Hero Section */}
-      <section aria-label="Hero section" className="relative h-screen overflow-hidden">
+      <section aria-label="Hero section" className="relative h-screen w-full overflow-hidden">
         <div className="absolute inset-0 z-0">
           <HeroImage
             src={getHeroImage()}
@@ -699,20 +687,30 @@ export default async function HomePage() {
           />
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/80" />
         </div>
-        <div className="relative z-10 container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 flex flex-col h-full justify-center">
+        <div className="relative z-10 container mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-16 flex flex-col h-full justify-center">
           {/* Welcome Title */}
-          <div className="text-center mb-4 sm:mb-6 max-w-6xl mx-auto w-full">
-            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-2 sm:mb-3 drop-shadow-lg">
+          <div className="text-center mb-6 sm:mb-8 lg:mb-10 max-w-6xl mx-auto w-full">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold text-white mb-4 sm:mb-5 lg:mb-6 drop-shadow-lg leading-tight">
               {hero?.title || "Monaghan's"}
             </h1>
             {hero?.tagline && (
-              <p className="text-lg sm:text-xl md:text-2xl text-white/90 drop-shadow-md mb-2">
+              <p className="text-xl sm:text-2xl md:text-3xl lg:text-4xl text-white/90 drop-shadow-md mb-3 sm:mb-4 font-semibold">
                 {hero.tagline}
               </p>
             )}
+            {!hero?.tagline && (
+              <p className="text-xl sm:text-2xl md:text-3xl lg:text-4xl text-white/90 drop-shadow-md mb-3 sm:mb-4 font-semibold">
+                Bar & Grill
+              </p>
+            )}
             {hero?.subtitle && (
-              <p className="text-base sm:text-lg md:text-xl text-white/80 drop-shadow-md">
+              <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-white/80 drop-shadow-md">
                 {hero.subtitle}
+              </p>
+            )}
+            {!hero?.subtitle && (
+              <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-white/80 drop-shadow-md max-w-4xl mx-auto">
+                Established 1892 • Denver's Second-Oldest Bar • Minority Woman Owned
               </p>
             )}
           </div>
@@ -724,7 +722,7 @@ export default async function HomePage() {
           {totalItems > 0 ? (
             <div className={`grid ${gridConfig.cols} gap-3 sm:gap-4 mb-4 sm:mb-6 ${gridConfig.maxWidth} mx-auto w-full`}>
             {/* Today's Events - Recurring and Ad Hoc */}
-            {todaysEvents.map((event) => {
+            {todaysEvents.map((event, index) => {
               // Check if event is recurring - either has recurrenceRule or is an expanded occurrence
               const isRecurring = !!(event.recurrenceRule || (event as any).isRecurringOccurrence);
               // Get the original event to check recurrence rule (for expanded occurrences, use the event itself)
@@ -736,7 +734,7 @@ export default async function HomePage() {
               
               return (
                 <div 
-                  key={`${event.id}-${event.startDateTime}`} 
+                  key={`${event.id}-${event.startDateTime}-${index}`} 
                   className="group relative rounded-2xl p-3 sm:p-4 border-l-4 border-purple-400 shadow-xl hover:shadow-2xl hover:shadow-purple-500/20 overflow-hidden"
                 >
                   {/* Solid background layer for maximum opacity */}
@@ -796,45 +794,6 @@ export default async function HomePage() {
                 </div>
               );
             })}
-
-            {/* Food Specials - Only show the first one */}
-            {displayFoodSpecial.map((special) => (
-              <div key={special.id} className="group relative bg-orange-950/80 backdrop-blur-sm rounded-2xl p-3 sm:p-4 border-l-4 border-orange-500 shadow-xl overflow-hidden">
-                {/* Diagonal accent stripe */}
-                <div className="absolute top-0 right-0 w-24 h-24 bg-orange-500/10 -rotate-45 translate-x-8 -translate-y-8"></div>
-                <div className="relative flex items-start gap-2 sm:gap-3">
-                  <div className="p-2 sm:p-2.5 bg-orange-600/70 rounded-lg flex-shrink-0 shadow-md">
-                    <FaUtensils className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <span className="text-orange-300 text-[10px] sm:text-xs font-bold uppercase tracking-wider block mb-1.5">
-                      Food Special
-                    </span>
-                    <h3 className="text-base sm:text-lg font-bold text-white mb-1.5 line-clamp-2 leading-tight drop-shadow-sm">
-                      {special.title}
-                    </h3>
-                    {special.description && (
-                      <p className="text-orange-50/90 text-xs sm:text-sm mb-2 line-clamp-2 leading-relaxed break-words">
-                        {special.description}
-                      </p>
-                    )}
-                    {special.priceNotes && (
-                      <p className="text-orange-200/80 text-[10px] sm:text-xs mb-2 font-semibold line-clamp-1 break-words">
-                        {special.priceNotes}
-                      </p>
-                    )}
-                    {special.timeWindow && (
-                      <div className="flex items-center gap-1.5 text-orange-200 text-[10px] sm:text-xs font-semibold">
-                        <svg className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span>{special.timeWindow}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
 
             {/* Drink Special */}
             {todaysDrinkSpecial && (
@@ -937,14 +896,11 @@ export default async function HomePage() {
           )}
           
           {/* Call to Action Buttons */}
-          <div className="flex flex-wrap justify-center gap-2 sm:gap-3 max-w-6xl mx-auto w-full">
+          <div className="flex flex-wrap justify-center gap-2 sm:gap-3 max-w-6xl mx-auto w-full mt-4 sm:mt-6">
             <Link
               href="/private-events"
-              className="group inline-flex w-full items-center justify-center gap-2 rounded-full px-6 py-2.5 sm:px-8 sm:py-3 text-sm sm:text-base font-semibold transition-all hover:scale-105 bg-[var(--color-accent)] hover:bg-[var(--color-accent-dark)] shadow-lg hover:shadow-xl sm:w-auto text-white"
+              className="group inline-flex w-full items-center justify-center gap-2 rounded-full px-8 py-3.5 sm:px-10 sm:py-4 text-base sm:text-lg font-bold transition-all hover:scale-105 bg-[var(--color-accent)] hover:bg-[var(--color-accent-dark)] shadow-lg hover:shadow-xl sm:w-auto text-white"
             >
-              <svg className="w-4 h-4 sm:w-5 sm:h-5 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
               Private Events & Dining
             </Link>
             <div
@@ -1096,9 +1052,9 @@ export default async function HomePage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {upcomingEvents.map((event) => (
+              {upcomingEvents.map((event, index) => (
                 <div
-                  key={`${event.id}-${event.startDateTime}`}
+                  key={`${event.id}-${event.startDateTime}-${index}`}
                   className="bg-blue-50 dark:bg-blue-950/20 border-l-4 border-blue-500 dark:border-blue-400 rounded-lg p-6 shadow-md hover:shadow-lg transition-shadow duration-300 flex flex-col items-center justify-center text-center min-h-[200px]"
                 >
                   <div className="flex flex-col items-center gap-3 mb-3">

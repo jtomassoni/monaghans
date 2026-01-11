@@ -1,27 +1,6 @@
-@import "tailwindcss";
-
-/* Tailwind v4 dark mode variant declaration */
-@custom-variant dark (&:where(.dark, .dark *));
-
-@theme {
-  --color-accent: #dc2626;
-  --color-accent-dark: #991b1b;
-  --color-gold: #d4af37;
-  --color-blue: #3b82f6;
-  --color-blue-dark: #2563eb;
-  --color-green: #10b981;
-  --color-green-dark: #059669;
-  --color-purple: #8b5cf6;
-  --color-purple-dark: #7c3aed;
-  --color-orange: #f97316;
-  --color-orange-dark: #ea580c;
-  --color-teal: #14b8a6;
-  --color-teal-dark: #0d9488;
-  --color-pink: #ec4899;
-  --color-pink-dark: #db2777;
-  --color-cyan: #06b6d4;
-  --color-cyan-dark: #0891b2;
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
   /* Light mode (default) */
@@ -29,6 +8,8 @@
   --color-foreground: #1f2937;
   --background: #ffffff;
   --foreground: #1f2937;
+  --color-accent: #dc2626;
+  --color-accent-dark: #991b1b;
   --accent: var(--color-accent);
   /* Make all accent colors available as CSS variables */
   --color-gold: #d4af37;

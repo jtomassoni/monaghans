@@ -693,74 +693,7 @@ async function main() {
         }
       }
 
-      // 1. Create image-based slide with lawn-mowing-ad.png
-      console.log('   Creating image-based slide: King Street Landscaping...');
-      try {
-        // Create Upload record for the lawn-mowing-ad.png file
-        const imagePath = '/pics/lawn-mowing-ad.png';
-        const uploadId = `upload-seed-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-        
-        // Get file stats to determine size
-        const fs = await import('fs');
-        const path = await import('path');
-        const filePath = path.join(process.cwd(), 'public', imagePath);
-        let fileSize = 0;
-        try {
-          const stats = await fs.promises.stat(filePath);
-          fileSize = stats.size;
-          console.log(`   📁 Found image file: ${filePath} (${fileSize} bytes)`);
-        } catch (error: any) {
-          console.error(`   ⚠️  Could not find image file at ${filePath}:`, error.message);
-          throw new Error(`Image file not found: ${filePath}`);
-        }
-
-        console.log(`   📤 Creating Upload record...`);
-        const upload = await (prisma as any).upload.create({
-          data: {
-            id: uploadId,
-            originalFilename: 'lawn-mowing-ad.png',
-            mimeType: 'image/png',
-            sizeBytes: fileSize,
-            storageKey: imagePath,
-            createdByUserId: systemUser.id,
-          },
-        });
-        console.log(`   ✅ Created Upload: ${upload.id}`);
-
-        console.log(`   🖼️  Creating Asset from Upload...`);
-        // Create Asset from the Upload
-        const asset = await createAssetFromUpload(
-          upload.id,
-          imagePath,
-          'IMAGE'
-        );
-
-        console.log(`   ✅ Created Asset: ${asset.id} (storageKey: ${asset.storageKey})`);
-
-        // Add the image-based custom slide
-        const imageSlideEntry = {
-          id: 'seed-king-street-landscaping',
-          label: 'Custom',
-          title: 'King Street Landscaping Ad',
-          subtitle: '',
-          body: '',
-          accent: 'accent' as const,
-          footer: 'www.ecolawnsdenver.com',
-          position: 1,
-          isEnabled: true,
-          slideType: 'image' as const,
-          imageStorageKey: asset.storageKey, // Use the asset's storageKey so it can be reused
-          imageUrl: asset.storageKey,
-        };
-
-        config.customSlides.push(imageSlideEntry);
-        console.log('   ✅ Added image-based custom slide to config');
-      } catch (error: any) {
-        console.error('   ❌ Failed to create image-based slide:', error.message || error);
-        console.error('   Stack:', error.stack);
-      }
-
-      // 2. Create text-based slide
+      // 1. Create text-based slide
       console.log('   Creating text-based slide: Daily Specials Info...');
       try {
         const textSlideEntry = {

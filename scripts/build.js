@@ -85,6 +85,18 @@ try {
     console.log(`Skipping database sync (${reason})`);
   }
   
+  // Validate help documentation (FAIL BUILD if validation fails)
+  console.log('Validating help documentation...');
+  try {
+    execSync('tsx scripts/validate-help-docs.ts', { stdio: 'inherit' });
+    console.log('✅ Help documentation validation passed');
+  } catch (validationError) {
+    console.error('❌ Help documentation validation FAILED');
+    console.error('Build cannot proceed until documentation issues are resolved.');
+    console.error('Run "npm run validate:docs" to see detailed errors.');
+    process.exit(1);
+  }
+  
   console.log('Building Next.js application...');
   execSync('npx next build', { stdio: 'inherit' });
   

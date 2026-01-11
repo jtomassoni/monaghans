@@ -53,6 +53,7 @@ export default async function AdminDrinkSpecials() {
       <AdminPageHeader
         title="Drink Specials"
         description="Manage daily drink specials"
+        helpFeature="specials"
         action={<NewDrinkSpecialButton />}
       />
 

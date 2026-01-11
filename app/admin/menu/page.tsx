@@ -70,6 +70,7 @@ export default async function AdminMenu() {
       <AdminPageHeader
         title="Menu"
         description="Manage menu sections and items"
+        helpFeature="menu"
       />
 
       {/* Main Content */}
