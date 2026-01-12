@@ -23,7 +23,7 @@ Promote daily or weekly food deals.
 
 ## Create Special
 
-1. Go to **Food Specials** (`/admin/food-specials`)
+1. Go to [Food Specials](/admin/food-specials)
 2. Click **"New Food Special"**
 3. Fill details and save
 
@@ -84,14 +84,14 @@ Enter time range in **Time Window** field:
 
 ## Edit Special
 
-1. Go to **Food Specials**
+1. Go to [Food Specials](/admin/food-specials)
 2. Click the special
 3. Update details
 4. Save
 
 ## Delete Special
 
-1. Go to **Food Specials**
+1. Go to [Food Specials](/admin/food-specials)
 2. Click delete icon (trash)
 3. Confirm
 

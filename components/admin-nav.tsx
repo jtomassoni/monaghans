@@ -160,7 +160,7 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
       title: 'Settings',
       items: [
         ...(permissions.canAccessAdmin ? [{ href: '/admin/settings', label: 'Settings & Homepage', icon: FaCog }] : []),
-        ...(permissions.canAccessAdmin ? [{ href: '/help', label: 'Help', icon: FaQuestionCircle }] : []),
+        ...(permissions.canAccessAdmin ? [{ href: '/admin/help', label: 'Help', icon: FaQuestionCircle }] : []),
       ],
     },
   ].filter(group => group.items.length > 0); // Remove empty groups
@@ -175,8 +175,8 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
     if (href === '/admin/settings') {
       return pathname === '/admin/settings';
     }
-    if (href === '/help') {
-      return pathname?.startsWith('/help');
+    if (href === '/admin/help') {
+      return pathname?.startsWith('/admin/help');
     }
     if (href === '/admin/signage') {
       return pathname?.startsWith('/admin/signage');

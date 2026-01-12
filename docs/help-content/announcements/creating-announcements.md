@@ -23,7 +23,7 @@ Share time-sensitive info: events, promotions, updates.
 
 ## Create Announcement
 
-1. Go to **Announcements** (calendar or admin menu)
+1. Go to [Calendar](/admin) or use the admin menu
 2. Click **"New Announcement"**
 3. Fill details and save
 
@@ -80,14 +80,14 @@ Body supports markdown:
 
 ## Edit Announcement
 
-1. Go to **Announcements**
+1. Go to [Calendar](/admin) or use the admin menu
 2. Click the announcement
 3. Update details
 4. Save
 
 ## Delete Announcement
 
-1. Go to **Announcements**
+1. Go to [Calendar](/admin) or use the admin menu
 2. Click delete icon (trash)
 3. Confirm
 

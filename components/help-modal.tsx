@@ -86,8 +86,8 @@ export default function HelpModal({
   };
 
   const helpUrl = slug
-    ? `/help?feature=${feature}&slug=${slug}`
-    : `/help?feature=${feature}`;
+    ? `/admin/help?feature=${feature}&slug=${slug}`
+    : `/admin/help?feature=${feature}`;
 
   return (
     <>
@@ -109,120 +109,115 @@ export default function HelpModal({
         isOpen={isOpen}
         onClose={handleClose}
         title={displayTitle}
+        zIndex={10060}
       >
         <div className="space-y-4">
-          {/* Quick Help Content - Concise and Actionable */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
-              <FaQuestionCircle className="w-5 h-5" />
-              <span className="text-sm font-medium">Quick Help</span>
-            </div>
-            
-            {/* Extract key information from content */}
-            <div className="prose prose-sm dark:prose-invert max-w-none">
-              {(() => {
-                // Try to extract a summary or first section
-                const contentLines = displayContent.split('\n').filter(Boolean);
-                let summary = '';
-                let keyPoints: string[] = [];
-                
-                // Look for first paragraph or list
-                for (let i = 0; i < Math.min(contentLines.length, 10); i++) {
-                  const line = contentLines[i].trim();
-                  if (line.startsWith('#') && summary) break; // Stop at next heading
-                  if (line.startsWith('-') || line.startsWith('*') || line.match(/^\d+\./)) {
-                    keyPoints.push(line.replace(/^[-*\d+.]\s*/, ''));
-                  } else if (line.length > 20 && !summary) {
-                    summary = line.substring(0, 300);
-                  }
+          {/* Help Content */}
+          <div className="prose prose-sm dark:prose-invert max-w-none">
+            {(() => {
+              // Try to extract a summary or first section
+              const contentLines = displayContent.split('\n').filter(Boolean);
+              let summary = '';
+              let keyPoints: string[] = [];
+              
+              // Look for first paragraph or list
+              for (let i = 0; i < Math.min(contentLines.length, 10); i++) {
+                const line = contentLines[i].trim();
+                if (line.startsWith('#') && summary) break; // Stop at next heading
+                if (line.startsWith('-') || line.startsWith('*') || line.match(/^\d+\./)) {
+                  keyPoints.push(line.replace(/^[-*\d+.]\s*/, ''));
+                } else if (line.length > 20 && !summary) {
+                  summary = line.substring(0, 300);
                 }
-                
-                // If we have key points, show those; otherwise show summary
-                if (keyPoints.length > 0) {
-                  return (
-                    <div className="space-y-3">
-                      {summary && (
-                        <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">
-                          {summary}
-                        </p>
-                      )}
-                      <ul className="list-disc list-inside text-gray-700 dark:text-gray-300 space-y-2 text-sm">
-                        {keyPoints.slice(0, 5).map((point, idx) => (
-                          <li key={idx}>{point}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  );
-                }
-                
-                // Fallback: show first 500 chars
-                const truncated = displayContent.length > 500 
-                  ? displayContent.substring(0, 500) + '...'
-                  : displayContent;
-                
+              }
+              
+              // If we have key points, show those; otherwise show summary
+              if (keyPoints.length > 0) {
                 return (
-                  <ReactMarkdown
-                    components={{
-                      h1: ({ children }) => (
-                        <h1 className="text-lg font-bold text-gray-900 dark:text-white mt-2 mb-2">
-                          {children}
-                        </h1>
-                      ),
-                      h2: ({ children }) => (
-                        <h2 className="text-base font-semibold text-gray-900 dark:text-white mt-2 mb-2">
-                          {children}
-                        </h2>
-                      ),
-                      h3: ({ children }) => (
-                        <h3 className="text-sm font-semibold text-gray-900 dark:text-white mt-2 mb-1">
-                          {children}
-                        </h3>
-                      ),
-                      p: ({ children }) => (
-                        <p className="text-gray-700 dark:text-gray-300 mb-2 leading-relaxed text-sm">
-                          {children}
-                        </p>
-                      ),
-                      ul: ({ children }) => (
-                        <ul className="list-disc list-inside text-gray-700 dark:text-gray-300 mb-2 space-y-1 text-sm">
-                          {children}
-                        </ul>
-                      ),
-                      ol: ({ children }) => (
-                        <ol className="list-decimal list-inside text-gray-700 dark:text-gray-300 mb-2 space-y-1 text-sm">
-                          {children}
-                        </ol>
-                      ),
-                      li: ({ children }) => (
-                        <li className="text-gray-700 dark:text-gray-300 text-sm">{children}</li>
-                      ),
-                      code: ({ children }) => (
-                        <code className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded text-xs font-mono">
-                          {children}
-                        </code>
-                      ),
-                    }}
-                  >
-                    {truncated}
-                  </ReactMarkdown>
+                  <div className="space-y-3">
+                    {summary && (
+                      <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">
+                        {summary}
+                      </p>
+                    )}
+                    <ul className="list-disc list-inside text-gray-700 dark:text-gray-300 space-y-2 text-sm">
+                      {keyPoints.slice(0, 5).map((point, idx) => (
+                        <li key={idx}>{point}</li>
+                      ))}
+                    </ul>
+                  </div>
                 );
-              })()}
-            </div>
-            
-            {/* Quick Tips Section */}
-            {displayContent.length > 500 && (
-              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mt-4">
-                <p className="text-xs text-blue-800 dark:text-blue-300">
-                  💡 <strong>Tip:</strong> This is a quick overview. See the full documentation for complete details and step-by-step instructions.
-                </p>
-              </div>
-            )}
+              }
+              
+              // Fallback: show first 500 chars
+              const truncated = displayContent.length > 500 
+                ? displayContent.substring(0, 500) + '...'
+                : displayContent;
+              
+              return (
+                <ReactMarkdown
+                  components={{
+                    h1: ({ children }) => (
+                      <h1 className="text-lg font-bold text-gray-900 dark:text-white mt-2 mb-2">
+                        {children}
+                      </h1>
+                    ),
+                    h2: ({ children }) => (
+                      <h2 className="text-base font-semibold text-gray-900 dark:text-white mt-2 mb-2">
+                        {children}
+                      </h2>
+                    ),
+                    h3: ({ children }) => (
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white mt-2 mb-1">
+                        {children}
+                      </h3>
+                    ),
+                    p: ({ children }) => (
+                      <p className="text-gray-700 dark:text-gray-300 mb-2 leading-relaxed text-sm">
+                        {children}
+                      </p>
+                    ),
+                    ul: ({ children }) => (
+                      <ul className="list-disc list-inside text-gray-700 dark:text-gray-300 mb-2 space-y-1 text-sm">
+                        {children}
+                      </ul>
+                    ),
+                    ol: ({ children }) => (
+                      <ol className="list-decimal list-inside text-gray-700 dark:text-gray-300 mb-2 space-y-1 text-sm">
+                        {children}
+                      </ol>
+                    ),
+                    li: ({ children }) => (
+                      <li className="text-gray-700 dark:text-gray-300 text-sm">{children}</li>
+                    ),
+                    code: ({ children }) => (
+                      <code className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded text-xs font-mono">
+                        {children}
+                      </code>
+                    ),
+                  }}
+                >
+                  {truncated}
+                </ReactMarkdown>
+              );
+            })()}
           </div>
+          
+          {/* Combined Info and Tip Section */}
+          {displayContent.length > 500 && (
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+              <p className="text-sm text-blue-800 dark:text-blue-300">
+                💡 <strong>Tip:</strong> This is a quick overview. For complete details and step-by-step instructions, click "Learn More" below to open the full documentation in a new tab.
+              </p>
+            </div>
+          )}
 
-          {/* Learn More Link - CRITICAL: Always include this */}
-          <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+          {/* Learn More Link - Opens full help doc in new tab */}
+          <div className="pt-6 pb-2 border-t border-gray-200 dark:border-gray-700">
             <Link
               href={helpUrl}
+              target="_blank"
+              rel="noopener noreferrer"
               className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition-colors"
               onClick={handleClose}
             >

@@ -48,69 +48,75 @@ export default function HelpNavigation({
   };
 
   return (
-    <div className="space-y-2">
+    <div className="flex items-center justify-between gap-4 flex-wrap">
       {/* Breadcrumb Navigation */}
-      <nav className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
+      <nav className="flex items-center gap-2 text-sm flex-1 min-w-0">
         <Link
-          href="/help"
-          className="hover:text-gray-900 dark:hover:text-white transition-colors flex items-center gap-1"
+          href="/admin/help"
+          className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors flex items-center gap-1.5 font-medium flex-shrink-0"
         >
-          <FaHome className="w-2.5 h-2.5" />
-          Help
+          <FaHome className="w-3.5 h-3.5" />
+          <span>Help</span>
         </Link>
-        <span>/</span>
+        <span className="text-gray-400 dark:text-gray-500 flex-shrink-0">/</span>
         {backToFeature && (
           <>
             <Link
-              href={`/help?feature=${currentDoc.metadata.feature}`}
-              className="hover:text-gray-900 dark:hover:text-white transition-colors"
+              href={`/admin/help?feature=${currentDoc.metadata.feature}`}
+              className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors font-medium flex-shrink-0"
             >
               {featureLabels[currentDoc.metadata.feature]}
             </Link>
-            <span>/</span>
+            <span className="text-gray-400 dark:text-gray-500 flex-shrink-0">/</span>
           </>
         )}
-        <span className="text-gray-900 dark:text-white font-medium truncate">
+        <span className="text-gray-900 dark:text-white font-semibold truncate min-w-0">
           {currentDoc.metadata.title}
         </span>
       </nav>
 
-      {/* Previous/Next Navigation */}
-      {(previousDoc || nextDoc) && (
-        <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-          {previousDoc ? (
-            <Link
-              href={`/help?feature=${previousDoc.metadata.feature}&slug=${previousDoc.slug}`}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex-1 min-w-0"
-            >
-              <FaChevronLeft className="w-3 h-3 flex-shrink-0" />
-              <div className="flex flex-col items-start min-w-0">
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  Previous
-                </span>
-                <span className="line-clamp-1 text-xs truncate">{previousDoc.metadata.title}</span>
-              </div>
-            </Link>
-          ) : (
-            <div className="flex-1" />
-          )}
+      {/* Previous/Next Navigation - Always in same position */}
+      <div className="flex items-center gap-2 flex-shrink-0">
+        {/* Previous Button - Always rendered in same spot */}
+        {previousDoc ? (
+          <Link
+            href={`/admin/help?feature=${previousDoc.metadata.feature}&slug=${previousDoc.slug}`}
+            className="group flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-sm transition-all"
+          >
+            <FaChevronLeft className="w-3.5 h-3.5 flex-shrink-0 text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200 transition-colors" />
+            <span className="line-clamp-1 text-sm truncate text-gray-900 dark:text-white max-w-[180px]">
+              {previousDoc.metadata.title}
+            </span>
+          </Link>
+        ) : (
+          <div className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-400 dark:text-gray-600 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg opacity-50 cursor-not-allowed">
+            <FaChevronLeft className="w-3.5 h-3.5 flex-shrink-0" />
+            <span className="line-clamp-1 text-sm truncate max-w-[180px]">
+              Previous
+            </span>
+          </div>
+        )}
 
-          {nextDoc && (
-            <Link
-              href={`/help?feature=${nextDoc.metadata.feature}&slug=${nextDoc.slug}`}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex-1 justify-end text-right min-w-0"
-            >
-              <div className="flex flex-col items-end min-w-0">
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  Next
-                </span>
-                <span className="line-clamp-1 text-xs truncate">{nextDoc.metadata.title}</span>
-              </div>
-              <FaChevronRight className="w-3 h-3 flex-shrink-0" />
-            </Link>
-          )}
-        </div>
-      )}
+        {/* Next Button - Always rendered in same spot */}
+        {nextDoc ? (
+          <Link
+            href={`/admin/help?feature=${nextDoc.metadata.feature}&slug=${nextDoc.slug}`}
+            className="group flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-sm transition-all"
+          >
+            <span className="line-clamp-1 text-sm truncate text-gray-900 dark:text-white max-w-[180px]">
+              {nextDoc.metadata.title}
+            </span>
+            <FaChevronRight className="w-3.5 h-3.5 flex-shrink-0 text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200 transition-colors" />
+          </Link>
+        ) : (
+          <div className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-400 dark:text-gray-600 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg opacity-50 cursor-not-allowed">
+            <span className="line-clamp-1 text-sm truncate max-w-[180px]">
+              Next
+            </span>
+            <FaChevronRight className="w-3.5 h-3.5 flex-shrink-0" />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

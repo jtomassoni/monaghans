@@ -33,13 +33,12 @@ Categories that group related items. Examples:
 
 ## Create Section
 
-1. Go to **Menu** (`/admin/menu`)
+1. Go to [Menu](/admin/menu)
 2. Click **"Sections"** tab
 3. Click **"New Section"** (or "+")
 4. Fill details:
    - **Name**: Section name (e.g., "Appetizers")
    - **Menu Type**: Food or Drink
-   - **Display Order**: Order on menu (lower = first)
 5. Save
 
 ## Edit Section
@@ -63,14 +62,15 @@ Categories that group related items. Examples:
 
 ## Reorder Sections
 
-**Display Order** controls section order:
+Reorder sections using drag-and-drop:
 
-1. Edit section
-2. Change **Display Order** number
-3. Lower numbers appear first (1, 2, 3...)
-4. Save
+1. Go to [Menu](/admin/menu)
+2. Click the **"Reorder Sections"** toggle at the top
+3. Drag sections up or down to change their order
+4. Release to save automatically
+5. Click **"Reorder Sections"** again to exit reorder mode
 
-**Tip**: Use increments of 10 (10, 20, 30...) for easy insertion later.
+**Tip**: See [Reordering Menu Sections and Items](./reordering-menu.md) for detailed instructions.
 
 ## Menu Types
 
@@ -85,7 +85,7 @@ Helps organize when you have separate food and drink menus.
 - Keep it simple: 5-10 sections usually enough
 - Logical grouping: Group items customers expect together
 - Clear names: Use names customers understand
-- Consistent ordering: Use display order for structure
+- Logical ordering: Place sections in a flow that makes sense (e.g., Appetizers → Main Courses → Desserts)
 
 ## Common Section Names
 

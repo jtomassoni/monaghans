@@ -30,8 +30,8 @@ export default function HelpButton({
   children,
 }: HelpButtonProps) {
   const href = slug
-    ? `/help?feature=${feature}&slug=${slug}`
-    : `/help?feature=${feature}`;
+    ? `/admin/help?feature=${feature}&slug=${slug}`
+    : `/admin/help?feature=${feature}`;
 
   if (variant === 'icon') {
     return (

@@ -32,14 +32,14 @@ Displays content on TV screens or monitors:
 
 ## Access Settings
 
-1. Go to **Digital Signage** (`/admin/signage`)
+1. Go to [Digital Signage](/admin/signage)
 2. Configure displays
 
 ## Set Up Specials TV
 
 ### Basic Setup
 
-1. Go to **Digital Signage**
+1. Go to [Digital Signage](/admin/signage)
 2. Find **Specials TV** settings
 3. Configure:
    - **Display URL**: URL to open on TV/monitor

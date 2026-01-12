@@ -23,7 +23,7 @@ First thing customers see. Customize hero section, about content, and layout.
 
 ## Access Settings
 
-1. Go to **Settings** (`/admin/settings`)
+1. Go to [Settings](/admin/settings)
 2. Find **Homepage** section
 3. Customize options
 

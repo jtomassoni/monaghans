@@ -8,6 +8,8 @@ import StatusToggle from '@/components/status-toggle';
 import DateTimePicker from '@/components/date-time-picker';
 import DatePicker from '@/components/date-picker';
 import FoodSpecialsGallerySelector from '@/components/food-specials-gallery-selector';
+import ConfirmationDialog from '@/components/confirmation-dialog';
+import { formatDateAsDateTimeLocal, parseDateTimeLocalAsCompanyTimezone, getCompanyTimezoneSync } from '@/lib/timezone';
 
 interface Event {
   id?: string;
@@ -37,8 +39,21 @@ interface Special {
   recurrenceRule?: string;
 }
 
-type ItemType = 'event' | 'food' | 'drink';
-type UnifiedItem = Event | Special;
+interface Announcement {
+  id?: string;
+  title: string;
+  body: string;
+  publishAt: string | null;
+  expiresAt?: string | null;
+  isPublished?: boolean;
+  crossPostFacebook: boolean;
+  crossPostInstagram: boolean;
+  ctaText?: string;
+  ctaUrl?: string;
+}
+
+type ItemType = 'event' | 'food' | 'drink' | 'announcement';
+type UnifiedItem = Event | Special | Announcement;
 
 interface UnifiedItemModalFormProps {
   isOpen: boolean;
@@ -46,6 +61,26 @@ interface UnifiedItemModalFormProps {
   item?: UnifiedItem;
   itemType?: ItemType;
   onSuccess?: () => void;
+  onDelete?: (id: string) => void;
+  onAnnouncementAdded?: (announcement: any) => void;
+  onAnnouncementUpdated?: (announcement: any) => void;
+}
+
+// Helper function to convert UTC ISO string to datetime-local string (company timezone)
+function convertUTCToMountainTimeLocal(utcISO: string): string {
+  const utcDate = new Date(utcISO);
+  return formatDateAsDateTimeLocal(utcDate, getCompanyTimezoneSync());
+}
+
+// Helper function to convert datetime-local string (interpreted as company timezone) to UTC ISO string
+function convertMountainTimeToUTC(datetimeLocal: string): string {
+  if (!datetimeLocal) return '';
+  try {
+    return parseDateTimeLocalAsCompanyTimezone(datetimeLocal, getCompanyTimezoneSync()).toISOString();
+  } catch (error) {
+    console.error('Error converting datetime:', error);
+    return '';
+  }
 }
 
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -114,10 +149,14 @@ function buildRRULE(frequency: string, days: string[], monthDay?: number): strin
   return '';
 }
 
-export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: initialItemType, onSuccess }: UnifiedItemModalFormProps) {
+export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: initialItemType, onSuccess, onDelete, onAnnouncementAdded, onAnnouncementUpdated }: UnifiedItemModalFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
+  const [showCTA, setShowCTA] = useState(false);
+  const [facebookConnected, setFacebookConnected] = useState(false);
   
   // Determine item type from existing item or initial type
   const getItemType = (): ItemType => {
@@ -125,6 +164,10 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
       // Check if it's an event (has startDateTime)
       if ('startDateTime' in item) {
         return 'event';
+      }
+      // Check if it's an announcement (has body and publishAt)
+      if ('body' in item && 'publishAt' in item) {
+        return 'announcement';
       }
       // Check if it's a special and get its type
       if ('type' in item) {
@@ -182,6 +225,18 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
 
   const [dateError, setDateError] = useState<string | null>(null);
 
+  // Announcement form state
+  const [announcementData, setAnnouncementData] = useState({
+    title: '',
+    body: '',
+    publishAt: '',
+    expiresAt: '',
+    crossPostFacebook: false,
+    crossPostInstagram: false,
+    ctaText: '',
+    ctaUrl: '',
+  });
+
   // Initialize form data when modal opens or item changes
   useEffect(() => {
     if (item) {
@@ -204,6 +259,26 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
           venueArea: event.venueArea || 'bar',
         });
         setCurrentItemType('event');
+      } else if ('body' in item && 'publishAt' in item) {
+        // It's an announcement
+        const announcement = item as Announcement;
+        const hasCTA = !!(announcement.ctaText && announcement.ctaUrl);
+        setShowCTA(hasCTA);
+        setAnnouncementData({
+          title: announcement.title || '',
+          body: announcement.body || '',
+          publishAt: announcement.publishAt
+            ? convertUTCToMountainTimeLocal(announcement.publishAt)
+            : '',
+          expiresAt: announcement.expiresAt
+            ? convertUTCToMountainTimeLocal(announcement.expiresAt)
+            : '',
+          crossPostFacebook: announcement.crossPostFacebook ?? false,
+          crossPostInstagram: announcement.crossPostInstagram ?? false,
+          ctaText: announcement.ctaText || '',
+          ctaUrl: announcement.ctaUrl || '',
+        });
+        setCurrentItemType('announcement');
       } else {
         // It's a special
         const special = item as Special;
@@ -245,12 +320,51 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
         image: '',
         isActive: true,
       });
+      // Set default dates for announcement: top of current hour for publishAt, 24 hours from that for expiresAt
+      const now = new Date();
+      const publishAt = new Date(now);
+      publishAt.setMinutes(0, 0, 0);
+      const expiresAt = new Date(publishAt);
+      expiresAt.setHours(expiresAt.getHours() + 24);
+      setAnnouncementData({
+        title: '',
+        body: '',
+        publishAt: publishAt.toISOString().slice(0, 16),
+        expiresAt: expiresAt.toISOString().slice(0, 16),
+        crossPostFacebook: false,
+        crossPostInstagram: false,
+        ctaText: '',
+        ctaUrl: '',
+      });
+      setShowCTA(false);
       setRecurrenceType('none');
       setRecurrenceDays([]);
       setMonthDay(new Date().getDate());
       setDateError(null);
     }
-  }, [item, initialItemType, isOpen]);
+
+  }, [item, initialItemType, isOpen, currentItemType]);
+
+  // Check Facebook connection status when modal opens for announcements
+  useEffect(() => {
+    if (isOpen && currentItemType === 'announcement') {
+      fetch('/api/social/facebook/status')
+        .then(res => res.json())
+        .then(data => {
+          const connected = data.connected === true && !data.expired;
+          setFacebookConnected(connected);
+          if (!connected && announcementData.crossPostFacebook) {
+            setAnnouncementData(prev => ({ ...prev, crossPostFacebook: false }));
+          }
+        })
+        .catch(() => {
+          setFacebookConnected(false);
+          if (announcementData.crossPostFacebook) {
+            setAnnouncementData(prev => ({ ...prev, crossPostFacebook: false }));
+          }
+        });
+    }
+  }, [isOpen, currentItemType, announcementData.crossPostFacebook]);
 
   // Clear appliesOn when switching to food type
   useEffect(() => {
@@ -384,6 +498,64 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
             error.error || error.details || 'Please check your input and try again.'
           );
         }
+      } else if (currentItemType === 'announcement') {
+        // Announcement
+        // Validate expiration date is not more than 1 month after publish date
+        if (announcementData.publishAt && announcementData.expiresAt) {
+          const publishDate = new Date(announcementData.publishAt);
+          const expireDate = new Date(announcementData.expiresAt);
+          const maxExpireDate = new Date(publishDate);
+          maxExpireDate.setMonth(maxExpireDate.getMonth() + 1);
+          
+          if (expireDate > maxExpireDate) {
+            showToast(
+              'Expiration date cannot be more than 1 month after publish date',
+              'error',
+              `Maximum expiration date: ${maxExpireDate.toLocaleDateString()} ${maxExpireDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+            );
+            setLoading(false);
+            return;
+          }
+        }
+
+        const url = (item && 'body' in item && item.id) ? `/api/announcements/${item.id}` : '/api/announcements';
+        const method = (item && 'body' in item && item.id) ? 'PUT' : 'POST';
+
+        const announcementPayload = {
+          ...announcementData,
+          publishAt: announcementData.publishAt ? convertMountainTimeToUTC(announcementData.publishAt) : null,
+          expiresAt: announcementData.expiresAt ? convertMountainTimeToUTC(announcementData.expiresAt) : null,
+          isPublished: true,
+        };
+
+        const res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(announcementPayload),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          router.refresh();
+          showToast(
+            (item && 'body' in item && item.id) ? 'Announcement updated successfully' : 'Announcement created successfully',
+            'success'
+          );
+          if (item && 'body' in item && item.id) {
+            onAnnouncementUpdated?.(data);
+          } else {
+            onAnnouncementAdded?.(data);
+          }
+          onSuccess?.();
+          onClose();
+        } else {
+          const error = await res.json();
+          showToast(
+            (item && 'body' in item && item.id) ? 'Failed to update announcement' : 'Failed to create announcement',
+            'error',
+            error.error || error.details || 'Please check your input and try again.'
+          );
+        }
       } else {
         // Special
         const url = (item && 'type' in item && item.id) ? `/api/specials/${item.id}` : '/api/specials';
@@ -430,8 +602,8 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
 
   const isEditing = item !== undefined;
   const title = isEditing 
-    ? `Edit ${currentItemType === 'event' ? 'Event' : currentItemType === 'drink' ? 'Drink Special' : 'Food Special'}`
-    : 'New Item';
+    ? `Edit ${currentItemType === 'event' ? 'Event' : currentItemType === 'drink' ? 'Drink Special' : currentItemType === 'announcement' ? 'Announcement' : 'Food Special'}`
+    : 'Create New';
 
   return (
     <Modal
@@ -444,83 +616,48 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
         {!isEditing && (
           <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-5 backdrop-blur-sm">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400 mb-3">Item Type</p>
-              <div className="flex flex-wrap gap-3">
-                <label
-                  className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all cursor-pointer ${
-                    currentItemType === 'event'
-                      ? 'border-blue-500 bg-blue-50 text-blue-600 dark:border-blue-500/80 dark:bg-blue-900/30 dark:text-blue-200 shadow-sm'
-                      : 'border-gray-200/70 dark:border-gray-700/60 text-gray-700 dark:text-gray-200 hover:border-blue-400/70'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="itemType"
-                    checked={currentItemType === 'event'}
-                    onChange={() => setCurrentItemType('event')}
-                    className="sr-only"
-                  />
-                  Event
-                </label>
-                <label
-                  className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all cursor-pointer ${
-                    currentItemType === 'food'
-                      ? 'border-orange-500 bg-orange-50 text-orange-600 dark:border-orange-500/80 dark:bg-orange-900/30 dark:text-orange-200 shadow-sm'
-                      : 'border-gray-200/70 dark:border-gray-700/60 text-gray-700 dark:text-gray-200 hover:border-orange-400/70'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="itemType"
-                    checked={currentItemType === 'food'}
-                    onChange={() => setCurrentItemType('food')}
-                    className="sr-only"
-                  />
-                  Food Special
-                </label>
-                <label
-                  className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all cursor-pointer ${
-                    currentItemType === 'drink'
-                      ? 'border-purple-500 bg-purple-50 text-purple-600 dark:border-purple-500/80 dark:bg-purple-900/30 dark:text-purple-200 shadow-sm'
-                      : 'border-gray-200/70 dark:border-gray-700/60 text-gray-700 dark:text-gray-200 hover:border-purple-400/70'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="itemType"
-                    checked={currentItemType === 'drink'}
-                    onChange={() => setCurrentItemType('drink')}
-                    className="sr-only"
-                  />
-                  Drink Special
-                </label>
-              </div>
+              <label htmlFor="itemType" className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400 mb-3 block">
+                Item Type *
+              </label>
+              <select
+                id="itemType"
+                value={currentItemType}
+                onChange={(e) => setCurrentItemType(e.target.value as ItemType)}
+                className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+              >
+                <option value="event">Event</option>
+                <option value="food">Food Special</option>
+                <option value="drink">Drink Special</option>
+                <option value="announcement">Announcement</option>
+              </select>
             </div>
           </div>
         )}
 
         {/* Basic Information Section */}
         <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-5 backdrop-blur-sm space-y-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Status</p>
-              <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
-                Control whether this item appears publicly.
-              </p>
+          {currentItemType !== 'announcement' && (
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Status</p>
+                <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                  Control whether this item appears publicly.
+                </p>
+              </div>
+              <StatusToggle
+                type="active"
+                value={currentItemType === 'event' ? eventData.isActive : specialData.isActive}
+                onChange={(value) => {
+                  if (currentItemType === 'event') {
+                    setEventData({ ...eventData, isActive: value });
+                  } else {
+                    setSpecialData({ ...specialData, isActive: value });
+                  }
+                }}
+                className="shrink-0"
+              />
             </div>
-            <StatusToggle
-              type="active"
-              value={currentItemType === 'event' ? eventData.isActive : specialData.isActive}
-              onChange={(value) => {
-                if (currentItemType === 'event') {
-                  setEventData({ ...eventData, isActive: value });
-                } else {
-                  setSpecialData({ ...specialData, isActive: value });
-                }
-              }}
-              className="shrink-0"
-            />
-          </div>
+          )}
 
           <div className="space-y-4">
             <div className="space-y-1.5">
@@ -947,7 +1084,224 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
           </>
         )}
 
+        {/* Announcement-specific fields */}
+        {currentItemType === 'announcement' && (
+          <>
+            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-5 backdrop-blur-sm space-y-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Announcement Content</p>
+                <p className="mt-1 text-xs text-gray-600 dark:text-gray-300 max-w-sm">
+                  Create your announcement with title and content.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <label htmlFor="announcement-title" className="text-sm font-medium text-gray-900 dark:text-white">
+                    Title *
+                  </label>
+                  <input
+                    id="announcement-title"
+                    type="text"
+                    value={announcementData.title}
+                    onChange={(e) => setAnnouncementData({ ...announcementData, title: e.target.value })}
+                    required
+                    className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label htmlFor="announcement-body" className="text-sm font-medium text-gray-900 dark:text-white">
+                    Content *
+                  </label>
+                  <textarea
+                    id="announcement-body"
+                    value={announcementData.body}
+                    onChange={(e) => setAnnouncementData({ ...announcementData, body: e.target.value })}
+                    rows={3}
+                    required
+                    className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all resize-none"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Supports markdown and HTML</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-5 backdrop-blur-sm space-y-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Schedule</p>
+                <p className="mt-1 text-xs text-gray-600 dark:text-gray-300 max-w-sm">
+                  Set when this announcement should be published and expire.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="relative isolate">
+                  <DateTimePicker
+                    label="Publish Date & Time"
+                    value={announcementData.publishAt}
+                    onChange={(value) => setAnnouncementData({ ...announcementData, publishAt: value })}
+                    required
+                  />
+                </div>
+
+                <div className="relative isolate">
+                  <DateTimePicker
+                    label="Expiration Date & Time"
+                    value={announcementData.expiresAt}
+                    onChange={(value) => {
+                      if (announcementData.publishAt && value) {
+                        const publishDate = new Date(announcementData.publishAt);
+                        const expireDate = new Date(value);
+                        const maxExpireDate = new Date(publishDate);
+                        maxExpireDate.setMonth(maxExpireDate.getMonth() + 1);
+                        
+                        if (expireDate > maxExpireDate) {
+                          showToast(
+                            'Expiration date cannot be more than 1 month after publish date',
+                            'error',
+                            `Maximum expiration date: ${maxExpireDate.toLocaleDateString()} ${maxExpireDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                          );
+                          const maxValue = maxExpireDate.toISOString().slice(0, 16);
+                          setAnnouncementData({ ...announcementData, expiresAt: maxValue });
+                          return;
+                        }
+                      }
+                      setAnnouncementData({ ...announcementData, expiresAt: value });
+                    }}
+                    min={announcementData.publishAt || undefined}
+                    max={announcementData.publishAt ? (() => {
+                      const maxDate = new Date(announcementData.publishAt);
+                      maxDate.setMonth(maxDate.getMonth() + 1);
+                      return maxDate.toISOString().slice(0, 16);
+                    })() : undefined}
+                    required
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Must be within 1 month of publish date</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-5 backdrop-blur-sm space-y-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Social Media</p>
+                <p className="mt-1 text-xs text-gray-600 dark:text-gray-300 max-w-sm">
+                  Automatically share this announcement to your connected social media accounts.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label
+                  htmlFor="crossPostFacebook"
+                  className={`inline-flex items-center gap-3 rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-2 text-sm font-medium text-gray-900 dark:text-white shadow-inner cursor-pointer transition-colors ${
+                    facebookConnected ? 'hover:border-blue-400/70 focus-within:ring-2 focus-within:ring-blue-500/30' : 'opacity-50 cursor-not-allowed'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    id="crossPostFacebook"
+                    checked={announcementData.crossPostFacebook}
+                    onChange={(e) => setAnnouncementData({ ...announcementData, crossPostFacebook: e.target.checked })}
+                    disabled={!facebookConnected}
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span>
+                    Cross-post to Facebook
+                    {!facebookConnected && ' (Connect Facebook in Settings)'}
+                  </span>
+                </label>
+                <label
+                  htmlFor="crossPostInstagram"
+                  className="inline-flex items-center gap-3 rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-400 shadow-inner cursor-not-allowed opacity-50"
+                >
+                  <input
+                    type="checkbox"
+                    id="crossPostInstagram"
+                    checked={announcementData.crossPostInstagram}
+                    onChange={(e) => setAnnouncementData({ ...announcementData, crossPostInstagram: e.target.checked })}
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    disabled
+                  />
+                  <span>Cross-post to Instagram (coming soon)</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-5 backdrop-blur-sm space-y-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Call-to-Action</p>
+                <p className="mt-1 text-xs text-gray-600 dark:text-gray-300 max-w-sm">
+                  Add an optional button to your announcement.
+                </p>
+              </div>
+
+              <label
+                htmlFor="showCTA"
+                className="inline-flex items-center gap-3 rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-2 text-sm font-medium text-gray-900 dark:text-white shadow-inner cursor-pointer transition-colors hover:border-blue-400/70 focus-within:ring-2 focus-within:ring-blue-500/30"
+              >
+                <input
+                  type="checkbox"
+                  id="showCTA"
+                  checked={showCTA}
+                  onChange={(e) => {
+                    setShowCTA(e.target.checked);
+                    if (!e.target.checked) {
+                      setAnnouncementData({ ...announcementData, ctaText: '', ctaUrl: '' });
+                    }
+                  }}
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                Add Call-to-Action Button
+              </label>
+
+              {showCTA && (
+                <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/70 dark:bg-gray-900/40 p-3 shadow-inner space-y-3 border-l-4 border-l-blue-500 dark:border-l-blue-400">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Both fields are required for the CTA button to appear.</p>
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <label htmlFor="ctaText" className="text-sm font-medium text-gray-900 dark:text-white">
+                        Button Text *
+                      </label>
+                      <input
+                        id="ctaText"
+                        type="text"
+                        value={announcementData.ctaText}
+                        onChange={(e) => setAnnouncementData({ ...announcementData, ctaText: e.target.value })}
+                        placeholder="e.g., Learn More, Book Now, Order Here"
+                        className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label htmlFor="ctaUrl" className="text-sm font-medium text-gray-900 dark:text-white">
+                        Button URL *
+                      </label>
+                      <input
+                        id="ctaUrl"
+                        type="url"
+                        value={announcementData.ctaUrl}
+                        onChange={(e) => setAnnouncementData({ ...announcementData, ctaUrl: e.target.value })}
+                        placeholder="https://example.com or /menu"
+                        className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
         <div className="flex flex-wrap items-center justify-end gap-2 shrink-0 pt-4">
+          {isEditing && currentItemType === 'announcement' && item && 'body' in item && item.id && onDelete && (
+            <button
+              type="button"
+              onClick={() => setShowDeleteConfirm(true)}
+              disabled={deleteLoading || loading}
+              className="px-3 py-1.5 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 cursor-pointer"
+            >
+              Delete
+            </button>
+          )}
           <button
             type="button"
             onClick={onClose}
@@ -961,7 +1315,8 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
               loading ||
               (currentItemType === 'event' && !eventData.startDateTime) ||
               (currentItemType === 'food' && !specialData.startDate && !specialData.endDate) ||
-              (currentItemType === 'drink' && specialData.appliesOn.length === 0 && !specialData.startDate && !specialData.endDate)
+              (currentItemType === 'drink' && specialData.appliesOn.length === 0 && !specialData.startDate && !specialData.endDate) ||
+              (currentItemType === 'announcement' && (!announcementData.title || !announcementData.body || !announcementData.publishAt || !announcementData.expiresAt))
             }
             className="px-3 py-1.5 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-blue-500/20 cursor-pointer"
           >
@@ -983,6 +1338,43 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
         }}
         currentImagePath={currentItemType === 'food' || currentItemType === 'drink' ? specialData.image : undefined}
       />
+
+      {currentItemType === 'announcement' && item && 'body' in item && item.id && (
+        <ConfirmationDialog
+          isOpen={showDeleteConfirm}
+          onClose={() => setShowDeleteConfirm(false)}
+          onConfirm={async () => {
+            setDeleteLoading(true);
+            try {
+              const res = await fetch(`/api/announcements/${item.id}`, {
+                method: 'DELETE',
+              });
+
+              if (res.ok) {
+                showToast('Announcement deleted successfully', 'success');
+                if (item.id) {
+                  onDelete?.(item.id);
+                }
+                onClose();
+                onSuccess?.();
+              } else {
+                const error = await res.json();
+                showToast('Failed to delete announcement', 'error', error.error || error.details || 'An error occurred');
+              }
+            } catch (error) {
+              showToast('Failed to delete announcement', 'error', error instanceof Error ? error.message : 'An error occurred');
+            } finally {
+              setDeleteLoading(false);
+              setShowDeleteConfirm(false);
+            }
+          }}
+          title="Delete Announcement"
+          message={`Are you sure you want to delete "${announcementData.title}"? This action cannot be undone.`}
+          confirmText={deleteLoading ? 'Deleting...' : 'Delete'}
+          cancelText="Cancel"
+          variant="danger"
+        />
+      )}
     </Modal>
   );
 }

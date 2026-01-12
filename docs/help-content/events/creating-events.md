@@ -24,7 +24,7 @@ Create single events that don't repeat.
 ## How to Create
 
 ### From Calendar
-1. Go to **Calendar** (`/admin`)
+1. Go to [Calendar](/admin)
 2. Click the date
 3. Select **"New Event"**
 4. Fill details and save

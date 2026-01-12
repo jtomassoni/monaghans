@@ -5,7 +5,7 @@ route: /admin/menu
 keywords:
   - reorder menu
   - reorder items
-  - display order
+  - drag and drop
   - menu order
 aliases:
   - menu organization
@@ -20,103 +20,101 @@ lastUpdated: 2025-01-27
 
 # Reordering Menu Sections and Items
 
-Control how sections and items appear using Display Order.
+Reorder sections and items using simple drag-and-drop. No numbers or manual ordering needed.
 
-## Display Order System
+## How It Works
 
-Both sections and items use **Display Order** numbers:
-- **Lower numbers appear first** (1, 2, 3...)
-- **Higher numbers appear later** (10, 20, 30...)
-- Use increments of 10 for easy reordering
+Both sections and items use **drag-and-drop** reordering:
+- Click and hold an item or section
+- Drag it to the desired position
+- Release to save the new order
+- Changes save automatically
 
 ## Reorder Sections
 
-1. Go to **Menu** → **Sections**
-2. Edit the section
-3. Change **Display Order**:
-   - Lower = earlier
-   - Higher = later
-4. Save
+Reorder menu sections (Appetizers, Entrees, Desserts, etc.):
 
-### Example
+1. Go to [Menu](/admin/menu)
+2. Click the **"Reorder Sections"** toggle at the top
+3. Drag sections up or down to reorder
+4. Release to save
+5. Click **"Reorder Sections"** again to exit reorder mode
 
-```
-Appetizers: 10
-Salads: 20
-Entrees: 30
-Desserts: 40
-```
+### Visual Feedback
 
-Move "Desserts" before "Entrees":
-- Change "Desserts" to 25
-- Order: Appetizers (10), Salads (20), Desserts (25), Entrees (30)
+While reordering:
+- Dragged section appears slightly transparent
+- Drop target shows a blue highlight
+- Order updates in real-time as you drag
 
 ## Reorder Items
 
-1. Go to **Menu** → **Items**
-2. Edit the item
-3. Change **Display Order** within section
-4. Save
+Reorder items within a section:
 
-**Note**: Order only affects items within same section. Sections ordered first.
+1. Go to [Menu](/admin/menu)
+2. Expand the section containing items you want to reorder
+3. Click the **"Reorder Items"** toggle for that section
+4. Drag items up or down within the section
+5. Release to save
+6. Click **"Reorder Items"** again to exit reorder mode
 
-### Example (within "Entrees")
+### Important Notes
 
-```
-Classic Burger: 10
-Chicken Sandwich: 20
-Fish & Chips: 30
-```
-
-Move "Fish & Chips" first:
-- Change to 5
-- Order: Fish & Chips (5), Classic Burger (10), Chicken Sandwich (20)
+- Items can only be reordered within their own section
+- To move an item to a different section, edit the item and change its section
+- Each section has its own reorder mode toggle
 
 ## Tips
 
-### Use Increments of 10
-Easier to insert later:
-- Between 20 and 30? Use 25
-- Before 10? Use 5
+### Plan Your Order
 
-### Plan Order
-Logical flow:
+Think about logical flow:
 - **Sections**: Appetizers → Main Courses → Desserts → Drinks
-- **Items**: Popular first, alphabetical, or by price
+- **Items**: Popular items first, or group by type
 
-### Consistent Numbering
-- Sections: 10, 20, 30, 40...
-- Items: 10, 20, 30, 40...
+### Quick Reordering
 
-## Quick Reordering
+- Drag items to the top to make them appear first
+- Drag items to the bottom to make them appear last
+- Reorder multiple items in one session
 
-1. **Start Fresh**: Renumber everything in increments of 10 if messy
-2. **Insert**: Use numbers between existing (e.g., 15 between 10 and 20)
-3. **Move to End**: Use high number (e.g., 999)
-4. **Move to Beginning**: Use low number (e.g., 1)
+### Visual Organization
 
-## Display Order
-
-Menu shows:
-1. Sections by Display Order (lowest first)
-2. Items within each section by Display Order (lowest first)
+- Keep related items together
+- Group similar items (e.g., all burgers together)
+- Place popular or featured items at the top
 
 ## Ordering Strategies
 
 ### By Popularity
-Most popular first: 10, 20, 30... (most popular = 10)
+Drag most popular items to the top of each section.
 
 ### Alphabetical
-A-Z order: 10, 20, 30... (A = 10, B = 20)
+Arrange items A-Z within each section.
 
 ### By Price
-Lowest/highest first: 10, 20, 30... (sorted by price)
+Group items by price range (lowest to highest, or vice versa).
 
 ### By Category
-Group similar items: 10-19 (burgers), 20-29 (sandwiches)
+Group similar items together (e.g., all burgers, then all sandwiches).
+
+## Troubleshooting
+
+### Can't Drag Items
+- Make sure **"Reorder Items"** toggle is enabled for that section
+- Ensure the section is expanded
+- Try refreshing the page
+
+### Can't Drag Sections
+- Make sure **"Reorder Sections"** toggle is enabled at the top
+- Try refreshing the page
+
+### Changes Not Saving
+- Check your internet connection
+- Try refreshing the page
+- Changes should save automatically when you release the drag
 
 ## Next Steps
 
 - [Manage sections](./menu-sections.md)
 - [Create items](./menu-items.md)
-

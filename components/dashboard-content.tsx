@@ -7,11 +7,12 @@ import EventModalForm from '@/components/event-modal-form';
 import SpecialModalForm from '@/components/special-modal-form';
 import DrinkSpecialModalForm from '@/components/drink-special-modal-form';
 import AnnouncementModalForm from '@/components/announcement-modal-form';
+import UnifiedItemModalForm from '@/components/unified-item-modal-form';
 import EventsList from '@/app/admin/specials-events-list';
 import { FaCalendarAlt, FaList, FaPlus } from 'react-icons/fa';
 import { useAdminMobileHeader } from '@/components/admin-mobile-header-context';
-import NewItemSelectionModal from '@/components/new-item-selection-modal';
-import HelpButton from '@/components/help-button';
+import HelpModal from '@/components/help-modal';
+import { FaQuestionCircle } from 'react-icons/fa';
 
 interface CalendarEvent {
   id: string;
@@ -118,7 +119,9 @@ export default function DashboardContent({ events: initialEvents, specials, anno
   const [announcementModalOpen, setAnnouncementModalOpen] = useState(false);
   const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
   const [localAnnouncements, setLocalAnnouncements] = useState<CalendarAnnouncement[]>(announcements);
-  const [newItemSelectionModalOpen, setNewItemSelectionModalOpen] = useState(false);
+  const [unifiedFormOpen, setUnifiedFormOpen] = useState(false);
+  const [unifiedFormItem, setUnifiedFormItem] = useState<Event | Special | Announcement | null>(null);
+  const [unifiedFormItemType, setUnifiedFormItemType] = useState<'event' | 'food' | 'drink' | 'announcement' | undefined>(undefined);
   
   // Track the last initialEvents IDs to prevent unnecessary updates
   const lastInitialEventsIdsRef = useRef<string>(JSON.stringify(initialEvents.map(e => e.id).sort()));
@@ -435,7 +438,11 @@ export default function DashboardContent({ events: initialEvents, specials, anno
   useEffect(() => {
     const mobileButton = (
       <button
-        onClick={() => setNewItemSelectionModalOpen(true)}
+        onClick={() => {
+          setUnifiedFormItem(null);
+          setUnifiedFormItemType(undefined);
+          setUnifiedFormOpen(true);
+        }}
         className="h-9 px-2.5 bg-blue-500 dark:bg-blue-600 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-medium text-xs transition-all duration-200 active:scale-95 flex items-center justify-center gap-1.5 border border-blue-400 dark:border-blue-500 touch-manipulation shadow-sm"
       >
         <span className="text-xs">➕</span>
@@ -468,10 +475,25 @@ export default function DashboardContent({ events: initialEvents, specials, anno
             {/* Right side actions */}
             <div className="flex items-center gap-2 flex-shrink-0">
               {/* Help Button */}
-              <HelpButton feature="events" variant="button" />
+              <HelpModal
+                feature="events"
+                trigger={
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition-colors"
+                  >
+                    <FaQuestionCircle className="w-4 h-4" />
+                    Help
+                  </button>
+                }
+              />
               {/* New Button */}
               <button
-                onClick={() => setNewItemSelectionModalOpen(true)}
+                onClick={() => {
+                  setUnifiedFormItem(null);
+                  setUnifiedFormItemType(undefined);
+                  setUnifiedFormOpen(true);
+                }}
                 className="px-4 py-2 bg-blue-500 dark:bg-blue-600 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-medium text-sm transition-colors duration-200 flex items-center justify-center gap-2 shadow-sm hover:shadow-md active:scale-[0.98]"
               >
                 <FaPlus className="w-3.5 h-3.5" />
@@ -652,27 +674,24 @@ export default function DashboardContent({ events: initialEvents, specials, anno
         onAnnouncementUpdated={handleAnnouncementUpdated}
       />
 
-      {/* New Item Selection Modal - Mobile */}
-      <NewItemSelectionModal
-        isOpen={newItemSelectionModalOpen}
-        onClose={() => setNewItemSelectionModalOpen(false)}
-        onSelectEvent={() => {
-          handleNewEvent();
+      {/* Unified Form for Creating New Items */}
+      <UnifiedItemModalForm
+        isOpen={unifiedFormOpen}
+        onClose={() => {
+          setUnifiedFormOpen(false);
+          setUnifiedFormItem(null);
+          setUnifiedFormItemType(undefined);
         }}
-        onSelectFoodSpecial={() => {
-          setSpecialType('food');
-          setEditingSpecial(null);
-          setSpecialModalOpen(true);
+        item={unifiedFormItem ? (unifiedFormItem as any) : undefined}
+        itemType={unifiedFormItemType}
+        onSuccess={handleModalSuccess}
+        onDelete={(id) => {
+          if (unifiedFormItem && 'body' in unifiedFormItem) {
+            handleAnnouncementDeleted(id);
+          }
         }}
-        onSelectDrinkSpecial={() => {
-          setSpecialType('drink');
-          setEditingSpecial(null);
-          setSpecialModalOpen(true);
-        }}
-        onSelectAnnouncement={() => {
-          setEditingAnnouncement(null);
-          setAnnouncementModalOpen(true);
-        }}
+        onAnnouncementAdded={handleAnnouncementAdded}
+        onAnnouncementUpdated={handleAnnouncementUpdated}
       />
     </>
   );

@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
-import HelpButton from './help-button';
+import HelpModal from './help-modal';
 import { FeatureKey } from '@/lib/help-keywords';
+import { FaQuestionCircle } from 'react-icons/fa';
 
 interface AdminPageHeaderProps {
   title: string;
@@ -37,7 +38,19 @@ export default function AdminPageHeader({
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           {helpFeature && (
-            <HelpButton feature={helpFeature} slug={helpSlug} variant="button" />
+            <HelpModal
+              feature={helpFeature}
+              slug={helpSlug}
+              trigger={
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition-colors"
+                >
+                  <FaQuestionCircle className="w-4 h-4" />
+                  Help
+                </button>
+              }
+            />
           )}
           {action && (
             <div>

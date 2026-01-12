@@ -3,7 +3,8 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import SignageForm from './signage-form';
-import HelpButton from '@/components/help-button';
+import HelpModal from '@/components/help-modal';
+import { FaQuestionCircle } from 'react-icons/fa';
 
 type SignageConfig = {
   includeWelcome: boolean;
@@ -90,7 +91,18 @@ export default async function AdminSignagePage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <HelpButton feature="signage" variant="button" />
+              <HelpModal
+                feature="signage"
+                trigger={
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition-colors"
+                  >
+                    <FaQuestionCircle className="w-4 h-4" />
+                    Help
+                  </button>
+                }
+              />
               <a
                 href="/specials-tv"
                 target="_blank"

@@ -25,7 +25,7 @@ Create, edit, and manage individual dishes and drinks.
 
 ## Create Item
 
-1. Go to **Menu** (`/admin/menu`)
+1. Go to [Menu](/admin/menu)
 2. Click **"Items"** tab
 3. Click **"New Item"** (or "+")
 4. Fill details and save
@@ -40,7 +40,6 @@ Create, edit, and manage individual dishes and drinks.
 - **Price Notes**: Additional pricing (e.g., "Market Price", "Add $2 for cheese")
 - **Modifiers**: Customization options (see [Modifiers](./modifiers.md))
 - **Availability**: Available or Unavailable
-- **Display Order**: Order in section (lower = first)
 - **Prep Time**: Estimated minutes
 
 ## Edit Item
@@ -95,11 +94,6 @@ Shown next to price:
 - "Market Price"
 - "Add $2 for extra cheese"
 - "Prices vary by size"
-
-### Display Order
-Order within section:
-- Lower numbers appear first (1, 2, 3...)
-- Use increments of 10 for easy reordering
 
 ### Prep Time
 Estimated minutes. Used for:

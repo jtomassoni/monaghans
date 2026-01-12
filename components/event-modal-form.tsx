@@ -598,16 +598,18 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
       isOpen={isOpen}
       onClose={onClose}
       title={event?.id ? 'Edit Event' : 'Create Event'}
+      helpFeature="events"
+      helpSlug="creating-events"
     >
-      <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+      <form onSubmit={handleSubmit} className="space-y-2 sm:space-y-3">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-3">
           {/* Left Column */}
-          <div className="space-y-3 sm:space-y-4">
-            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 sm:p-4 backdrop-blur-sm space-y-2.5 sm:space-y-3">
-              <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="space-y-2 sm:space-y-3">
+            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-2.5 sm:p-3 backdrop-blur-sm space-y-2">
+              <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Event Status</p>
-                  <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                  <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300">
                     Control whether this event appears on your public calendar.
                   </p>
                 </div>
@@ -619,8 +621,8 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
                 />
               </div>
 
-              <div className="space-y-3">
-                <div className="space-y-1.5">
+              <div className="space-y-2">
+                <div className="space-y-1">
                   <label htmlFor="title" className="text-sm font-medium text-gray-900 dark:text-white">
                     Title *
                   </label>
@@ -631,14 +633,14 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                     required
                     maxLength={60}
-                    className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-3 sm:py-2 text-base sm:text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all min-h-[44px] touch-manipulation"
+                    className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2 text-base sm:text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all min-h-[44px] touch-manipulation"
                   />
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     {formData.title.length}/60 characters
                   </p>
                 </div>
 
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <label htmlFor="description" className="text-sm font-medium text-gray-900 dark:text-white">
                     Description
                   </label>
@@ -648,7 +650,7 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     rows={2}
                     maxLength={150}
-                    className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all resize-none min-h-[60px] touch-manipulation"
+                    className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-1.5 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all resize-none min-h-[60px] touch-manipulation"
                   />
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     {formData.description.length}/150 characters

@@ -69,12 +69,12 @@ export function HelpProvider({ children }: HelpProviderProps) {
 
   const getHelpUrl = (feature?: FeatureKey, slug?: string): string => {
     const targetFeature = feature || currentFeature;
-    if (!targetFeature) return '/help';
+    if (!targetFeature) return '/admin/help';
     
     if (slug) {
-      return `/help?feature=${targetFeature}&slug=${slug}`;
+      return `/admin/help?feature=${targetFeature}&slug=${slug}`;
     }
-    return `/help?feature=${targetFeature}`;
+    return `/admin/help?feature=${targetFeature}`;
   };
 
   const getHelpModalProps = (feature?: FeatureKey, slug?: string) => {

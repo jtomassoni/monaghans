@@ -133,7 +133,7 @@ export default function HelpSearch({ initialQuery, allDocs }: HelpSearchProps) {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (query.trim()) {
-      router.push(`/help?q=${encodeURIComponent(query.trim())}`);
+      router.push(`/admin/help?q=${encodeURIComponent(query.trim())}`);
       setShowResults(false);
     }
   };
@@ -147,19 +147,27 @@ export default function HelpSearch({ initialQuery, allDocs }: HelpSearchProps) {
     <div className="relative">
       <form onSubmit={handleSearch} className="relative">
         <div className="relative">
-          <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-4 h-4" />
+          <FaSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-4 h-4" />
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onFocus={() => query.trim() && setShowResults(true)}
             placeholder="Search help documentation... (e.g., 'calendar', 'create event', 'menu items')"
-            className="w-full pl-10 pr-3 py-2 text-sm bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:border-blue-400 shadow-sm hover:shadow-md transition-shadow"
+            className={`w-full pl-12 ${query.trim() ? 'pr-24' : 'pr-4'} py-2.5 text-sm bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/50 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 focus:border-blue-300 dark:focus:border-blue-600 transition-all shadow-sm hover:shadow-md`}
           />
           {isSearching && (
             <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
               <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
             </div>
+          )}
+          {!isSearching && query.trim() && (
+            <button
+              type="submit"
+              className="absolute right-2 top-1/2 transform -translate-y-1/2 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors"
+            >
+              Search
+            </button>
           )}
         </div>
       </form>
@@ -184,7 +192,7 @@ export default function HelpSearch({ initialQuery, allDocs }: HelpSearchProps) {
               return (
                 <Link
                   key={`${doc.metadata.feature}-${doc.slug}`}
-                  href={`/help?feature=${doc.metadata.feature}&slug=${doc.slug}`}
+                  href={`/admin/help?feature=${doc.metadata.feature}&slug=${doc.slug}`}
                   onClick={handleResultClick}
                   className={`block p-3 border-l-4 ${hoverClass} rounded-lg transition-colors`}
                 >

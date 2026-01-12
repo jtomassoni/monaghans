@@ -23,7 +23,7 @@ Promote daily or weekly beverage deals, including happy hour.
 
 ## Create Special
 
-1. Go to **Drink Specials** (`/admin/drink-specials`)
+1. Go to [Drink Specials](/admin/drink-specials)
 2. Click **"New Drink Special"**
 3. Fill details and save
 
@@ -89,14 +89,14 @@ Enter time range in **Time Window**:
 
 ## Edit Special
 
-1. Go to **Drink Specials**
+1. Go to [Drink Specials](/admin/drink-specials)
 2. Click the special
 3. Update details
 4. Save
 
 ## Delete Special
 
-1. Go to **Drink Specials**
+1. Go to [Drink Specials](/admin/drink-specials)
 2. Click delete icon (trash)
 3. Confirm
 

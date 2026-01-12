@@ -22,7 +22,7 @@ Manage business info, hours, and system configuration.
 
 ## Access Settings
 
-1. Go to **Settings** (`/admin/settings`)
+1. Go to [Settings](/admin/settings)
 2. Review and update options
 
 ## Business Information

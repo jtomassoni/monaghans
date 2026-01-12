@@ -61,9 +61,9 @@ export default function HelpGutterNav({ docsByFeature, featureColors }: HelpGutt
 
   const NavContent = () => (
     <>
-      <div className="p-4 sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 z-10">
+      <div className="p-4 sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 z-10 backdrop-blur-sm">
         <Link
-          href="/help"
+          href="/admin/help"
           className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors group"
           onClick={() => setIsMobileOpen(false)}
         >
@@ -76,7 +76,7 @@ export default function HelpGutterNav({ docsByFeature, featureColors }: HelpGutt
         </Link>
       </div>
       
-      <div className="p-2 space-y-1">
+      <div className="p-2 space-y-1 pb-4">
         {(Object.keys(docsByFeature) as FeatureKey[]).map((featureKey) => {
           const featureDocs = docsByFeature[featureKey];
           if (featureDocs.length === 0) return null;
@@ -87,9 +87,9 @@ export default function HelpGutterNav({ docsByFeature, featureColors }: HelpGutt
           const isActiveArticle = currentFeature === featureKey && currentSlug;
 
           return (
-            <div key={featureKey}>
+            <div key={featureKey} className="scroll-mt-2">
               <Link
-                href={`/help?feature=${featureKey}`}
+                href={`/admin/help?feature=${featureKey}`}
                 onClick={() => setIsMobileOpen(false)}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group ${
                   isActive
@@ -121,15 +121,15 @@ export default function HelpGutterNav({ docsByFeature, featureColors }: HelpGutt
                 )}
               </Link>
               
-              {/* Show articles when this feature is active */}
+              {/* Show articles when this feature is active - but keep it compact */}
               {isActiveArticle && (
-                <div className="ml-4 mt-1 space-y-0.5 pl-7 border-l-2 border-gray-200 dark:border-gray-700">
+                <div className="ml-4 mt-1 space-y-0.5 pl-7 border-l-2 border-gray-200 dark:border-gray-700 max-h-96 overflow-y-auto">
                   {featureDocs.map((doc) => {
                     const isCurrentArticle = doc.slug === currentSlug;
                     return (
                       <Link
                         key={doc.slug}
-                        href={`/help?feature=${featureKey}&slug=${doc.slug}`}
+                        href={`/admin/help?feature=${featureKey}&slug=${doc.slug}`}
                         onClick={() => setIsMobileOpen(false)}
                         className={`block px-3 py-1.5 rounded-md text-sm transition-colors ${
                           isCurrentArticle
@@ -185,7 +185,9 @@ export default function HelpGutterNav({ docsByFeature, featureColors }: HelpGutt
         ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         shadow-lg lg:shadow-none
       `}>
-        <NavContent />
+        <div className="h-full flex flex-col">
+          <NavContent />
+        </div>
       </nav>
     </>
   );

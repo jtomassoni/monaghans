@@ -30,7 +30,7 @@ Visual view of scheduled content:
 
 ## Create Your First Event
 
-1. Go to **Calendar** page in admin
+1. Go to [Calendar](/admin) page in admin
 2. Click **"Create Event"** (or click a date)
 3. Fill details:
    - **Title**: Event name
