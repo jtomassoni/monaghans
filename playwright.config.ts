@@ -157,41 +157,63 @@ export default defineConfig({
       ADMIN_USER: process.env.ADMIN_USER || '',
       // Convert ADMIN_USER JSON to colon format if needed, or use TEST_ADMIN_USERS/ADMIN_USERS
       ADMIN_USERS: (() => {
+        let value: string;
         // If TEST_ADMIN_USERS is set (for testing), use it
-        if (process.env.TEST_ADMIN_USERS) return process.env.TEST_ADMIN_USERS;
-        // If ADMIN_USERS is explicitly set, use it
-        if (process.env.ADMIN_USERS) return process.env.ADMIN_USERS;
-        // If ADMIN_USER is set, try to parse it and convert to colon format
-        if (process.env.ADMIN_USER) {
+        if (process.env.TEST_ADMIN_USERS) {
+          value = process.env.TEST_ADMIN_USERS.trim();
+        } else if (process.env.ADMIN_USERS) {
+          // If ADMIN_USERS is explicitly set, use it
+          value = process.env.ADMIN_USERS.trim();
+        } else if (process.env.ADMIN_USER) {
+          // If ADMIN_USER is set, try to parse it and convert to colon format
           try {
             const parsed = JSON.parse(process.env.ADMIN_USER);
             if (parsed && typeof parsed === 'object' && parsed.username && parsed.password) {
-              return `${parsed.username}:${parsed.password}`;
+              value = `${parsed.username}:${parsed.password}`;
+            } else {
+              value = process.env.ADMIN_USER.trim();
             }
           } catch {
             // Not JSON, might already be colon format
-            return process.env.ADMIN_USER;
+            value = process.env.ADMIN_USER.trim();
           }
+        } else {
+          // Fallback to default test credentials
+          value = 'jt:test';
         }
-        // Fallback to default test credentials
-        return 'jt:test';
+        // Debug: Log what we're passing to the web server (only in non-CI)
+        if (!process.env.CI) {
+          console.log(`🔧 WebServer ADMIN_USERS: "${value}"`);
+        }
+        return value;
       })(),
       OWNER_USER: process.env.OWNER_USER || '',
       // Same conversion for OWNER_USER, with TEST_OWNER_USERS support
       OWNER_USERS: (() => {
-        if (process.env.TEST_OWNER_USERS) return process.env.TEST_OWNER_USERS;
-        if (process.env.OWNER_USERS) return process.env.OWNER_USERS;
-        if (process.env.OWNER_USER) {
+        let value: string;
+        if (process.env.TEST_OWNER_USERS) {
+          value = process.env.TEST_OWNER_USERS.trim();
+        } else if (process.env.OWNER_USERS) {
+          value = process.env.OWNER_USERS.trim();
+        } else if (process.env.OWNER_USER) {
           try {
             const parsed = JSON.parse(process.env.OWNER_USER);
             if (parsed && typeof parsed === 'object' && parsed.username && parsed.password) {
-              return `${parsed.username}:${parsed.password}`;
+              value = `${parsed.username}:${parsed.password}`;
+            } else {
+              value = process.env.OWNER_USER.trim();
             }
           } catch {
-            return process.env.OWNER_USER;
+            value = process.env.OWNER_USER.trim();
           }
+        } else {
+          value = 'owner:test';
         }
-        return 'owner:test';
+        // Debug: Log what we're passing to the web server (only in non-CI)
+        if (!process.env.CI) {
+          console.log(`🔧 WebServer OWNER_USERS: "${value}"`);
+        }
+        return value;
       })(),
       ENABLE_ONLINE_ORDERING: process.env.ENABLE_ONLINE_ORDERING || 'false',
       ENABLE_SOCIAL_POSTING: process.env.ENABLE_SOCIAL_POSTING || 'false',

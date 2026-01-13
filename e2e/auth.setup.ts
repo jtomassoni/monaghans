@@ -70,88 +70,77 @@ async function authenticateUser(page: any, username: string, password: string) {
   // Click submit - the form uses client-side navigation (router.push)
   await submitButton.click();
   
-  // Wait for navigation - client-side navigation might take a moment
-  // Try multiple approaches: URL change, admin content appearing, or network idle
-  let loggedIn = false;
-  
-  // Wait up to 15 seconds for successful login
-  for (let i = 0; i < 15; i++) {
-    await page.waitForTimeout(1000);
-    
-    const currentUrl = page.url();
-    
-    // Check if we navigated away from login page
-    if (!currentUrl.includes('/admin/login') && currentUrl.includes('/admin')) {
-      // We're on an admin page - verify we're logged in by checking for admin content
-      await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
-      
-      // Check for admin content (nav, Monaghan's text, etc.)
-      const adminContent = await page.locator('nav').or(page.locator('text=Monaghan\'s')).or(page.locator('[class*="admin"]')).first().isVisible({ timeout: 2000 }).catch(() => false);
-      
-      if (adminContent) {
-        loggedIn = true;
-        break;
-      }
-    }
-    
-    // Check if we're still on login page - might be an error
-    if (currentUrl.includes('/admin/login')) {
-      // Check for error message
-      const errorVisible = await page.locator('text=/error|invalid|incorrect/i').isVisible({ timeout: 500 }).catch(() => false);
-      if (errorVisible) {
-        const errorText = await page.locator('text=/error|invalid|incorrect/i').textContent().catch(() => '');
-        throw new Error(`Login failed - error message: ${errorText}`);
-      }
-    }
+  // Wait for the button's loading state to complete (button becomes enabled again or page navigates)
+  // The form sets loading=true when submitting, then loading=false when done
+  try {
+    // Wait for either: button becomes enabled again (loading finished) OR navigation happens
+    await Promise.race([
+      page.waitForSelector('button[type="submit"]:not([disabled])', { timeout: 10000 }).catch(() => null),
+      page.waitForURL(url => !url.includes('/admin/login'), { timeout: 10000 }).catch(() => null),
+    ]);
+  } catch (e) {
+    // Ignore - we'll check the result below
   }
   
-  if (!loggedIn) {
-    // Check if we're still on login page - might have an error message
-    const currentUrl = page.url();
-    if (currentUrl.includes('/admin/login')) {
-      // Check for error message on the page
-      const errorText = await page.locator('text=/error|invalid|incorrect|failed/i').textContent({ timeout: 2000 }).catch(() => '');
-      if (errorText) {
-        throw new Error(`Login failed - error message: "${errorText}". Username: ${username}`);
-      }
-      
-      // Try navigating directly to /admin to see if we're actually logged in (session might have been created)
-      await page.goto('/admin');
-      await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
-      await page.waitForTimeout(2000);
-      
-      const finalUrl = page.url();
-      if (finalUrl.includes('/admin/login')) {
-        // Still redirected to login - credentials are definitely wrong or not configured
-        throw new Error(
-          `Login failed - redirected back to login page.\n` +
-          `Username: ${username}\n` +
-          `This usually means:\n` +
-          `- ADMIN_USERS env var is not set correctly on the server\n` +
-          `- Password doesn't match the env var\n` +
-          `- Check that .env file has ADMIN_USERS="jt:test" (or your custom credentials)\n` +
-          `- Verify the dev server has restarted after changing env vars`
-        );
-      }
-      
-      // We're on an admin page - check for content
-      const adminContent = await page.locator('nav').or(page.locator('text=Monaghan\'s')).first().isVisible({ timeout: 3000 }).catch(() => false);
-      if (!adminContent) {
-        throw new Error(`Login failed - navigated to ${finalUrl} but no admin content found`);
-      }
-      
-      // Success - we're logged in!
-      return;
+  // Check for error message (appears if authentication failed)
+  const errorVisible = await page.locator('text=/error|invalid|incorrect|failed/i').isVisible({ timeout: 2000 }).catch(() => false);
+  if (errorVisible) {
+    const errorText = await page.locator('text=/error|invalid|incorrect|failed/i').textContent().catch(() => 'Unknown error');
+    throw new Error(`Login failed - error message: "${errorText}". Username: ${username}`);
+  }
+  
+  // Check if we navigated away from login page
+  const currentUrl = page.url();
+  if (!currentUrl.includes('/admin/login')) {
+    // Successfully navigated - verify we're on an admin page
+    await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
+    const adminContent = await page.locator('nav').or(page.locator('text=Monaghan\'s')).or(page.locator('[class*="admin"]')).first().isVisible({ timeout: 5000 }).catch(() => false);
+    if (!adminContent) {
+      throw new Error(`Login failed - navigated to ${currentUrl} but no admin content found`);
     }
+    // Success - we're logged in!
+    return;
   }
   
-  // Verify we're logged in
-  const finalUrl = page.url();
-  if (finalUrl.includes('/admin/login')) {
-    throw new Error('Login failed - still on login page after all attempts');
+  // Still on login page - check for error message one more time
+  const errorText = await page.locator('text=/error|invalid|incorrect|failed/i').textContent({ timeout: 2000 }).catch(() => '');
+  if (errorText) {
+    throw new Error(`Login failed - error message: "${errorText}". Username: ${username}`);
   }
   
-  // Success - we're logged in
+  // No error message and still on login page - try navigating directly to check if session was created
+  if (currentUrl.includes('/admin/login')) {
+    
+    // Try navigating directly to /admin to see if we're actually logged in (session might have been created)
+    await page.goto('/admin');
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    
+    const finalUrl = page.url();
+    if (finalUrl.includes('/admin/login')) {
+      // Still redirected to login - credentials are definitely wrong or not configured
+      throw new Error(
+        `Login failed - redirected back to login page.\n` +
+        `Username: ${username}\n` +
+        `This usually means:\n` +
+        `- ADMIN_USERS env var is not set correctly on the server\n` +
+        `- Password doesn't match the env var\n` +
+        `- Check that .env file has ADMIN_USERS="jt:test" (or your custom credentials)\n` +
+        `- Verify the dev server has restarted after changing env vars`
+      );
+    }
+    
+    // We're on an admin page - check for content
+    const adminContent = await page.locator('nav').or(page.locator('text=Monaghan\'s')).first().isVisible({ timeout: 3000 }).catch(() => false);
+    if (!adminContent) {
+      throw new Error(`Login failed - navigated to ${finalUrl} but no admin content found`);
+    }
+    
+    // Success - we're logged in!
+    return;
+  }
+  
+  // Should not reach here, but if we do, authentication failed
+  throw new Error('Login failed - still on login page after all attempts');
 }
 
 setup('authenticate as admin', async ({ page }) => {
@@ -218,9 +207,22 @@ setup('authenticate as admin', async ({ page }) => {
 
 setup('authenticate as owner', async ({ page }) => {
   // Get first owner user from env - prefer TEST_OWNER_USERS for tests, then OWNER_USERS, then OWNER_USER
-  const ownerUsers = parseUserCredentials(process.env.TEST_OWNER_USERS || process.env.OWNER_USERS || process.env.OWNER_USER || 'owner:test');
+  const ownerUsersEnv = process.env.TEST_OWNER_USERS || process.env.OWNER_USERS || process.env.OWNER_USER || 'owner:test';
+  const ownerUsers = parseUserCredentials(ownerUsersEnv);
+  
+  // Debug: Log what we're using
+  console.log(`🔍 Owner Auth Debug Info:`);
+  console.log(`   OWNER_USERS env var: ${process.env.OWNER_USERS ? 'SET' : 'NOT SET'}`);
+  console.log(`   OWNER_USER env var: ${process.env.OWNER_USER ? 'SET' : 'NOT SET'}`);
+  console.log(`   Using value: ${ownerUsersEnv.substring(0, 20)}...`);
+  console.log(`   Parsed ${ownerUsers.length} owner user(s)`);
+  
   if (ownerUsers.length === 0) {
-    throw new Error('OWNER_USERS or OWNER_USER must be set with at least one user');
+    throw new Error(
+      `OWNER_USERS or OWNER_USER must be set with at least one user.\n` +
+      `Current value: ${ownerUsersEnv}\n` +
+      `Please set OWNER_USERS="owner:test" in your .env file or environment variables.`
+    );
   }
   
   const { username, password } = ownerUsers[0];
@@ -232,13 +234,31 @@ setup('authenticate as owner', async ({ page }) => {
     await authenticateUser(page, username, password);
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
+    
+    // Try to check if the server can see the env vars by hitting a test endpoint
+    let serverEnvInfo = 'Unable to check server environment';
+    try {
+      const testRes = await page.request.get('/api/test-env');
+      if (testRes.ok()) {
+        const testData = await testRes.json();
+        serverEnvInfo = `Server OWNER_USERS: ${testData.OWNER_USERS || 'NOT SET'}`;
+      }
+    } catch (e) {
+      // Ignore errors checking test endpoint
+    }
+    
     throw new Error(
       `Failed to authenticate as owner:\n${errorMsg}\n\n` +
+      `Debug Info:\n` +
+      `  Test process OWNER_USERS: ${process.env.OWNER_USERS || 'NOT SET'}\n` +
+      `  ${serverEnvInfo}\n` +
+      `  Username attempted: ${username}\n\n` +
       `Troubleshooting:\n` +
       `1. Check that .env file has OWNER_USERS="owner:test" (or your custom credentials)\n` +
       `2. Verify the dev server has the env vars (check webServer.env in playwright.config.ts)\n` +
       `3. Restart the dev server if you just changed env vars\n` +
-      `4. Check server logs for authentication errors`
+      `4. Check server logs for authentication errors\n` +
+      `5. Ensure the web server process has access to OWNER_USERS environment variable`
     );
   }
   
