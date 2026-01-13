@@ -110,13 +110,19 @@ function sanitizeSignageConfig(value: any): SignageConfig {
         })
       : [];
 
+    // Auto-enable custom slides if custom slides are provided and have enabled slides
+    const hasEnabledCustomSlides = cleanCustomSlides.some(slide => slide.isEnabled !== false);
+    const shouldIncludeCustomSlides = parsed?.includeCustomSlides !== undefined 
+      ? parsed.includeCustomSlides 
+      : (hasEnabledCustomSlides || DEFAULT_CONFIG.includeCustomSlides);
+
     return {
       includeWelcome: parsed?.includeWelcome ?? DEFAULT_CONFIG.includeWelcome,
       includeFoodSpecials: parsed?.includeFoodSpecials ?? DEFAULT_CONFIG.includeFoodSpecials,
       includeDrinkSpecials: parsed?.includeDrinkSpecials ?? DEFAULT_CONFIG.includeDrinkSpecials,
       includeHappyHour: parsed?.includeHappyHour ?? DEFAULT_CONFIG.includeHappyHour,
       includeEvents: parsed?.includeEvents ?? DEFAULT_CONFIG.includeEvents,
-      includeCustomSlides: parsed?.includeCustomSlides ?? DEFAULT_CONFIG.includeCustomSlides,
+      includeCustomSlides: shouldIncludeCustomSlides,
       upcomingEventsTileCount: clamp(tileCount || DEFAULT_CONFIG.upcomingEventsTileCount, 1, 12),
       slideDurationSeconds: clamp(slideDuration || DEFAULT_CONFIG.slideDurationSeconds, 4, 60),
       fadeDurationSeconds: clamp(fadeDuration || DEFAULT_CONFIG.fadeDurationSeconds, 0.2, 1.0),

@@ -38,6 +38,7 @@ export default function AdminAnnouncementsList({
   useEffect(() => {
     setAnnouncements(initialAnnouncements);
     // Initialize filteredItems with all announcements
+    // SearchSortFilter will update filteredItems when items prop changes
     setFilteredItems(initialAnnouncements);
   }, [initialAnnouncements]);
 

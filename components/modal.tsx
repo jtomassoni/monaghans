@@ -14,9 +14,10 @@ interface ModalProps {
   helpFeature?: FeatureKey;
   helpSlug?: string;
   zIndex?: number;
+  maxWidth?: string;
 }
 
-export default function Modal({ isOpen, onClose, title, children, helpFeature, helpSlug, zIndex = 9998 }: ModalProps) {
+export default function Modal({ isOpen, onClose, title, children, helpFeature, helpSlug, zIndex = 9998, maxWidth }: ModalProps) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -48,7 +49,7 @@ export default function Modal({ isOpen, onClose, title, children, helpFeature, h
         onClick={onClose}
       >
         <div
-          className={`bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl shadow-2xl border border-gray-200/50 dark:border-gray-700/50 ${!title || !title.trim() ? 'w-full h-full sm:w-auto sm:h-auto sm:max-w-md' : 'w-full sm:w-auto sm:max-w-[420px] lg:max-w-[900px] sm:max-h-[calc(100vh-2rem)]'} flex flex-col overflow-hidden`}
+          className={`bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl shadow-2xl border border-gray-200/50 dark:border-gray-700/50 ${!title || !title.trim() ? 'w-full h-full sm:w-auto sm:h-auto sm:max-w-md' : maxWidth ? `w-full sm:w-auto ${maxWidth} sm:max-h-[calc(100vh-2rem)]` : 'w-full sm:w-auto sm:max-w-[420px] lg:max-w-[900px] sm:max-h-[calc(100vh-2rem)]'} flex flex-col overflow-hidden`}
           onClick={(e) => e.stopPropagation()}
         >
         {/* Header - Sticky within modal to ensure it's always visible */}

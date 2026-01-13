@@ -181,9 +181,55 @@ test.describe('Specials TV', () => {
     const dotCount = await dots.count();
     // Should have at least 2 dots (food special + custom slide), but might have more
     expect(dotCount).toBeGreaterThanOrEqual(2);
-    // Click the last dot to go to custom slide
-    await dots.nth(dotCount - 1).click();
-    await expect(page.getByText(customTitle, { exact: false })).toBeVisible({ timeout: 8000 });
+    
+    // Find which dot corresponds to the custom slide by clicking through them
+    // The custom slide is at position 2, but slides might be in different order
+    let customSlideFound = false;
+    const slideDuration = 4000; // From test params: slideDurationSeconds=4
+    
+    // Try clicking each dot to find the custom slide
+    for (let i = 0; i < dotCount; i++) {
+      const dot = dots.nth(i);
+      await dot.click();
+      // Wait for transition (fade 0.3s + buffer) and slide to settle
+      await page.waitForTimeout(1000);
+      
+      // Check if custom slide is visible
+      try {
+        await expect(page.getByText(customTitle, { exact: false })).toBeVisible({ timeout: 2000 });
+        customSlideFound = true;
+        break;
+      } catch {
+        // Not this slide, continue to next
+        continue;
+      }
+    }
+    
+    // If still not found, wait for slides to rotate naturally
+    if (!customSlideFound) {
+      // Wait for a full rotation cycle (slideDuration * dotCount)
+      const rotationCycle = slideDuration * dotCount;
+      for (let i = 0; i < 3; i++) {
+        await page.waitForTimeout(rotationCycle + 1000);
+        try {
+          await expect(page.getByText(customTitle, { exact: false })).toBeVisible({ timeout: 2000 });
+          customSlideFound = true;
+          break;
+        } catch {
+          continue;
+        }
+      }
+    }
+    
+    if (!customSlideFound) {
+      // Get current slide content for debugging
+      const pageContent = await page.textContent('body').catch(() => 'unable to get content');
+      throw new Error(
+        `Custom slide with title "${customTitle}" not found after multiple attempts.\n` +
+        `Total dots: ${dotCount}\n` +
+        `Page content preview: ${pageContent?.substring(0, 200)}`
+      );
+    }
   });
 
   test('falls back when all sources are disabled', async ({ page }) => {

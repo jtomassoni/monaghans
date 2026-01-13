@@ -312,29 +312,30 @@ for (const role of roles) {
           }
           
           // Event exists in admin - now check public page
-          // Wait a bit more for recurrence to be calculated
-          await page.waitForTimeout(3000);
+          // Wait a bit more for recurrence to be calculated and cached
+          await page.waitForTimeout(5000);
           
           await page.goto('/events');
           await waitForNetworkIdle(page, 10000);
-          await page.waitForTimeout(2000); // Wait for events to render
+          await page.waitForTimeout(3000); // Wait for events to render and recurrence to calculate
           
           // Wait for event to appear with retries (recurring events need time to process)
           const eventTitle = page.locator(`text=${testTitle}`);
           let eventCount = 0;
           
           // Try multiple times - recurring events might need server-side processing
-          for (let i = 0; i < 15; i++) {
+          // The event should appear at least once (the first occurrence)
+          for (let i = 0; i < 20; i++) {
             eventCount = await eventTitle.count();
             if (eventCount > 0) break;
             
             await page.waitForTimeout(1000);
             
-            // Refresh page every few attempts to pick up new events
-            if (i > 2 && i % 3 === 0) {
-              await page.reload();
-              await waitForNetworkIdle(page, 5000);
-              await page.waitForTimeout(1000);
+            // Refresh page every few attempts to pick up new events and clear cache
+            if (i > 2 && i % 4 === 0) {
+              await page.reload({ waitUntil: 'networkidle' });
+              await waitForNetworkIdle(page, 10000);
+              await page.waitForTimeout(2000);
             }
             
             // Scroll to load more events if needed

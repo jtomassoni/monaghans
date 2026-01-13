@@ -164,87 +164,119 @@ for (const role of roles) {
             cardClicked = true;
           }
         }
-        await page.waitForTimeout(1500);
         
-        // Form should appear with existing data
-        const titleInput = page.locator('input[id="title"], input[name="title"]');
-        if (await titleInput.count() > 0) {
-          const currentValue = await titleInput.inputValue();
-          if (currentValue) {
-            const updatedTitle = `${currentValue} - Updated`;
-            await titleInput.fill(updatedTitle);
-            
-              // Save
-              const submitButton = page.locator('button[type="submit"], button:has-text("Save")');
-              if (await submitButton.count() > 0) {
-                await submitButton.first().click();
-                
-                // Wait for either modal to close OR success toast to appear
-                // The form shows a toast and closes the modal after successful submission
-                await Promise.race([
-                  page.waitForSelector('[role="dialog"]', { state: 'hidden', timeout: 10000 }).catch(() => null),
-                  page.waitForSelector('.bg-green-900', { state: 'visible', timeout: 10000 }).catch(() => null),
-                  waitForNetworkIdle(page, 10000).catch(() => null),
-                ]);
-                
-                // Wait a bit more for the list to refresh
-                await page.waitForTimeout(2000);
-                
-                // Check if modal is still open - if so, wait a bit more
-                const modalStillOpen = await page.locator('[role="dialog"]').isVisible({ timeout: 1000 }).catch(() => false);
-                if (modalStillOpen) {
-                  // Modal still open - wait for it to close or check for error
-                  await page.waitForTimeout(2000);
-                  const errorVisible = await page.locator('text=/error|failed/i').isVisible({ timeout: 1000 }).catch(() => false);
-                  if (errorVisible) {
-                    const errorText = await page.locator('text=/error|failed/i').textContent().catch(() => '');
-                    throw new Error(`Form submission failed: ${errorText}`);
-                  }
-                }
-                
-                // Wait for network to settle
-                await waitForNetworkIdle(page, 5000).catch(() => {});
-                
-                // Verify the updated title appears in the list
-                // Refresh the page to ensure we see the updated data
-                await page.reload();
-                await waitForNetworkIdle(page, 5000).catch(() => {});
-                await page.waitForTimeout(1000);
-                
-                const updatedRow = page.locator(`text=${updatedTitle}`).first();
-                const rowVisible = await updatedRow.waitFor({ 
-                  state: 'visible', 
-                  timeout: 5000 
-                }).catch(() => false);
-                
-                if (!rowVisible) {
-                  // Check for success toast as fallback (might still be visible)
-                  const toastVisible = await page.locator('.bg-green-900').filter({ hasText: /success|updated/i }).isVisible({ timeout: 1000 }).catch(() => false);
-                  
-                  if (!toastVisible) {
-                    // Check if the original title is still there (update might have failed)
-                    const originalRow = page.locator(`text=${currentValue}`).first();
-                    const originalVisible = await originalRow.isVisible({ timeout: 1000 }).catch(() => false);
-                    
-                    throw new Error(
-                      `Failed to edit announcement:\n` +
-                      `Test: should edit an existing announcement\n` +
-                      `Original title: ${currentValue}\n` +
-                      `Updated title: ${updatedTitle}\n` +
-                      `Original title still visible: ${originalVisible}\n` +
-                      `Check that:\n` +
-                      `- Announcement exists in seed data\n` +
-                      `- Form submission completed\n` +
-                      `- API endpoint is responding\n` +
-                      `- No console errors in browser`
-                    );
-                  }
-                }
-                
-                // Success - the row is visible or toast appeared
-                expect(true).toBeTruthy();
-              }
+        // Wait for the API call to fetch announcement data (happens when clicking)
+        await page.waitForResponse(
+          response => response.url().includes('/api/announcements/') && response.request().method() === 'GET',
+          { timeout: 10000 }
+        ).catch(() => null);
+        
+        // Wait for modal to appear - try multiple selectors with longer timeout
+        await Promise.race([
+          page.waitForSelector('[role="dialog"]', { state: 'visible', timeout: 10000 }),
+          page.waitForSelector('input[id="title"], input[name="title"]', { state: 'visible', timeout: 10000 }),
+          page.waitForSelector('input[id="announcement-title"]', { state: 'visible', timeout: 10000 }),
+          page.waitForSelector('textarea[id="body"], textarea[name="body"]', { state: 'visible', timeout: 10000 }),
+        ]);
+        
+        // Give form time to populate with data from API
+        await page.waitForTimeout(1000);
+        
+        // Form should appear with existing data - try all possible selectors
+        const titleInput = page.locator('input[id="title"], input[name="title"], input[id="announcement-title"]').first();
+        await titleInput.waitFor({ state: 'visible', timeout: 10000 });
+        
+        const currentValue = await titleInput.inputValue();
+        if (currentValue) {
+          const updatedTitle = `${currentValue} - Updated`;
+          await titleInput.fill(updatedTitle);
+          
+          // Save - wait for API response
+          const submitButton = page.locator('button[type="submit"], button:has-text("Save")');
+          await submitButton.first().waitFor({ state: 'visible', timeout: 5000 });
+          
+          // Set up response listeners before clicking
+          const putResponsePromise = page.waitForResponse(response => 
+            response.url().includes('/api/announcements/') && response.request().method() === 'PUT',
+            { timeout: 10000 }
+          ).catch(() => null);
+          
+          const getResponsePromise = page.waitForResponse(response => 
+            response.url().includes('/api/announcements') && 
+            response.request().method() === 'GET' &&
+            !response.url().includes('/api/announcements/'),
+            { timeout: 10000 }
+          ).catch(() => null);
+          
+          await submitButton.first().click();
+          
+          // Wait for PUT response
+          const putResponse = await putResponsePromise;
+          if (putResponse) {
+            const putStatus = putResponse.status();
+            if (putStatus !== 200) {
+              const responseBody = await putResponse.text().catch(() => '');
+              throw new Error(`Failed to update announcement: API returned status ${putStatus}. Response: ${responseBody}`);
+            }
+          } else {
+            // If no PUT response was captured, check if there was an error
+            await page.waitForTimeout(1000);
+            const errorMessage = page.locator('text=/error|failed/i').first();
+            if (await errorMessage.count() > 0) {
+              throw new Error('Form submission may have failed - error message detected');
+            }
           }
+          
+          // Wait for modal to close
+          await page.waitForSelector('[role="dialog"]', { state: 'hidden', timeout: 10000 }).catch(() => {});
+          
+          // Wait for GET response (list refresh)
+          const getResponse = await getResponsePromise;
+          if (getResponse) {
+            await getResponse.finished().catch(() => {});
+          }
+          
+          // Wait for network to settle
+          await waitForNetworkIdle(page, 3000).catch(() => {});
+          
+          // Verify the updated title appears in the list
+          const updatedRow = page.locator(`text=${updatedTitle}`).first();
+          const rowVisible = await updatedRow.waitFor({ 
+            state: 'visible', 
+            timeout: 5000 
+          }).catch(() => false);
+          
+          if (!rowVisible) {
+            // Try reloading the page as fallback
+            await page.reload();
+            await waitForNetworkIdle(page, 5000).catch(() => {});
+            await page.waitForTimeout(1000);
+            
+            const updatedRowAfterReload = page.locator(`text=${updatedTitle}`).first();
+            const rowVisibleAfterReload = await updatedRowAfterReload.isVisible({ timeout: 5000 }).catch(() => false);
+            
+            if (!rowVisibleAfterReload) {
+              // Check if the original title is still there (update might have failed)
+              const originalRow = page.locator(`text=${currentValue}`).first();
+              const originalVisible = await originalRow.isVisible({ timeout: 1000 }).catch(() => false);
+              
+              throw new Error(
+                `Failed to edit announcement:\n` +
+                `Test: should edit an existing announcement\n` +
+                `Original title: ${currentValue}\n` +
+                `Updated title: ${updatedTitle}\n` +
+                `Original title still visible: ${originalVisible}\n` +
+                `Check that:\n` +
+                `- Announcement exists in seed data\n` +
+                `- Form submission completed\n` +
+                `- API endpoint is responding\n` +
+                `- No console errors in browser`
+              );
+            }
+          }
+          
+          // Success - the row is visible
+          expect(true).toBeTruthy();
         }
       }
     });

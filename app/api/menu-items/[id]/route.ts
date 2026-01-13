@@ -56,28 +56,57 @@ export async function PUT(
       return NextResponse.json({ error: 'Menu item not found' }, { status: 404 });
     }
 
-    const item = await prisma.menuItem.update({
-      where: { id },
-      data: {
-        sectionId: body.sectionId,
-        name: body.name,
-        description: body.description,
-        price: body.price,
-        priceNotes: body.priceNotes,
-        modifiers: body.modifiers ? JSON.stringify(body.modifiers) : null,
-        isAvailable: body.isAvailable,
-        displayOrder: body.displayOrder,
-        prepTimeMin: body.prepTimeMin ? parseInt(body.prepTimeMin) : null,
-      },
-      include: {
-        section: true,
-        ingredients: {
-          include: {
-            ingredient: true,
+    // Try to include ingredients, but fallback if table doesn't exist
+    let item;
+    try {
+      item = await prisma.menuItem.update({
+        where: { id },
+        data: {
+          sectionId: body.sectionId,
+          name: body.name,
+          description: body.description,
+          price: body.price,
+          priceNotes: body.priceNotes,
+          modifiers: body.modifiers ? JSON.stringify(body.modifiers) : null,
+          isAvailable: body.isAvailable,
+          displayOrder: body.displayOrder,
+          prepTimeMin: body.prepTimeMin ? parseInt(body.prepTimeMin) : null,
+        },
+        include: {
+          section: true,
+          ingredients: {
+            include: {
+              ingredient: true,
+            },
           },
         },
-      },
-    });
+      });
+    } catch (error: any) {
+      // If table doesn't exist (P2021), retry without ingredients include
+      if (error?.code === 'P2021' || error?.message?.includes('does not exist')) {
+        item = await prisma.menuItem.update({
+          where: { id },
+          data: {
+            sectionId: body.sectionId,
+            name: body.name,
+            description: body.description,
+            price: body.price,
+            priceNotes: body.priceNotes,
+            modifiers: body.modifiers ? JSON.stringify(body.modifiers) : null,
+            isAvailable: body.isAvailable,
+            displayOrder: body.displayOrder,
+            prepTimeMin: body.prepTimeMin ? parseInt(body.prepTimeMin) : null,
+          },
+          include: {
+            section: true,
+          },
+        });
+        // Add empty ingredients array for consistency
+        item = { ...item, ingredients: [] };
+      } else {
+        throw error;
+      }
+    }
 
     // Build changes object
     const changes: Record<string, { before: any; after: any }> = {};

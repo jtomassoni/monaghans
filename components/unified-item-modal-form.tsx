@@ -343,7 +343,59 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
       setDateError(null);
     }
 
-  }, [item, initialItemType, isOpen, currentItemType]);
+  }, [item, initialItemType, isOpen]);
+
+  // Reset form data when item type changes for new items
+  useEffect(() => {
+    if (!item && isOpen) {
+      // Reset form data based on new type
+      if (currentItemType === 'event') {
+        setEventData({
+          title: '',
+          description: '',
+          startDateTime: '',
+          endDateTime: '',
+          isAllDay: false,
+          isActive: true,
+          venueArea: 'bar',
+        });
+        setRecurrenceType('none');
+        setRecurrenceDays([]);
+        setMonthDay(new Date().getDate());
+      } else if (currentItemType === 'announcement') {
+        const now = new Date();
+        const publishAt = new Date(now);
+        publishAt.setMinutes(0, 0, 0);
+        const expiresAt = new Date(publishAt);
+        expiresAt.setHours(expiresAt.getHours() + 24);
+        setAnnouncementData({
+          title: '',
+          body: '',
+          publishAt: publishAt.toISOString().slice(0, 16),
+          expiresAt: expiresAt.toISOString().slice(0, 16),
+          crossPostFacebook: false,
+          crossPostInstagram: false,
+          ctaText: '',
+          ctaUrl: '',
+        });
+        setShowCTA(false);
+      } else {
+        setSpecialData({
+          title: '',
+          description: '',
+          priceNotes: '',
+          type: currentItemType === 'drink' ? 'drink' : 'food',
+          appliesOn: [],
+          timeWindow: '',
+          startDate: '',
+          endDate: '',
+          image: '',
+          isActive: true,
+        });
+      }
+      setDateError(null);
+    }
+  }, [currentItemType, isOpen, item]);
 
   // Check Facebook connection status when modal opens for announcements
   useEffect(() => {
@@ -610,20 +662,21 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
       isOpen={isOpen}
       onClose={onClose}
       title={title}
+      maxWidth="sm:max-w-[1200px] lg:max-w-[1400px]"
     >
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit} className="space-y-3">
         {/* Item Type Selector - only show when creating new */}
         {!isEditing && (
-          <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-5 backdrop-blur-sm">
+          <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 backdrop-blur-sm">
             <div>
-              <label htmlFor="itemType" className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400 mb-3 block">
+              <label htmlFor="itemType" className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400 mb-2 block">
                 Item Type *
               </label>
               <select
                 id="itemType"
                 value={currentItemType}
                 onChange={(e) => setCurrentItemType(e.target.value as ItemType)}
-                className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+                className="w-full rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
               >
                 <option value="event">Event</option>
                 <option value="food">Food Special</option>
@@ -635,12 +688,12 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
         )}
 
         {/* Basic Information Section */}
-        <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-5 backdrop-blur-sm space-y-4">
+        <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 backdrop-blur-sm space-y-3">
           {currentItemType !== 'announcement' && (
-            <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Status</p>
-                <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300">
                   Control whether this item appears publicly.
                 </p>
               </div>
@@ -659,62 +712,66 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
             </div>
           )}
 
-          <div className="space-y-4">
-            <div className="space-y-1.5">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <div className="space-y-1">
               <label htmlFor="title" className="text-sm font-medium text-gray-900 dark:text-white">
                 Title *
               </label>
               <input
                 id="title"
                 type="text"
-                value={currentItemType === 'event' ? eventData.title : specialData.title}
+                value={currentItemType === 'event' ? eventData.title : (currentItemType === 'announcement' ? announcementData.title : specialData.title)}
                 onChange={(e) => {
                   if (currentItemType === 'event') {
                     setEventData({ ...eventData, title: e.target.value });
+                  } else if (currentItemType === 'announcement') {
+                    setAnnouncementData({ ...announcementData, title: e.target.value });
                   } else {
                     setSpecialData({ ...specialData, title: e.target.value });
                   }
                 }}
                 required
-                className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+                className="w-full rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
               />
             </div>
 
-            <div className="space-y-1.5">
-              <label htmlFor="description" className="text-sm font-medium text-gray-900 dark:text-white">
-                Description
-              </label>
-              <textarea
-                id="description"
-                value={currentItemType === 'event' ? eventData.description : specialData.description}
-                onChange={(e) => {
-                  if (currentItemType === 'event') {
-                    setEventData({ ...eventData, description: e.target.value });
-                  } else {
-                    setSpecialData({ ...specialData, description: e.target.value });
-                  }
-                }}
-                rows={3}
-                className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all resize-none"
-              />
-            </div>
+            {currentItemType !== 'announcement' && (
+              <div className="space-y-1">
+                <label htmlFor="description" className="text-sm font-medium text-gray-900 dark:text-white">
+                  Description
+                </label>
+                <textarea
+                  id="description"
+                  value={currentItemType === 'event' ? eventData.description : specialData.description}
+                  onChange={(e) => {
+                    if (currentItemType === 'event') {
+                      setEventData({ ...eventData, description: e.target.value });
+                    } else {
+                      setSpecialData({ ...specialData, description: e.target.value });
+                    }
+                  }}
+                  rows={2}
+                  className="w-full rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all resize-none"
+                />
+              </div>
+            )}
           </div>
         </div>
 
         {/* Event-specific fields */}
         {currentItemType === 'event' && (
-          <>
-            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-5 backdrop-blur-sm space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 backdrop-blur-sm space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Schedule</p>
-                  <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                  <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300">
                     Choose the start and end for this event.
                   </p>
                 </div>
                 <label
                   htmlFor="isAllDay"
-                  className="inline-flex items-center gap-2 rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-1.5 text-xs font-medium text-gray-900 dark:text-white shadow-inner cursor-pointer transition-colors hover:border-blue-400/70 focus-within:ring-2 focus-within:ring-blue-500/30"
+                  className="inline-flex items-center gap-2 rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-2.5 py-1 text-xs font-medium text-gray-900 dark:text-white shadow-inner cursor-pointer transition-colors hover:border-blue-400/70 focus-within:ring-2 focus-within:ring-blue-500/30"
                 >
                   <input
                     type="checkbox"
@@ -727,7 +784,7 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
                 </label>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div className="relative isolate">
                   {eventData.isAllDay ? (
                     <DatePicker
@@ -774,10 +831,10 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
               )}
             </div>
 
-            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-5 backdrop-blur-sm space-y-4">
+            <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 backdrop-blur-sm space-y-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Recurrence</p>
-                <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300">
                   Define how this event repeats across your calendar.
                 </p>
               </div>
@@ -911,22 +968,22 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
                 </div>
               )}
             </div>
-          </>
+          </div>
         )}
 
-        {/* Special-specific fields */}
-        {currentItemType !== 'event' && (
-          <>
-            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-5 backdrop-blur-sm space-y-4">
+        {/* Special-specific fields - only for food and drink */}
+        {(currentItemType === 'food' || currentItemType === 'drink') && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 backdrop-blur-sm space-y-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Pricing & Details</p>
-                <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300">
                   Set the price and additional information for this special.
                 </p>
               </div>
 
-              <div className="space-y-4">
-                <div className="space-y-1.5">
+              <div className="space-y-3">
+                <div className="space-y-1">
                   <label htmlFor="priceNotes" className="text-sm font-medium text-gray-900 dark:text-white">
                     Price {currentItemType === 'food' ? '(optional)' : ''}
                   </label>
@@ -964,10 +1021,10 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
             </div>
 
             {currentItemType === 'drink' && (
-              <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-5 backdrop-blur-sm space-y-4">
+              <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 backdrop-blur-sm space-y-3">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Weekly Schedule</p>
-                  <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                  <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300">
                     Select which days this special applies each week. Leave empty if using start/end dates.
                   </p>
                 </div>
@@ -1001,19 +1058,19 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
               </div>
             )}
 
-            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-5 backdrop-blur-sm space-y-4">
+            <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 backdrop-blur-sm space-y-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">
                   {currentItemType === 'food' ? 'Date' : 'Timing'}
                 </p>
-                <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300">
                   {currentItemType === 'food' 
                     ? 'Select the date this daily special applies (full day).'
                     : 'Set when this special is available.'}
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div className="relative isolate">
                   <DatePicker
                     label={currentItemType === 'food' ? 'Date *' : 'Start Date (optional)'}
@@ -1043,74 +1100,61 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
                 )}
               </div>
             </div>
+          </div>
+        )}
 
-            {currentItemType === 'food' && (
-              <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-5 backdrop-blur-sm space-y-4">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Image</p>
-                  <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
-                    Add an image to showcase this food special.
-                  </p>
-                </div>
+        {/* Food Image Section - Full Width */}
+        {currentItemType === 'food' && (
+          <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 backdrop-blur-sm space-y-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Image</p>
+              <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300">
+                Add an image to showcase this food special.
+              </p>
+            </div>
 
-                <div className="space-y-1.5">
-                  <label htmlFor="image" className="text-sm font-medium text-gray-900 dark:text-white">
-                    Image Path (optional)
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      id="image"
-                      type="text"
-                      value={specialData.image}
-                      onChange={(e) => setSpecialData({ ...specialData, image: e.target.value })}
-                      placeholder="/pics/food-specials/your-image.jpg"
-                      className="flex-1 rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowGallery(true)}
-                      className="px-4 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl transition-colors flex items-center gap-2 shadow-sm"
-                      title="Select from gallery"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      <span className="hidden sm:inline">Gallery</span>
-                    </button>
-                  </div>
-                </div>
+            <div className="space-y-1">
+              <label htmlFor="image" className="text-sm font-medium text-gray-900 dark:text-white">
+                Image Path (optional)
+              </label>
+              <div className="flex gap-2">
+                <input
+                  id="image"
+                  type="text"
+                  value={specialData.image}
+                  onChange={(e) => setSpecialData({ ...specialData, image: e.target.value })}
+                  placeholder="/pics/food-specials/your-image.jpg"
+                  className="flex-1 rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowGallery(true)}
+                  className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors flex items-center gap-2 shadow-sm"
+                  title="Select from gallery"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <span className="hidden sm:inline">Gallery</span>
+                </button>
               </div>
-            )}
-          </>
+            </div>
+          </div>
         )}
 
         {/* Announcement-specific fields */}
         {currentItemType === 'announcement' && (
-          <>
-            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-5 backdrop-blur-sm space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 backdrop-blur-sm space-y-3">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Announcement Content</p>
-                <p className="mt-1 text-xs text-gray-600 dark:text-gray-300 max-w-sm">
-                  Create your announcement with title and content.
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Content</p>
+                <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300">
+                  Enter the announcement content.
                 </p>
               </div>
 
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <label htmlFor="announcement-title" className="text-sm font-medium text-gray-900 dark:text-white">
-                    Title *
-                  </label>
-                  <input
-                    id="announcement-title"
-                    type="text"
-                    value={announcementData.title}
-                    onChange={(e) => setAnnouncementData({ ...announcementData, title: e.target.value })}
-                    required
-                    className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
+              <div className="space-y-3">
+                <div className="space-y-1">
                   <label htmlFor="announcement-body" className="text-sm font-medium text-gray-900 dark:text-white">
                     Content *
                   </label>
@@ -1118,24 +1162,24 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
                     id="announcement-body"
                     value={announcementData.body}
                     onChange={(e) => setAnnouncementData({ ...announcementData, body: e.target.value })}
-                    rows={3}
+                    rows={4}
                     required
-                    className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all resize-none"
+                    className="w-full rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all resize-none"
                   />
                   <p className="text-xs text-gray-500 dark:text-gray-400">Supports markdown and HTML</p>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-5 backdrop-blur-sm space-y-4">
+            <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 backdrop-blur-sm space-y-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Schedule</p>
-                <p className="mt-1 text-xs text-gray-600 dark:text-gray-300 max-w-sm">
+                <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300">
                   Set when this announcement should be published and expire.
                 </p>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-2">
                 <div className="relative isolate">
                   <DateTimePicker
                     label="Publish Date & Time"
@@ -1182,10 +1226,10 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
               </div>
             </div>
 
-            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-5 backdrop-blur-sm space-y-4">
+            <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 backdrop-blur-sm space-y-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Social Media</p>
-                <p className="mt-1 text-xs text-gray-600 dark:text-gray-300 max-w-sm">
+                <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300">
                   Automatically share this announcement to your connected social media accounts.
                 </p>
               </div>
@@ -1227,10 +1271,10 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
               </div>
             </div>
 
-            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-5 backdrop-blur-sm space-y-4">
+            <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 backdrop-blur-sm space-y-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Call-to-Action</p>
-                <p className="mt-1 text-xs text-gray-600 dark:text-gray-300 max-w-sm">
+                <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300">
                   Add an optional button to your announcement.
                 </p>
               </div>
@@ -1288,10 +1332,10 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
                 </div>
               )}
             </div>
-          </>
+          </div>
         )}
 
-        <div className="flex flex-wrap items-center justify-end gap-2 shrink-0 pt-4">
+        <div className="flex flex-wrap items-center justify-end gap-2 shrink-0 pt-3 border-t border-gray-200/70 dark:border-gray-700/60 mt-3">
           {isEditing && currentItemType === 'announcement' && item && 'body' in item && item.id && onDelete && (
             <button
               type="button"

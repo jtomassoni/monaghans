@@ -584,8 +584,14 @@ export async function cleanupAnnouncement(id: string, storageState: string = '.a
   try {
     const response = await apiRequest('DELETE', `/api/announcements/${id}`, storageState);
     return response.ok;
-  } catch (error) {
-    console.error(`Failed to cleanup announcement ${id}:`, error);
+  } catch (error: any) {
+    // Silently handle connection errors - these are expected when the server stops
+    const isConnectionError = error?.code === 'ECONNREFUSED' || 
+                              error?.message?.includes('fetch failed') ||
+                              error?.message?.includes('ECONNREFUSED');
+    if (!isConnectionError) {
+      console.error(`Failed to cleanup announcement ${id}:`, error);
+    }
     return false;
   }
 }
@@ -597,8 +603,14 @@ export async function cleanupEvent(id: string, storageState: string = '.auth/adm
   try {
     const response = await apiRequest('DELETE', `/api/events/${id}`, storageState);
     return response.ok;
-  } catch (error) {
-    console.error(`Failed to cleanup event ${id}:`, error);
+  } catch (error: any) {
+    // Silently handle connection errors - these are expected when the server stops
+    const isConnectionError = error?.code === 'ECONNREFUSED' || 
+                              error?.message?.includes('fetch failed') ||
+                              error?.message?.includes('ECONNREFUSED');
+    if (!isConnectionError) {
+      console.error(`Failed to cleanup event ${id}:`, error);
+    }
     return false;
   }
 }
@@ -610,8 +622,14 @@ export async function cleanupSpecial(id: string, storageState: string = '.auth/a
   try {
     const response = await apiRequest('DELETE', `/api/specials/${id}`, storageState);
     return response.ok;
-  } catch (error) {
-    console.error(`Failed to cleanup special ${id}:`, error);
+  } catch (error: any) {
+    // Silently handle connection errors - these are expected when the server stops
+    const isConnectionError = error?.code === 'ECONNREFUSED' || 
+                              error?.message?.includes('fetch failed') ||
+                              error?.message?.includes('ECONNREFUSED');
+    if (!isConnectionError) {
+      console.error(`Failed to cleanup special ${id}:`, error);
+    }
     return false;
   }
 }
@@ -623,8 +641,14 @@ export async function cleanupMenuItem(id: string, storageState: string = '.auth/
   try {
     const response = await apiRequest('DELETE', `/api/menu-items/${id}`, storageState);
     return response.ok;
-  } catch (error) {
-    console.error(`Failed to cleanup menu item ${id}:`, error);
+  } catch (error: any) {
+    // Silently handle connection errors - these are expected when the server stops
+    const isConnectionError = error?.code === 'ECONNREFUSED' || 
+                              error?.message?.includes('fetch failed') ||
+                              error?.message?.includes('ECONNREFUSED');
+    if (!isConnectionError) {
+      console.error(`Failed to cleanup menu item ${id}:`, error);
+    }
     return false;
   }
 }
@@ -636,8 +660,14 @@ export async function cleanupMenuSection(id: string, storageState: string = '.au
   try {
     const response = await apiRequest('DELETE', `/api/menu-sections/${id}`, storageState);
     return response.ok;
-  } catch (error) {
-    console.error(`Failed to cleanup menu section ${id}:`, error);
+  } catch (error: any) {
+    // Silently handle connection errors - these are expected when the server stops
+    const isConnectionError = error?.code === 'ECONNREFUSED' || 
+                              error?.message?.includes('fetch failed') ||
+                              error?.message?.includes('ECONNREFUSED');
+    if (!isConnectionError) {
+      console.error(`Failed to cleanup menu section ${id}:`, error);
+    }
     return false;
   }
 }
@@ -711,8 +741,14 @@ export async function cleanupByTitlePrefix(
 
     const results = await Promise.allSettled(deletePromises);
     return results.filter(r => r.status === 'fulfilled' && r.value === true).length;
-  } catch (error) {
-    console.error(`Failed to cleanup ${type}s by prefix:`, error);
+  } catch (error: any) {
+    // Silently handle connection errors - these are expected when the server stops
+    const isConnectionError = error?.code === 'ECONNREFUSED' || 
+                              error?.message?.includes('fetch failed') ||
+                              error?.message?.includes('ECONNREFUSED');
+    if (!isConnectionError) {
+      console.error(`Failed to cleanup ${type}s by prefix:`, error);
+    }
     return 0;
   }
 }

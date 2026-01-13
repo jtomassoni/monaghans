@@ -27,11 +27,17 @@ test.use({ storageState: '.auth/admin.json' });
 
 async function openNewEventModal(page: any) {
   await page.goto('/admin?view=list');
+  
+  // Wait for page to be fully loaded
+  await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
   await page.waitForTimeout(1000);
 
+  // Try to find and click the New Event button
   const newEventButton = page.locator('button:has-text("New Event"), button:has-text("New")').first();
-  if (await newEventButton.isVisible().catch(() => false)) {
-    await newEventButton.click();
+  const buttonVisible = await newEventButton.isVisible({ timeout: 3000 }).catch(() => false);
+  
+  if (buttonVisible) {
+    await newEventButton.click({ timeout: 3000 });
   } else {
     // Fallback: dispatch the custom event that the UI listens for
     await page.evaluate(() => {
@@ -39,10 +45,13 @@ async function openNewEventModal(page: any) {
     });
   }
 
-  // Wait for the modal/form to become available
-  await page.waitForSelector('input[id="title"], input[name="title"], input[type="datetime-local"]', {
-    timeout: 5000,
-  }).catch(() => {});
+  // Wait for the modal/form to become available - try multiple selectors
+  await Promise.race([
+    page.waitForSelector('[role="dialog"]', { state: 'visible', timeout: 5000 }).catch(() => null),
+    page.waitForSelector('input[id="title"], input[name="title"]', { state: 'visible', timeout: 5000 }).catch(() => null),
+    page.waitForSelector('input[type="datetime-local"]', { state: 'visible', timeout: 5000 }).catch(() => null),
+  ]);
+  
   await page.waitForTimeout(500);
 }
 

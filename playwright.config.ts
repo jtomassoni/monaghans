@@ -5,7 +5,8 @@ import * as fs from 'fs';
 import { getDisabledTestSpecs, getEnabledTestSpecs } from './e2e/config';
 
 /**
- * Read environment variables from file.
+ * Read environment variables from file (optional - for local development).
+ * In CI environments, environment variables are provided via GitHub Actions/Vercel secrets.
  * https://github.com/motdotla/dotenv
  */
 const envPath = path.resolve(process.cwd(), '.env');
@@ -14,15 +15,21 @@ if (fs.existsSync(envPath)) {
   if (result.error) {
     console.error('⚠️  Error loading .env file:', result.error.message);
   }
-} else {
-  console.error('❌ .env file not found at:', envPath);
-  console.error('   Please create a .env file with DATABASE_URL set.');
-  process.exit(1);
+} else if (!process.env.CI) {
+  // Only warn in local development, not in CI where env vars come from secrets
+  console.warn('⚠️  .env file not found at:', envPath);
+  console.warn('   Using environment variables from process.env');
+  console.warn('   (In CI, environment variables come from GitHub Actions/Vercel secrets)');
 }
 
-// Validate DATABASE_URL is set
+// Validate DATABASE_URL is set (can come from .env file or environment variables)
 if (!process.env.DATABASE_URL) {
-  console.error('❌ DATABASE_URL is not set. Please set it in your .env file.');
+  console.error('❌ DATABASE_URL is not set.');
+  if (process.env.CI) {
+    console.error('   Please set DATABASE_URL as a GitHub Actions secret or Vercel environment variable.');
+  } else {
+    console.error('   Please set DATABASE_URL in your .env file or as an environment variable.');
+  }
   console.error('   Example: DATABASE_URL="postgresql://user:password@host:port/database"');
   process.exit(1);
 }
@@ -144,6 +151,7 @@ export default defineConfig({
       NEXTAUTH_URL: process.env.NEXTAUTH_URL || 'http://localhost:3000',
       NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET || 'test-secret-for-ci-only-do-not-use-in-production',
       // Support both singular and plural forms for user credentials
+      // Read from .env file (which is loaded above) - supports both JSON and colon formats
       ADMIN_USER: process.env.ADMIN_USER || '',
       ADMIN_USERS: process.env.ADMIN_USERS || process.env.ADMIN_USER || 'jt:test',
       OWNER_USER: process.env.OWNER_USER || '',
