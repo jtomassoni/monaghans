@@ -111,7 +111,7 @@ function sanitizeSignageConfig(value: any): SignageConfig {
       : [];
 
     // Auto-enable custom slides if custom slides are provided and have enabled slides
-    const hasEnabledCustomSlides = cleanCustomSlides.some(slide => slide.isEnabled !== false);
+    const hasEnabledCustomSlides = cleanCustomSlides.some((slide: { isEnabled?: boolean }) => slide.isEnabled !== false);
     const shouldIncludeCustomSlides = parsed?.includeCustomSlides !== undefined 
       ? parsed.includeCustomSlides 
       : (hasEnabledCustomSlides || DEFAULT_CONFIG.includeCustomSlides);
