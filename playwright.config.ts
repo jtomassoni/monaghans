@@ -152,10 +152,47 @@ export default defineConfig({
       NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET || 'test-secret-for-ci-only-do-not-use-in-production',
       // Support both singular and plural forms for user credentials
       // Read from .env file (which is loaded above) - supports both JSON and colon formats
+      // CRITICAL: Always set ADMIN_USERS for the web server - required for authentication
+      // Use TEST_ADMIN_USERS for test credentials, fallback to ADMIN_USER conversion or default
       ADMIN_USER: process.env.ADMIN_USER || '',
-      ADMIN_USERS: process.env.ADMIN_USERS || process.env.ADMIN_USER || 'jt:test',
+      // Convert ADMIN_USER JSON to colon format if needed, or use TEST_ADMIN_USERS/ADMIN_USERS
+      ADMIN_USERS: (() => {
+        // If TEST_ADMIN_USERS is set (for testing), use it
+        if (process.env.TEST_ADMIN_USERS) return process.env.TEST_ADMIN_USERS;
+        // If ADMIN_USERS is explicitly set, use it
+        if (process.env.ADMIN_USERS) return process.env.ADMIN_USERS;
+        // If ADMIN_USER is set, try to parse it and convert to colon format
+        if (process.env.ADMIN_USER) {
+          try {
+            const parsed = JSON.parse(process.env.ADMIN_USER);
+            if (parsed && typeof parsed === 'object' && parsed.username && parsed.password) {
+              return `${parsed.username}:${parsed.password}`;
+            }
+          } catch {
+            // Not JSON, might already be colon format
+            return process.env.ADMIN_USER;
+          }
+        }
+        // Fallback to default test credentials
+        return 'jt:test';
+      })(),
       OWNER_USER: process.env.OWNER_USER || '',
-      OWNER_USERS: process.env.OWNER_USERS || process.env.OWNER_USER || 'owner:test',
+      // Same conversion for OWNER_USER, with TEST_OWNER_USERS support
+      OWNER_USERS: (() => {
+        if (process.env.TEST_OWNER_USERS) return process.env.TEST_OWNER_USERS;
+        if (process.env.OWNER_USERS) return process.env.OWNER_USERS;
+        if (process.env.OWNER_USER) {
+          try {
+            const parsed = JSON.parse(process.env.OWNER_USER);
+            if (parsed && typeof parsed === 'object' && parsed.username && parsed.password) {
+              return `${parsed.username}:${parsed.password}`;
+            }
+          } catch {
+            return process.env.OWNER_USER;
+          }
+        }
+        return 'owner:test';
+      })(),
       ENABLE_ONLINE_ORDERING: process.env.ENABLE_ONLINE_ORDERING || 'false',
       ENABLE_SOCIAL_POSTING: process.env.ENABLE_SOCIAL_POSTING || 'false',
     },

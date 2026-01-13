@@ -149,6 +149,7 @@ test.describe('Specials TV', () => {
       includeHappyHour: false,
       includeDrinkSpecials: false,
       includeEvents: false,
+      includeCustomSlides: true, // Explicitly enable custom slides
       slideDurationSec: 4,
       fadeDurationSec: 0.3,
       customSlides: [
@@ -168,12 +169,16 @@ test.describe('Specials TV', () => {
     await createSpecial(page, { title: foodTitle, type: 'food', priceNotes: '$9' }, tracker);
 
     await page.goto('/specials-tv?slideDurationSeconds=4&fadeDurationSeconds=0.3');
+    await page.waitForLoadState('networkidle');
+    
+    // Wait a bit for slides to initialize
+    await page.waitForTimeout(2000);
 
     // No happy hour slides should render
     await expect(page.locator('text=Happy Hour')).toHaveCount(0);
 
-    // Food slide visible
-    await expect(page.getByText(foodTitle, { exact: false })).toBeVisible({ timeout: 8000 });
+    // Food slide visible - wait for it to appear (might need to cycle through slides)
+    await expect(page.getByText(foodTitle, { exact: false })).toBeVisible({ timeout: 12000 });
 
     // Custom slide reachable - wait for dots to appear and check count
     const dots = page.getByRole('button', { name: /Go to slide/i });

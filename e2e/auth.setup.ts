@@ -155,10 +155,23 @@ async function authenticateUser(page: any, username: string, password: string) {
 }
 
 setup('authenticate as admin', async ({ page }) => {
-  // Get first admin user from env - support both ADMIN_USER and ADMIN_USERS
-  const adminUsers = parseUserCredentials(process.env.ADMIN_USERS || process.env.ADMIN_USER || 'jt:test');
+  // Get first admin user from env - prefer TEST_ADMIN_USERS for tests, then ADMIN_USERS, then ADMIN_USER
+  const adminUsersEnv = process.env.TEST_ADMIN_USERS || process.env.ADMIN_USERS || process.env.ADMIN_USER || 'jt:test';
+  const adminUsers = parseUserCredentials(adminUsersEnv);
+  
+  // Debug: Log what we're using
+  console.log(`🔍 Auth Debug Info:`);
+  console.log(`   ADMIN_USERS env var: ${process.env.ADMIN_USERS ? 'SET' : 'NOT SET'}`);
+  console.log(`   ADMIN_USER env var: ${process.env.ADMIN_USER ? 'SET' : 'NOT SET'}`);
+  console.log(`   Using value: ${adminUsersEnv.substring(0, 20)}...`);
+  console.log(`   Parsed ${adminUsers.length} admin user(s)`);
+  
   if (adminUsers.length === 0) {
-    throw new Error('ADMIN_USERS or ADMIN_USER must be set with at least one user');
+    throw new Error(
+      `ADMIN_USERS or ADMIN_USER must be set with at least one user.\n` +
+      `Current value: ${adminUsersEnv}\n` +
+      `Please set ADMIN_USERS="jt:test" in your .env file or environment variables.`
+    );
   }
   
   const { username, password } = adminUsers[0];
@@ -170,13 +183,31 @@ setup('authenticate as admin', async ({ page }) => {
     await authenticateUser(page, username, password);
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
+    
+    // Try to check if the server can see the env vars by hitting a test endpoint
+    let serverEnvInfo = 'Unable to check server environment';
+    try {
+      const testRes = await page.request.get('/api/test-env');
+      if (testRes.ok()) {
+        const testData = await testRes.json();
+        serverEnvInfo = `Server ADMIN_USERS: ${testData.ADMIN_USERS || 'NOT SET'}`;
+      }
+    } catch (e) {
+      // Ignore errors checking test endpoint
+    }
+    
     throw new Error(
       `Failed to authenticate as admin:\n${errorMsg}\n\n` +
+      `Debug Info:\n` +
+      `  Test process ADMIN_USERS: ${process.env.ADMIN_USERS || 'NOT SET'}\n` +
+      `  ${serverEnvInfo}\n` +
+      `  Username attempted: ${username}\n\n` +
       `Troubleshooting:\n` +
       `1. Check that .env file has ADMIN_USERS="jt:test" (or your custom credentials)\n` +
       `2. Verify the dev server has the env vars (check webServer.env in playwright.config.ts)\n` +
       `3. Restart the dev server if you just changed env vars\n` +
-      `4. Check server logs for authentication errors`
+      `4. Check server logs for authentication errors\n` +
+      `5. Ensure the web server process has access to ADMIN_USERS environment variable`
     );
   }
   
@@ -186,8 +217,8 @@ setup('authenticate as admin', async ({ page }) => {
 });
 
 setup('authenticate as owner', async ({ page }) => {
-  // Get first owner user from env - support both OWNER_USER and OWNER_USERS
-  const ownerUsers = parseUserCredentials(process.env.OWNER_USERS || process.env.OWNER_USER || 'owner:test');
+  // Get first owner user from env - prefer TEST_OWNER_USERS for tests, then OWNER_USERS, then OWNER_USER
+  const ownerUsers = parseUserCredentials(process.env.TEST_OWNER_USERS || process.env.OWNER_USERS || process.env.OWNER_USER || 'owner:test');
   if (ownerUsers.length === 0) {
     throw new Error('OWNER_USERS or OWNER_USER must be set with at least one user');
   }
