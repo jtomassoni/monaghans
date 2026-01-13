@@ -24,6 +24,7 @@ type SignageConfig = {
   includeDrinkSpecials: boolean;
   includeHappyHour: boolean;
   includeEvents: boolean;
+  includeCustomSlides: boolean;
   upcomingEventsTileCount: number;
   slideDurationSeconds: number;
   fadeDurationSeconds: number;
@@ -49,9 +50,10 @@ const DEFAULT_CONFIG: SignageConfig = {
   includeDrinkSpecials: true,
   includeHappyHour: true,
   includeEvents: true,
+  includeCustomSlides: false,
   upcomingEventsTileCount: 6, // show up to 6 upcoming events by default
   slideDurationSeconds: 10,
-  fadeDurationSeconds: 0.8,
+  fadeDurationSeconds: 0.4, // 400ms slide transition (TV-friendly)
   customSlides: [],
 };
 
@@ -114,9 +116,10 @@ function sanitizeSignageConfig(value: any): SignageConfig {
       includeDrinkSpecials: parsed?.includeDrinkSpecials ?? DEFAULT_CONFIG.includeDrinkSpecials,
       includeHappyHour: parsed?.includeHappyHour ?? DEFAULT_CONFIG.includeHappyHour,
       includeEvents: parsed?.includeEvents ?? DEFAULT_CONFIG.includeEvents,
+      includeCustomSlides: parsed?.includeCustomSlides ?? DEFAULT_CONFIG.includeCustomSlides,
       upcomingEventsTileCount: clamp(tileCount || DEFAULT_CONFIG.upcomingEventsTileCount, 1, 12),
       slideDurationSeconds: clamp(slideDuration || DEFAULT_CONFIG.slideDurationSeconds, 4, 60),
-      fadeDurationSeconds: clamp(fadeDuration || DEFAULT_CONFIG.fadeDurationSeconds, 0.3, 5),
+      fadeDurationSeconds: clamp(fadeDuration || DEFAULT_CONFIG.fadeDurationSeconds, 0.2, 1.0),
       customSlides: cleanCustomSlides,
     };
   } catch {
@@ -813,6 +816,7 @@ export default async function SpecialsTvPage({ searchParams }: SpecialsTvPagePro
       includeDrinkSpecials: signageConfig.includeDrinkSpecials,
       includeHappyHour: signageConfig.includeHappyHour,
       includeEvents: signageConfig.includeEvents,
+      includeCustomSlides: signageConfig.includeCustomSlides,
       customSlides: signageConfig.customSlides || [],
     },
   };

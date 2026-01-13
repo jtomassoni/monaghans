@@ -65,7 +65,7 @@ Signage automatically shows:
 Configure content rotation:
 
 1. **Slide Duration**: How long each slide shows (default: 10 seconds)
-2. **Transition**: Fade or slide transitions
+2. **Slide Transition Duration**: Time for slide transition animation (default: 0.4 seconds). Uses TV-friendly slide transitions for smooth performance on large displays.
 3. **Content Order**: Order content types appear
 
 ## Wall-Mounted Display Setup

@@ -35,6 +35,7 @@ type SignageConfig = {
   includeDrinkSpecials: boolean;
   includeHappyHour: boolean;
   includeEvents: boolean;
+  includeCustomSlides: boolean;
   eventsTileCount: number;
   slideDurationSec: number;
   fadeDurationSec: number;
@@ -85,8 +86,7 @@ export default function SignageForm({ initialConfig }: Props) {
   }, [config.slideDurationSec]);
 
   const fadeDurationOptions = useMemo(() => {
-    const options: number[] = [];
-    for (let v = 1; v <= 4; v += 0.5) options.push(Number(v.toFixed(1)));
+    const options: number[] = [0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0];
     if (!options.includes(config.fadeDurationSec)) options.push(config.fadeDurationSec);
     return options.sort((a, b) => a - b);
   }, [config.fadeDurationSec]);
@@ -316,7 +316,7 @@ export default function SignageForm({ initialConfig }: Props) {
   return (
     <div className="space-y-4 pb-8">
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-gray-200 dark:border-gray-800">
+      <div className="flex gap-2 border-b border-gray-200 dark:border-gray-800 px-1">
         <button
           onClick={() => setActiveTab('settings')}
           className={`px-4 py-2 text-sm font-semibold transition-all relative ${
@@ -357,9 +357,9 @@ export default function SignageForm({ initialConfig }: Props) {
 
       {/* Tab Content */}
       {activeTab === 'settings' && (
-        <div className="space-y-3">
+        <div className="space-y-3 pt-1">
           {/* Auto-save Info Banner */}
-          <div className="rounded-lg border border-blue-200/60 dark:border-blue-800/60 bg-blue-50/80 dark:bg-blue-900/20 backdrop-blur-sm p-1.5 flex items-center gap-1.5">
+          <div className="rounded-lg border border-blue-200/60 dark:border-blue-800/60 bg-blue-50/80 dark:bg-blue-900/20 backdrop-blur-sm px-3 py-2 flex items-center gap-2">
             <svg className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
@@ -381,7 +381,7 @@ export default function SignageForm({ initialConfig }: Props) {
             <p className="text-xs text-gray-500 dark:text-gray-400">Configure timing and content display</p>
           </div>
         </div>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           <label className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
               <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
@@ -410,7 +410,7 @@ export default function SignageForm({ initialConfig }: Props) {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
               </div>
-              <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Fade Duration</span>
+              <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Slide Transition Duration</span>
             </div>
             <select
               value={config.fadeDurationSec}
@@ -424,107 +424,219 @@ export default function SignageForm({ initialConfig }: Props) {
               ))}
             </select>
           </label>
-          {config.includeEvents && (
-            <label className="flex flex-col gap-2">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                  <svg className="w-4 h-4 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                </div>
-                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Events to Show</span>
-              </div>
-              <select
-                value={config.eventsTileCount}
-                onChange={(e) => setConfig({ ...config, eventsTileCount: Number(e.target.value) })}
-                className="rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white font-medium shadow-sm hover:border-green-400 dark:hover:border-green-600 focus:border-green-500 dark:focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all"
-              >
-                {eventTileOptions.map((val) => (
-                  <option key={val} value={val}>
-                    {val} events
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
         </div>
         
         <div className="mt-3 pt-3 border-t border-gray-200/80 dark:border-gray-800/80">
           <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-2">Content Display</h3>
-          <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-5">
+          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
             {[
-              { key: 'includeWelcome', label: 'Welcome Screen', icon: '👋', activeClass: 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20 shadow-md ring-2 ring-yellow-500/20', checkClass: 'border-yellow-500 bg-yellow-500', textClass: 'text-yellow-900 dark:text-yellow-100' },
-              { key: 'includeFoodSpecials', label: 'Food Specials', icon: '🍽️', activeClass: 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 shadow-md ring-2 ring-orange-500/20', checkClass: 'border-orange-500 bg-orange-500', textClass: 'text-orange-900 dark:text-orange-100' },
-              { key: 'includeDrinkSpecials', label: 'Drink Specials', icon: '🍺', activeClass: 'border-amber-500 bg-amber-50 dark:bg-amber-900/20 shadow-md ring-2 ring-amber-500/20', checkClass: 'border-amber-500 bg-amber-500', textClass: 'text-amber-900 dark:text-amber-100' },
-              { key: 'includeHappyHour', label: 'Happy Hour', icon: '🎉', activeClass: 'border-pink-500 bg-pink-50 dark:bg-pink-900/20 shadow-md ring-2 ring-pink-500/20', checkClass: 'border-pink-500 bg-pink-500', textClass: 'text-pink-900 dark:text-pink-100' },
-              { key: 'includeEvents', label: 'Upcoming Events', icon: '📅', activeClass: 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 shadow-md ring-2 ring-indigo-500/20', checkClass: 'border-indigo-500 bg-indigo-500', textClass: 'text-indigo-900 dark:text-indigo-100' },
+              { 
+                key: 'includeWelcome', 
+                label: 'Welcome Screen', 
+                icon: '👋', 
+                activeClass: 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20 shadow-md ring-2 ring-yellow-500/20', 
+                checkClass: 'border-yellow-500 bg-yellow-500', 
+                textClass: 'text-yellow-900 dark:text-yellow-100',
+                preview: {
+                  title: "Monaghan's",
+                  subtitle: "Established 1892",
+                  body: "Denver's Second-Oldest Bar",
+                  accent: 'gold'
+                }
+              },
+              { 
+                key: 'includeFoodSpecials', 
+                label: 'Food Specials', 
+                icon: '🍽️', 
+                activeClass: 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 shadow-md ring-2 ring-orange-500/20', 
+                checkClass: 'border-orange-500 bg-orange-500', 
+                textClass: 'text-orange-900 dark:text-orange-100',
+                preview: {
+                  title: "Food Specials",
+                  items: ["Daily Special", "Chef's Choice", "Featured Item"]
+                }
+              },
+              { 
+                key: 'includeDrinkSpecials', 
+                label: 'Drink Specials', 
+                icon: '🍺', 
+                activeClass: 'border-amber-500 bg-amber-50 dark:bg-amber-900/20 shadow-md ring-2 ring-amber-500/20', 
+                checkClass: 'border-amber-500 bg-amber-500', 
+                textClass: 'text-amber-900 dark:text-amber-100',
+                preview: {
+                  title: "Drink Specials",
+                  items: ["Beer Special", "Cocktail Deal", "Wine Selection"]
+                }
+              },
+              { 
+                key: 'includeHappyHour', 
+                label: 'Happy Hour', 
+                icon: '🎉', 
+                activeClass: 'border-pink-500 bg-pink-50 dark:bg-pink-900/20 shadow-md ring-2 ring-pink-500/20', 
+                checkClass: 'border-pink-500 bg-pink-500', 
+                textClass: 'text-pink-900 dark:text-pink-100',
+                preview: {
+                  title: "Happy Hour",
+                  subtitle: "4:00 PM - 6:00 PM",
+                  body: "Daily specials and deals"
+                }
+              },
+              { 
+                key: 'includeEvents', 
+                label: 'Upcoming Events', 
+                icon: '📅', 
+                activeClass: 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 shadow-md ring-2 ring-indigo-500/20', 
+                checkClass: 'border-indigo-500 bg-indigo-500', 
+                textClass: 'text-indigo-900 dark:text-indigo-100',
+                preview: {
+                  title: "Upcoming Events",
+                  items: ["Live Music", "Trivia Night", "Special Event"]
+                }
+              },
+              { 
+                key: 'includeCustomSlides', 
+                label: 'Custom Slides', 
+                icon: '🎨', 
+                activeClass: 'border-purple-500 bg-purple-50 dark:bg-purple-900/20 shadow-md ring-2 ring-purple-500/20', 
+                checkClass: 'border-purple-500 bg-purple-500', 
+                textClass: 'text-purple-900 dark:text-purple-100',
+                preview: {
+                  title: "Custom Slides",
+                  items: ["Promotional", "Announcements", "Special Messages"]
+                }
+              },
             ].map((item) => (
-              <label 
-                key={item.key} 
-                className={`relative flex items-center gap-2 p-2 rounded-lg border-2 transition-all cursor-pointer group ${
+              <div key={item.key} className="flex flex-col gap-2">
+                <label 
+                  className={`relative flex items-center gap-2 p-2 rounded-lg border-2 transition-all cursor-pointer group ${
+                    (config as any)[item.key]
+                      ? item.activeClass
+                      : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-sm'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={(config as any)[item.key]}
+                    onChange={(e) => setConfig({ ...config, [item.key]: e.target.checked } as SignageConfig)}
+                    className="sr-only"
+                  />
+                  <div className={`flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
+                    (config as any)[item.key]
+                      ? item.checkClass
+                      : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 group-hover:border-gray-400'
+                  }`}>
+                    {(config as any)[item.key] && (
+                      <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 flex-1">
+                    <span className="text-lg">{item.icon}</span>
+                    <span className={`text-sm font-semibold ${
+                      (config as any)[item.key]
+                        ? item.textClass
+                        : 'text-gray-700 dark:text-gray-300'
+                    }`}>
+                      {item.label}
+                    </span>
+                  </div>
+                </label>
+                
+                {/* Preview */}
+                <div className={`rounded-lg border-2 p-2 bg-gradient-to-br ${
                   (config as any)[item.key]
-                    ? item.activeClass
-                    : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-sm'
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  checked={(config as any)[item.key]}
-                  onChange={(e) => setConfig({ ...config, [item.key]: e.target.checked } as SignageConfig)}
-                  className="sr-only"
-                />
-                <div className={`flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
-                  (config as any)[item.key]
-                    ? item.checkClass
-                    : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 group-hover:border-gray-400'
+                    ? item.key === 'includeWelcome' 
+                      ? 'from-yellow-50 to-yellow-100/50 dark:from-yellow-900/20 dark:to-yellow-800/10 border-yellow-300 dark:border-yellow-700'
+                      : item.key === 'includeFoodSpecials'
+                      ? 'from-orange-50 to-orange-100/50 dark:from-orange-900/20 dark:to-orange-800/10 border-orange-300 dark:border-orange-700'
+                      : item.key === 'includeDrinkSpecials'
+                      ? 'from-amber-50 to-amber-100/50 dark:from-amber-900/20 dark:to-amber-800/10 border-amber-300 dark:border-amber-700'
+                      : item.key === 'includeHappyHour'
+                      ? 'from-pink-50 to-pink-100/50 dark:from-pink-900/20 dark:to-pink-800/10 border-pink-300 dark:border-pink-700'
+                      : item.key === 'includeEvents'
+                      ? 'from-indigo-50 to-indigo-100/50 dark:from-indigo-900/20 dark:to-indigo-800/10 border-indigo-300 dark:border-indigo-700'
+                      : item.key === 'includeCustomSlides'
+                      ? 'from-purple-50 to-purple-100/50 dark:from-purple-900/20 dark:to-purple-800/10 border-purple-300 dark:border-purple-700'
+                      : 'from-indigo-50 to-indigo-100/50 dark:from-indigo-900/20 dark:to-indigo-800/10 border-indigo-300 dark:border-indigo-700'
+                    : 'from-gray-50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-700/30 border-gray-200 dark:border-gray-700 opacity-60'
                 }`}>
-                  {(config as any)[item.key] && (
-                    <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
+                  {item.key === 'includeWelcome' && (
+                    <div className="space-y-1">
+                      <div className="text-xs font-bold text-gray-900 dark:text-white truncate">{item.preview.title}</div>
+                      <div className="text-[10px] font-semibold text-yellow-600 dark:text-yellow-400 truncate">{item.preview.subtitle}</div>
+                      <div className="text-[10px] text-gray-700 dark:text-gray-300 truncate">{item.preview.body}</div>
+                    </div>
+                  )}
+                  {item.key === 'includeHappyHour' && (
+                    <div className="space-y-1">
+                      <div className="text-xs font-bold text-gray-900 dark:text-white truncate">{item.preview.title}</div>
+                      <div className="text-[10px] font-semibold text-pink-600 dark:text-pink-400 truncate">{item.preview.subtitle}</div>
+                      <div className="text-[10px] text-gray-700 dark:text-gray-300 truncate">{item.preview.body}</div>
+                    </div>
+                  )}
+                  {(item.key === 'includeFoodSpecials' || item.key === 'includeDrinkSpecials' || item.key === 'includeEvents' || item.key === 'includeCustomSlides') && (
+                    <div className="space-y-0.5">
+                      <div className="text-xs font-bold text-gray-900 dark:text-white truncate">{item.preview.title}</div>
+                      {item.preview.items?.map((previewItem, idx) => (
+                        <div key={idx} className="text-[10px] text-gray-600 dark:text-gray-400 truncate">• {previewItem}</div>
+                      ))}
+                    </div>
                   )}
                 </div>
-                <div className="flex items-center gap-2 flex-1">
-                  <span className="text-lg">{item.icon}</span>
-                  <span className={`text-sm font-semibold ${
-                    (config as any)[item.key]
-                      ? item.textClass
-                      : 'text-gray-700 dark:text-gray-300'
-                  }`}>
-                    {item.label}
-                  </span>
-                </div>
-              </label>
+
+                {/* Events count dropdown - only show when events is enabled */}
+                {item.key === 'includeEvents' && config.includeEvents && (
+                  <div>
+                    <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                      <span className="font-medium">Show:</span>
+                      <select
+                        value={config.eventsTileCount}
+                        onChange={(e) => setConfig({ ...config, eventsTileCount: Number(e.target.value) })}
+                        className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-xs text-gray-900 dark:text-white font-medium shadow-sm hover:border-indigo-400 dark:hover:border-indigo-600 focus:border-indigo-500 dark:focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all"
+                      >
+                        {eventTileOptions.map((val) => (
+                          <option key={val} value={val}>
+                            {val} events
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         </div>
       </div>
 
-          {/* Custom Slides Section */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-gradient-to-br from-purple-500 via-pink-500 to-rose-600 rounded-lg shadow-md ring-1 ring-purple-500/20">
-            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
-            </svg>
-          </div>
-          <div>
-            <h2 className="text-base font-bold text-gray-900 dark:text-white tracking-tight">Custom Slides</h2>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Create promotional or informational slides</p>
-          </div>
-        </div>
-        <button
-          onClick={addSlide}
-          className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 px-4 py-2 text-sm font-semibold text-white shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Add Slide
-        </button>
-      </div>
+          {/* Custom Slides Section - only show when enabled */}
+          {config.includeCustomSlides && (
+            <>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-gradient-to-br from-purple-500 via-pink-500 to-rose-600 rounded-lg shadow-md ring-1 ring-purple-500/20">
+                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h2 className="text-base font-bold text-gray-900 dark:text-white tracking-tight">Custom Slides</h2>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Create promotional or informational slides</p>
+                  </div>
+                </div>
+                <button
+                  onClick={addSlide}
+                  className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 px-4 py-2 text-sm font-semibold text-white shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Add Slide
+                </button>
+              </div>
 
-      <div className="space-y-2.5">
+              <div className="space-y-2.5">
         {existingSlides.length === 0 && !newSlide && (
           <div className="rounded-2xl border-2 border-dashed border-gray-300 dark:border-gray-700 bg-gradient-to-br from-gray-50 to-gray-100/50 dark:from-gray-900/50 dark:to-gray-800/50 p-8 text-center">
             <div className="mx-auto w-12 h-12 bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 rounded-xl flex items-center justify-center mb-3">
@@ -1396,17 +1508,19 @@ export default function SignageForm({ initialConfig }: Props) {
                             )}
                           </>
                         )}
-                </div>
+                      </div>
+                    )}
+                  </>
                 )}
-              </>
-            )}
-          </div>
-        )}
+                </div>
+              )}
             </div>
           );
         })}
-      </div>
-      </div>
+        </div>
+            </>
+          )}
+        </div>
       )}
 
       {activeTab === 'gallery' && (
