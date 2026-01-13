@@ -49,6 +49,9 @@ export default function Modal({ isOpen, onClose, title, children, helpFeature, h
         onClick={onClose}
       >
         <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={title ? undefined : undefined}
           className={`bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl shadow-2xl border border-gray-200/50 dark:border-gray-700/50 ${!title || !title.trim() ? 'w-full h-full sm:w-auto sm:h-auto sm:max-w-md' : maxWidth ? `w-full sm:w-auto ${maxWidth} sm:max-h-[calc(100vh-2rem)]` : 'w-full sm:w-auto sm:max-w-[420px] lg:max-w-[900px] sm:max-h-[calc(100vh-2rem)]'} flex flex-col overflow-hidden`}
           onClick={(e) => e.stopPropagation()}
         >

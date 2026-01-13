@@ -297,22 +297,18 @@ export default function AdminAnnouncementsList({
                     <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-1">{announcement.body}</p>
                   </div>
                   
-                  {/* Edit button - appears centered on hover */}
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 group-hover/item:opacity-100 transition-opacity duration-200">
+                  {/* Action buttons - always visible */}
+                  <div className="flex-shrink-0 z-20 relative flex items-center gap-2">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         handleEdit(announcement.id);
                       }}
-                      className="pointer-events-auto px-4 py-2 text-sm bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-medium transition-all duration-200 hover:scale-105 z-10 border border-blue-400 dark:border-blue-500 cursor-pointer"
-                      title="Click anywhere to edit"
+                      className="px-3 py-1.5 text-xs bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-medium transition-all duration-200 hover:scale-105 border border-blue-400 dark:border-blue-500 cursor-pointer"
+                      title="Edit announcement"
                     >
                       Edit
                     </button>
-                  </div>
-                  
-                  {/* Delete button - always visible */}
-                  <div className="flex-shrink-0 z-20 relative">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
