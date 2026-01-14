@@ -186,23 +186,8 @@ async function main() {
   console.log('🍽️  Creating weekly recurring specials...');
   
   const weeklySpecials = [
-    // Food specials
-    {
-      title: 'Chicken Fried Steak and Eggs',
-      description: 'Breaded steak with country gravy, served with two eggs and hash browns',
-      priceNotes: '$12.99',
-      type: 'food',
-      appliesOn: ['Sunday'],
-      timeWindow: 'All Day',
-    },
-    {
-      title: 'Taco Tuesday',
-      description: 'All tacos $2.50 every Tuesday',
-      priceNotes: '$2.50 per taco',
-      type: 'food',
-      appliesOn: ['Tuesday'],
-      timeWindow: 'All Day',
-    },
+    // Note: Food specials are not supported as recurring - they must be created manually
+    // Taco Tuesday and Chicken Fried Steak and Eggs should be created manually for each Tuesday/Sunday
     // Drink specials
     {
       title: 'Whiskey Wednesday',
@@ -296,49 +281,9 @@ async function main() {
   const today = getMountainTimeToday();
   const todayStr = getMountainTimeDateString(today);
   
-  // First, identify all Tuesdays in the next 30 days to skip them
-  // (Taco Tuesday weekly recurring special will cover those days)
-  const tuesdayDates = new Set<string>();
-  
-  // Find the next Tuesday in company timezone
-  const todayParts = today.toLocaleDateString('en-US', { 
-    weekday: 'long',
-    timeZone: companyTimezone
-  });
-  const weekdayMap: Record<string, number> = {
-    'Sunday': 0, 'Monday': 1, 'Tuesday': 2, 'Wednesday': 3,
-    'Thursday': 4, 'Friday': 5, 'Saturday': 6
-  };
-  const todayDayOfWeek = weekdayMap[todayParts] ?? 0;
-  const daysUntilNextTuesday = todayDayOfWeek === 2 ? 0 : (2 - todayDayOfWeek + 7) % 7 || 7; // 2 = Tuesday
-  
-  // Get today's date string in company timezone
-  const todayDateStr = getMountainTimeDateString(today, companyTimezone);
-  const [todayYear, todayMonth, todayDay] = todayDateStr.split('-').map(Number);
-  
-  // Calculate first Tuesday by adding days to today's date string
-  const firstTuesdayDateStr = (() => {
-    const firstTuesday = new Date(today);
-    firstTuesday.setTime(today.getTime() + daysUntilNextTuesday * 24 * 60 * 60 * 1000);
-    return getMountainTimeDateString(firstTuesday, companyTimezone);
-  })();
-  
-  // Collect all Tuesday dates in the next 30 days
-  for (let i = 0; i < 5; i++) { // Up to 5 Tuesdays in ~30 days
-    // Calculate Tuesday date by adding weeks to first Tuesday
-    const tuesdayDate = parseMountainTimeDate(firstTuesdayDateStr, companyTimezone);
-    tuesdayDate.setTime(tuesdayDate.getTime() + (i * 7 * 24 * 60 * 60 * 1000));
-    const tuesdayDateStr = getMountainTimeDateString(tuesdayDate, companyTimezone);
-    
-    // Skip if beyond 30 days
-    const tuesdayDateParsed = parseMountainTimeDate(tuesdayDateStr, companyTimezone);
-    const daysDiff = Math.floor((tuesdayDateParsed.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    if (daysDiff > 30) break;
-    
-    // Store as date string (YYYY-MM-DD) in company timezone
-    tuesdayDates.add(tuesdayDateStr);
-  }
-  
+  // Generate daily food specials for all days (including Tuesdays and Sundays)
+  // Note: Taco Tuesday and Chicken Fried Steak and Eggs should be created manually
+  // for each Tuesday/Sunday, not as recurring specials
   const dailySpecials = [];
   const usedIndices = new Set<number>();
   const usedDates = new Set<string>(); // Track which dates we've used to avoid duplicates
@@ -348,11 +293,6 @@ async function main() {
     const date = new Date(today);
     date.setTime(today.getTime() + i * 24 * 60 * 60 * 1000);
     const dateStr = getMountainTimeDateString(date, companyTimezone);
-    
-    // Skip Tuesdays - Taco Tuesday covers those days
-    if (tuesdayDates.has(dateStr)) {
-      continue;
-    }
     
     // Skip if we've already used this date (shouldn't happen, but safety check)
     if (usedDates.has(dateStr)) {
@@ -407,7 +347,8 @@ async function main() {
   }
   
   console.log(`✅ Created ${dailySpecials.length} daily food specials for the next 30 days`);
-  console.log(`✅ Created ${createdWeeklySpecials.length} weekly recurring specials (including Taco Tuesday)`);
+  console.log(`✅ Created ${createdWeeklySpecials.length} weekly recurring drink specials`);
+  console.log(`   Note: Food specials (Taco Tuesday, Chicken Fried Steak and Eggs) should be created manually`);
 
   // Create sample events with upcoming dates
   // Reuse the 'today' variable already declared above, just reset hours
@@ -755,8 +696,9 @@ async function main() {
   // Summary
   console.log('');
   console.log('📊 Seeding Summary:');
-  console.log(`   ✅ ${createdWeeklySpecials.length} weekly recurring specials (including Taco Tuesday food + drink)`);
-  console.log(`   ✅ ${dailySpecials.length} daily food specials for the next 30 days (excluding Tuesdays)`);
+  console.log(`   ✅ ${createdWeeklySpecials.length} weekly recurring drink specials`);
+  console.log(`   ✅ ${dailySpecials.length} daily food specials for the next 30 days`);
+  console.log(`   ⚠️  Note: Taco Tuesday and Chicken Fried Steak and Eggs should be created manually (not recurring)`);
   console.log(`   ✅ ${createdEvents.length} recurring events (Poker Night, Karaoke)`);
   console.log(`   ✅ ${createdAnnouncements.length} announcement${createdAnnouncements.length !== 1 ? 's' : ''}`);
   console.log(`   ✅ ${createdSettings.length} settings (hours, contact, map)`);

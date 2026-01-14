@@ -654,15 +654,15 @@ export default async function HomePage() {
 
   // Collect all available content for dynamic display
   // Note: Announcements are shown as modals, not in the grid
-  // Note: Food specials are not shown in the hero section
   const allContent = [
     ...todaysEvents,
+    ...todaysFoodSpecials,
     ...(todaysDrinkSpecial ? [todaysDrinkSpecial] : []),
     ...(shouldShowHappyHour ? ['happyHour'] : []),
   ];
 
   // Calculate total number of items for dynamic grid layout
-  const totalItems = todaysEvents.length + (todaysDrinkSpecial ? 1 : 0) + (shouldShowHappyHour ? 1 : 0);
+  const totalItems = todaysEvents.length + todaysFoodSpecials.length + (todaysDrinkSpecial ? 1 : 0) + (shouldShowHappyHour ? 1 : 0);
   
   // Determine grid columns and max width based on number of items
   const getGridCols = () => {
@@ -794,6 +794,53 @@ export default async function HomePage() {
                 </div>
               );
             })}
+
+            {/* Food Specials */}
+            {todaysFoodSpecials.map((special, index) => (
+              <div 
+                key={`food-special-${special.id}-${index}`}
+                className="group relative bg-gradient-to-br from-orange-900/70 via-red-800/60 to-pink-900/70 backdrop-blur-md rounded-2xl p-3 sm:p-4 border-l-4 border-orange-400 shadow-xl overflow-hidden"
+              >
+                {/* Decorative pattern overlay */}
+                <div className="absolute inset-0 opacity-20">
+                  <div className="absolute top-2 right-2 w-20 h-20 bg-orange-500 rounded-full blur-2xl"></div>
+                  <div className="absolute bottom-2 left-2 w-16 h-16 bg-red-500 rounded-full blur-xl"></div>
+                </div>
+                <div className="relative flex flex-col">
+                  <div className="flex items-start gap-2 sm:gap-3 mb-2">
+                    <div className="p-2 sm:p-2.5 bg-orange-500/60 rounded-xl flex-shrink-0 shadow-lg ring-2 ring-orange-400/30">
+                      <FaUtensils className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-orange-300 text-[10px] sm:text-xs font-bold uppercase tracking-wider block mb-1.5">
+                        Food Special
+                      </span>
+                      <h3 className="text-base sm:text-lg font-bold text-white mb-1.5 line-clamp-2 leading-tight drop-shadow-sm">
+                        {special.title}
+                      </h3>
+                    </div>
+                  </div>
+                  {special.description && (
+                    <p className="text-orange-50/90 text-xs sm:text-sm mb-2 line-clamp-2 leading-relaxed ml-0 sm:ml-[3.5rem] break-words">
+                      {special.description}
+                    </p>
+                  )}
+                  {special.priceNotes && (
+                    <p className="text-orange-200/80 text-[10px] sm:text-xs mb-2 font-semibold ml-0 sm:ml-[3.5rem] line-clamp-1 break-words">
+                      {special.priceNotes}
+                    </p>
+                  )}
+                  {special.timeWindow && (
+                    <div className="flex items-center gap-1.5 text-orange-200 text-[10px] sm:text-xs font-semibold ml-0 sm:ml-[3.5rem]">
+                      <svg className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span>{special.timeWindow}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
 
             {/* Drink Special */}
             {todaysDrinkSpecial && (
