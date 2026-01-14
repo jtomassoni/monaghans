@@ -13,7 +13,7 @@ aliases:
 relatedFeatures:
   - settings
 version: 1.0.0
-lastUpdated: 2025-01-27
+lastUpdated: 2026-01-14
 ---
 
 # Business Settings and Information
