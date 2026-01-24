@@ -26,7 +26,7 @@ import {
 import { FaMicrophone, FaBrain, FaCalendarAlt, FaUtensils, FaBeer, FaTable, FaCalendarWeek, FaDice, FaBullhorn, FaClock, FaCalendarDay } from 'react-icons/fa';
 import { FaFootball } from 'react-icons/fa6';
 import { HiChevronLeft, HiChevronRight } from 'react-icons/hi';
-import { parseMountainTimeDate, getMountainTimeDateString, getMountainTimeToday, getCompanyTimezoneSync, getCompanyTimezoneDateString } from '@/lib/timezone';
+import { parseMountainTimeDate, getMountainTimeDateString, getMountainTimeToday, getMountainTimeNow, getCompanyTimezoneSync, getCompanyTimezoneDateString } from '@/lib/timezone';
 
 interface CalendarEvent {
   id: string;
@@ -114,7 +114,7 @@ export default function CalendarView({ events, specials, announcements = [], bus
   const [hasDragged, setHasDragged] = useState(false);
   const [localEvents, setLocalEvents] = useState<CalendarEvent[]>(events);
   const [newEventIds, setNewEventIds] = useState<Set<string>>(new Set());
-  const [currentTime, setCurrentTime] = useState(getMountainTimeToday());
+  const [currentTime, setCurrentTime] = useState(getMountainTimeNow());
   const [showHoursConfig, setShowHoursConfig] = useState(false);
   const [localCalendarHours, setLocalCalendarHours] = useState<{ startHour: number; endHour: number } | null>(calendarHours || null);
   const hoursConfigRef = useRef<HTMLDivElement>(null);
@@ -132,7 +132,7 @@ export default function CalendarView({ events, specials, announcements = [], bus
   // Update current time every minute (in company timezone)
   useEffect(() => {
     const updateTime = () => {
-      setCurrentTime(getMountainTimeToday());
+      setCurrentTime(getMountainTimeNow());
     };
     
     updateTime();
@@ -862,12 +862,12 @@ export default function CalendarView({ events, specials, announcements = [], bus
 
     // Process announcements
     announcements.forEach((announcement) => {
-      if (!announcement.publishAt || !announcement.expiresAt) return;
+      // Require publishAt, but expiresAt is optional (if null, show indefinitely)
+      if (!announcement.publishAt) return;
 
       // Parse dates and get their Mountain Time date components
       // Dates from Prisma are UTC DateTime, interpret them in Mountain Time
       const publishDateUTC = new Date(announcement.publishAt);
-      const expireDateUTC = new Date(announcement.expiresAt);
       
       // Use formatToParts to get date components reliably in Mountain Time
       const publishFormatter = new Intl.DateTimeFormat('en-US', {
@@ -876,27 +876,36 @@ export default function CalendarView({ events, specials, announcements = [], bus
         month: '2-digit',
         day: '2-digit'
       });
-      const expireFormatter = new Intl.DateTimeFormat('en-US', {
-        timeZone: 'America/Denver',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit'
-      });
       
       const publishParts = publishFormatter.formatToParts(publishDateUTC);
-      const expireParts = expireFormatter.formatToParts(expireDateUTC);
       
       const publishYear = parseInt(publishParts.find(p => p.type === 'year')!.value);
       const publishMonth = parseInt(publishParts.find(p => p.type === 'month')!.value);
       const publishDay = parseInt(publishParts.find(p => p.type === 'day')!.value);
       
-      const expireYear = parseInt(expireParts.find(p => p.type === 'year')!.value);
-      const expireMonth = parseInt(expireParts.find(p => p.type === 'month')!.value);
-      const expireDay = parseInt(expireParts.find(p => p.type === 'day')!.value);
-      
       // Create Date objects representing MT midnight for these dates
       const startDateMT = parseMountainTimeDate(`${publishYear}-${String(publishMonth).padStart(2, '0')}-${String(publishDay).padStart(2, '0')}`);
-      const endDateMT = parseMountainTimeDate(`${expireYear}-${String(expireMonth).padStart(2, '0')}-${String(expireDay).padStart(2, '0')}`);
+      
+      // If expiresAt is null, show the announcement until the end of the visible calendar range
+      // Otherwise, use the expiration date
+      let endDateMT: Date;
+      if (announcement.expiresAt) {
+        const expireDateUTC = new Date(announcement.expiresAt);
+        const expireFormatter = new Intl.DateTimeFormat('en-US', {
+          timeZone: 'America/Denver',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        });
+        const expireParts = expireFormatter.formatToParts(expireDateUTC);
+        const expireYear = parseInt(expireParts.find(p => p.type === 'year')!.value);
+        const expireMonth = parseInt(expireParts.find(p => p.type === 'month')!.value);
+        const expireDay = parseInt(expireParts.find(p => p.type === 'day')!.value);
+        endDateMT = parseMountainTimeDate(`${expireYear}-${String(expireMonth).padStart(2, '0')}-${String(expireDay).padStart(2, '0')}`);
+      } else {
+        // No expiration date - show until end of visible calendar range
+        endDateMT = rangeEnd;
+      }
       
       // Create date range from start to end (inclusive) in Mountain Time
       let date = new Date(Math.max(startDateMT.getTime(), rangeStart.getTime()));
@@ -1831,7 +1840,17 @@ export default function CalendarView({ events, specials, announcements = [], bus
                   
                   {/* Current time indicator line */}
                   {isToday && (() => {
-                    const currentHour = getHours(currentTime);
+                    // Extract hours and minutes in company timezone, not browser local timezone
+                    const formatter = new Intl.DateTimeFormat('en-US', {
+                      timeZone: companyTimezone,
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: false
+                    });
+                    const parts = formatter.formatToParts(currentTime);
+                    const currentHour = parseInt(parts.find(p => p.type === 'hour')!.value);
+                    const currentMinute = parseInt(parts.find(p => p.type === 'minute')!.value);
+                    
                     const currentHourIndex = getVisibleHours.findIndex(h => h % 24 === currentHour);
                     if (currentHourIndex === -1) return null;
                     return (
@@ -1839,7 +1858,7 @@ export default function CalendarView({ events, specials, announcements = [], bus
                         key="current-time"
                         className="absolute left-0 right-0 z-[20] pointer-events-none"
                         style={{
-                          top: `${(currentHourIndex * hourHeight) + (getMinutes(currentTime) / 60 * hourHeight)}px`,
+                          top: `${(currentHourIndex * hourHeight) + (currentMinute / 60 * hourHeight)}px`,
                         }}
                       >
                         <div className="relative">
@@ -2256,7 +2275,17 @@ export default function CalendarView({ events, specials, announcements = [], bus
               
               {/* Current time indicator line */}
               {isToday && (() => {
-                const currentHour = getHours(currentTime);
+                // Extract hours and minutes in company timezone, not browser local timezone
+                const formatter = new Intl.DateTimeFormat('en-US', {
+                  timeZone: companyTimezone,
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  hour12: false
+                });
+                const parts = formatter.formatToParts(currentTime);
+                const currentHour = parseInt(parts.find(p => p.type === 'hour')!.value);
+                const currentMinute = parseInt(parts.find(p => p.type === 'minute')!.value);
+                
                 const currentHourIndex = getVisibleHours.findIndex(h => h % 24 === currentHour);
                 if (currentHourIndex === -1) return null;
                 return (
@@ -2264,7 +2293,7 @@ export default function CalendarView({ events, specials, announcements = [], bus
                     key="current-time"
                     className="absolute left-0 right-0 z-[20] pointer-events-none"
                     style={{
-                      top: `${(currentHourIndex * hourHeight) + (getMinutes(currentTime) / 60 * hourHeight)}px`,
+                      top: `${(currentHourIndex * hourHeight) + (currentMinute / 60 * hourHeight)}px`,
                     }}
                   >
                     <div className="relative">

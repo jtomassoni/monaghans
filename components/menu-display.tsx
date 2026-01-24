@@ -53,9 +53,6 @@ export default function MenuDisplay({
         <div className="bg-gradient-to-r from-yellow-900/60 to-orange-900/60 backdrop-blur-sm border-2 border-yellow-600 rounded-lg p-4 mb-6">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-yellow-400 text-xs font-semibold uppercase tracking-wider">Today&apos;s Special</span>
-            {todaySpecial.timeWindow && (
-              <span className="text-yellow-300 text-xs">({todaySpecial.timeWindow})</span>
-            )}
           </div>
           <h2 className="text-xl md:text-2xl font-bold text-white mb-2">{todaySpecial.title}</h2>
           {todaySpecial.description && (

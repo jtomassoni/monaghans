@@ -7,6 +7,9 @@ import { showToast } from '@/components/toast';
 import StatusToggle from '@/components/status-toggle';
 import DateTimePicker from '@/components/date-time-picker';
 import DatePicker from '@/components/date-picker';
+import FoodSpecialsGalleryEmbedded from '@/components/food-specials-gallery-embedded';
+import ConfirmationDialog from '@/components/confirmation-dialog';
+import { formatDateAsDateTimeLocal, parseDateTimeLocalAsCompanyTimezone, getCompanyTimezoneSync } from '@/lib/timezone';
 
 interface Event {
   id?: string;
@@ -36,8 +39,21 @@ interface Special {
   recurrenceRule?: string;
 }
 
-type ItemType = 'event' | 'food' | 'drink';
-type UnifiedItem = Event | Special;
+interface Announcement {
+  id?: string;
+  title: string;
+  body: string;
+  publishAt: string | null;
+  expiresAt?: string | null;
+  isPublished?: boolean;
+  crossPostFacebook: boolean;
+  crossPostInstagram: boolean;
+  ctaText?: string;
+  ctaUrl?: string;
+}
+
+type ItemType = 'event' | 'food' | 'drink' | 'announcement';
+type UnifiedItem = Event | Special | Announcement;
 
 interface UnifiedItemModalFormProps {
   isOpen: boolean;
@@ -45,6 +61,26 @@ interface UnifiedItemModalFormProps {
   item?: UnifiedItem;
   itemType?: ItemType;
   onSuccess?: () => void;
+  onDelete?: (id: string) => void;
+  onAnnouncementAdded?: (announcement: any) => void;
+  onAnnouncementUpdated?: (announcement: any) => void;
+}
+
+// Helper function to convert UTC ISO string to datetime-local string (company timezone)
+function convertUTCToMountainTimeLocal(utcISO: string): string {
+  const utcDate = new Date(utcISO);
+  return formatDateAsDateTimeLocal(utcDate, getCompanyTimezoneSync());
+}
+
+// Helper function to convert datetime-local string (interpreted as company timezone) to UTC ISO string
+function convertMountainTimeToUTC(datetimeLocal: string): string {
+  if (!datetimeLocal) return '';
+  try {
+    return parseDateTimeLocalAsCompanyTimezone(datetimeLocal, getCompanyTimezoneSync()).toISOString();
+  } catch (error) {
+    console.error('Error converting datetime:', error);
+    return '';
+  }
 }
 
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -113,9 +149,13 @@ function buildRRULE(frequency: string, days: string[], monthDay?: number): strin
   return '';
 }
 
-export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: initialItemType, onSuccess }: UnifiedItemModalFormProps) {
+export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: initialItemType, onSuccess, onDelete, onAnnouncementAdded, onAnnouncementUpdated }: UnifiedItemModalFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showCTA, setShowCTA] = useState(false);
+  const [facebookConnected, setFacebookConnected] = useState(false);
   
   // Determine item type from existing item or initial type
   const getItemType = (): ItemType => {
@@ -123,6 +163,10 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
       // Check if it's an event (has startDateTime)
       if ('startDateTime' in item) {
         return 'event';
+      }
+      // Check if it's an announcement (has body and publishAt)
+      if ('body' in item && 'publishAt' in item) {
+        return 'announcement';
       }
       // Check if it's a special and get its type
       if ('type' in item) {
@@ -180,6 +224,18 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
 
   const [dateError, setDateError] = useState<string | null>(null);
 
+  // Announcement form state
+  const [announcementData, setAnnouncementData] = useState({
+    title: '',
+    body: '',
+    publishAt: '',
+    expiresAt: '',
+    crossPostFacebook: false,
+    crossPostInstagram: false,
+    ctaText: '',
+    ctaUrl: '',
+  });
+
   // Initialize form data when modal opens or item changes
   useEffect(() => {
     if (item) {
@@ -202,6 +258,26 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
           venueArea: event.venueArea || 'bar',
         });
         setCurrentItemType('event');
+      } else if ('body' in item && 'publishAt' in item) {
+        // It's an announcement
+        const announcement = item as Announcement;
+        const hasCTA = !!(announcement.ctaText && announcement.ctaUrl);
+        setShowCTA(hasCTA);
+        setAnnouncementData({
+          title: announcement.title || '',
+          body: announcement.body || '',
+          publishAt: announcement.publishAt
+            ? convertUTCToMountainTimeLocal(announcement.publishAt)
+            : '',
+          expiresAt: announcement.expiresAt
+            ? convertUTCToMountainTimeLocal(announcement.expiresAt)
+            : '',
+          crossPostFacebook: announcement.crossPostFacebook ?? false,
+          crossPostInstagram: announcement.crossPostInstagram ?? false,
+          ctaText: announcement.ctaText || '',
+          ctaUrl: announcement.ctaUrl || '',
+        });
+        setCurrentItemType('announcement');
       } else {
         // It's a special
         const special = item as Special;
@@ -211,7 +287,7 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
           priceNotes: special.priceNotes || '',
           type: (special.type === 'drink' ? 'drink' : 'food') as 'food' | 'drink',
           appliesOn: Array.isArray(special.appliesOn) ? special.appliesOn : [],
-          timeWindow: special.timeWindow || '',
+          timeWindow: '', // Always empty - specials are all day
           startDate: special.startDate || '',
           endDate: special.endDate || '',
           image: special.image || '',
@@ -234,7 +310,7 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
       setSpecialData({
         title: '',
         description: '',
-        priceNotes: '',
+        priceNotes: initialItemType === 'food' ? '$14' : '',
         type: initialItemType === 'drink' ? 'drink' : 'food',
         appliesOn: [],
         timeWindow: '',
@@ -243,12 +319,103 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
         image: '',
         isActive: true,
       });
+      // Set default dates for announcement: top of current hour for publishAt, 24 hours from that for expiresAt
+      const now = new Date();
+      const publishAt = new Date(now);
+      publishAt.setMinutes(0, 0, 0);
+      const expiresAt = new Date(publishAt);
+      expiresAt.setHours(expiresAt.getHours() + 24);
+      setAnnouncementData({
+        title: '',
+        body: '',
+        publishAt: publishAt.toISOString().slice(0, 16),
+        expiresAt: expiresAt.toISOString().slice(0, 16),
+        crossPostFacebook: false,
+        crossPostInstagram: false,
+        ctaText: '',
+        ctaUrl: '',
+      });
+      setShowCTA(false);
       setRecurrenceType('none');
       setRecurrenceDays([]);
       setMonthDay(new Date().getDate());
       setDateError(null);
     }
+
   }, [item, initialItemType, isOpen]);
+
+  // Reset form data when item type changes for new items
+  useEffect(() => {
+    if (!item && isOpen) {
+      // Reset form data based on new type
+      if (currentItemType === 'event') {
+        setEventData({
+          title: '',
+          description: '',
+          startDateTime: '',
+          endDateTime: '',
+          isAllDay: false,
+          isActive: true,
+          venueArea: 'bar',
+        });
+        setRecurrenceType('none');
+        setRecurrenceDays([]);
+        setMonthDay(new Date().getDate());
+      } else if (currentItemType === 'announcement') {
+        const now = new Date();
+        const publishAt = new Date(now);
+        publishAt.setMinutes(0, 0, 0);
+        const expiresAt = new Date(publishAt);
+        expiresAt.setHours(expiresAt.getHours() + 24);
+        setAnnouncementData({
+          title: '',
+          body: '',
+          publishAt: publishAt.toISOString().slice(0, 16),
+          expiresAt: expiresAt.toISOString().slice(0, 16),
+          crossPostFacebook: false,
+          crossPostInstagram: false,
+          ctaText: '',
+          ctaUrl: '',
+        });
+        setShowCTA(false);
+      } else {
+        setSpecialData({
+          title: '',
+          description: '',
+          priceNotes: currentItemType === 'food' ? '$14' : '',
+          type: currentItemType === 'drink' ? 'drink' : 'food',
+          appliesOn: [],
+          timeWindow: '',
+          startDate: '',
+          endDate: '',
+          image: '',
+          isActive: true,
+        });
+      }
+      setDateError(null);
+    }
+  }, [currentItemType, isOpen, item]);
+
+  // Check Facebook connection status when modal opens for announcements
+  useEffect(() => {
+    if (isOpen && currentItemType === 'announcement') {
+      fetch('/api/social/facebook/status')
+        .then(res => res.json())
+        .then(data => {
+          const connected = data.connected === true && !data.expired;
+          setFacebookConnected(connected);
+          if (!connected && announcementData.crossPostFacebook) {
+            setAnnouncementData(prev => ({ ...prev, crossPostFacebook: false }));
+          }
+        })
+        .catch(() => {
+          setFacebookConnected(false);
+          if (announcementData.crossPostFacebook) {
+            setAnnouncementData(prev => ({ ...prev, crossPostFacebook: false }));
+          }
+        });
+    }
+  }, [isOpen, currentItemType, announcementData.crossPostFacebook]);
 
   // Clear appliesOn when switching to food type
   useEffect(() => {
@@ -382,6 +549,64 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
             error.error || error.details || 'Please check your input and try again.'
           );
         }
+      } else if (currentItemType === 'announcement') {
+        // Announcement
+        // Validate expiration date is not more than 1 month after publish date
+        if (announcementData.publishAt && announcementData.expiresAt) {
+          const publishDate = new Date(announcementData.publishAt);
+          const expireDate = new Date(announcementData.expiresAt);
+          const maxExpireDate = new Date(publishDate);
+          maxExpireDate.setMonth(maxExpireDate.getMonth() + 1);
+          
+          if (expireDate > maxExpireDate) {
+            showToast(
+              'Expiration date cannot be more than 1 month after publish date',
+              'error',
+              `Maximum expiration date: ${maxExpireDate.toLocaleDateString()} ${maxExpireDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+            );
+            setLoading(false);
+            return;
+          }
+        }
+
+        const url = (item && 'body' in item && item.id) ? `/api/announcements/${item.id}` : '/api/announcements';
+        const method = (item && 'body' in item && item.id) ? 'PUT' : 'POST';
+
+        const announcementPayload = {
+          ...announcementData,
+          publishAt: announcementData.publishAt ? convertMountainTimeToUTC(announcementData.publishAt) : null,
+          expiresAt: announcementData.expiresAt ? convertMountainTimeToUTC(announcementData.expiresAt) : null,
+          isPublished: true,
+        };
+
+        const res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(announcementPayload),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          router.refresh();
+          showToast(
+            (item && 'body' in item && item.id) ? 'Announcement updated successfully' : 'Announcement created successfully',
+            'success'
+          );
+          if (item && 'body' in item && item.id) {
+            onAnnouncementUpdated?.(data);
+          } else {
+            onAnnouncementAdded?.(data);
+          }
+          onSuccess?.();
+          onClose();
+        } else {
+          const error = await res.json();
+          showToast(
+            (item && 'body' in item && item.id) ? 'Failed to update announcement' : 'Failed to create announcement',
+            'error',
+            error.error || error.details || 'Please check your input and try again.'
+          );
+        }
       } else {
         // Special
         const url = (item && 'type' in item && item.id) ? `/api/specials/${item.id}` : '/api/specials';
@@ -428,129 +653,155 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
 
   const isEditing = item !== undefined;
   const title = isEditing 
-    ? `Edit ${currentItemType === 'event' ? 'Event' : currentItemType === 'drink' ? 'Drink Special' : 'Food Special'}`
-    : 'New Item';
+    ? `Edit ${currentItemType === 'event' ? 'Event' : currentItemType === 'drink' ? 'Drink Special' : currentItemType === 'announcement' ? 'Announcement' : 'Food Special'}`
+    : 'Create New';
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
       title={title}
+      maxWidth="sm:max-w-[1200px] lg:max-w-[1400px]"
     >
-      <form onSubmit={handleSubmit} className="space-y-3">
+      <form onSubmit={handleSubmit} className="space-y-3 w-full max-w-full min-w-0 overflow-hidden">
         {/* Item Type Selector - only show when creating new */}
         {!isEditing && (
-          <div>
-            <label className="block mb-1 text-sm font-medium">Item Type *</label>
-            <div className="flex gap-3 flex-wrap">
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="radio"
-                  name="itemType"
-                  checked={currentItemType === 'event'}
-                  onChange={() => setCurrentItemType('event')}
-                  className="w-4 h-4"
-                />
-                <span className="text-sm">Event</span>
+          <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 backdrop-blur-sm">
+            <div>
+              <label htmlFor="itemType" className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400 mb-2 block">
+                Item Type *
               </label>
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="radio"
-                  name="itemType"
-                  checked={currentItemType === 'food'}
-                  onChange={() => setCurrentItemType('food')}
-                  className="w-4 h-4"
-                />
-                <span className="text-sm">Food Special</span>
-              </label>
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="radio"
-                  name="itemType"
-                  checked={currentItemType === 'drink'}
-                  onChange={() => setCurrentItemType('drink')}
-                  className="w-4 h-4"
-                />
-                <span className="text-sm">Drink Special</span>
-              </label>
+              <select
+                id="itemType"
+                value={currentItemType}
+                onChange={(e) => {
+                  const newType = e.target.value as ItemType;
+                  setCurrentItemType(newType);
+                  // Default price to $14 when switching to food special
+                  if (newType === 'food' && !item) {
+                    setSpecialData(prev => ({
+                      ...prev,
+                      priceNotes: prev.priceNotes || '$14',
+                      type: 'food',
+                    }));
+                  } else if (newType === 'drink' && !item) {
+                    setSpecialData(prev => ({
+                      ...prev,
+                      priceNotes: '',
+                      type: 'drink',
+                    }));
+                  }
+                }}
+                className="w-full rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+              >
+                <option value="event">Event</option>
+                <option value="food">Food Special</option>
+                <option value="drink">Drink Special</option>
+                <option value="announcement">Announcement</option>
+              </select>
             </div>
           </div>
         )}
 
-        {/* Status Toggle */}
-        <StatusToggle
-          type="active"
-          value={currentItemType === 'event' ? eventData.isActive : specialData.isActive}
-          onChange={(value) => {
-            if (currentItemType === 'event') {
-              setEventData({ ...eventData, isActive: value });
-            } else {
-              setSpecialData({ ...specialData, isActive: value });
-            }
-          }}
-          label="Status"
-        />
+        {/* Basic Information Section */}
+        <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 backdrop-blur-sm space-y-3">
+          {currentItemType !== 'announcement' && (
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Status</p>
+                <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300">
+                  Control whether this item appears publicly.
+                </p>
+              </div>
+              <StatusToggle
+                type="active"
+                value={currentItemType === 'event' ? eventData.isActive : specialData.isActive}
+                onChange={(value) => {
+                  if (currentItemType === 'event') {
+                    setEventData({ ...eventData, isActive: value });
+                  } else {
+                    setSpecialData({ ...specialData, isActive: value });
+                  }
+                }}
+                className="shrink-0"
+              />
+            </div>
+          )}
 
-        {/* Title - Common Field */}
-        <div>
-          <label htmlFor="title" className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
-            Title *
-          </label>
-          <input
-            id="title"
-            type="text"
-            value={currentItemType === 'event' ? eventData.title : specialData.title}
-            onChange={(e) => {
-              if (currentItemType === 'event') {
-                setEventData({ ...eventData, title: e.target.value });
-              } else {
-                setSpecialData({ ...specialData, title: e.target.value });
-              }
-            }}
-            required
-            className="w-full px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-white text-sm"
-          />
-        </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label htmlFor="title" className="text-sm font-medium text-gray-900 dark:text-white">
+                Title *
+              </label>
+              <input
+                id="title"
+                type="text"
+                value={currentItemType === 'event' ? eventData.title : (currentItemType === 'announcement' ? announcementData.title : specialData.title)}
+                onChange={(e) => {
+                  if (currentItemType === 'event') {
+                    setEventData({ ...eventData, title: e.target.value });
+                  } else if (currentItemType === 'announcement') {
+                    setAnnouncementData({ ...announcementData, title: e.target.value });
+                  } else {
+                    setSpecialData({ ...specialData, title: e.target.value });
+                  }
+                }}
+                required
+                className="w-full rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+              />
+            </div>
 
-        {/* Description - Common Field */}
-        <div>
-          <label htmlFor="description" className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
-            Description
-          </label>
-          <textarea
-            id="description"
-            value={currentItemType === 'event' ? eventData.description : specialData.description}
-            onChange={(e) => {
-              if (currentItemType === 'event') {
-                setEventData({ ...eventData, description: e.target.value });
-              } else {
-                setSpecialData({ ...specialData, description: e.target.value });
-              }
-            }}
-            rows={2}
-            className="w-full px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-white text-sm"
-          />
+            {currentItemType !== 'announcement' && (
+              <div className="space-y-1">
+                <label htmlFor="description" className="text-sm font-medium text-gray-900 dark:text-white">
+                  Description
+                </label>
+                <textarea
+                  id="description"
+                  value={currentItemType === 'event' ? eventData.description : specialData.description}
+                  onChange={(e) => {
+                    if (currentItemType === 'event') {
+                      setEventData({ ...eventData, description: e.target.value });
+                    } else {
+                      setSpecialData({ ...specialData, description: e.target.value });
+                    }
+                  }}
+                  rows={2}
+                  className="w-full rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all resize-none"
+                />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Event-specific fields */}
         {currentItemType === 'event' && (
-          <>
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="isAllDay"
-                  checked={eventData.isAllDay}
-                  onChange={(e) => handleAllDayChange(e.target.checked)}
-                  className="w-4 h-4"
-                />
-                <label htmlFor="isAllDay" className="cursor-pointer text-sm text-gray-900 dark:text-white">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 backdrop-blur-sm space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Schedule</p>
+                  <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300">
+                    Choose the start and end for this event.
+                  </p>
+                </div>
+                <label
+                  htmlFor="isAllDay"
+                  className="inline-flex items-center gap-2 rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-2.5 py-1 text-xs font-medium text-gray-900 dark:text-white shadow-inner cursor-pointer transition-colors hover:border-blue-400/70 focus-within:ring-2 focus-within:ring-blue-500/30"
+                >
+                  <input
+                    type="checkbox"
+                    id="isAllDay"
+                    checked={eventData.isAllDay}
+                    onChange={(e) => handleAllDayChange(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
                   All Day Event
                 </label>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="relative isolate">
                   {eventData.isAllDay ? (
                     <DatePicker
                       label="Start Date"
@@ -570,7 +821,7 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
                     />
                   )}
                 </div>
-                <div>
+                <div className="relative isolate">
                   {eventData.isAllDay ? (
                     <DatePicker
                       label="End Date"
@@ -590,221 +841,500 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
                 </div>
               </div>
               {dateError && (
-                <p className="text-xs text-red-400 mt-1">{dateError}</p>
+                <p className="text-xs text-red-500 dark:text-red-400 mt-1">
+                  {dateError}
+                </p>
+              )}
+            </div>
+
+            <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 backdrop-blur-sm space-y-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Recurrence</p>
+                <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300">
+                  Define how this event repeats across your calendar.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <label
+                  className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-medium transition-all cursor-pointer ${
+                    recurrenceType === 'none'
+                      ? 'border-blue-500 bg-blue-50 text-blue-600 dark:border-blue-500/80 dark:bg-blue-900/30 dark:text-blue-200 shadow-sm'
+                      : 'border-gray-200/70 dark:border-gray-700/60 text-gray-700 dark:text-gray-200 hover:border-blue-400/70'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="recurrence"
+                    checked={recurrenceType === 'none'}
+                    onChange={() => {
+                      setRecurrenceType('none');
+                      setRecurrenceDays([]);
+                    }}
+                    className="sr-only"
+                  />
+                  One-time event
+                </label>
+                <label
+                  className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-medium transition-all cursor-pointer ${
+                    recurrenceType === 'weekly'
+                      ? 'border-blue-500 bg-blue-50 text-blue-600 dark:border-blue-500/80 dark:bg-blue-900/30 dark:text-blue-200 shadow-sm'
+                      : 'border-gray-200/70 dark:border-gray-700/60 text-gray-700 dark:text-gray-200 hover:border-blue-400/70'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="recurrence"
+                    checked={recurrenceType === 'weekly'}
+                    onChange={() => {
+                      setRecurrenceType('weekly');
+                      if (recurrenceDays.length === 0 && eventData.startDateTime) {
+                        const startDate = new Date(eventData.startDateTime);
+                        const dayOfWeek = startDate.getDay();
+                        const dayMap: Record<number, string> = {
+                          0: 'Sunday', 1: 'Monday', 2: 'Tuesday', 3: 'Wednesday',
+                          4: 'Thursday', 5: 'Friday', 6: 'Saturday'
+                        };
+                        const dayName = dayMap[dayOfWeek];
+                        if (dayName && WEEKDAYS.includes(dayName)) {
+                          setRecurrenceDays([dayName]);
+                        }
+                      }
+                    }}
+                    className="sr-only"
+                  />
+                  Weekly
+                </label>
+                <label
+                  className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-medium transition-all cursor-pointer ${
+                    recurrenceType === 'monthly'
+                      ? 'border-blue-500 bg-blue-50 text-blue-600 dark:border-blue-500/80 dark:bg-blue-900/30 dark:text-blue-200 shadow-sm'
+                      : 'border-gray-200/70 dark:border-gray-700/60 text-gray-700 dark:text-gray-200 hover:border-blue-400/70'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="recurrence"
+                    checked={recurrenceType === 'monthly'}
+                    onChange={() => {
+                      setRecurrenceType('monthly');
+                      if (eventData.startDateTime) {
+                        const startDate = new Date(eventData.startDateTime);
+                        setMonthDay(startDate.getDate());
+                      }
+                    }}
+                    className="sr-only"
+                  />
+                  Monthly
+                </label>
+              </div>
+
+              {recurrenceType === 'weekly' && (
+                <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/70 dark:bg-gray-900/40 p-3 shadow-inner space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Repeat on</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                    {WEEKDAYS.map((day) => {
+                      const isSelected = recurrenceDays.includes(day);
+                      return (
+                        <label
+                          key={day}
+                          className={`flex items-center justify-center rounded-lg border px-2 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+                            isSelected
+                              ? 'border-blue-500 bg-blue-600 text-white shadow-sm shadow-blue-500/30'
+                              : 'border-gray-200/70 dark:border-gray-700/60 text-gray-700 dark:text-gray-200 bg-white/80 dark:bg-gray-900/40 hover:border-blue-400/70'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleRecurrenceDay(day)}
+                            className="sr-only"
+                          />
+                          {day}
+                        </label>
+                      );
+                    })}
+                  </div>
+                  {recurrenceDays.length === 0 && (
+                    <p className="text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                      Select at least one day for the recurrence.
+                    </p>
+                  )}
+                </div>
               )}
 
-              <div>
-                <label className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
-                  Repeats
-                </label>
-                <div className="space-y-2">
-                  <div className="flex gap-3 flex-wrap">
-                    <label className="flex items-center gap-1.5 cursor-pointer text-gray-900 dark:text-white">
-                      <input
-                        type="radio"
-                        name="recurrence"
-                        checked={recurrenceType === 'none'}
-                        onChange={() => {
-                          setRecurrenceType('none');
-                          setRecurrenceDays([]);
-                        }}
-                        className="w-4 h-4"
-                      />
-                      <span className="text-sm">One-time event</span>
-                    </label>
-                    <label className="flex items-center gap-1.5 cursor-pointer text-gray-900 dark:text-white">
-                      <input
-                        type="radio"
-                        name="recurrence"
-                        checked={recurrenceType === 'weekly'}
-                        onChange={() => {
-                          setRecurrenceType('weekly');
-                          if (recurrenceDays.length === 0 && eventData.startDateTime) {
-                            const startDate = new Date(eventData.startDateTime);
-                            const dayOfWeek = startDate.getDay();
-                            const dayMap: Record<number, string> = {
-                              0: 'Sunday', 1: 'Monday', 2: 'Tuesday', 3: 'Wednesday',
-                              4: 'Thursday', 5: 'Friday', 6: 'Saturday'
-                            };
-                            const dayName = dayMap[dayOfWeek];
-                            if (dayName && WEEKDAYS.includes(dayName)) {
-                              setRecurrenceDays([dayName]);
-                            }
-                          }
-                        }}
-                        className="w-4 h-4"
-                      />
-                      <span className="text-sm">Weekly</span>
-                    </label>
-                    <label className="flex items-center gap-1.5 cursor-pointer text-gray-900 dark:text-white">
-                      <input
-                        type="radio"
-                        name="recurrence"
-                        checked={recurrenceType === 'monthly'}
-                        onChange={() => {
-                          setRecurrenceType('monthly');
-                          if (eventData.startDateTime) {
-                            const startDate = new Date(eventData.startDateTime);
-                            setMonthDay(startDate.getDate());
-                          }
-                        }}
-                        className="w-4 h-4"
-                      />
-                      <span className="text-sm">Monthly</span>
-                    </label>
+              {recurrenceType === 'monthly' && (
+                <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/70 dark:bg-gray-900/40 p-3 shadow-inner space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Repeat on day</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <select
+                      value={monthDay}
+                      onChange={(e) => setMonthDay(parseInt(e.target.value))}
+                      className="rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-2.5 py-1.5 text-xs text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500"
+                    >
+                      {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                        <option key={day} value={day}>
+                          {day}
+                          {day === 1 || day === 21 || day === 31 ? 'st' : day === 2 || day === 22 ? 'nd' : day === 3 || day === 23 ? 'rd' : 'th'}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="text-xs text-gray-600 dark:text-gray-300">of each month</span>
                   </div>
-
-                  {recurrenceType === 'weekly' && (
-                    <div className="ml-4 p-3 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-700">
-                      <p className="text-xs text-gray-700 dark:text-gray-300 mb-2">Repeat on:</p>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        {WEEKDAYS.map((day) => (
-                          <label key={day} className="flex items-center gap-1.5 cursor-pointer text-gray-900 dark:text-white">
-                            <input
-                              type="checkbox"
-                              checked={recurrenceDays.includes(day)}
-                              onChange={() => toggleRecurrenceDay(day)}
-                              className="w-3.5 h-3.5"
-                            />
-                            <span className="text-xs">{day}</span>
-                          </label>
-                        ))}
-                      </div>
-                      {recurrenceDays.length === 0 && (
-                        <p className="text-[10px] text-yellow-600 dark:text-yellow-400 mt-1.5">Select at least one day</p>
-                      )}
-                    </div>
-                  )}
-
-                  {recurrenceType === 'monthly' && (
-                    <div className="ml-4 p-3 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-700">
-                      <p className="text-xs text-gray-700 dark:text-gray-300 mb-2">Repeat on day of month:</p>
-                      <div className="flex items-center gap-2">
-                        <select
-                          value={monthDay}
-                          onChange={(e) => setMonthDay(parseInt(e.target.value))}
-                          className="px-2 py-1 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-white text-sm"
-                        >
-                          {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
-                            <option key={day} value={day}>
-                              {day}
-                              {day === 1 || day === 21 || day === 31 ? 'st' : day === 2 || day === 22 ? 'nd' : day === 3 || day === 23 ? 'rd' : 'th'}
-                            </option>
-                          ))}
-                        </select>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">of each month</span>
-                      </div>
-                    </div>
-                  )}
                 </div>
-              </div>
+              )}
             </div>
-          </>
+          </div>
         )}
 
-        {/* Special-specific fields */}
-        {currentItemType !== 'event' && (
-          <>
+        {/* Special-specific fields - only for food and drink */}
+        {(currentItemType === 'food' || currentItemType === 'drink') && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 backdrop-blur-sm space-y-3">
               <div>
-                <label htmlFor="priceNotes" className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
-                  Price Notes {currentItemType === 'food' ? '(optional)' : ''}
-                </label>
-                <input
-                  id="priceNotes"
-                  type="text"
-                  value={specialData.priceNotes}
-                  onChange={(e) => setSpecialData({ ...specialData, priceNotes: e.target.value })}
-                  placeholder={currentItemType === 'food' ? "e.g., $12.99 (or leave empty if prices are in description)" : "e.g., $3 drafts, Happy hour prices"}
-                  className="w-full px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-white text-sm"
-                />
-                {currentItemType === 'food' && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    If your special has multiple prices, you can list them in the Description field instead.
-                  </p>
-                )}
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Pricing & Details</p>
+                <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300">
+                  Set the price and additional information for this special.
+                </p>
               </div>
 
-            {currentItemType === 'drink' && (
-              <div>
-                <label className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">Applies On (optional for date-specific specials)</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {WEEKDAYS.map((day) => (
-                    <label key={day} className="flex items-center gap-2 cursor-pointer text-gray-900 dark:text-white">
-                      <input
-                        type="checkbox"
-                        checked={specialData.appliesOn.includes(day)}
-                        onChange={() => toggleSpecialDay(day)}
-                        className="w-4 h-4"
-                      />
-                      <span className="text-sm">{day}</span>
-                    </label>
-                  ))}
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <label htmlFor="priceNotes" className="text-sm font-medium text-gray-900 dark:text-white">
+                    Price {currentItemType === 'food' ? '(optional)' : ''}
+                  </label>
+                  <input
+                    id="priceNotes"
+                    type="text"
+                    value={specialData.priceNotes}
+                    onChange={(e) => setSpecialData({ ...specialData, priceNotes: e.target.value })}
+                    placeholder={currentItemType === 'food' ? "e.g., $12.99 (or leave empty if prices are in description)" : "e.g., $3 drafts, Happy hour prices"}
+                    className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+                  />
+                  {currentItemType === 'food' && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      If your special has multiple prices, you can list them in the Description field instead.
+                    </p>
+                  )}
                 </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Select which days this special applies. Leave empty if using start/end dates.
-                </p>
+
+                {/* Time window removed - specials are always all day */}
+              </div>
+            </div>
+
+            {currentItemType === 'drink' && (
+              <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 backdrop-blur-sm space-y-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Weekly Schedule</p>
+                  <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300">
+                    Select which days this special applies each week. Leave empty if using start/end dates.
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/70 dark:bg-gray-900/40 p-3 shadow-inner space-y-2.5">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Applies On</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {WEEKDAYS.map((day) => {
+                      const isSelected = specialData.appliesOn.includes(day);
+                      return (
+                        <label
+                          key={day}
+                          className={`flex items-center justify-center rounded-lg border px-2 py-2.5 text-xs font-semibold transition-all cursor-pointer ${
+                            isSelected
+                              ? 'border-blue-500 bg-blue-600 text-white shadow-sm shadow-blue-500/30'
+                              : 'border-gray-200/70 dark:border-gray-700/60 text-gray-700 dark:text-gray-200 bg-white/80 dark:bg-gray-900/40 hover:border-blue-400/70'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleSpecialDay(day)}
+                            className="sr-only"
+                          />
+                          {day}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             )}
 
-            <div>
-              <label htmlFor="timeWindow" className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
-                Time Window
-              </label>
-              <input
-                id="timeWindow"
-                type="text"
-                value={specialData.timeWindow}
-                onChange={(e) => setSpecialData({ ...specialData, timeWindow: e.target.value })}
-                placeholder="e.g., 11am-3pm, Happy Hour"
-                className="w-full px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-white text-sm"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label htmlFor="startDate" className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
-                  Start Date (optional)
-                </label>
-                <DatePicker
-                  value={specialData.startDate || ''}
-                  onChange={(value) => setSpecialData({ ...specialData, startDate: value })}
-                  dateOnly={true}
-                />
+            <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-2 sm:p-3 backdrop-blur-sm space-y-3 w-full max-w-full min-w-0 overflow-hidden">
+              <div className="w-full max-w-full min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">
+                  {currentItemType === 'food' ? 'Date' : 'Timing'}
+                </p>
+                <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300 break-words">
+                  {currentItemType === 'food' 
+                    ? 'Select the date this daily special applies (full day).'
+                    : 'Set when this special is available.'}
+                </p>
               </div>
-              <div>
-                <label htmlFor="endDate" className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
-                  End Date (optional)
-                </label>
-                <DatePicker
-                  value={specialData.endDate || ''}
-                  onChange={(value) => setSpecialData({ ...specialData, endDate: value })}
-                  min={specialData.startDate || undefined}
-                  dateOnly={true}
-                />
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-full min-w-0">
+                <div className="relative isolate w-full max-w-full min-w-0 overflow-hidden" style={{ width: '100%', maxWidth: '100%' }}>
+                  <DatePicker
+                    label={currentItemType === 'food' ? 'Date *' : 'Start Date (optional)'}
+                    value={currentItemType === 'food' ? (specialData.startDate || '') : (specialData.startDate || '')}
+                    onChange={(value) => {
+                      if (currentItemType === 'food') {
+                        setSpecialData({ ...specialData, startDate: value || '', endDate: value || '' });
+                      } else {
+                        setSpecialData({ ...specialData, startDate: value || '' });
+                      }
+                    }}
+                    required={currentItemType === 'food'}
+                    dateOnly={true}
+                    min={currentItemType === 'drink' ? undefined : undefined}
+                  />
+                </div>
+                {currentItemType === 'drink' && (
+                  <div className="relative isolate w-full max-w-full min-w-0 overflow-hidden" style={{ width: '100%', maxWidth: '100%' }}>
+                    <DatePicker
+                      label="End Date (optional)"
+                      value={specialData.endDate || ''}
+                      onChange={(value) => setSpecialData({ ...specialData, endDate: value || '' })}
+                      min={specialData.startDate || undefined}
+                      dateOnly={true}
+                    />
+                  </div>
+                )}
               </div>
             </div>
-
-            <div>
-              <label htmlFor="image" className="block mb-1 text-sm font-medium text-gray-900 dark:text-white">
-                Image Path (optional)
-              </label>
-              <input
-                id="image"
-                type="text"
-                value={specialData.image}
-                onChange={(e) => setSpecialData({ ...specialData, image: e.target.value })}
-                placeholder="/uploads/special-image.jpg"
-                className="w-full px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-white text-sm"
-              />
-            </div>
-          </>
+          </div>
         )}
 
-        <div className="flex gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+        {/* Food Image Section - Full Width */}
+        {currentItemType === 'food' && (
+          <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 backdrop-blur-sm space-y-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Image</p>
+              <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300">
+                Add an image to showcase this food special.
+              </p>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-900 dark:text-white">
+                Image (optional)
+              </label>
+              <FoodSpecialsGalleryEmbedded
+                currentImagePath={specialData.image}
+                onSelect={(imagePath) => setSpecialData({ ...specialData, image: imagePath })}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Announcement-specific fields */}
+        {currentItemType === 'announcement' && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 backdrop-blur-sm space-y-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Content</p>
+                <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300">
+                  Enter the announcement content.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <label htmlFor="announcement-body" className="text-sm font-medium text-gray-900 dark:text-white">
+                    Content *
+                  </label>
+                  <textarea
+                    id="announcement-body"
+                    value={announcementData.body}
+                    onChange={(e) => setAnnouncementData({ ...announcementData, body: e.target.value })}
+                    rows={4}
+                    required
+                    className="w-full rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all resize-none"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Supports markdown and HTML</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 backdrop-blur-sm space-y-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Schedule</p>
+                <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300">
+                  Set when this announcement should be published and expire.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <div className="relative isolate">
+                  <DateTimePicker
+                    label="Publish Date & Time"
+                    value={announcementData.publishAt}
+                    onChange={(value) => setAnnouncementData({ ...announcementData, publishAt: value })}
+                    required
+                  />
+                </div>
+
+                <div className="relative isolate">
+                  <DateTimePicker
+                    label="Expiration Date & Time"
+                    value={announcementData.expiresAt}
+                    onChange={(value) => {
+                      if (announcementData.publishAt && value) {
+                        const publishDate = new Date(announcementData.publishAt);
+                        const expireDate = new Date(value);
+                        const maxExpireDate = new Date(publishDate);
+                        maxExpireDate.setMonth(maxExpireDate.getMonth() + 1);
+                        
+                        if (expireDate > maxExpireDate) {
+                          showToast(
+                            'Expiration date cannot be more than 1 month after publish date',
+                            'error',
+                            `Maximum expiration date: ${maxExpireDate.toLocaleDateString()} ${maxExpireDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                          );
+                          const maxValue = maxExpireDate.toISOString().slice(0, 16);
+                          setAnnouncementData({ ...announcementData, expiresAt: maxValue });
+                          return;
+                        }
+                      }
+                      setAnnouncementData({ ...announcementData, expiresAt: value });
+                    }}
+                    min={announcementData.publishAt || undefined}
+                    max={announcementData.publishAt ? (() => {
+                      const maxDate = new Date(announcementData.publishAt);
+                      maxDate.setMonth(maxDate.getMonth() + 1);
+                      return maxDate.toISOString().slice(0, 16);
+                    })() : undefined}
+                    required
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Must be within 1 month of publish date</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 backdrop-blur-sm space-y-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Social Media</p>
+                <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300">
+                  Automatically share this announcement to your connected social media accounts.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label
+                  htmlFor="crossPostFacebook"
+                  className={`inline-flex items-center gap-3 rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-2 text-sm font-medium text-gray-900 dark:text-white shadow-inner cursor-pointer transition-colors ${
+                    facebookConnected ? 'hover:border-blue-400/70 focus-within:ring-2 focus-within:ring-blue-500/30' : 'opacity-50 cursor-not-allowed'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    id="crossPostFacebook"
+                    checked={announcementData.crossPostFacebook}
+                    onChange={(e) => setAnnouncementData({ ...announcementData, crossPostFacebook: e.target.checked })}
+                    disabled={!facebookConnected}
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span>
+                    Cross-post to Facebook
+                    {!facebookConnected && ' (Connect Facebook in Settings)'}
+                  </span>
+                </label>
+                <label
+                  htmlFor="crossPostInstagram"
+                  className="inline-flex items-center gap-3 rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-400 shadow-inner cursor-not-allowed opacity-50"
+                >
+                  <input
+                    type="checkbox"
+                    id="crossPostInstagram"
+                    checked={announcementData.crossPostInstagram}
+                    onChange={(e) => setAnnouncementData({ ...announcementData, crossPostInstagram: e.target.checked })}
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    disabled
+                  />
+                  <span>Cross-post to Instagram (coming soon)</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 backdrop-blur-sm space-y-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Call-to-Action</p>
+                <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300">
+                  Add an optional button to your announcement.
+                </p>
+              </div>
+
+              <label
+                htmlFor="showCTA"
+                className="inline-flex items-center gap-3 rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-2 text-sm font-medium text-gray-900 dark:text-white shadow-inner cursor-pointer transition-colors hover:border-blue-400/70 focus-within:ring-2 focus-within:ring-blue-500/30"
+              >
+                <input
+                  type="checkbox"
+                  id="showCTA"
+                  checked={showCTA}
+                  onChange={(e) => {
+                    setShowCTA(e.target.checked);
+                    if (!e.target.checked) {
+                      setAnnouncementData({ ...announcementData, ctaText: '', ctaUrl: '' });
+                    }
+                  }}
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                Add Call-to-Action Button
+              </label>
+
+              {showCTA && (
+                <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/70 dark:bg-gray-900/40 p-3 shadow-inner space-y-3 border-l-4 border-l-blue-500 dark:border-l-blue-400">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Both fields are required for the CTA button to appear.</p>
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <label htmlFor="ctaText" className="text-sm font-medium text-gray-900 dark:text-white">
+                        Button Text *
+                      </label>
+                      <input
+                        id="ctaText"
+                        type="text"
+                        value={announcementData.ctaText}
+                        onChange={(e) => setAnnouncementData({ ...announcementData, ctaText: e.target.value })}
+                        placeholder="e.g., Learn More, Book Now, Order Here"
+                        className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label htmlFor="ctaUrl" className="text-sm font-medium text-gray-900 dark:text-white">
+                        Button URL *
+                      </label>
+                      <input
+                        id="ctaUrl"
+                        type="url"
+                        value={announcementData.ctaUrl}
+                        onChange={(e) => setAnnouncementData({ ...announcementData, ctaUrl: e.target.value })}
+                        placeholder="https://example.com or /menu"
+                        className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center justify-end gap-2 shrink-0 pt-3 border-t border-gray-200/70 dark:border-gray-700/60 mt-3">
+          {isEditing && currentItemType === 'announcement' && item && 'body' in item && item.id && onDelete && (
+            <button
+              type="button"
+              onClick={() => setShowDeleteConfirm(true)}
+              disabled={deleteLoading || loading}
+              className="px-3 py-1.5 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 cursor-pointer"
+            >
+              Delete
+            </button>
+          )}
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-semibold transition-colors"
+            className="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
           >
             Cancel
           </button>
@@ -814,9 +1344,10 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
               loading ||
               (currentItemType === 'event' && !eventData.startDateTime) ||
               (currentItemType === 'food' && !specialData.startDate && !specialData.endDate) ||
-              (currentItemType === 'drink' && specialData.appliesOn.length === 0 && !specialData.startDate && !specialData.endDate)
+              (currentItemType === 'drink' && specialData.appliesOn.length === 0 && !specialData.startDate && !specialData.endDate) ||
+              (currentItemType === 'announcement' && (!announcementData.title || !announcementData.body || !announcementData.publishAt || !announcementData.expiresAt))
             }
-            className="px-4 py-2 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-blue-500/20"
+            className="px-3 py-1.5 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-blue-500/20 cursor-pointer"
           >
             {loading 
               ? (item?.id ? 'Saving...' : 'Creating...')
@@ -824,6 +1355,44 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
           </button>
         </div>
       </form>
+
+
+      {currentItemType === 'announcement' && item && 'body' in item && item.id && (
+        <ConfirmationDialog
+          isOpen={showDeleteConfirm}
+          onClose={() => setShowDeleteConfirm(false)}
+          onConfirm={async () => {
+            setDeleteLoading(true);
+            try {
+              const res = await fetch(`/api/announcements/${item.id}`, {
+                method: 'DELETE',
+              });
+
+              if (res.ok) {
+                showToast('Announcement deleted successfully', 'success');
+                if (item.id) {
+                  onDelete?.(item.id);
+                }
+                onClose();
+                onSuccess?.();
+              } else {
+                const error = await res.json();
+                showToast('Failed to delete announcement', 'error', error.error || error.details || 'An error occurred');
+              }
+            } catch (error) {
+              showToast('Failed to delete announcement', 'error', error instanceof Error ? error.message : 'An error occurred');
+            } finally {
+              setDeleteLoading(false);
+              setShowDeleteConfirm(false);
+            }
+          }}
+          title="Delete Announcement"
+          message={`Are you sure you want to delete "${announcementData.title}"? This action cannot be undone.`}
+          confirmText={deleteLoading ? 'Deleting...' : 'Delete'}
+          cancelText="Cancel"
+          variant="danger"
+        />
+      )}
     </Modal>
   );
 }

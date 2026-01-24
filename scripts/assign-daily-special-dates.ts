@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { getMountainTimeToday, parseMountainTimeDate, getMountainTimeDateString, getCompanyTimezone } from '@/lib/timezone';
 
 const prisma = new PrismaClient();
 
@@ -22,16 +23,19 @@ async function assignDailySpecialDates() {
 
     console.log(`Found ${specials.length} daily specials without dates.`);
 
-    // Start from today and assign dates going forward
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
+    const companyTimezone = await getCompanyTimezone();
+    // Start from today in Mountain Time
+    const today = getMountainTimeToday();
     let currentDate = new Date(today);
 
     for (const special of specials) {
-      // Set startDate and endDate to the same day (single day special)
-      const startDate = new Date(currentDate);
-      const endDate = new Date(currentDate);
+      // Get date string in Mountain Time
+      const dateStr = getMountainTimeDateString(currentDate, companyTimezone);
+      
+      // Use timezone-aware date parsing to ensure dates are in Mountain Time
+      // For single-day specials, both startDate and endDate should be the same date
+      const startDate = parseMountainTimeDate(dateStr, companyTimezone);
+      const endDate = parseMountainTimeDate(dateStr, companyTimezone); // Same as startDate
 
       await prisma.special.update({
         where: { id: special.id },
@@ -41,10 +45,10 @@ async function assignDailySpecialDates() {
         },
       });
 
-      console.log(`✓ Assigned ${special.title} to ${startDate.toLocaleDateString()}`);
+      console.log(`✓ Assigned ${special.title} to ${dateStr}`);
 
       // Move to next day for the next special
-      currentDate.setDate(currentDate.getDate() + 1);
+      currentDate.setTime(currentDate.getTime() + 24 * 60 * 60 * 1000);
     }
 
     console.log(`\n✅ Successfully assigned dates to ${specials.length} daily specials.`);

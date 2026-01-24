@@ -202,7 +202,7 @@ export default function DrinkSpecialsList({ initialSpecials }: DrinkSpecialsList
           priceNotes: specialData.priceNotes || null,
           type: specialData.type,
           appliesOn: specialData.appliesOn,
-          timeWindow: specialData.timeWindow || null,
+          timeWindow: null, // Specials are always all day
           startDate: specialData.startDate 
             ? (typeof specialData.startDate === 'string' 
                 ? specialData.startDate 
@@ -240,7 +240,7 @@ export default function DrinkSpecialsList({ initialSpecials }: DrinkSpecialsList
           priceNotes: specialData.priceNotes || null,
           type: specialData.type,
           appliesOn: specialData.appliesOn,
-          timeWindow: specialData.timeWindow || null,
+          timeWindow: null, // Specials are always all day
           startDate: specialData.startDate 
             ? (typeof specialData.startDate === 'string' 
                 ? specialData.startDate 
@@ -450,9 +450,6 @@ export default function DrinkSpecialsList({ initialSpecials }: DrinkSpecialsList
                       {item.priceNotes && (
                         <p className="truncate font-semibold text-gray-700 dark:text-gray-300">Price: {item.priceNotes}</p>
                       )}
-                      {item.timeWindow && (
-                        <p className="truncate">Time: {item.timeWindow}</p>
-                      )}
                       {isWeeklyRecurring && (
                         <p className="truncate">
                           <span className="font-semibold">Days: </span>{formatDays(item.appliesOn)}
@@ -550,7 +547,7 @@ export default function DrinkSpecialsList({ initialSpecials }: DrinkSpecialsList
           priceNotes: editingSpecial.priceNotes || '',
           type: 'drink' as const,
           appliesOn: editingSpecial.appliesOn ? JSON.parse(editingSpecial.appliesOn) : [],
-          timeWindow: editingSpecial.timeWindow || '',
+          timeWindow: '', // Specials are always all day
           startDate: editingSpecial.startDate || '',
           endDate: editingSpecial.endDate || '',
           isActive: editingSpecial.isActive,

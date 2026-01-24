@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, FormEvent, useEffect } from 'react';
+import { useState, FormEvent, useEffect, useRef } from 'react';
 import { format } from 'date-fns';
 import Modal from '@/components/modal';
 import { showToast } from '@/components/toast';
@@ -219,6 +219,7 @@ export default function UnifiedEventAnnouncementForm({
   const [showDeleteRecurringConfirm, setShowDeleteRecurringConfirm] = useState(false);
   const [showCTA, setShowCTA] = useState(false);
   const [facebookConnected, setFacebookConnected] = useState(false);
+  const hasInitializedRef = useRef(false);
 
   // Determine item type
   const getItemType = (): ItemType => {
@@ -390,7 +391,96 @@ export default function UnifiedEventAnnouncementForm({
       }
       setDateError(null);
     }
+    hasInitializedRef.current = true;
   }, [item, initialItemType, defaultDate, defaultIsAllDay, isOpen]);
+
+  // Reinitialize form when type changes for new items
+  useEffect(() => {
+    // Only reinitialize if we're creating a new item (not editing) and initial setup is done
+    if (!item && isOpen && hasInitializedRef.current) {
+      if (currentItemType === 'announcement') {
+        const now = new Date();
+        const publishAt = new Date(now);
+        publishAt.setMinutes(0, 0, 0);
+        const expiresAt = new Date(publishAt);
+        expiresAt.setHours(expiresAt.getHours() + 24);
+        
+        setAnnouncementData({
+          title: '',
+          body: '',
+          publishAt: formatDateTimeLocal(publishAt.toISOString()),
+          expiresAt: formatDateTimeLocal(expiresAt.toISOString()),
+          crossPostFacebook: false,
+          crossPostInstagram: false,
+          ctaText: '',
+          ctaUrl: '',
+        });
+        setShowCTA(false);
+      } else if (currentItemType === 'event') {
+        // Event
+        const eventDate = defaultDate || new Date();
+        const startDateTime = new Date(eventDate);
+        
+        if (defaultIsAllDay) {
+          startDateTime.setHours(0, 0, 0, 0);
+        } else {
+          if (!defaultDate || (defaultDate.getHours() === 0 && defaultDate.getMinutes() === 0 && defaultDate.getSeconds() === 0 && defaultDate.getMilliseconds() === 0)) {
+            startDateTime.setHours(12, 0, 0, 0);
+          }
+        }
+        
+        let startDateTimeStr: string;
+        let endDateTimeStr: string;
+        
+        if (defaultIsAllDay) {
+          // For all-day events, format dates directly to avoid timezone shifts
+          // Get the date components in Mountain Time
+          const mtFormatter = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'America/Denver',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+          });
+          const startParts = mtFormatter.formatToParts(startDateTime);
+          const startYear = startParts.find(p => p.type === 'year')!.value;
+          const startMonth = startParts.find(p => p.type === 'month')!.value;
+          const startDay = startParts.find(p => p.type === 'day')!.value;
+          
+          // Use the same date for both start and end (all-day event)
+          startDateTimeStr = `${startYear}-${startMonth}-${startDay}T00:00`;
+          endDateTimeStr = `${startYear}-${startMonth}-${startDay}T23:59`;
+        } else {
+          const endDateTime = new Date(startDateTime);
+          endDateTime.setHours(endDateTime.getHours() + 3);
+          startDateTimeStr = formatDateTimeLocal(startDateTime.toISOString());
+          endDateTimeStr = formatDateTimeLocal(endDateTime.toISOString());
+        }
+        
+        setEventData({
+          title: '',
+          description: '',
+          startDateTime: startDateTimeStr,
+          endDateTime: endDateTimeStr,
+          isAllDay: defaultIsAllDay || false,
+          tags: [],
+          isActive: true,
+        });
+        setRecurrenceType('none');
+        setRecurrenceDays([]);
+        setMonthDay(new Date().getDate());
+        setRecurrenceStartDate('');
+        setRecurrenceEndDate('');
+      }
+      setDateError(null);
+    }
+  }, [currentItemType, isOpen, defaultDate, defaultIsAllDay, item]);
+
+  // Reset initialization flag when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      hasInitializedRef.current = false;
+    }
+  }, [isOpen]);
 
   // Check Facebook connection status
   useEffect(() => {
@@ -1137,16 +1227,16 @@ export default function UnifiedEventAnnouncementForm({
         ) : (
           // Announcement Form (reuse existing announcement form structure)
           <>
-            <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm space-y-6">
+            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-5 backdrop-blur-sm space-y-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Announcement Content</p>
-                <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
+                <p className="mt-1 text-xs text-gray-600 dark:text-gray-300 max-w-sm">
                   Create your announcement with title and content.
                 </p>
               </div>
 
               <div className="space-y-4">
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <label htmlFor="announcement-title" className="text-sm font-medium text-gray-900 dark:text-white">
                     Title *
                   </label>
@@ -1156,11 +1246,11 @@ export default function UnifiedEventAnnouncementForm({
                     value={announcementData.title}
                     onChange={(e) => setAnnouncementData({ ...announcementData, title: e.target.value })}
                     required
-                    className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+                    className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
                   />
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <label htmlFor="announcement-body" className="text-sm font-medium text-gray-900 dark:text-white">
                     Content *
                   </label>
@@ -1170,17 +1260,17 @@ export default function UnifiedEventAnnouncementForm({
                     onChange={(e) => setAnnouncementData({ ...announcementData, body: e.target.value })}
                     rows={6}
                     required
-                    className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+                    className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all resize-none"
                   />
                   <p className="text-xs text-gray-500 dark:text-gray-400">Supports markdown and HTML</p>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm space-y-6">
+            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-5 backdrop-blur-sm space-y-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Schedule</p>
-                <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
+                <p className="mt-1 text-xs text-gray-600 dark:text-gray-300 max-w-sm">
                   Set when this announcement should be published and expire.
                 </p>
               </div>
@@ -1233,10 +1323,10 @@ export default function UnifiedEventAnnouncementForm({
               </div>
             </div>
 
-            <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm space-y-6">
+            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-5 backdrop-blur-sm space-y-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Social Media</p>
-                <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
+                <p className="mt-1 text-xs text-gray-600 dark:text-gray-300 max-w-sm">
                   Automatically share this announcement to your connected social media accounts.
                 </p>
               </div>
@@ -1244,7 +1334,7 @@ export default function UnifiedEventAnnouncementForm({
               <div className="space-y-3">
                 <label
                   htmlFor="crossPostFacebook"
-                  className={`inline-flex items-center gap-3 rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-2.5 text-sm font-medium text-gray-900 dark:text-white shadow-inner cursor-pointer transition-colors ${
+                  className={`inline-flex items-center gap-3 rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-2.5 text-sm font-medium text-gray-900 dark:text-white shadow-inner cursor-pointer transition-colors ${
                     facebookConnected ? 'hover:border-blue-400/70 focus-within:ring-2 focus-within:ring-blue-500/30' : 'opacity-50 cursor-not-allowed'
                   }`}
                 >
@@ -1263,7 +1353,7 @@ export default function UnifiedEventAnnouncementForm({
                 </label>
                 <label
                   htmlFor="crossPostInstagram"
-                  className="inline-flex items-center gap-3 rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-2.5 text-sm font-medium text-gray-500 dark:text-gray-400 shadow-inner cursor-not-allowed opacity-50"
+                  className="inline-flex items-center gap-3 rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-2.5 text-sm font-medium text-gray-500 dark:text-gray-400 shadow-inner cursor-not-allowed opacity-50"
                 >
                   <input
                     type="checkbox"
@@ -1278,17 +1368,17 @@ export default function UnifiedEventAnnouncementForm({
               </div>
             </div>
 
-            <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-6 backdrop-blur-sm space-y-6">
+            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-5 backdrop-blur-sm space-y-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Call-to-Action</p>
-                <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-sm">
+                <p className="mt-1 text-xs text-gray-600 dark:text-gray-300 max-w-sm">
                   Add an optional button to your announcement.
                 </p>
               </div>
 
               <label
                 htmlFor="showCTA"
-                className="inline-flex items-center gap-3 rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-2.5 text-sm font-medium text-gray-900 dark:text-white shadow-inner cursor-pointer transition-colors hover:border-blue-400/70 focus-within:ring-2 focus-within:ring-blue-500/30"
+                className="inline-flex items-center gap-3 rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-2.5 text-sm font-medium text-gray-900 dark:text-white shadow-inner cursor-pointer transition-colors hover:border-blue-400/70 focus-within:ring-2 focus-within:ring-blue-500/30"
               >
                 <input
                   type="checkbox"
@@ -1306,10 +1396,10 @@ export default function UnifiedEventAnnouncementForm({
               </label>
 
               {showCTA && (
-                <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/70 dark:bg-gray-900/40 p-4 shadow-inner space-y-4 border-l-4 border-l-blue-500 dark:border-l-blue-400">
+                <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/70 dark:bg-gray-900/40 p-4 shadow-inner space-y-4 border-l-4 border-l-blue-500 dark:border-l-blue-400">
                   <p className="text-xs text-gray-500 dark:text-gray-400">Both fields are required for the CTA button to appear.</p>
                   <div className="space-y-4">
-                    <div className="space-y-2">
+                    <div className="space-y-1.5">
                       <label htmlFor="ctaText" className="text-sm font-medium text-gray-900 dark:text-white">
                         Button Text *
                       </label>
@@ -1319,10 +1409,10 @@ export default function UnifiedEventAnnouncementForm({
                         value={announcementData.ctaText}
                         onChange={(e) => setAnnouncementData({ ...announcementData, ctaText: e.target.value })}
                         placeholder="e.g., Learn More, Book Now, Order Here"
-                        className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+                        className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
                       />
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-1.5">
                       <label htmlFor="ctaUrl" className="text-sm font-medium text-gray-900 dark:text-white">
                         Button URL *
                       </label>
@@ -1332,7 +1422,7 @@ export default function UnifiedEventAnnouncementForm({
                         value={announcementData.ctaUrl}
                         onChange={(e) => setAnnouncementData({ ...announcementData, ctaUrl: e.target.value })}
                         placeholder="https://example.com or /menu"
-                        className="w-full rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+                        className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
                       />
                     </div>
                   </div>

@@ -43,6 +43,7 @@ export default async function AdminAnnouncements() {
       <AdminPageHeader
         title="Announcements"
         description="Post updates and news to your website"
+        helpFeature="announcements"
         action={<AnnouncementsHeader />}
       />
 
