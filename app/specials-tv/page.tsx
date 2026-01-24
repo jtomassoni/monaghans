@@ -788,7 +788,6 @@ export default async function SpecialsTvPage({ searchParams }: SpecialsTvPagePro
       title: special.title || 'Special',
       note: special.priceNotes || undefined,
       detail: special.description || undefined,
-      time: special.timeWindow || undefined,
       image: special.image || undefined,
     })),
     drink: todaysDrinkSpecials.map((special) => {
@@ -796,7 +795,6 @@ export default async function SpecialsTvPage({ searchParams }: SpecialsTvPagePro
         title: special.title || 'Special',
         note: special.priceNotes || undefined,
         detail: special.description || undefined,
-        time: special.timeWindow || undefined,
       };
       if (debug) {
         console.log('[DEBUG] Mapping drink special to slide item:', {

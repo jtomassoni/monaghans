@@ -26,7 +26,7 @@ import {
 import { FaMicrophone, FaBrain, FaCalendarAlt, FaUtensils, FaBeer, FaTable, FaCalendarWeek, FaDice, FaBullhorn, FaClock, FaCalendarDay } from 'react-icons/fa';
 import { FaFootball } from 'react-icons/fa6';
 import { HiChevronLeft, HiChevronRight } from 'react-icons/hi';
-import { parseMountainTimeDate, getMountainTimeDateString, getMountainTimeToday, getCompanyTimezoneSync, getCompanyTimezoneDateString } from '@/lib/timezone';
+import { parseMountainTimeDate, getMountainTimeDateString, getMountainTimeToday, getMountainTimeNow, getCompanyTimezoneSync, getCompanyTimezoneDateString } from '@/lib/timezone';
 
 interface CalendarEvent {
   id: string;
@@ -114,7 +114,7 @@ export default function CalendarView({ events, specials, announcements = [], bus
   const [hasDragged, setHasDragged] = useState(false);
   const [localEvents, setLocalEvents] = useState<CalendarEvent[]>(events);
   const [newEventIds, setNewEventIds] = useState<Set<string>>(new Set());
-  const [currentTime, setCurrentTime] = useState(getMountainTimeToday());
+  const [currentTime, setCurrentTime] = useState(getMountainTimeNow());
   const [showHoursConfig, setShowHoursConfig] = useState(false);
   const [localCalendarHours, setLocalCalendarHours] = useState<{ startHour: number; endHour: number } | null>(calendarHours || null);
   const hoursConfigRef = useRef<HTMLDivElement>(null);
@@ -132,7 +132,7 @@ export default function CalendarView({ events, specials, announcements = [], bus
   // Update current time every minute (in company timezone)
   useEffect(() => {
     const updateTime = () => {
-      setCurrentTime(getMountainTimeToday());
+      setCurrentTime(getMountainTimeNow());
     };
     
     updateTime();
@@ -1840,7 +1840,17 @@ export default function CalendarView({ events, specials, announcements = [], bus
                   
                   {/* Current time indicator line */}
                   {isToday && (() => {
-                    const currentHour = getHours(currentTime);
+                    // Extract hours and minutes in company timezone, not browser local timezone
+                    const formatter = new Intl.DateTimeFormat('en-US', {
+                      timeZone: companyTimezone,
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: false
+                    });
+                    const parts = formatter.formatToParts(currentTime);
+                    const currentHour = parseInt(parts.find(p => p.type === 'hour')!.value);
+                    const currentMinute = parseInt(parts.find(p => p.type === 'minute')!.value);
+                    
                     const currentHourIndex = getVisibleHours.findIndex(h => h % 24 === currentHour);
                     if (currentHourIndex === -1) return null;
                     return (
@@ -1848,7 +1858,7 @@ export default function CalendarView({ events, specials, announcements = [], bus
                         key="current-time"
                         className="absolute left-0 right-0 z-[20] pointer-events-none"
                         style={{
-                          top: `${(currentHourIndex * hourHeight) + (getMinutes(currentTime) / 60 * hourHeight)}px`,
+                          top: `${(currentHourIndex * hourHeight) + (currentMinute / 60 * hourHeight)}px`,
                         }}
                       >
                         <div className="relative">
@@ -2265,7 +2275,17 @@ export default function CalendarView({ events, specials, announcements = [], bus
               
               {/* Current time indicator line */}
               {isToday && (() => {
-                const currentHour = getHours(currentTime);
+                // Extract hours and minutes in company timezone, not browser local timezone
+                const formatter = new Intl.DateTimeFormat('en-US', {
+                  timeZone: companyTimezone,
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  hour12: false
+                });
+                const parts = formatter.formatToParts(currentTime);
+                const currentHour = parseInt(parts.find(p => p.type === 'hour')!.value);
+                const currentMinute = parseInt(parts.find(p => p.type === 'minute')!.value);
+                
                 const currentHourIndex = getVisibleHours.findIndex(h => h % 24 === currentHour);
                 if (currentHourIndex === -1) return null;
                 return (
@@ -2273,7 +2293,7 @@ export default function CalendarView({ events, specials, announcements = [], bus
                     key="current-time"
                     className="absolute left-0 right-0 z-[20] pointer-events-none"
                     style={{
-                      top: `${(currentHourIndex * hourHeight) + (getMinutes(currentTime) / 60 * hourHeight)}px`,
+                      top: `${(currentHourIndex * hourHeight) + (currentMinute / 60 * hourHeight)}px`,
                     }}
                   >
                     <div className="relative">

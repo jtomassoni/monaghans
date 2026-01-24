@@ -487,14 +487,14 @@ export default function DashboardContent({ events: initialEvents, specials, anno
                   </button>
                 }
               />
-              {/* New Button */}
+              {/* New Button - Hidden on mobile, shown on desktop (mobile header has its own New button) */}
               <button
                 onClick={() => {
                   setUnifiedFormItem(null);
                   setUnifiedFormItemType(undefined);
                   setUnifiedFormOpen(true);
                 }}
-                className="px-4 py-2 bg-blue-500 dark:bg-blue-600 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-medium text-sm transition-colors duration-200 flex items-center justify-center gap-2 shadow-sm hover:shadow-md active:scale-[0.98]"
+                className="hidden sm:flex px-4 py-2 bg-blue-500 dark:bg-blue-600 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-medium text-sm transition-colors duration-200 items-center justify-center gap-2 shadow-sm hover:shadow-md active:scale-[0.98]"
               >
                 <FaPlus className="w-3.5 h-3.5" />
                 <span>New</span>
@@ -631,7 +631,7 @@ export default function DashboardContent({ events: initialEvents, specials, anno
             priceNotes: editingSpecial.priceNotes || '',
             type: 'drink' as const,
             appliesOn: (editingSpecial.appliesOn ? (typeof editingSpecial.appliesOn === 'string' ? JSON.parse(editingSpecial.appliesOn) : editingSpecial.appliesOn) : []) as string[],
-            timeWindow: editingSpecial.timeWindow || '',
+            timeWindow: '', // Always empty - specials are all day
             startDate: editingSpecial.startDate || '',
             endDate: editingSpecial.endDate || '',
             isActive: editingSpecial.isActive,
@@ -650,7 +650,7 @@ export default function DashboardContent({ events: initialEvents, specials, anno
             ...editingSpecial,
             description: editingSpecial.description || '',
             priceNotes: editingSpecial.priceNotes || '',
-            timeWindow: editingSpecial.timeWindow || '',
+            timeWindow: '', // Always empty - specials are all day
             startDate: editingSpecial.startDate || '',
             endDate: editingSpecial.endDate || '',
             image: editingSpecial.image || '',

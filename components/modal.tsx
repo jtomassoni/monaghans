@@ -45,14 +45,14 @@ export default function Modal({ isOpen, onClose, title, children, helpFeature, h
       suppressHydrationWarning
     >
       <div 
-        className={`h-full flex items-center justify-center px-0 sm:px-6 pt-14 sm:pt-6 pb-6 sm:pb-6 overflow-y-auto overflow-x-visible`}
+        className={`h-full flex items-center justify-center px-0 sm:px-6 pt-14 sm:pt-6 pb-6 sm:pb-6 overflow-y-auto overflow-x-hidden`}
         onClick={onClose}
       >
         <div
           role="dialog"
           aria-modal="true"
           aria-labelledby={title ? undefined : undefined}
-          className={`bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl shadow-2xl border border-gray-200/50 dark:border-gray-700/50 ${!title || !title.trim() ? 'w-full h-full sm:w-auto sm:h-auto sm:max-w-md' : maxWidth ? `w-full sm:w-auto ${maxWidth} sm:max-h-[calc(100vh-2rem)]` : 'w-full sm:w-auto sm:max-w-[420px] lg:max-w-[900px] sm:max-h-[calc(100vh-2rem)]'} flex flex-col overflow-hidden`}
+          className={`bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl shadow-2xl border border-gray-200/50 dark:border-gray-700/50 ${!title || !title.trim() ? 'w-full h-full sm:w-auto sm:h-auto sm:max-w-md' : maxWidth ? `w-full h-full sm:w-auto sm:h-auto ${maxWidth} sm:max-h-[calc(100vh-2rem)]` : 'w-full h-full sm:w-auto sm:h-auto sm:max-w-[420px] lg:max-w-[900px] sm:max-h-[calc(100vh-2rem)]'} flex flex-col overflow-hidden max-h-screen`}
           onClick={(e) => e.stopPropagation()}
         >
         {/* Header - Sticky within modal to ensure it's always visible */}
@@ -89,8 +89,8 @@ export default function Modal({ isOpen, onClose, title, children, helpFeature, h
         )}
 
         {/* Content */}
-        <div className={`flex-1 overflow-y-auto overflow-x-visible ${title && title.trim() ? 'px-4 sm:px-5 py-4 sm:py-5' : 'px-6 sm:px-8 py-6 sm:py-8'} pb-20 sm:pb-0`}>
-          <div className="relative">
+        <div className={`flex-1 overflow-y-auto overflow-x-hidden min-h-0 ${title && title.trim() ? 'px-3 sm:px-5 py-4 sm:py-5' : 'px-4 sm:px-8 py-6 sm:py-8'} pb-20 sm:pb-5`}>
+          <div className="relative max-w-full min-w-0 w-full">
             {children}
           </div>
         </div>

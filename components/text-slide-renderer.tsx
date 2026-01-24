@@ -855,19 +855,6 @@ export default function TextSlideRenderer({
                               >
                                 {item.title}
                               </p>
-                              {item.time && !isFoodSlide && (
-                                <span
-                                  className="relative shrink-0 rounded-full border bg-white/10 px-5 py-2.5 md:px-6 md:py-3 font-bold tracking-tight shadow-lg"
-                                  style={{
-                                    fontSize: 'clamp(50px, 10.5vw, 84px)',
-                                    color: accentColor,
-                                    borderColor: accentColor,
-                                    boxShadow: `0 0 0 2px ${accentColor}, 0 16px 48px -20px ${accentGlowColor}`,
-                                  }}
-                                >
-                                  {item.time}
-                                </span>
-                              )}
                             </div>
                             {item.note && (
                               <p

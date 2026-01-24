@@ -7,7 +7,7 @@ import { showToast } from '@/components/toast';
 import StatusToggle from '@/components/status-toggle';
 import DateTimePicker from '@/components/date-time-picker';
 import DatePicker from '@/components/date-picker';
-import FoodSpecialsGallerySelector from '@/components/food-specials-gallery-selector';
+import FoodSpecialsGalleryEmbedded from '@/components/food-specials-gallery-embedded';
 import ConfirmationDialog from '@/components/confirmation-dialog';
 import { formatDateAsDateTimeLocal, parseDateTimeLocalAsCompanyTimezone, getCompanyTimezoneSync } from '@/lib/timezone';
 
@@ -154,7 +154,6 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
   const [loading, setLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [showGallery, setShowGallery] = useState(false);
   const [showCTA, setShowCTA] = useState(false);
   const [facebookConnected, setFacebookConnected] = useState(false);
   
@@ -288,7 +287,7 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
           priceNotes: special.priceNotes || '',
           type: (special.type === 'drink' ? 'drink' : 'food') as 'food' | 'drink',
           appliesOn: Array.isArray(special.appliesOn) ? special.appliesOn : [],
-          timeWindow: special.timeWindow || '',
+          timeWindow: '', // Always empty - specials are all day
           startDate: special.startDate || '',
           endDate: special.endDate || '',
           image: special.image || '',
@@ -311,7 +310,7 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
       setSpecialData({
         title: '',
         description: '',
-        priceNotes: '',
+        priceNotes: initialItemType === 'food' ? '$14' : '',
         type: initialItemType === 'drink' ? 'drink' : 'food',
         appliesOn: [],
         timeWindow: '',
@@ -383,7 +382,7 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
         setSpecialData({
           title: '',
           description: '',
-          priceNotes: '',
+          priceNotes: currentItemType === 'food' ? '$14' : '',
           type: currentItemType === 'drink' ? 'drink' : 'food',
           appliesOn: [],
           timeWindow: '',
@@ -664,7 +663,7 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
       title={title}
       maxWidth="sm:max-w-[1200px] lg:max-w-[1400px]"
     >
-      <form onSubmit={handleSubmit} className="space-y-3">
+      <form onSubmit={handleSubmit} className="space-y-3 w-full max-w-full min-w-0 overflow-hidden">
         {/* Item Type Selector - only show when creating new */}
         {!isEditing && (
           <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 backdrop-blur-sm">
@@ -675,7 +674,24 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
               <select
                 id="itemType"
                 value={currentItemType}
-                onChange={(e) => setCurrentItemType(e.target.value as ItemType)}
+                onChange={(e) => {
+                  const newType = e.target.value as ItemType;
+                  setCurrentItemType(newType);
+                  // Default price to $14 when switching to food special
+                  if (newType === 'food' && !item) {
+                    setSpecialData(prev => ({
+                      ...prev,
+                      priceNotes: prev.priceNotes || '$14',
+                      type: 'food',
+                    }));
+                  } else if (newType === 'drink' && !item) {
+                    setSpecialData(prev => ({
+                      ...prev,
+                      priceNotes: '',
+                      type: 'drink',
+                    }));
+                  }
+                }}
                 className="w-full rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
               >
                 <option value="event">Event</option>
@@ -1002,21 +1018,7 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
                   )}
                 </div>
 
-                {currentItemType === 'drink' && (
-                  <div className="space-y-1.5">
-                    <label htmlFor="timeWindow" className="text-sm font-medium text-gray-900 dark:text-white">
-                      Time Window
-                    </label>
-                    <input
-                      id="timeWindow"
-                      type="text"
-                      value={specialData.timeWindow}
-                      onChange={(e) => setSpecialData({ ...specialData, timeWindow: e.target.value })}
-                      placeholder="e.g., 11am-3pm, Happy Hour"
-                      className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
-                    />
-                  </div>
-                )}
+                {/* Time window removed - specials are always all day */}
               </div>
             </div>
 
@@ -1058,20 +1060,20 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
               </div>
             )}
 
-            <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 backdrop-blur-sm space-y-3">
-              <div>
+            <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-2 sm:p-3 backdrop-blur-sm space-y-3 w-full max-w-full min-w-0 overflow-hidden">
+              <div className="w-full max-w-full min-w-0">
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">
                   {currentItemType === 'food' ? 'Date' : 'Timing'}
                 </p>
-                <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300">
+                <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300 break-words">
                   {currentItemType === 'food' 
                     ? 'Select the date this daily special applies (full day).'
                     : 'Set when this special is available.'}
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <div className="relative isolate">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-full min-w-0">
+                <div className="relative isolate w-full max-w-full min-w-0 overflow-hidden" style={{ width: '100%', maxWidth: '100%' }}>
                   <DatePicker
                     label={currentItemType === 'food' ? 'Date *' : 'Start Date (optional)'}
                     value={currentItemType === 'food' ? (specialData.startDate || '') : (specialData.startDate || '')}
@@ -1088,7 +1090,7 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
                   />
                 </div>
                 {currentItemType === 'drink' && (
-                  <div className="relative isolate">
+                  <div className="relative isolate w-full max-w-full min-w-0 overflow-hidden" style={{ width: '100%', maxWidth: '100%' }}>
                     <DatePicker
                       label="End Date (optional)"
                       value={specialData.endDate || ''}
@@ -1114,30 +1116,13 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
             </div>
 
             <div className="space-y-1">
-              <label htmlFor="image" className="text-sm font-medium text-gray-900 dark:text-white">
-                Image Path (optional)
+              <label className="text-sm font-medium text-gray-900 dark:text-white">
+                Image (optional)
               </label>
-              <div className="flex gap-2">
-                <input
-                  id="image"
-                  type="text"
-                  value={specialData.image}
-                  onChange={(e) => setSpecialData({ ...specialData, image: e.target.value })}
-                  placeholder="/pics/food-specials/your-image.jpg"
-                  className="flex-1 rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowGallery(true)}
-                  className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors flex items-center gap-2 shadow-sm"
-                  title="Select from gallery"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  <span className="hidden sm:inline">Gallery</span>
-                </button>
-              </div>
+              <FoodSpecialsGalleryEmbedded
+                currentImagePath={specialData.image}
+                onSelect={(imagePath) => setSpecialData({ ...specialData, image: imagePath })}
+              />
             </div>
           </div>
         )}
@@ -1371,17 +1356,6 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
         </div>
       </form>
 
-      <FoodSpecialsGallerySelector
-        isOpen={showGallery}
-        onClose={() => setShowGallery(false)}
-        onSelect={(imagePath) => {
-          if (currentItemType === 'food' || currentItemType === 'drink') {
-            setSpecialData({ ...specialData, image: imagePath });
-          }
-          setShowGallery(false);
-        }}
-        currentImagePath={currentItemType === 'food' || currentItemType === 'drink' ? specialData.image : undefined}
-      />
 
       {currentItemType === 'announcement' && item && 'body' in item && item.id && (
         <ConfirmationDialog

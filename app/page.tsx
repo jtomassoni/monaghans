@@ -747,20 +747,10 @@ export default async function HomePage() {
                     <div className="absolute bottom-0 left-0 w-24 h-24 bg-indigo-400/20 rounded-full blur-2xl"></div>
                   </div>
                   <div className="relative flex items-start gap-2 sm:gap-3">
-                    <div className={`p-2 sm:p-2.5 ${isRecurring ? 'bg-purple-500/60' : 'bg-purple-500/50'} rounded-xl flex-shrink-0 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 shadow-lg ring-2 ring-purple-300/30`}>
+                    <div className="p-2 sm:p-2.5 bg-purple-500/50 rounded-xl flex-shrink-0 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 shadow-lg ring-2 ring-purple-300/30">
                       <FaCalendarAlt className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 mb-1.5">
-                        <span className="text-purple-100 text-[10px] sm:text-xs font-bold uppercase tracking-wider">
-                          {isRecurring ? 'Recurring Event' : 'Today\'s Event'}
-                        </span>
-                        {isRecurring && (
-                          <span className="px-2 py-0.5 bg-purple-500/50 border border-purple-300/40 rounded-full text-purple-50 text-[9px] font-bold shadow-sm">
-                            Recurring
-                          </span>
-                        )}
-                      </div>
                       <h3 className="text-base sm:text-lg font-bold text-white mb-1.5 line-clamp-2 leading-tight drop-shadow-sm break-words">
                         {event.title}
                       </h3>
@@ -830,14 +820,6 @@ export default async function HomePage() {
                       {special.priceNotes}
                     </p>
                   )}
-                  {special.timeWindow && (
-                    <div className="flex items-center gap-1.5 text-orange-200 text-[10px] sm:text-xs font-semibold ml-0 sm:ml-[3.5rem]">
-                      <svg className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <span>{special.timeWindow}</span>
-                    </div>
-                  )}
                 </div>
               </div>
             ))}
@@ -873,14 +855,6 @@ export default async function HomePage() {
                     <p className="text-blue-200/80 text-[10px] sm:text-xs mb-2 font-semibold ml-0 sm:ml-[3.5rem] line-clamp-1 break-words">
                       {todaysDrinkSpecial.priceNotes}
                     </p>
-                  )}
-                  {todaysDrinkSpecial.timeWindow && (
-                    <div className="flex items-center gap-1.5 text-blue-200 text-[10px] sm:text-xs font-semibold ml-0 sm:ml-[3.5rem]">
-                      <svg className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <span>{todaysDrinkSpecial.timeWindow}</span>
-                    </div>
                   )}
                 </div>
               </div>
