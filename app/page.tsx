@@ -387,9 +387,7 @@ export default async function HomePage() {
     where: { key: 'contact' },
   });
 
-  const happyHourSetting = await prisma.setting.findUnique({
-    where: { key: 'happyHour' },
-  });
+  // Happy hour is hardcoded - always the same, no need for settings
 
   const heroSetting = await prisma.setting.findUnique({
     where: { key: 'homepageHero' },
@@ -597,24 +595,24 @@ export default async function HomePage() {
 
   let hours: any = {};
   let contact: any = {};
-  let happyHour: any = {};
   let hero: any = {};
   let about: any = {};
   let gallery: any = {};
   try {
     hours = hoursSetting ? JSON.parse(hoursSetting.value) : {};
     contact = contactSetting ? JSON.parse(contactSetting.value) : {};
-    happyHour = happyHourSetting ? JSON.parse(happyHourSetting.value) : {};
     hero = heroSetting ? JSON.parse(heroSetting.value) : {};
     about = aboutSetting ? JSON.parse(aboutSetting.value) : {};
     gallery = gallerySetting ? JSON.parse(gallerySetting.value) : {};
   } catch {}
 
-  const hasHappyHour = happyHour && (happyHour.title || happyHour.description || happyHour.times);
-  
-  // Check if today is a weekday (Monday-Friday) for happy hour display
-  const isWeekday = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].includes(todayName);
-  const shouldShowHappyHour = hasHappyHour && isWeekday;
+  // Happy hour is hardcoded - always the same, shown every day
+  const happyHour = {
+    title: 'Buy One Get One',
+    description: 'BOGO on Wine, Well & Drafts',
+    times: '10am-12pm & 4pm-7pm',
+  };
+  const shouldShowHappyHour = true;
 
   const formatHours = () => {
     const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
@@ -884,11 +882,6 @@ export default async function HomePage() {
                     {happyHour.description && (
                       <p className="text-green-50/90 text-xs sm:text-sm mb-2 line-clamp-2 leading-relaxed break-words">
                         {happyHour.description}
-                      </p>
-                    )}
-                    {happyHour.details && (
-                      <p className="text-green-200/80 text-[10px] sm:text-xs mb-2 font-semibold line-clamp-1 break-words">
-                        {happyHour.details}
                       </p>
                     )}
                     {happyHour.times && (
