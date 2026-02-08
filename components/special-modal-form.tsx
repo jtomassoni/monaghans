@@ -96,6 +96,7 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
     return getMountainTimeDateString(dateObj);
   };
 
+  const defaultDateForNewFood = resolvedType === 'food' && !special ? getMountainTimeDateString(new Date()) : '';
   const [formData, setFormData] = useState({
     title: special?.title || '',
     description: special?.description || '',
@@ -103,9 +104,9 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
     type: resolvedType,
     appliesOn: special?.appliesOn || [],
     timeWindow: '', // Always empty - specials are all day
-    date: formatDateForInput(special?.startDate) || '', // For food type, use single date field
-    startDate: formatDateForInput(special?.startDate) || '', // For drink type
-    endDate: formatDateForInput(special?.endDate) || '',
+    date: formatDateForInput(special?.startDate) || defaultDateForNewFood, // For food type, default to today when new
+    startDate: formatDateForInput(special?.startDate) || defaultDateForNewFood,
+    endDate: formatDateForInput(special?.endDate) || defaultDateForNewFood,
     image: special?.image ?? '', // Use nullish coalescing to preserve null, but default to empty string
     isActive: special?.isActive ?? true,
   });
@@ -135,6 +136,7 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
       setInitialFormData(newFormData);
     } else {
       const nextType = resolveType();
+      const todayStr = nextType === 'food' ? getMountainTimeDateString(new Date()) : '';
       const newFormData = {
         title: '',
         description: '',
@@ -142,9 +144,9 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
         type: nextType,
         appliesOn: [],
         timeWindow: '', // Always empty - specials are all day
-        date: '',
-        startDate: '',
-        endDate: '',
+        date: todayStr,
+        startDate: todayStr,
+        endDate: todayStr,
         image: '',
         isActive: true,
       };
@@ -184,16 +186,17 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
         setInitialFormData(newFormData);
       } else {
         const nextType = resolveType();
+        const todayStr = nextType === 'food' ? getMountainTimeDateString(new Date()) : '';
         const newFormData = {
           title: '',
           description: '',
           priceNotes: getDefaultPriceNotes(nextType),
           type: nextType,
           appliesOn: [],
-          timeWindow: nextType === 'food' ? '' : '', // Always empty for food
-          date: '',
-          startDate: '',
-          endDate: '',
+          timeWindow: '', // Always empty - specials are all day
+          date: todayStr,
+          startDate: todayStr,
+          endDate: todayStr,
           image: '',
           isActive: true,
         };
