@@ -489,9 +489,10 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
     </>
   );
 
-  // Get page title from pathname
+  // Get page title from pathname (mobile header)
   const getPageTitle = (path: string) => {
-    if (path === '/admin' || path === '/admin/overview') return 'Overview';
+    if (path === '/admin') return 'Calendar & Events';
+    if (path === '/admin/overview') return 'Overview';
     if (path?.startsWith('/admin/signage')) return 'Digital Signage';
     if (path?.startsWith('/admin/food-specials')) return 'Food Specials';
     if (path?.startsWith('/admin/drink-specials')) return 'Drink Specials';

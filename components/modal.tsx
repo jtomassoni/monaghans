@@ -45,7 +45,7 @@ export default function Modal({ isOpen, onClose, title, children, helpFeature, h
       suppressHydrationWarning
     >
       <div 
-        className={`h-full flex items-center justify-center px-0 sm:px-6 pt-14 sm:pt-6 pb-6 sm:pb-6 overflow-y-auto overflow-x-hidden`}
+        className={`h-full flex items-center justify-center px-0 sm:px-6 pt-12 sm:pt-6 pb-6 sm:pb-6 overflow-y-auto overflow-x-hidden`}
         onClick={onClose}
       >
         <div

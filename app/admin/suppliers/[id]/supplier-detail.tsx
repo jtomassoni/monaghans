@@ -126,29 +126,30 @@ export default function SupplierDetail({ supplier }: SupplierDetailProps) {
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-rose-200/15 dark:from-rose-900/20 to-transparent rounded-full blur-3xl"></div>
       </div>
 
-      {/* Header */}
-      <div className="flex-shrink-0 px-4 sm:px-6 py-3 pt-16 md:pt-0 border-b border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm relative z-10">
-        <div className="flex items-center gap-4">
+      {/* Header - compact on mobile */}
+      <div className="flex-shrink-0 px-2 sm:px-6 py-2 sm:py-3 pt-0 md:pt-0 border-b border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm relative z-10">
+        <div className="flex items-center gap-2 sm:gap-4 min-h-[36px] sm:min-h-0">
           <button
             onClick={() => router.push('/admin/suppliers')}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0"
+            aria-label="Back to suppliers"
           >
             <FaArrowLeft className="w-4 h-4 text-gray-600 dark:text-gray-400" />
           </button>
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white truncate">
+            <h1 className="text-base sm:text-2xl font-bold text-gray-900 dark:text-white truncate">
               {supplier.displayName || supplier.name}
             </h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400 capitalize">
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 capitalize truncate">
               {supplier.provider}
             </p>
           </div>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex-shrink-0 px-4 sm:px-6 border-b border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm relative z-10">
-        <div className="flex gap-1 overflow-x-auto">
+      {/* Tabs - compact on mobile */}
+      <div className="flex-shrink-0 px-2 sm:px-6 py-1.5 sm:py-0 border-b border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm relative z-10">
+        <div className="flex gap-0.5 sm:gap-1 overflow-x-auto">
           {[
             { id: 'overview', label: 'Overview' },
             { id: 'connections', label: 'Connections' },

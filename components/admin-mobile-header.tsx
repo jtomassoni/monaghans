@@ -20,9 +20,9 @@ export default function AdminMobileHeader({ onMenuClick, title }: AdminMobileHea
 
   return (
     <header 
-      className="md:hidden fixed top-0 left-0 right-0 h-14 bg-white dark:bg-gray-900 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 z-30 flex items-center px-3 shadow-sm"
-      suppressHydrationWarning
+      className="md:hidden fixed top-0 left-0 right-0 h-12 bg-white dark:bg-gray-900 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 z-30 flex items-center px-2 sm:px-3 shadow-sm"
       style={{ zIndex: 30 }}
+      suppressHydrationWarning
     >
       {/* Left: Hamburger Button */}
       <button

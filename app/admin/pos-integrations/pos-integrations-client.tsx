@@ -226,10 +226,10 @@ export default function POSIntegrationsClient() {
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-rose-200/15 dark:from-rose-900/20 to-transparent rounded-full blur-3xl"></div>
       </div>
 
-      {/* Header */}
-      <div className="flex-shrink-0 px-4 sm:px-6 py-3 pt-16 md:pt-0 border-b border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm relative z-10">
-        <div className="flex justify-between items-center">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 min-w-0">
+      {/* Header - compact on mobile */}
+      <div className="flex-shrink-0 px-2 sm:px-6 py-2 sm:py-3 pt-0 md:pt-0 border-b border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm relative z-10 overflow-x-auto">
+        <div className="flex justify-between items-center gap-2 min-h-[36px] sm:min-h-0 min-w-0">
+          <div className="hidden md:flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
                 POS Integrations
@@ -242,9 +242,10 @@ export default function POSIntegrationsClient() {
               Connect and import sales data from your POS system. Square integration available now; other providers coming soon.
             </p>
           </div>
+          <div className="flex-1 md:hidden min-w-0" aria-hidden="true" />
           <button
             onClick={handleNew}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm shadow-blue-500/20"
+            className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-xs sm:text-sm font-semibold transition-colors shadow-sm shadow-blue-500/20 flex-shrink-0"
           >
             <FaPlus className="w-3.5 h-3.5" />
             <span>New Integration</span>

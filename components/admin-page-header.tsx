@@ -21,22 +21,23 @@ export default function AdminPageHeader({
   helpSlug,
 }: AdminPageHeaderProps) {
   return (
-    <div className="flex-shrink-0 px-4 sm:px-6 py-4 pt-16 md:pt-4 border-b border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm relative z-10">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 min-w-0">
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-              {title}
-            </h1>
-            {badge}
-          </div>
+    <header className="sticky top-[max(3.5rem,calc(3.5rem+env(safe-area-inset-top,0px)))] md:top-0 md:static flex-shrink-0 z-40 border-b border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm">
+      <div className="flex items-center justify-between gap-2 min-h-[44px] px-2 sm:px-6 py-2 sm:py-2.5 min-w-0 overflow-x-auto">
+        {/* Title - hidden on mobile (shown in mobile nav); visible on desktop */}
+        <div className="hidden md:flex items-center gap-2 min-w-0 flex-1">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white truncate">
+            {title}
+          </h1>
+          {badge}
           {description && (
-            <p className="text-gray-500 dark:text-gray-400 text-xs hidden sm:block">
+            <p className="text-gray-500 dark:text-gray-400 text-xs hidden lg:block truncate">
               {description}
             </p>
           )}
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex-1 md:hidden min-w-0" aria-hidden="true" />
+        {/* All buttons in one row */}
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
           {helpFeature && (
             <HelpModal
               feature={helpFeature}
@@ -44,22 +45,19 @@ export default function AdminPageHeader({
               trigger={
                 <button
                   type="button"
-                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition-colors"
+                  className="inline-flex items-center justify-center gap-2 p-2 sm:px-4 sm:py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition-colors min-w-[36px] sm:min-w-0"
+                  aria-label="Help"
                 >
                   <FaQuestionCircle className="w-4 h-4" />
-                  Help
+                  <span className="hidden sm:inline">Help</span>
                 </button>
               }
             />
           )}
-          {action && (
-            <div>
-              {action}
-            </div>
-          )}
+          {action}
         </div>
       </div>
-    </div>
+    </header>
   );
 }
 

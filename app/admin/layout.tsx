@@ -41,7 +41,7 @@ export default async function AdminLayout({
           userName={session.user.name || undefined}
           userEmail={session.user.email || undefined}
         />
-        <main className="flex-1 overflow-hidden relative z-0 text-gray-900 dark:text-white">
+        <main className="flex-1 overflow-y-auto md:overflow-hidden relative z-0 text-gray-900 dark:text-white pt-[max(3.5rem,calc(3.5rem+env(safe-area-inset-top,0px)))] md:pt-0 min-h-0">
           {children}
         </main>
       </div>
