@@ -270,11 +270,11 @@ export default function CalendarView({ events, specials, announcements = [], bus
   // Get button text based on view mode
   const getTodayButtonText = () => {
     if (viewMode === 'day') {
-      return 'Today';
+      return 'Back to Today';
     } else if (viewMode === 'week') {
-      return 'This Week';
+      return 'Back to This Week';
     } else {
-      return 'This Month';
+      return 'Back to This Month';
     }
   };
 

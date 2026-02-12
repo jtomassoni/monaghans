@@ -10,7 +10,7 @@ import AnnouncementModalForm from '@/components/announcement-modal-form';
 import EventsList from '@/app/admin/specials-events-list';
 import { FaCalendarAlt, FaList, FaPlus } from 'react-icons/fa';
 import { useAdminMobileHeader } from '@/components/admin-mobile-header-context';
-import NewItemSelectionModal from '@/components/new-item-selection-modal';
+import NewItemFormModal from '@/components/new-item-form-modal';
 
 interface CalendarEvent {
   id: string;
@@ -633,6 +633,12 @@ export default function DashboardContent({ events: initialEvents, specials, anno
           defaultType={specialType}
           onSuccess={handleModalSuccess}
           onDelete={handleSpecialDeleted}
+          onDuplicate={(copy) => setEditingSpecial({
+            ...copy,
+            id: copy.id ?? '',
+            appliesOn: Array.isArray(copy.appliesOn) ? JSON.stringify(copy.appliesOn) : null,
+            eventType: 'special',
+          } as Special)}
         />
       )}
 
@@ -649,27 +655,19 @@ export default function DashboardContent({ events: initialEvents, specials, anno
         onAnnouncementUpdated={handleAnnouncementUpdated}
       />
 
-      {/* New Item Selection Modal - Mobile */}
-      <NewItemSelectionModal
+      {/* Create New - single form with type dropdown */}
+      <NewItemFormModal
         isOpen={newItemSelectionModalOpen}
         onClose={() => setNewItemSelectionModalOpen(false)}
-        onSelectEvent={() => {
-          handleNewEvent();
-        }}
-        onSelectFoodSpecial={() => {
-          setSpecialType('food');
-          setEditingSpecial(null);
-          setSpecialModalOpen(true);
-        }}
-        onSelectDrinkSpecial={() => {
-          setSpecialType('drink');
-          setEditingSpecial(null);
-          setSpecialModalOpen(true);
-        }}
-        onSelectAnnouncement={() => {
-          setEditingAnnouncement(null);
-          setAnnouncementModalOpen(true);
-        }}
+        onSuccess={handleModalSuccess}
+        onEventAdded={handleEventAdded}
+        onEventUpdated={handleEventUpdated}
+        onEventDeleted={handleEventDeleted}
+        onExceptionAdded={handleExceptionAdded}
+        onSpecialDeleted={handleSpecialDeleted}
+        onAnnouncementAdded={handleAnnouncementAdded}
+        onAnnouncementUpdated={handleAnnouncementUpdated}
+        onAnnouncementDeleted={handleAnnouncementDeleted}
       />
     </>
   );

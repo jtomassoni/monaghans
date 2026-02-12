@@ -9,7 +9,7 @@ import StatusToggle from '@/components/status-toggle';
 import DateTimePicker from '@/components/date-time-picker';
 import { useUnsavedChangesWarning } from '@/lib/use-unsaved-changes-warning';
 
-import { formatDateAsDateTimeLocal, parseDateTimeLocalAsCompanyTimezone, getCompanyTimezoneSync } from '@/lib/timezone';
+import { formatDateAsDateTimeLocal, parseDateTimeLocalAsCompanyTimezone, getCompanyTimezoneSync, getMountainTimeToday } from '@/lib/timezone';
 
 // Helper function to convert UTC ISO string to datetime-local string (company timezone)
 // Used when loading dates from the database to display in the form
@@ -53,9 +53,11 @@ interface AnnouncementModalFormProps {
   onDelete?: (id: string) => void;
   onAnnouncementAdded?: (announcement: any) => void; // Callback when announcement is created
   onAnnouncementUpdated?: (announcement: any) => void; // Callback when announcement is updated
+  /** When true, render form content only (no Modal wrapper). Used when embedding in another modal. */
+  embed?: boolean;
 }
 
-export default function AnnouncementModalForm({ isOpen, onClose, announcement, onSuccess, onDelete, onAnnouncementAdded, onAnnouncementUpdated }: AnnouncementModalFormProps) {
+export default function AnnouncementModalForm({ isOpen, onClose, announcement, onSuccess, onDelete, onAnnouncementAdded, onAnnouncementUpdated, embed }: AnnouncementModalFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -102,18 +104,17 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
       };
     } else {
       setShowCTA(false);
-      // Set default dates: top of current hour for publishAt, 24 hours from that for expiresAt
-      const now = new Date();
-      const publishAt = new Date(now);
-      publishAt.setMinutes(0, 0, 0); // Round to top of current hour
-      const expiresAt = new Date(publishAt);
-      expiresAt.setHours(expiresAt.getHours() + 24);
-      
+      // Default: publish today at 12:00 PM (noon) Mountain Time; expire 24 hours later
+      const todayNoonMT = new Date(getMountainTimeToday().getTime() + 12 * 60 * 60 * 1000);
+      const publishAtStr = formatDateAsDateTimeLocal(todayNoonMT, getCompanyTimezoneSync());
+      const expiresAtDate = new Date(todayNoonMT.getTime() + 24 * 60 * 60 * 1000);
+      const expiresAtStr = formatDateAsDateTimeLocal(expiresAtDate, getCompanyTimezoneSync());
+
       newFormData = {
         title: '',
         body: '',
-        publishAt: publishAt.toISOString().slice(0, 16),
-        expiresAt: expiresAt.toISOString().slice(0, 16),
+        publishAt: publishAtStr,
+        expiresAt: expiresAtStr,
         crossPostFacebook: false,
         crossPostInstagram: false,
         ctaText: '',
@@ -313,13 +314,10 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
     }
   }
 
-  return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={announcement ? 'Edit Announcement' : 'New Announcement'}
-    >
-      <form onSubmit={handleSubmit} className="space-y-3">
+  const formContent = (
+    <>
+      <form onSubmit={handleSubmit} className={embed ? 'flex flex-col min-h-0 flex-1' : 'space-y-3'}>
+        <div className={embed ? 'flex-1 min-h-0 overflow-y-auto' : ''}>
         <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-4 backdrop-blur-sm space-y-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Announcement Content</p>
@@ -523,8 +521,9 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
             </div>
           )}
         </div>
+        </div>
 
-        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 backdrop-blur-sm flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-end gap-2">
+        <div className={`rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 backdrop-blur-sm flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-end gap-2 ${embed ? 'sticky bottom-0 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 -mx-4 sm:-mx-5 px-4 sm:px-5 -mb-4 sm:-mb-5 pb-4 sm:pb-5 shrink-0' : ''}`}>
           {announcement?.id && onDelete && (
             <button
               type="button"
@@ -564,6 +563,17 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
         cancelText="Cancel"
         variant="danger"
       />
+    </>
+  );
+
+  if (embed) return <div className="min-w-0 overflow-y-auto">{formContent}</div>;
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={announcement ? 'Edit Announcement' : 'New Announcement'}
+    >
+      {formContent}
     </Modal>
   );
 }

@@ -363,18 +363,16 @@ export default function FoodSpecialsGallerySelector({
                           </button>
                         )}
                       </div>
-                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent text-white p-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                        <div className="truncate font-medium text-xs mb-1">{image.filename}</div>
+                      {/* Name always visible below image so it's easy to tell similar food pics apart */}
+                      <div className="mt-1.5 px-1 text-center">
+                        <p className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate" title={image.filename}>
+                          {image.filename}
+                        </p>
                         {image.usedBy && image.usedBy.length > 0 && (
-                          <div className="text-[10px] text-gray-300 truncate mb-1">
+                          <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
                             Used by: {image.usedBy.slice(0, 2).join(', ')}
                             {image.usedBy.length > 2 && ` +${image.usedBy.length - 2}`}
-                          </div>
-                        )}
-                        {image.size && (
-                          <div className="text-[10px] text-gray-400">
-                            {(image.size / 1024).toFixed(1)} KB
-                          </div>
+                          </p>
                         )}
                       </div>
                     </div>

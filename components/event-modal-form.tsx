@@ -33,6 +33,8 @@ interface EventModalFormProps {
   onEventAdded?: (event: any) => void; // Callback when event is created
   onEventUpdated?: (event: any) => void; // Callback when event is updated
   onExceptionAdded?: (eventId: string, updatedEvent: any) => void; // Callback when exception is added to recurring event
+  /** When true, render form content only (no Modal wrapper). Used when embedding in another modal. */
+  embed?: boolean;
 }
 
 // Helper function to parse RRULE and extract recurrence info
@@ -137,7 +139,7 @@ function buildRRULE(frequency: string, days: string[], monthDay?: number, until?
 
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-export default function EventModalForm({ isOpen, onClose, event, occurrenceDate, onSuccess, onDelete, onEventAdded, onEventUpdated, onExceptionAdded }: EventModalFormProps) {
+export default function EventModalForm({ isOpen, onClose, event, occurrenceDate, onSuccess, onDelete, onEventAdded, onEventUpdated, onExceptionAdded, embed }: EventModalFormProps) {
   const [loading, setLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showDeleteRecurringConfirm, setShowDeleteRecurringConfirm] = useState(false);
@@ -243,18 +245,21 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
   const [recurrenceStartDate, setRecurrenceStartDate] = useState<string>('');
   const [recurrenceEndDate, setRecurrenceEndDate] = useState<string>('');
   
-  const [formData, setFormData] = useState({
-    title: event?.title || '',
-    description: event?.description || '',
-    startDateTime: event?.startDateTime
-      ? formatDateTimeLocal(event.startDateTime)
-      : getTodayDateTime(),
-    endDateTime: event?.endDateTime
-      ? formatDateTimeLocal(event.endDateTime)
-      : event ? '' : addThreeHours(getTodayDateTime()),
-    isAllDay: event?.isAllDay ?? false,
-    tags: event?.tags || [],
-    isActive: event?.isActive ?? true,
+  const [formData, setFormData] = useState(() => {
+    const todayDate = getTodayDateTime().split('T')[0];
+    return {
+      title: event?.title || '',
+      description: event?.description || '',
+      startDateTime: event?.startDateTime
+        ? formatDateTimeLocal(event.startDateTime)
+        : event ? getTodayDateTime() : `${todayDate}T00:00`,
+      endDateTime: event?.endDateTime
+        ? formatDateTimeLocal(event.endDateTime)
+        : event ? '' : `${todayDate}T23:59`,
+      isAllDay: event?.isAllDay ?? true,
+      tags: event?.tags || [],
+      isActive: event?.isActive ?? true,
+    };
   });
 
   const validateDateTime = (start: string, end: string | null, isAllDay: boolean): string | null => {
@@ -424,8 +429,8 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
       setFormData({
         title: '',
         description: '',
-        startDateTime: todayDateTime,
-        endDateTime: `${todayDate}T23:59`, // Default to same day for all-day events
+        startDateTime: `${todayDate}T00:00`, // All-day: start of today (Mountain Time)
+        endDateTime: `${todayDate}T23:59`, // All-day: end of today
         isAllDay: true, // Default to all-day for new events
         tags: [],
         isActive: true,
@@ -593,13 +598,10 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
     }
   }
 
-  return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={event?.id ? 'Edit Event' : 'Create Event'}
-    >
-      <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
+  const formContent = (
+    <>
+      <form onSubmit={handleSubmit} className={embed ? 'flex flex-col min-h-0 flex-1' : 'space-y-3 sm:space-y-4'}>
+        <div className={embed ? 'flex-1 min-h-0 overflow-y-auto' : ''}>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
           {/* Left Column */}
           <div className="space-y-3 sm:space-y-4">
@@ -1009,8 +1011,9 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
             </div>
           </div>
         </div>
+        </div>
 
-        <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-end gap-2 shrink-0 pt-4 border-t border-gray-200 dark:border-gray-700">
+        <div className={`flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-end gap-2 shrink-0 pt-4 border-t border-gray-200 dark:border-gray-700 ${embed ? 'sticky bottom-0 bg-white dark:bg-gray-800 z-10 -mx-4 sm:-mx-5 px-4 sm:px-5 -mb-4 sm:-mb-5 pb-4 sm:pb-5' : ''}`}>
             {event?.id && (
               <div className="flex flex-col sm:flex-row flex-wrap gap-2 w-full sm:w-auto sm:mr-auto order-3 sm:order-1">
                 {event?.recurrenceRule && occurrenceDate ? (
@@ -1086,6 +1089,17 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
         cancelText="Cancel"
         variant="danger"
       />
+    </>
+  );
+
+  if (embed) return <div className="min-w-0 overflow-y-auto">{formContent}</div>;
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={event?.id ? 'Edit Event' : 'Create Event'}
+    >
+      {formContent}
     </Modal>
   );
 }

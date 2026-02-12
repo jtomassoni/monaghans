@@ -7,9 +7,11 @@ interface ModalProps {
   onClose: () => void;
   title?: string;
   children: React.ReactNode;
+  /** Optional max height (e.g. '75vh') so the modal stays compact and above the fold */
+  maxHeight?: string;
 }
 
-export default function Modal({ isOpen, onClose, title, children }: ModalProps) {
+export default function Modal({ isOpen, onClose, title, children, maxHeight }: ModalProps) {
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -34,7 +36,8 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
         onClick={onClose}
       >
         <div
-          className={`bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl shadow-2xl border border-gray-200/50 dark:border-gray-700/50 ${!title || !title.trim() ? 'w-full h-full sm:w-auto sm:h-auto sm:max-w-md' : 'w-full sm:w-auto sm:max-w-[420px] lg:max-w-[900px] sm:max-h-[calc(100vh-2rem)]'} flex flex-col backdrop-blur-xl`}
+          className={`bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl shadow-2xl border border-gray-200/50 dark:border-gray-700/50 flex flex-col backdrop-blur-xl min-h-0 ${!title || !title.trim() ? 'w-full h-full sm:w-auto sm:h-auto sm:max-w-md' : 'w-full sm:w-auto sm:max-w-[420px] lg:max-w-[900px]'}`}
+          style={title && title.trim() ? { maxHeight: maxHeight ?? 'calc(100vh - 2rem)' } : undefined}
           onClick={(e) => e.stopPropagation()}
         >
         {/* Header - Sticky within modal to ensure it's always visible */}
@@ -52,8 +55,11 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
           </div>
         )}
 
-        {/* Content */}
-        <div className={`flex-1 overflow-y-auto overflow-x-visible ${title && title.trim() ? 'px-4 sm:px-5 py-4 sm:py-5' : 'px-6 sm:px-8 py-6 sm:py-8'} pb-20 sm:pb-0`}>
+        {/* Content - scrolls when content exceeds viewport; extra bottom padding on mobile so content can scroll above fixed footers */}
+        <div
+          className={`flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden ${title && title.trim() ? 'px-4 sm:px-5 py-4 sm:py-5' : 'px-6 sm:px-8 py-6 sm:py-8'} pb-32 sm:pb-0`}
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
           <div className="relative">
             {children}
           </div>

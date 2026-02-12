@@ -2,7 +2,8 @@
 
 import { useState, FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { FaTrash, FaTimes, FaSave, FaCheck, FaImage } from 'react-icons/fa';
+import Image from 'next/image';
+import { FaTrash, FaTimes, FaSave, FaCheck, FaImage, FaCopy } from 'react-icons/fa';
 import Modal from '@/components/modal';
 import { showToast } from '@/components/toast';
 import ConfirmationDialog from '@/components/confirmation-dialog';
@@ -10,7 +11,7 @@ import StatusToggle from '@/components/status-toggle';
 import DatePicker from '@/components/date-picker';
 import FoodSpecialsGallerySelector from '@/components/food-specials-gallery-selector';
 import { useUnsavedChangesWarning } from '@/lib/use-unsaved-changes-warning';
-import { getMountainTimeDateString, parseMountainTimeDate } from '@/lib/timezone';
+import { getMountainTimeDateString, getMountainTimeToday, parseMountainTimeDate } from '@/lib/timezone';
 
 interface Special {
   id?: string;
@@ -36,13 +37,25 @@ interface SpecialModalFormProps {
   defaultType?: 'food' | 'drink';
   onSuccess?: () => void;
   onDelete?: (specialId: string) => void;
+  /** Callback when user clicks Duplicate (food specials). Parent should set special to the copy and keep modal open. */
+  onDuplicate?: (copy: Partial<Special>) => void;
+  /** When true, render form content only (no Modal wrapper). Used when embedding in another modal. */
+  embed?: boolean;
 }
 
-export default function SpecialModalForm({ isOpen, onClose, special, defaultType, onSuccess, onDelete }: SpecialModalFormProps) {
+interface GalleryImage {
+  filename: string;
+  path: string;
+  inUse?: boolean;
+}
+
+export default function SpecialModalForm({ isOpen, onClose, special, defaultType, onSuccess, onDelete, onDuplicate, embed }: SpecialModalFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
+  const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([]);
+  const [galleryLoading, setGalleryLoading] = useState(false);
   const isFoodOnly = defaultType === 'food';
   const resolveType = (currentSpecial?: Special): 'food' | 'drink' => {
     if (isFoodOnly) return 'food';
@@ -97,6 +110,7 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
     return getMountainTimeDateString(dateObj);
   };
 
+  const todayStrDefault = getMountainTimeDateString(getMountainTimeToday());
   const [formData, setFormData] = useState({
     title: special?.title || '',
     description: special?.description || '',
@@ -104,14 +118,27 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
     type: resolvedType,
     appliesOn: special?.appliesOn || [],
     timeWindow: resolvedType === 'food' ? '' : (special?.timeWindow || ''), // Always empty for food
-    date: formatDateForInput(special?.startDate) || '', // For food type, use single date field
-    startDate: formatDateForInput(special?.startDate) || '', // For drink type
-    endDate: formatDateForInput(special?.endDate) || '',
+    date: formatDateForInput(special?.startDate) || (special ? '' : todayStrDefault), // For food type; default today for new
+    startDate: formatDateForInput(special?.startDate) || (special ? '' : todayStrDefault), // For drink type
+    endDate: formatDateForInput(special?.endDate) || (special ? '' : todayStrDefault),
     image: special?.image ?? '', // Use nullish coalescing to preserve null, but default to empty string
     isActive: special?.isActive ?? true,
   });
 
   const [initialFormData, setInitialFormData] = useState(formData);
+
+  const normalizeAppliesOn = (val: unknown): string[] => {
+    if (Array.isArray(val)) return val;
+    if (typeof val === 'string') {
+      try {
+        const parsed = JSON.parse(val);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
 
   useEffect(() => {
     if (special) {
@@ -124,7 +151,7 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
         description: special.description || '',
         priceNotes: special.priceNotes || getDefaultPriceNotes(nextType),
         type: nextType,
-        appliesOn: special.appliesOn || [],
+        appliesOn: normalizeAppliesOn((special as any).appliesOn),
         timeWindow: nextType === 'food' ? '' : (special.timeWindow || ''), // Always empty for food
         date: formattedStartDate, // For food type, use single date
         startDate: formattedStartDate, // For drink type
@@ -136,6 +163,7 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
       setInitialFormData(newFormData);
     } else {
       const nextType = resolveType();
+      const todayStr = getMountainTimeDateString(getMountainTimeToday());
       const newFormData = {
         title: '',
         description: '',
@@ -143,9 +171,9 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
         type: nextType,
         appliesOn: [],
         timeWindow: nextType === 'food' ? '' : '', // Always empty for food
-        date: '',
-        startDate: '',
-        endDate: '',
+        date: todayStr,
+        startDate: todayStr,
+        endDate: todayStr,
         image: '',
         isActive: true,
       };
@@ -153,6 +181,22 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
       setInitialFormData(newFormData);
     }
   }, [special, defaultType, isOpen]);
+
+  const fetchGalleryImages = () => {
+    setGalleryLoading(true);
+    fetch('/api/food-specials-gallery')
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => setGalleryImages(Array.isArray(data) ? data : []))
+      .catch(() => setGalleryImages([]))
+      .finally(() => setGalleryLoading(false));
+  };
+
+  // Load gallery images when form is open and we're on food special
+  useEffect(() => {
+    if (isOpen && (isFoodOnly || formData.type === 'food')) {
+      fetchGalleryImages();
+    }
+  }, [isOpen, isFoodOnly, formData.type]);
 
   // Check if form is dirty
   const isDirty = JSON.stringify(formData) !== JSON.stringify(initialFormData);
@@ -185,6 +229,7 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
         setInitialFormData(newFormData);
       } else {
         const nextType = resolveType();
+        const todayStr = getMountainTimeDateString(getMountainTimeToday());
         const newFormData = {
           title: '',
           description: '',
@@ -192,9 +237,9 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
           type: nextType,
           appliesOn: [],
           timeWindow: nextType === 'food' ? '' : '', // Always empty for food
-          date: '',
-          startDate: '',
-          endDate: '',
+          date: todayStr,
+          startDate: todayStr,
+          endDate: todayStr,
           image: '',
           isActive: true,
         };
@@ -312,13 +357,10 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
     }
   }
 
-  return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={special ? 'Edit Special' : 'New Special'}
-    >
-      <form onSubmit={handleSubmit} className={isFoodOnly ? "space-y-2.5 sm:space-y-4" : "space-y-3 sm:space-y-6"}>
+  const formContent = (
+    <>
+      <form onSubmit={handleSubmit} className={embed ? 'flex flex-col min-h-0 flex-1 min-w-0' : (isFoodOnly ? 'space-y-2.5 sm:space-y-4' : 'space-y-3 sm:space-y-6')}>
+        <div className={embed ? 'flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden' : ''}>
         <div className={`rounded-lg sm:rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 ${isFoodOnly ? 'p-3 sm:p-4 space-y-2.5 sm:space-y-4' : 'p-3 sm:p-6 space-y-3 sm:space-y-6'} backdrop-blur-sm`}>
           {!isFoodOnly && (
             <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-start sm:justify-between gap-3 sm:gap-4">
@@ -398,34 +440,98 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
               )}
             </div>
 
-            {/* Image path field - only for food specials */}
-            {(isFoodOnly || formData.type === 'food') && (
+            {/* Date before Image when embedded (mobile-friendly: reach date without scrolling past gallery) */}
+            {embed && (isFoodOnly || formData.type === 'food') && (
               <div className="space-y-1">
-                <label htmlFor="image" className="block text-sm font-semibold text-gray-900 dark:text-white">
-                  Image Path
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    id="image"
-                    type="text"
-                    value={formData.image}
-                    onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                    placeholder="/pics/food-specials/your-image.jpg"
-                    className="flex-1 rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 text-base text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all min-h-[44px] touch-manipulation"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowGallery(true)}
-                    className="px-4 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors flex items-center gap-2 min-h-[44px] touch-manipulation"
-                    title="Select from gallery"
-                  >
-                    <FaImage className="w-4 h-4" />
-                    <span className="hidden sm:inline">Gallery</span>
-                  </button>
+                <DatePicker
+                  label="Date *"
+                  value={formData.date}
+                  onChange={(value) => setFormData({ ...formData, date: value, startDate: value, endDate: value })}
+                  required
+                  dateOnly={true}
+                />
+              </div>
+            )}
+
+            {/* Inline gallery - only for food specials: pick a pic right in the form */}
+            {(isFoodOnly || formData.type === 'food') && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <label className="block text-sm font-semibold text-gray-900 dark:text-white">
+                    Image
+                  </label>
+                  {formData.image && (
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, image: '' })}
+                      className="text-xs font-medium text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                    >
+                      Clear selection
+                    </button>
+                  )}
                 </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Path to the image file (optional). Click Gallery to select from uploaded images.
-                </p>
+                <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30 p-3">
+                  {galleryLoading ? (
+                    <div className="flex items-center justify-center py-8 gap-2 text-gray-500 dark:text-gray-400">
+                      <span className="animate-spin rounded-full h-5 w-5 border-2 border-orange-500 border-t-transparent" />
+                      <span className="text-sm">Loading gallery…</span>
+                    </div>
+                  ) : galleryImages.length === 0 ? (
+                    <div className="text-center py-6">
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">No images in gallery yet.</p>
+                      <button
+                        type="button"
+                        onClick={() => setShowGallery(true)}
+                        className="inline-flex items-center gap-2 px-3 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-medium"
+                      >
+                        <FaImage className="w-4 h-4" />
+                        Upload image
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 max-h-[220px] overflow-y-auto pr-1">
+                        {galleryImages.map((img) => {
+                          const isSelected = formData.image === img.path;
+                          return (
+                            <button
+                              key={img.path}
+                              type="button"
+                              onClick={() => setFormData({ ...formData, image: img.path })}
+                              className={`relative rounded-lg overflow-hidden border-2 transition-all text-left flex flex-col ${isSelected ? 'border-orange-500 ring-2 ring-orange-500/30 shadow-md' : 'border-gray-200 dark:border-gray-600 hover:border-orange-400 dark:hover:border-orange-600'}`}
+                            >
+                              <div className="aspect-square bg-gray-100 dark:bg-gray-800 relative">
+                                <Image
+                                  src={img.path}
+                                  alt={img.filename}
+                                  fill
+                                  className="object-cover"
+                                  sizes="(max-width: 640px) 33vw, 96px"
+                                  unoptimized={img.path.startsWith('/')}
+                                />
+                                {isSelected && (
+                                  <div className="absolute inset-0 bg-orange-500/25 flex items-center justify-center">
+                                    <span className="bg-orange-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">✓</span>
+                                  </div>
+                                )}
+                              </div>
+                              <p className="text-[10px] sm:text-xs font-medium text-gray-700 dark:text-gray-300 truncate px-1 py-1 bg-white dark:bg-gray-800/80" title={img.filename}>
+                                {img.filename}
+                              </p>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowGallery(true)}
+                        className="mt-2 w-full text-center text-xs font-medium text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 py-1.5"
+                      >
+                        Upload new image
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -532,7 +638,8 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
               </div>
             )}
 
-            {isFoodOnly || formData.type === 'food' ? (
+            {/* Food date: when embed, shown above Image in first card; when !embed, show here */}
+            {(isFoodOnly || formData.type === 'food') && !embed ? (
               <div className="space-y-1">
                 <DatePicker
                   label="Date *"
@@ -545,7 +652,7 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
                   <p className="text-xs text-gray-500 dark:text-gray-400">This special applies for the full day</p>
                 )}
               </div>
-            ) : (
+            ) : (isFoodOnly || formData.type === 'food') ? null : (
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="relative isolate">
                   <DatePicker
@@ -568,25 +675,52 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
             )}
           </div>
         </div>
+        </div>
 
-        <div className="fixed bottom-0 left-0 right-0 sm:relative sm:bottom-auto sm:left-auto sm:right-auto bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 sm:border-t-0 sm:bg-transparent sm:dark:bg-transparent z-20 sm:z-auto shadow-lg sm:shadow-none">
-          <div className={`flex flex-col-reverse sm:flex-row sm:flex-wrap sm:items-center sm:justify-end gap-2 sm:gap-3 px-4 sm:px-0 py-3 sm:py-0 pt-4 sm:pt-6 mt-0 sm:mt-4 sm:mt-6`}>
+        <div className={`fixed bottom-0 left-0 right-0 sm:relative sm:bottom-auto sm:left-auto sm:right-auto bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 sm:border-t-0 sm:bg-transparent sm:dark:bg-transparent z-20 sm:z-auto shadow-lg sm:shadow-none ${embed ? 'sm:sticky sm:bottom-0 sm:left-0 sm:right-0 sm:border-t sm:bg-white sm:dark:bg-gray-800 sm:shadow-lg shrink-0 py-3' : ''}`}>
+          <div className={`grid grid-cols-2 sm:grid-cols-none sm:flex sm:flex-row sm:flex-wrap sm:items-center sm:justify-end gap-2 sm:gap-3 px-4 sm:px-0 py-3 sm:py-0 pt-4 sm:pt-6 pb-[env(safe-area-inset-bottom)] sm:pb-0 mt-0 sm:mt-4 sm:mt-6`}>
             {special?.id && onDelete && (
               <button
                 type="button"
                 onClick={() => setShowDeleteConfirm(true)}
                 disabled={loading}
-                className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-base font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl cursor-pointer touch-manipulation min-h-[52px] w-full sm:w-auto sm:min-h-[44px] sm:text-sm sm:font-semibold sm:px-5 sm:py-2.5"
+                className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-base font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl cursor-pointer touch-manipulation min-h-[48px] w-full sm:w-auto sm:min-h-[44px] sm:text-sm sm:font-semibold sm:px-5 sm:py-2.5 order-4 sm:order-none"
               >
                 <FaTrash className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                 <span>Delete</span>
+              </button>
+            )}
+            {special?.id && (isFoodOnly || formData.type === 'food') && onDuplicate && (
+              <button
+                type="button"
+                onClick={() => {
+                  const todayStr = getMountainTimeDateString(getMountainTimeToday());
+                  onDuplicate({
+                    id: '',
+                    title: `${formData.title} (Copy)`,
+                    description: formData.description,
+                    priceNotes: formData.priceNotes,
+                    type: 'food',
+                    appliesOn: formData.appliesOn,
+                    timeWindow: formData.timeWindow,
+                    startDate: todayStr,
+                    endDate: todayStr,
+                    image: formData.image || undefined,
+                    isActive: false,
+                  });
+                }}
+                disabled={loading}
+                className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-green-600 dark:bg-green-600 hover:bg-green-700 dark:hover:bg-green-500 text-white rounded-lg text-base font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl cursor-pointer touch-manipulation min-h-[48px] w-full sm:w-auto sm:min-h-[44px] sm:text-sm sm:font-semibold sm:px-5 sm:py-2.5 order-3 sm:order-none"
+              >
+                <FaCopy className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+                <span>Duplicate</span>
               </button>
             )}
             <button
               type="button"
               onClick={handleCancel}
               disabled={loading}
-              className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-base font-bold transition-all duration-200 cursor-pointer touch-manipulation min-h-[52px] w-full sm:w-auto sm:min-h-[44px] sm:text-sm sm:font-semibold sm:px-5 sm:py-2.5"
+              className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-base font-bold transition-all duration-200 cursor-pointer touch-manipulation min-h-[48px] w-full sm:w-auto sm:min-h-[44px] sm:text-sm sm:font-semibold sm:px-5 sm:py-2.5 order-2 sm:order-none"
             >
               <FaTimes className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
               <span>Cancel</span>
@@ -599,7 +733,7 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
                 (formData.type === 'food' && !formData.date) ||
                 (formData.type === 'drink' && formData.appliesOn.length === 0 && !formData.startDate && !formData.endDate)
               }
-              className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-base font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl cursor-pointer touch-manipulation min-h-[52px] w-full sm:w-auto sm:min-h-[44px] sm:text-sm sm:font-semibold sm:px-5 sm:py-2.5"
+              className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-base font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl cursor-pointer touch-manipulation min-h-[48px] w-full sm:w-auto sm:min-h-[44px] sm:text-sm sm:font-semibold sm:px-5 sm:py-2.5 order-1 sm:order-none"
             >
               {loading ? (
                 <>
@@ -630,13 +764,27 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
 
       <FoodSpecialsGallerySelector
         isOpen={showGallery}
-        onClose={() => setShowGallery(false)}
+        onClose={() => {
+          setShowGallery(false);
+          fetchGalleryImages(); // Refresh inline gallery after upload/select
+        }}
         onSelect={(imagePath) => {
-          setFormData({ ...formData, image: imagePath });
+          setFormData((prev) => ({ ...prev, image: imagePath }));
           setShowGallery(false);
         }}
         currentImagePath={formData.image}
       />
+    </>
+  );
+
+  if (embed) return <div className="min-w-0 overflow-y-auto">{formContent}</div>;
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={special ? 'Edit Special' : 'New Special'}
+    >
+      {formContent}
     </Modal>
   );
 }

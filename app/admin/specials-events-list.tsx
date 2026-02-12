@@ -13,6 +13,7 @@ import DrinkSpecialModalForm from '@/components/drink-special-modal-form';
 import AnnouncementModalForm from '@/components/announcement-modal-form';
 import StatusBadge from '@/components/status-badge';
 import { getItemStatus } from '@/lib/status-helpers';
+import { getMountainTimeToday, getMountainTimeDateString, formatDateAsDateTimeLocal, getCompanyTimezoneSync } from '@/lib/timezone';
 import DuplicateCalendarModal from '@/components/duplicate-calendar-modal';
 import { FaCopy } from 'react-icons/fa';
 
@@ -304,16 +305,18 @@ export default function EventsList({
         const res = await fetch(`/api/events/${item.id}`);
         if (res.ok) {
           const eventData = await res.json();
+          const todayMT = getMountainTimeToday();
+          const todayStr = formatDateAsDateTimeLocal(todayMT, getCompanyTimezoneSync()).split('T')[0];
           setEditingEvent({
             id: '', // No ID means it's a new event
             title: `${eventData.title} (Copy)`,
             description: eventData.description || '',
-            startDateTime: eventData.startDateTime,
-            endDateTime: eventData.endDateTime || '',
+            startDateTime: `${todayStr}T00:00`,
+            endDateTime: `${todayStr}T23:59`,
             venueArea: eventData.venueArea || 'bar',
-            recurrenceRule: eventData.recurrenceRule || '',
-            isAllDay: eventData.isAllDay || false,
-            tags: eventData.tags ? JSON.parse(eventData.tags) : [],
+            recurrenceRule: '',
+            isAllDay: true,
+            tags: eventData.tags ? (typeof eventData.tags === 'string' ? JSON.parse(eventData.tags) : eventData.tags) : [],
             image: eventData.image || null,
             isActive: false, // Start as inactive so user can review before activating
             eventType: 'event',
@@ -325,6 +328,7 @@ export default function EventsList({
       }
     } else if (item.eventType === 'special') {
       const special = item as Special;
+      const todayStr = getMountainTimeDateString(getMountainTimeToday());
       setSpecialType(special.type);
       setEditingSpecial({
         id: '', // No ID means it's a new special
@@ -334,16 +338,33 @@ export default function EventsList({
         type: special.type,
         appliesOn: special.appliesOn,
         timeWindow: special.timeWindow || null,
-        startDate: special.startDate || null,
-        endDate: special.endDate || null,
+        startDate: todayStr,
+        endDate: todayStr,
         image: special.image || null,
         isActive: false, // Start as inactive so user can review before activating
         eventType: 'special',
       });
       setSpecialModalOpen(true);
-    } else {
-      // Announcements don't support duplication
-      showToast('Announcements cannot be duplicated', 'info');
+    } else if (item.eventType === 'announcement') {
+      try {
+        const res = await fetch(`/api/announcements/${item.id}`);
+        if (res.ok) {
+          const ann = await res.json();
+          const todayNoonMT = new Date(getMountainTimeToday().getTime() + 12 * 60 * 60 * 1000);
+          setEditingAnnouncement({
+            id: '',
+            title: `${ann.title} (Copy)`,
+            body: ann.body || '',
+            publishAt: todayNoonMT.toISOString(),
+            expiresAt: new Date(todayNoonMT.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+            isPublished: false,
+            eventType: 'announcement',
+          });
+          setAnnouncementModalOpen(true);
+        }
+      } catch (error) {
+        showToast('Failed to load announcement to duplicate', 'error');
+      }
     }
   };
 
@@ -654,18 +675,16 @@ export default function EventsList({
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                       </svg>
                     </button>
-                    {item.eventType !== 'announcement' && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDuplicate(item);
-                        }}
-                        className="p-2 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
-                        title="Duplicate"
-                      >
-                        <FaCopy className="w-4 h-4" />
-                      </button>
-                    )}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDuplicate(item);
+                      }}
+                      className="p-2 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
+                      title="Duplicate"
+                    >
+                      <FaCopy className="w-4 h-4" />
+                    </button>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -804,6 +823,20 @@ export default function EventsList({
           onDelete={(specialId) => {
             setSpecials(prev => prev.filter(s => s.id !== specialId));
           }}
+          onDuplicate={(copy) => setEditingSpecial({
+            id: copy.id ?? '',
+            title: copy.title ?? '',
+            description: copy.description ?? null,
+            priceNotes: copy.priceNotes ?? null,
+            type: (copy.type ?? 'food') as 'food' | 'drink',
+            appliesOn: Array.isArray(copy.appliesOn) ? JSON.stringify(copy.appliesOn) : null,
+            timeWindow: copy.timeWindow ?? null,
+            startDate: copy.startDate ?? null,
+            endDate: copy.endDate ?? null,
+            image: copy.image ?? null,
+            isActive: copy.isActive ?? false,
+            eventType: 'special',
+          })}
         />
       )}
 
@@ -825,6 +858,20 @@ export default function EventsList({
           crossPostInstagram: false,
         } : undefined}
         onSuccess={handleModalSuccess}
+        onAnnouncementAdded={(newAnn) => {
+          setAnnouncements(prev => [...prev, {
+            id: newAnn.id,
+            title: newAnn.title,
+            body: newAnn.body,
+            publishAt: newAnn.publishAt,
+            expiresAt: newAnn.expiresAt,
+            isPublished: newAnn.isPublished,
+            eventType: 'announcement',
+          }]);
+        }}
+        onAnnouncementUpdated={(updated) => {
+          setAnnouncements(prev => prev.map(a => a.id === updated.id ? { ...a, ...updated } : a));
+        }}
         onDelete={(announcementId) => {
           setAnnouncements(prev => prev.filter(a => a.id !== announcementId));
         }}
