@@ -9,6 +9,7 @@ import ConfirmationDialog from '@/components/confirmation-dialog';
 import StatusToggle from '@/components/status-toggle';
 import DatePicker from '@/components/date-picker';
 import { useUnsavedChangesWarning } from '@/lib/use-unsaved-changes-warning';
+import { getMountainTimeDateString, getMountainTimeToday } from '@/lib/timezone';
 
 interface DrinkSpecial {
   id?: string;
@@ -31,9 +32,11 @@ interface DrinkSpecialModalFormProps {
   special?: DrinkSpecial;
   onSuccess?: () => void;
   onDelete?: (specialId: string) => void;
+  /** When true, render form content only (no Modal wrapper). Used when embedding in another modal. */
+  embed?: boolean;
 }
 
-export default function DrinkSpecialModalForm({ isOpen, onClose, special, onSuccess, onDelete }: DrinkSpecialModalFormProps) {
+export default function DrinkSpecialModalForm({ isOpen, onClose, special, onSuccess, onDelete, embed }: DrinkSpecialModalFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -61,12 +64,13 @@ export default function DrinkSpecialModalForm({ isOpen, onClose, special, onSucc
       setFormData(newFormData);
       setInitialFormData(newFormData);
     } else {
+      const todayStr = getMountainTimeDateString(getMountainTimeToday());
       const newFormData = {
         title: '',
         description: '',
         appliesOn: [],
-        startDate: '',
-        endDate: '',
+        startDate: todayStr,
+        endDate: todayStr,
         isActive: true,
       };
       setFormData(newFormData);
@@ -95,12 +99,13 @@ export default function DrinkSpecialModalForm({ isOpen, onClose, special, onSucc
         setFormData(newFormData);
         setInitialFormData(newFormData);
       } else {
+        const todayStr = getMountainTimeDateString(getMountainTimeToday());
         const newFormData = {
           title: '',
           description: '',
           appliesOn: [],
-          startDate: '',
-          endDate: '',
+          startDate: todayStr,
+          endDate: todayStr,
           isActive: true,
         };
         setFormData(newFormData);
@@ -204,13 +209,10 @@ export default function DrinkSpecialModalForm({ isOpen, onClose, special, onSucc
   const hasWeeklyRecurring = formData.appliesOn.length > 0;
   const hasDateRange = formData.startDate && formData.endDate;
 
-  return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={special ? 'Edit Drink Special' : 'New Drink Special'}
-    >
-      <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-6">
+  const formContent = (
+    <>
+      <form onSubmit={handleSubmit} className={embed ? 'flex flex-col min-h-0 flex-1' : 'space-y-3 sm:space-y-6'}>
+        <div className={embed ? 'flex-1 min-h-0 overflow-y-auto' : ''}>
         <div className="rounded-lg sm:rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 sm:p-6 backdrop-blur-sm space-y-3 sm:space-y-6">
           <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-start sm:justify-between gap-3 sm:gap-4">
             <div className="flex-1 min-w-0">
@@ -329,7 +331,7 @@ export default function DrinkSpecialModalForm({ isOpen, onClose, special, onSucc
           </div>
         )}
 
-        <div className="fixed bottom-0 left-0 right-0 sm:relative sm:bottom-auto sm:left-auto sm:right-auto bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 sm:border-t-0 sm:bg-transparent sm:dark:bg-transparent z-20 sm:z-auto shadow-lg sm:shadow-none">
+        <div className={`fixed bottom-0 left-0 right-0 sm:relative sm:bottom-auto sm:left-auto sm:right-auto bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 sm:border-t-0 sm:bg-transparent sm:dark:bg-transparent z-20 sm:z-auto shadow-lg sm:shadow-none ${embed ? 'sm:sticky sm:bottom-0 sm:left-0 sm:right-0 sm:border-t sm:bg-white sm:dark:bg-gray-800 sm:shadow-lg shrink-0 py-3' : ''}`}>
           <div className="flex flex-col-reverse sm:flex-row sm:flex-wrap sm:items-center sm:justify-end gap-2 sm:gap-3 px-4 sm:px-0 py-3 sm:py-0 pt-4 sm:pt-6 mt-0 sm:mt-4 sm:mt-6">
             {special?.id && onDelete && (
               <button
@@ -375,6 +377,7 @@ export default function DrinkSpecialModalForm({ isOpen, onClose, special, onSucc
             </button>
           </div>
         </div>
+        </div>
       </form>
 
       <ConfirmationDialog
@@ -387,6 +390,17 @@ export default function DrinkSpecialModalForm({ isOpen, onClose, special, onSucc
         cancelText="Cancel"
         variant="danger"
       />
+    </>
+  );
+
+  if (embed) return <div className="min-w-0 overflow-y-auto">{formContent}</div>;
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={special ? 'Edit Drink Special' : 'New Drink Special'}
+    >
+      {formContent}
     </Modal>
   );
 }

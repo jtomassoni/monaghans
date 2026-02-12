@@ -277,7 +277,7 @@ export default function DatePicker({ value, onChange, min, max, label, required,
   // On mobile, use native date input
   if (isMobile) {
     return (
-      <div className="relative w-full max-w-full min-w-0 overflow-hidden">
+      <div className="relative min-w-0 max-w-full overflow-hidden">
         {label && (
           <label className="block mb-0.5 text-xs font-medium text-gray-700 dark:text-gray-300">
             {label} {required && '*'}
@@ -299,26 +299,24 @@ export default function DatePicker({ value, onChange, min, max, label, required,
           min={min ? (min.includes('T') ? min.split('T')[0] : min) : undefined}
           max={max ? (max.includes('T') ? max.split('T')[0] : max) : undefined}
           required={required}
-          style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}
-          className="w-full py-3 px-2.5 bg-white dark:bg-gray-800/95 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-base cursor-pointer focus:border-blue-500 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 touch-manipulation min-h-[44px]"
+          className="w-full min-w-0 max-w-full box-border px-4 py-3 bg-white dark:bg-gray-800/95 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-base cursor-pointer focus:border-blue-500 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 touch-manipulation min-h-[44px]"
         />
       </div>
     );
   }
 
   return (
-    <div className="relative w-full max-w-full min-w-0">
+    <div className="relative min-w-0 max-w-full">
       {label && (
         <label className="block mb-0.5 text-xs font-medium text-gray-700 dark:text-gray-300">
           {label} {required && '*'}
         </label>
       )}
-      <div className="relative w-full max-w-full min-w-0 overflow-hidden" ref={containerRef}>
+      <div className="relative min-w-0 max-w-full overflow-hidden" ref={containerRef}>
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}
-          className="w-full py-3 px-2.5 sm:px-2.5 sm:py-1.5 bg-white dark:bg-gray-800/95 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-base sm:text-sm cursor-pointer hover:border-blue-500 dark:hover:border-blue-500 focus:border-blue-500 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 text-left flex items-center justify-between group touch-manipulation min-h-[44px] overflow-hidden"
+          className="w-full min-w-0 max-w-full box-border px-4 py-3 sm:px-2.5 sm:py-1.5 bg-white dark:bg-gray-800/95 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-base sm:text-sm cursor-pointer hover:border-blue-500 dark:hover:border-blue-500 focus:border-blue-500 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 text-left flex items-center justify-between group touch-manipulation min-h-[44px]"
         >
           <span className={`${displayValue ? 'font-medium' : 'text-gray-400 dark:text-gray-500'} truncate flex-1 min-w-0 text-left`}>
             {displayValue || 'Select date'}

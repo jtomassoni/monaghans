@@ -228,29 +228,24 @@ export default function DailySpecialsList({ initialSpecials }: DailySpecialsList
       const res = await fetch(`/api/specials/${item.id}`);
       if (res.ok) {
         const specialData = await res.json();
-        // Create a duplicate without the ID
+        const todayStr = getMountainTimeDateString(getMountainTimeToday());
+        // Create a duplicate without the ID; default date to today so it's ready to use
         setEditingSpecial({
-          id: '', // No ID means it's a new special
+          id: '', // No ID so the form will POST (create)
           title: `${specialData.title} (Copy)`,
           description: specialData.description || null,
           priceNotes: specialData.priceNotes || null,
           type: specialData.type,
           appliesOn: specialData.appliesOn || null,
           timeWindow: null, // Specials are always all day
-          startDate: specialData.startDate 
-            ? (typeof specialData.startDate === 'string' 
-                ? specialData.startDate 
-                : new Date(specialData.startDate).toISOString().split('T')[0])
-            : null,
-          endDate: specialData.endDate
-            ? (typeof specialData.endDate === 'string'
-                ? specialData.endDate
-                : new Date(specialData.endDate).toISOString().split('T')[0])
-            : null,
+          startDate: todayStr,
+          endDate: todayStr,
           image: specialData.image || null,
           isActive: false, // Start as inactive so user can review before activating
         });
         setSpecialModalOpen(true);
+      } else {
+        showToast('Failed to load special to duplicate', 'error');
       }
     } catch (error) {
       showToast('Failed to duplicate special', 'error');
@@ -819,6 +814,19 @@ export default function DailySpecialsList({ initialSpecials }: DailySpecialsList
         defaultType="food"
         onSuccess={handleModalSuccess}
         onDelete={handleSpecialDeleted}
+        onDuplicate={(copy) => setEditingSpecial({
+          id: copy.id ?? '',
+          title: copy.title ?? '',
+          description: copy.description ?? null,
+          priceNotes: copy.priceNotes ?? null,
+          type: copy.type ?? 'food',
+          timeWindow: copy.timeWindow ?? null,
+          startDate: copy.startDate ?? null,
+          endDate: copy.endDate ?? null,
+          appliesOn: null,
+          image: copy.image ?? null,
+          isActive: copy.isActive ?? false,
+        })}
       />
     </div>
   );

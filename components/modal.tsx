@@ -11,13 +11,15 @@ interface ModalProps {
   onClose: () => void;
   title?: string;
   children: React.ReactNode;
+  /** Optional max height (e.g. '75vh') so the modal stays compact and above the fold */
+  maxHeight?: string;
   helpFeature?: FeatureKey;
   helpSlug?: string;
   zIndex?: number;
   maxWidth?: string;
 }
 
-export default function Modal({ isOpen, onClose, title, children, helpFeature, helpSlug, zIndex = 9998, maxWidth }: ModalProps) {
+export default function Modal({ isOpen, onClose, title, children, maxHeight, helpFeature, helpSlug, zIndex = 9998, maxWidth }: ModalProps) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -52,7 +54,8 @@ export default function Modal({ isOpen, onClose, title, children, helpFeature, h
           role="dialog"
           aria-modal="true"
           aria-labelledby={title ? undefined : undefined}
-          className={`bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl shadow-2xl border border-gray-200/50 dark:border-gray-700/50 ${!title || !title.trim() ? 'w-full h-full sm:w-auto sm:h-auto sm:max-w-md' : maxWidth ? `w-full h-full sm:w-auto sm:h-auto ${maxWidth} sm:max-h-[calc(100vh-2rem)]` : 'w-full h-full sm:w-auto sm:h-auto sm:max-w-[420px] lg:max-w-[900px] sm:max-h-[calc(100vh-2rem)]'} flex flex-col overflow-hidden max-h-screen`}
+          className={`bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl shadow-2xl border border-gray-200/50 dark:border-gray-700/50 flex flex-col backdrop-blur-xl min-h-0 overflow-hidden max-h-screen ${!title || !title.trim() ? 'w-full h-full sm:w-auto sm:h-auto sm:max-w-md' : maxWidth ? `w-full sm:w-auto ${maxWidth}` : 'w-full sm:w-auto sm:max-w-[420px] lg:max-w-[900px]'}`}
+          style={title && title.trim() ? { maxHeight: maxHeight ?? 'calc(100vh - 2rem)' } : undefined}
           onClick={(e) => e.stopPropagation()}
         >
         {/* Header - Sticky within modal to ensure it's always visible */}
@@ -88,8 +91,11 @@ export default function Modal({ isOpen, onClose, title, children, helpFeature, h
           </div>
         )}
 
-        {/* Content */}
-        <div className={`flex-1 overflow-y-auto overflow-x-hidden min-h-0 ${title && title.trim() ? 'px-3 sm:px-5 py-4 sm:py-5' : 'px-4 sm:px-8 py-6 sm:py-8'} pb-20 sm:pb-5`}>
+        {/* Content - scrolls when content exceeds viewport; extra bottom padding on mobile so content can scroll above fixed footers */}
+        <div
+          className={`flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden ${title && title.trim() ? 'px-4 sm:px-5 py-4 sm:py-5' : 'px-6 sm:px-8 py-6 sm:py-8'} pb-32 sm:pb-0`}
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
           <div className="relative max-w-full min-w-0 w-full">
             {children}
           </div>

@@ -7,12 +7,11 @@ import EventModalForm from '@/components/event-modal-form';
 import SpecialModalForm from '@/components/special-modal-form';
 import DrinkSpecialModalForm from '@/components/drink-special-modal-form';
 import AnnouncementModalForm from '@/components/announcement-modal-form';
-import UnifiedItemModalForm from '@/components/unified-item-modal-form';
 import EventsList from '@/app/admin/specials-events-list';
-import { FaCalendarAlt, FaList, FaPlus } from 'react-icons/fa';
-import { useAdminMobileHeader } from '@/components/admin-mobile-header-context';
 import HelpModal from '@/components/help-modal';
-import { FaQuestionCircle } from 'react-icons/fa';
+import NewItemFormModal from '@/components/new-item-form-modal';
+import { FaCalendarAlt, FaList, FaPlus, FaQuestionCircle } from 'react-icons/fa';
+import { useAdminMobileHeader } from '@/components/admin-mobile-header-context';
 
 interface CalendarEvent {
   id: string;
@@ -658,6 +657,12 @@ export default function DashboardContent({ events: initialEvents, specials, anno
           defaultType={specialType}
           onSuccess={handleModalSuccess}
           onDelete={handleSpecialDeleted}
+          onDuplicate={(copy) => setEditingSpecial({
+            ...copy,
+            id: copy.id ?? '',
+            appliesOn: Array.isArray(copy.appliesOn) ? JSON.stringify(copy.appliesOn) : null,
+            eventType: 'special',
+          } as Special)}
         />
       )}
 
@@ -674,24 +679,19 @@ export default function DashboardContent({ events: initialEvents, specials, anno
         onAnnouncementUpdated={handleAnnouncementUpdated}
       />
 
-      {/* Unified Form for Creating New Items */}
-      <UnifiedItemModalForm
+      {/* Create New - single form with type dropdown */}
+      <NewItemFormModal
         isOpen={unifiedFormOpen}
-        onClose={() => {
-          setUnifiedFormOpen(false);
-          setUnifiedFormItem(null);
-          setUnifiedFormItemType(undefined);
-        }}
-        item={unifiedFormItem ? (unifiedFormItem as any) : undefined}
-        itemType={unifiedFormItemType}
+        onClose={() => setUnifiedFormOpen(false)}
         onSuccess={handleModalSuccess}
-        onDelete={(id) => {
-          if (unifiedFormItem && 'body' in unifiedFormItem) {
-            handleAnnouncementDeleted(id);
-          }
-        }}
+        onEventAdded={handleEventAdded}
+        onEventUpdated={handleEventUpdated}
+        onEventDeleted={handleEventDeleted}
+        onExceptionAdded={handleExceptionAdded}
+        onSpecialDeleted={handleSpecialDeleted}
         onAnnouncementAdded={handleAnnouncementAdded}
         onAnnouncementUpdated={handleAnnouncementUpdated}
+        onAnnouncementDeleted={handleAnnouncementDeleted}
       />
     </>
   );
