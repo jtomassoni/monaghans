@@ -28,6 +28,7 @@ export type SlideBuilderInput = {
     includeDrinkSpecials: boolean;
     includeHappyHour: boolean;
     includeEvents: boolean;
+    includeCustomSlides: boolean;
     customSlides: any[];
   };
 };
@@ -110,7 +111,7 @@ export function buildSlides(input: SlideBuilderInput): SlideContent[] {
     addSlide({
       id: 'welcome',
       label: 'Welcome',
-      title: "Welcome to Monaghan's",
+      title: "Monaghan's",
       subtitle: "Established 1892",
       body: 'Denver\'s Second-Oldest Bar\n\nCold drinks, warm people.\nYour neighborhood dive bar.',
       footer: '3889 S King St, Denver, CO • (303) 789-7208',
@@ -235,15 +236,17 @@ export function buildSlides(input: SlideBuilderInput): SlideContent[] {
   }
 
   // Custom slides from CMS config
-  const customSlides = (config.customSlides || [])
-    .filter((slide) => slide && slide.isEnabled !== false)
-    .map((slide: any, idx: number) => ({
-      ...slide,
-      position: typeof slide.position === 'number' ? slide.position : idx + 1,
-    }))
-    .sort((a, b) => (a.position || 0) - (b.position || 0));
+  // Custom slides - only include if enabled
+  if (config.includeCustomSlides) {
+    const customSlides = (config.customSlides || [])
+      .filter((slide) => slide && slide.isEnabled !== false)
+      .map((slide: any, idx: number) => ({
+        ...slide,
+        position: typeof slide.position === 'number' ? slide.position : idx + 1,
+      }))
+      .sort((a, b) => (a.position || 0) - (b.position || 0));
 
-  for (const custom of customSlides) {
+    for (const custom of customSlides) {
     // Check if this is an image-based slide
     const slideType = custom.slideType || (custom.imageStorageKey || custom.imageUrl ? 'image' : 'text');
     const imageStorageKey = custom.imageStorageKey || custom.imageUrl;
@@ -317,6 +320,7 @@ export function buildSlides(input: SlideBuilderInput): SlideContent[] {
         source: 'custom',
       });
     }
+  }
   }
 
   if (slides.length === 0) {

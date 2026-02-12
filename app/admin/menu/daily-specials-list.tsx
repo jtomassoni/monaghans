@@ -196,7 +196,7 @@ export default function DailySpecialsList({ initialSpecials }: DailySpecialsList
           description: specialData.description || null,
           priceNotes: specialData.priceNotes || null,
           type: specialData.type,
-          timeWindow: specialData.timeWindow || null,
+          timeWindow: null, // Specials are always all day
           startDate: specialData.startDate 
             ? (typeof specialData.startDate === 'string' 
                 ? specialData.startDate 
@@ -522,11 +522,6 @@ export default function DailySpecialsList({ initialSpecials }: DailySpecialsList
                             {item.priceNotes}
                           </p>
                         )}
-                        {item.timeWindow && (
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            {item.timeWindow}
-                          </p>
-                        )}
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <button
@@ -810,7 +805,7 @@ export default function DailySpecialsList({ initialSpecials }: DailySpecialsList
           priceNotes: editingSpecial.priceNotes || '',
           type: editingSpecial.type as 'food' | 'drink',
           appliesOn: [], // Daily specials (food type) don't use appliesOn
-          timeWindow: editingSpecial.timeWindow || '',
+          timeWindow: '', // Specials are always all day
           startDate: editingSpecial.startDate || '',
           endDate: editingSpecial.endDate || '',
           image: editingSpecial.image || '',

@@ -6,12 +6,15 @@ name: E2E Tests
 # - For even more speed, you can enable sharding by uncommenting the matrix strategy below
 #   and splitting tests across multiple CI jobs
 
+# E2E tests disabled - uncomment to re-enable
+# on:
+#   push:
+#     branches: [main, develop]
+#   pull_request:
+#     branches: [main, develop]
+#   workflow_dispatch:
 on:
-  push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main, develop]
-  workflow_dispatch:
+  workflow_dispatch:  # Only allow manual runs if needed
 
 jobs:
   e2e-tests:

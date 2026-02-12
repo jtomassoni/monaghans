@@ -604,12 +604,12 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
         <div className={embed ? 'flex-1 min-h-0 overflow-y-auto' : ''}>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
           {/* Left Column */}
-          <div className="space-y-3 sm:space-y-4">
-            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 sm:p-4 backdrop-blur-sm space-y-2.5 sm:space-y-3">
-              <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="space-y-2 sm:space-y-3">
+            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-2.5 sm:p-3 backdrop-blur-sm space-y-2">
+              <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Event Status</p>
-                  <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                  <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300">
                     Control whether this event appears on your public calendar.
                   </p>
                 </div>
@@ -621,8 +621,8 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
                 />
               </div>
 
-              <div className="space-y-3">
-                <div className="space-y-1.5">
+              <div className="space-y-2">
+                <div className="space-y-1">
                   <label htmlFor="title" className="text-sm font-medium text-gray-900 dark:text-white">
                     Title *
                   </label>
@@ -633,14 +633,14 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                     required
                     maxLength={60}
-                    className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-3 sm:py-2 text-base sm:text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all min-h-[44px] touch-manipulation"
+                    className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2 text-base sm:text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all min-h-[44px] touch-manipulation"
                   />
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     {formData.title.length}/60 characters
                   </p>
                 </div>
 
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <label htmlFor="description" className="text-sm font-medium text-gray-900 dark:text-white">
                     Description
                   </label>
@@ -650,7 +650,7 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     rows={2}
                     maxLength={150}
-                    className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all resize-none min-h-[60px] touch-manipulation"
+                    className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-1.5 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all resize-none min-h-[60px] touch-manipulation"
                   />
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     {formData.description.length}/150 characters
@@ -659,11 +659,11 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
               </div>
             </div>
 
-            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 sm:p-4 backdrop-blur-sm space-y-2.5 sm:space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-2.5 sm:p-3 backdrop-blur-sm space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Schedule</p>
-                  <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                  <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300">
                     {!event?.id && (recurrenceType === 'weekly' || recurrenceType === 'monthly')
                       ? 'Set the time for this recurring event. The date range is controlled by the recurrence settings.'
                       : 'Choose the start and end for this event. Cross-day events are supported (e.g., Tuesday 10am to Wednesday 2am).'}
@@ -672,7 +672,7 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
                 {(!event?.id && (recurrenceType === 'weekly' || recurrenceType === 'monthly')) ? null : (
                   <label
                     htmlFor="isAllDay"
-                    className="inline-flex items-center gap-2 rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 sm:py-1.5 text-sm sm:text-xs font-medium text-gray-900 dark:text-white shadow-inner cursor-pointer transition-colors hover:border-blue-400/70 focus-within:ring-2 focus-within:ring-blue-500/30 min-h-[44px] touch-manipulation"
+                    className="inline-flex items-center gap-2 rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-2.5 py-1.5 text-sm sm:text-xs font-medium text-gray-900 dark:text-white shadow-inner cursor-pointer transition-colors hover:border-blue-400/70 focus-within:ring-2 focus-within:ring-blue-500/30 min-h-[44px] touch-manipulation"
                   >
                     <input
                       type="checkbox"
@@ -688,8 +688,8 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
 
               {/* For new recurring events, show only time pickers */}
               {!event?.id && (recurrenceType === 'weekly' || recurrenceType === 'monthly') ? (
-                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
-                  <div className="space-y-1.5">
+                <div className="grid gap-2 grid-cols-1 sm:grid-cols-2">
+                  <div className="space-y-1">
                     <label className="text-sm font-medium text-gray-900 dark:text-white">
                       Start Time *
                     </label>
@@ -702,7 +702,7 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
                       }}
                     />
                   </div>
-                  <div className="space-y-1.5">
+                  <div className="space-y-1">
                     <label className="text-sm font-medium text-gray-900 dark:text-white">
                       End Time
                     </label>
@@ -717,7 +717,7 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
                   </div>
                 </div>
               ) : (
-                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
+                <div className="grid gap-2 grid-cols-1 sm:grid-cols-2">
                   <div className="relative isolate">
                     {formData.isAllDay ? (
                       <DatePicker
@@ -768,7 +768,7 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
                 </div>
               )}
               {dateError && (
-                <p className="text-xs text-red-500 dark:text-red-400 mt-1">
+                <p className="text-xs text-red-500 dark:text-red-400 mt-0.5">
                   {dateError}
                 </p>
               )}
@@ -776,18 +776,18 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
           </div>
 
           {/* Right Column */}
-          <div className="space-y-3 sm:space-y-4">
-            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 sm:p-4 backdrop-blur-sm space-y-2.5 sm:space-y-3">
+          <div className="space-y-2 sm:space-y-3">
+            <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-2.5 sm:p-3 backdrop-blur-sm space-y-2">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Recurrence</p>
-                <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300">
                   Define how this event repeats across your calendar.
                 </p>
               </div>
 
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5">
                 <label
-                  className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-medium transition-all cursor-pointer ${
+                  className={`flex items-center gap-1.5 rounded-xl border px-2.5 py-1 text-xs font-medium transition-all cursor-pointer ${
                     recurrenceType === 'none'
                       ? 'border-blue-500 bg-blue-50 text-blue-600 dark:border-blue-500/80 dark:bg-blue-900/30 dark:text-blue-200 shadow-sm'
                       : 'border-gray-200/70 dark:border-gray-700/60 text-gray-700 dark:text-gray-200 hover:border-blue-400/70'
@@ -808,7 +808,7 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
                   One-time event
                 </label>
                 <label
-                  className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-medium transition-all cursor-pointer ${
+                  className={`flex items-center gap-1.5 rounded-xl border px-2.5 py-1 text-xs font-medium transition-all cursor-pointer ${
                     recurrenceType === 'weekly'
                       ? 'border-blue-500 bg-blue-50 text-blue-600 dark:border-blue-500/80 dark:bg-blue-900/30 dark:text-blue-200 shadow-sm'
                       : 'border-gray-200/70 dark:border-gray-700/60 text-gray-700 dark:text-gray-200 hover:border-blue-400/70'
@@ -861,7 +861,7 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
                   Weekly
                 </label>
                 <label
-                  className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-medium transition-all cursor-pointer ${
+                  className={`flex items-center gap-1.5 rounded-xl border px-2.5 py-1 text-xs font-medium transition-all cursor-pointer ${
                     recurrenceType === 'monthly'
                       ? 'border-blue-500 bg-blue-50 text-blue-600 dark:border-blue-500/80 dark:bg-blue-900/30 dark:text-blue-200 shadow-sm'
                       : 'border-gray-200/70 dark:border-gray-700/60 text-gray-700 dark:text-gray-200 hover:border-blue-400/70'
@@ -900,15 +900,15 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
               </div>
 
               {recurrenceType === 'weekly' && (
-                <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/70 dark:bg-gray-900/40 p-3 shadow-inner space-y-2">
+                <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/70 dark:bg-gray-900/40 p-2 shadow-inner space-y-1">
                   <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Repeat on</p>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
                     {WEEKDAYS.map((day) => {
                       const isSelected = recurrenceDays.includes(day);
                       return (
                         <label
                           key={day}
-                          className={`flex items-center justify-center rounded-lg border px-2 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+                          className={`flex items-center justify-center rounded-lg border px-2 py-1 text-xs font-semibold transition-all cursor-pointer ${
                             isSelected
                               ? 'border-blue-500 bg-blue-600 text-white shadow-sm shadow-blue-500/30'
                               : 'border-gray-200/70 dark:border-gray-700/60 text-gray-700 dark:text-gray-200 bg-white/80 dark:bg-gray-900/40 hover:border-blue-400/70'
@@ -934,13 +934,13 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
               )}
 
               {recurrenceType === 'monthly' && (
-                <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/70 dark:bg-gray-900/40 p-3 shadow-inner space-y-2">
+                <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/70 dark:bg-gray-900/40 p-2 shadow-inner space-y-1">
                   <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Repeat on day</p>
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     <select
                       value={monthDay}
                       onChange={(e) => setMonthDay(parseInt(e.target.value))}
-                      className="rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-2.5 py-1.5 text-xs text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500"
+                      className="rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-2.5 py-1 text-xs text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500"
                     >
                       {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
                         <option key={day} value={day}>
@@ -959,14 +959,14 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
               )}
 
               {(recurrenceType === 'weekly' || recurrenceType === 'monthly') && (
-                <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/70 dark:bg-gray-900/40 p-3 shadow-inner space-y-3">
+                <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/70 dark:bg-gray-900/40 p-2 shadow-inner space-y-1.5">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400 mb-2">Repeating Settings</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-300 mb-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400 mb-0.5">Repeating Settings</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-300 mb-1.5">
                       Set when this recurrence pattern starts and stops. This is separate from the event's start/end times above.
                     </p>
                   </div>
-                  <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
+                  <div className="grid gap-2 grid-cols-1 sm:grid-cols-2">
                     <div>
                       <DatePicker
                         label="Repeat From"
@@ -1000,7 +1000,7 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
                         dateOnly={true}
                       />
                       {!recurrenceEndDate && (
-                        <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
+                        <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
                           Leave empty to repeat forever
                         </p>
                       )}
@@ -1015,14 +1015,14 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
 
         <div className={`flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-end gap-2 shrink-0 pt-4 border-t border-gray-200 dark:border-gray-700 ${embed ? 'sticky bottom-0 bg-white dark:bg-gray-800 z-10 -mx-4 sm:-mx-5 px-4 sm:px-5 -mb-4 sm:-mb-5 pb-4 sm:pb-5' : ''}`}>
             {event?.id && (
-              <div className="flex flex-col sm:flex-row flex-wrap gap-2 w-full sm:w-auto sm:mr-auto order-3 sm:order-1">
+              <div className="flex flex-col sm:flex-row flex-wrap gap-1.5 w-full sm:w-auto sm:mr-auto order-3 sm:order-1">
                 {event?.recurrenceRule && occurrenceDate ? (
                   <>
                     <button
                       type="button"
                       onClick={() => setShowDeleteConfirm(true)}
                       disabled={loading}
-                      className="px-4 py-3 sm:px-3 sm:py-1.5 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-sm sm:text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 cursor-pointer touch-manipulation min-h-[44px]"
+                      className="px-3 py-2 sm:px-2.5 sm:py-1.5 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-sm sm:text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 cursor-pointer touch-manipulation min-h-[44px]"
                     >
                       Delete This Occurrence
                     </button>
@@ -1030,7 +1030,7 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
                       type="button"
                       onClick={() => setShowDeleteRecurringConfirm(true)}
                       disabled={loading}
-                      className="px-4 py-3 sm:px-3 sm:py-1.5 bg-red-700 dark:bg-red-700 hover:bg-red-800 dark:hover:bg-red-600 text-white rounded-lg text-sm sm:text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 cursor-pointer touch-manipulation min-h-[44px]"
+                      className="px-3 py-2 sm:px-2.5 sm:py-1.5 bg-red-700 dark:bg-red-700 hover:bg-red-800 dark:hover:bg-red-600 text-white rounded-lg text-sm sm:text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 cursor-pointer touch-manipulation min-h-[44px]"
                     >
                       Delete Recurring Event
                     </button>
@@ -1040,25 +1040,25 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
                     type="button"
                     onClick={() => setShowDeleteConfirm(true)}
                     disabled={loading}
-                    className="px-4 py-3 sm:px-3 sm:py-1.5 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-sm sm:text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 cursor-pointer touch-manipulation min-h-[44px]"
+                    className="px-3 py-2 sm:px-2.5 sm:py-1.5 bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white rounded-lg text-sm sm:text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-red-500/20 cursor-pointer touch-manipulation min-h-[44px]"
                   >
                     Delete
                   </button>
                 )}
               </div>
             )}
-            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto order-1 sm:order-2">
+            <div className="flex flex-col sm:flex-row gap-1.5 w-full sm:w-auto order-1 sm:order-2">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-3 sm:px-3 sm:py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm sm:text-xs font-semibold transition-colors cursor-pointer touch-manipulation min-h-[44px]"
+                className="px-3 py-2 sm:px-2.5 sm:py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm sm:text-xs font-semibold transition-colors cursor-pointer touch-manipulation min-h-[44px]"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={loading}
-                className="px-4 py-3 sm:px-3 sm:py-1.5 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-sm sm:text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-blue-500/20 cursor-pointer touch-manipulation min-h-[44px]"
+                className="px-3 py-2 sm:px-2.5 sm:py-1.5 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-sm sm:text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-blue-500/20 cursor-pointer touch-manipulation min-h-[44px]"
               >
                 {loading ? (event?.id ? 'Saving...' : 'Creating...') : (event?.id ? 'Save' : 'Create')}
               </button>
@@ -1098,6 +1098,8 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
       isOpen={isOpen}
       onClose={onClose}
       title={event?.id ? 'Edit Event' : 'Create Event'}
+      helpFeature="events"
+      helpSlug="creating-events"
     >
       {formContent}
     </Modal>

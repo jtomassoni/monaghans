@@ -30,6 +30,7 @@ type SignageConfig = {
   includeDrinkSpecials: boolean;
   includeHappyHour: boolean;
   includeEvents: boolean;
+  includeCustomSlides: boolean;
   eventsTileCount: number;
   slideDurationSec: number;
   fadeDurationSec: number;
@@ -42,9 +43,10 @@ const DEFAULT_CONFIG: SignageConfig = {
   includeDrinkSpecials: true,
   includeHappyHour: true,
   includeEvents: true,
+  includeCustomSlides: false,
   eventsTileCount: 6, // show up to 6 events by default
   slideDurationSec: 10,
-  fadeDurationSec: 0.8,
+  fadeDurationSec: 0.4, // 400ms slide transition (TV-friendly)
   customSlides: [],
 };
 
@@ -60,6 +62,7 @@ function sanitizeConfig(payload: any): SignageConfig {
   if (typeof payload?.includeDrinkSpecials === 'boolean') base.includeDrinkSpecials = payload.includeDrinkSpecials;
   if (typeof payload?.includeHappyHour === 'boolean') base.includeHappyHour = payload.includeHappyHour;
   if (typeof payload?.includeEvents === 'boolean') base.includeEvents = payload.includeEvents;
+  if (typeof payload?.includeCustomSlides === 'boolean') base.includeCustomSlides = payload.includeCustomSlides;
 
   const tiles = (() => {
     if (typeof payload?.eventsTileCount === 'number') return payload.eventsTileCount;
@@ -68,7 +71,7 @@ function sanitizeConfig(payload: any): SignageConfig {
   })();
   base.eventsTileCount = clamp(Math.round(tiles), 1, 12);
   if (typeof payload?.slideDurationSec === 'number') base.slideDurationSec = clamp(payload.slideDurationSec, 4, 60);
-  if (typeof payload?.fadeDurationSec === 'number') base.fadeDurationSec = clamp(payload.fadeDurationSec, 0.3, 5);
+  if (typeof payload?.fadeDurationSec === 'number') base.fadeDurationSec = clamp(payload.fadeDurationSec, 0.2, 1.0);
 
   if (Array.isArray(payload?.customSlides)) {
     base.customSlides = payload.customSlides

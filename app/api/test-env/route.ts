@@ -6,6 +6,7 @@ export async function GET() {
     ADMIN_USER_TYPE: typeof process.env.ADMIN_USER,
     ADMIN_USERS: process.env.ADMIN_USERS || 'NOT SET',
     OWNER_USER: process.env.OWNER_USER || 'NOT SET',
+    OWNER_USERS: process.env.OWNER_USERS || 'NOT SET',
     NODE_ENV: process.env.NODE_ENV,
     // Try to parse ADMIN_USER
     parsed: (() => {

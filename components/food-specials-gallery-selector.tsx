@@ -312,7 +312,7 @@ export default function FoodSpecialsGallerySelector({
                       key={image.path}
                       className={`relative group cursor-pointer rounded-xl overflow-hidden border-2 transition-all duration-200 transform ${
                         isSelected
-                          ? 'border-orange-500 ring-4 ring-orange-500/20 shadow-lg scale-105'
+                          ? 'border-orange-500 ring-4 ring-orange-500/50 shadow-2xl scale-110 z-10'
                           : image.inUse
                           ? 'border-green-500/40 hover:border-green-500 hover:shadow-md hover:scale-105'
                           : 'border-gray-200 dark:border-gray-700 hover:border-orange-400 hover:shadow-md hover:scale-105'
@@ -333,18 +333,25 @@ export default function FoodSpecialsGallerySelector({
                           src={image.path}
                           alt={image.filename}
                           fill
-                          className="object-cover transition-transform duration-200 group-hover:scale-110"
+                          className={`object-cover transition-transform duration-200 ${
+                            isSelected ? '' : 'group-hover:scale-110'
+                          }`}
                           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                           onError={(e) => {
                             (e.target as HTMLImageElement).style.display = 'none';
                           }}
                         />
                         {isSelected && (
-                          <div className="absolute inset-0 bg-orange-500/30 flex items-center justify-center backdrop-blur-sm">
-                            <div className="bg-orange-500 rounded-full p-3 shadow-lg">
-                              <FaCheck className="w-5 h-5 text-white" />
+                          <>
+                            <div className="absolute inset-0 bg-orange-500/40 flex items-center justify-center backdrop-blur-sm animate-pulse">
+                              <div className="bg-orange-500 rounded-full p-4 shadow-2xl ring-4 ring-white/50 animate-bounce">
+                                <FaCheck className="w-6 h-6 text-white" />
+                              </div>
                             </div>
-                          </div>
+                            <div className="absolute top-2 left-2 bg-orange-500 text-white text-xs px-2.5 py-1 rounded-md font-bold shadow-lg backdrop-blur-sm uppercase tracking-wide">
+                              Selected
+                            </div>
+                          </>
                         )}
                         {image.inUse && !isSelected && (
                           <div className="absolute top-2 right-2 bg-green-500 text-white text-xs px-2.5 py-1 rounded-full font-semibold shadow-md backdrop-blur-sm">

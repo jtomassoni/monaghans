@@ -62,7 +62,7 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
     const type = currentSpecial?.type ?? defaultType ?? 'food';
     return type === 'drink' ? 'drink' : 'food';
   };
-  const getDefaultPriceNotes = (resolvedType: 'food' | 'drink') => (resolvedType === 'food' ? '$14.00' : '');
+  const getDefaultPriceNotes = (resolvedType: 'food' | 'drink') => (resolvedType === 'food' ? '$14' : '');
   const resolvedType = resolveType(special);
   
   // Helper function to format date to YYYY-MM-DD format (in Mountain Time)
@@ -218,7 +218,7 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
           priceNotes: special.priceNotes || getDefaultPriceNotes(nextType),
           type: nextType,
           appliesOn: special.appliesOn || [],
-          timeWindow: nextType === 'food' ? '' : (special.timeWindow || ''), // Always empty for food
+          timeWindow: '', // Always empty - specials are all day
           date: formattedStartDate,
           startDate: formattedStartDate,
           endDate: formattedEndDate,
@@ -554,7 +554,15 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
               <select
                 id="type"
                 value={formData.type}
-                onChange={(e) => setFormData({ ...formData, type: e.target.value as 'food' | 'drink' })}
+                onChange={(e) => {
+                  const newType = e.target.value as 'food' | 'drink';
+                  setFormData({ 
+                    ...formData, 
+                    type: newType,
+                    priceNotes: newType === 'food' ? (formData.priceNotes || '$14') : (newType === 'drink' ? '' : formData.priceNotes),
+                    timeWindow: newType === 'food' ? '' : formData.timeWindow,
+                  });
+                }}
                 className="w-full rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 text-base text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all min-h-[44px] touch-manipulation"
                 required
               >
@@ -621,26 +629,11 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
           )}
 
           <div className={isFoodOnly ? "space-y-2.5" : "space-y-3"}>
-            {/* Only show time window for drink specials */}
-            {!isFoodOnly && formData.type === 'drink' && (
-              <div className="space-y-1">
-                <label htmlFor="timeWindow" className="block text-sm font-semibold text-gray-900 dark:text-white">
-                  Time Window
-                </label>
-                <input
-                  id="timeWindow"
-                  type="text"
-                  value={formData.timeWindow}
-                  onChange={(e) => setFormData({ ...formData, timeWindow: e.target.value })}
-                  placeholder="e.g., 11am-3pm, Happy Hour"
-                  className="w-full rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2.5 text-base text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all min-h-[44px] touch-manipulation"
-                />
-              </div>
-            )}
+            {/* Time window removed - specials are always all day */}
 
             {/* Food date: when embed, shown above Image in first card; when !embed, show here */}
             {(isFoodOnly || formData.type === 'food') && !embed ? (
-              <div className="space-y-1">
+              <div className="space-y-1 w-full max-w-full min-w-0 overflow-hidden">
                 <DatePicker
                   label="Date *"
                   value={formData.date}
@@ -649,12 +642,12 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
                   dateOnly={true}
                 />
                 {!isFoodOnly && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400">This special applies for the full day</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 break-words">This special applies for the full day</p>
                 )}
               </div>
             ) : (isFoodOnly || formData.type === 'food') ? null : (
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="relative isolate">
+              <div className="grid gap-3 md:grid-cols-2 w-full max-w-full min-w-0 overflow-hidden">
+                <div className="relative isolate w-full max-w-full min-w-0 overflow-hidden">
                   <DatePicker
                     label="Start Date (optional)"
                     value={formData.startDate}
@@ -662,7 +655,7 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
                     dateOnly={true}
                   />
                 </div>
-                <div className="relative isolate">
+                <div className="relative isolate w-full max-w-full min-w-0 overflow-hidden" style={{ width: '100%', maxWidth: '100%' }}>
                   <DatePicker
                     label="End Date (optional)"
                     value={formData.endDate}

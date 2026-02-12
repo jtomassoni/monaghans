@@ -8,9 +8,10 @@ import SpecialModalForm from '@/components/special-modal-form';
 import DrinkSpecialModalForm from '@/components/drink-special-modal-form';
 import AnnouncementModalForm from '@/components/announcement-modal-form';
 import EventsList from '@/app/admin/specials-events-list';
-import { FaCalendarAlt, FaList, FaPlus } from 'react-icons/fa';
-import { useAdminMobileHeader } from '@/components/admin-mobile-header-context';
+import HelpModal from '@/components/help-modal';
 import NewItemFormModal from '@/components/new-item-form-modal';
+import { FaCalendarAlt, FaList, FaPlus, FaQuestionCircle } from 'react-icons/fa';
+import { useAdminMobileHeader } from '@/components/admin-mobile-header-context';
 
 interface CalendarEvent {
   id: string;
@@ -117,7 +118,9 @@ export default function DashboardContent({ events: initialEvents, specials, anno
   const [announcementModalOpen, setAnnouncementModalOpen] = useState(false);
   const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
   const [localAnnouncements, setLocalAnnouncements] = useState<CalendarAnnouncement[]>(announcements);
-  const [newItemSelectionModalOpen, setNewItemSelectionModalOpen] = useState(false);
+  const [unifiedFormOpen, setUnifiedFormOpen] = useState(false);
+  const [unifiedFormItem, setUnifiedFormItem] = useState<Event | Special | Announcement | null>(null);
+  const [unifiedFormItemType, setUnifiedFormItemType] = useState<'event' | 'food' | 'drink' | 'announcement' | undefined>(undefined);
   
   // Track the last initialEvents IDs to prevent unnecessary updates
   const lastInitialEventsIdsRef = useRef<string>(JSON.stringify(initialEvents.map(e => e.id).sort()));
@@ -434,7 +437,11 @@ export default function DashboardContent({ events: initialEvents, specials, anno
   useEffect(() => {
     const mobileButton = (
       <button
-        onClick={() => setNewItemSelectionModalOpen(true)}
+        onClick={() => {
+          setUnifiedFormItem(null);
+          setUnifiedFormItemType(undefined);
+          setUnifiedFormOpen(true);
+        }}
         className="h-9 px-2.5 bg-blue-500 dark:bg-blue-600 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-medium text-xs transition-all duration-200 active:scale-95 flex items-center justify-center gap-1.5 border border-blue-400 dark:border-blue-500 touch-manipulation shadow-sm"
       >
         <span className="text-xs">➕</span>
@@ -466,10 +473,27 @@ export default function DashboardContent({ events: initialEvents, specials, anno
             
             {/* Right side actions */}
             <div className="flex items-center gap-2 flex-shrink-0">
-              {/* New Button */}
+              {/* Help Button */}
+              <HelpModal
+                feature="events"
+                trigger={
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition-colors"
+                  >
+                    <FaQuestionCircle className="w-4 h-4" />
+                    Help
+                  </button>
+                }
+              />
+              {/* New Button - Hidden on mobile, shown on desktop (mobile header has its own New button) */}
               <button
-                onClick={() => setNewItemSelectionModalOpen(true)}
-                className="px-4 py-2 bg-blue-500 dark:bg-blue-600 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-medium text-sm transition-colors duration-200 flex items-center justify-center gap-2 shadow-sm hover:shadow-md active:scale-[0.98]"
+                onClick={() => {
+                  setUnifiedFormItem(null);
+                  setUnifiedFormItemType(undefined);
+                  setUnifiedFormOpen(true);
+                }}
+                className="hidden sm:flex px-4 py-2 bg-blue-500 dark:bg-blue-600 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-medium text-sm transition-colors duration-200 items-center justify-center gap-2 shadow-sm hover:shadow-md active:scale-[0.98]"
               >
                 <FaPlus className="w-3.5 h-3.5" />
                 <span>New</span>
@@ -606,7 +630,7 @@ export default function DashboardContent({ events: initialEvents, specials, anno
             priceNotes: editingSpecial.priceNotes || '',
             type: 'drink' as const,
             appliesOn: (editingSpecial.appliesOn ? (typeof editingSpecial.appliesOn === 'string' ? JSON.parse(editingSpecial.appliesOn) : editingSpecial.appliesOn) : []) as string[],
-            timeWindow: editingSpecial.timeWindow || '',
+            timeWindow: '', // Always empty - specials are all day
             startDate: editingSpecial.startDate || '',
             endDate: editingSpecial.endDate || '',
             isActive: editingSpecial.isActive,
@@ -625,7 +649,7 @@ export default function DashboardContent({ events: initialEvents, specials, anno
             ...editingSpecial,
             description: editingSpecial.description || '',
             priceNotes: editingSpecial.priceNotes || '',
-            timeWindow: editingSpecial.timeWindow || '',
+            timeWindow: '', // Always empty - specials are all day
             startDate: editingSpecial.startDate || '',
             endDate: editingSpecial.endDate || '',
             image: editingSpecial.image || '',
@@ -657,8 +681,8 @@ export default function DashboardContent({ events: initialEvents, specials, anno
 
       {/* Create New - single form with type dropdown */}
       <NewItemFormModal
-        isOpen={newItemSelectionModalOpen}
-        onClose={() => setNewItemSelectionModalOpen(false)}
+        isOpen={unifiedFormOpen}
+        onClose={() => setUnifiedFormOpen(false)}
         onSuccess={handleModalSuccess}
         onEventAdded={handleEventAdded}
         onEventUpdated={handleEventUpdated}

@@ -789,7 +789,7 @@ export default function EventsList({
             priceNotes: editingSpecial.priceNotes || '',
             type: 'drink' as const,
             appliesOn: editingSpecial.appliesOn ? JSON.parse(editingSpecial.appliesOn) : [],
-            timeWindow: editingSpecial.timeWindow || '',
+            timeWindow: '', // Specials are always all day
             startDate: editingSpecial.startDate || '',
             endDate: editingSpecial.endDate || '',
             isActive: editingSpecial.isActive,
@@ -813,7 +813,7 @@ export default function EventsList({
             priceNotes: editingSpecial.priceNotes || '',
             type: editingSpecial.type,
             appliesOn: editingSpecial.appliesOn ? JSON.parse(editingSpecial.appliesOn) : [],
-            timeWindow: editingSpecial.timeWindow || '',
+            timeWindow: '', // Specials are always all day
             startDate: editingSpecial.startDate || '',
             endDate: editingSpecial.endDate || '',
             isActive: editingSpecial.isActive,

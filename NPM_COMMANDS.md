@@ -16,14 +16,24 @@ Start the development server.
 
 ### `npm run build`
 Build the application for production.
-- Runs database migrations
-- Compiles Next.js application
-- Generates optimized production build
+
+**Build Process:**
+1. **Generate Prisma Client** - Creates/updates Prisma Client types
+2. **Database Schema Sync** (if `DATABASE_URL` is set):
+   - First attempts `prisma migrate deploy` (applies pending migrations)
+   - If migrations fail (e.g., P1002 timeout acquiring advisory lock), falls back to `prisma db push`
+   - The fallback is safe and automatically syncs schema without requiring migration files
+   - Regenerates Prisma Client after schema sync
+3. **Validate Help Documentation** - Runs validation script (build fails if validation fails)
+4. **Build Next.js Application** - Creates optimized production build
+
+**Note:** The P1002 error (database timeout acquiring advisory lock) is expected in some environments (like Vercel) and is handled gracefully by falling back to `db push`. This does not indicate a problem.
 
 ### `npm run build:fast`
 Fast build that skips database migrations.
 - Use when you only need to rebuild the app without running migrations
 - Sets `SKIP_MIGRATIONS=true`
+- Skips database schema sync step
 
 ### `npm start`
 Start the production server.
@@ -144,6 +154,14 @@ Set social media configuration.
 - Runs `scripts/set-social-media.ts`
 - Configures social media settings
 
+### `npm run validate:docs`
+Validate help documentation.
+- Runs `scripts/validate-help-docs.ts`
+- Checks that all routes have documentation
+- Validates documentation freshness (warns if docs are >90 days old)
+- Validates that docs match current feature implementations
+- **Note:** This runs automatically during `npm run build` and will fail the build if validation fails
+
 ---
 
 ## Installation
@@ -206,7 +224,20 @@ npm run db:generate  # Update Prisma Client
 
 ### Production Build
 ```bash
-npm run build        # Build application
+npm run build        # Build application (includes migrations + validation)
 npm start            # Start production server
 ```
 
+### Troubleshooting Build Issues
+
+**P1002 Database Timeout Error:**
+- This error occurs when Prisma cannot acquire an advisory lock within 10 seconds
+- Common in CI/CD environments (like Vercel) with connection pooling
+- **Not a problem** - the build script automatically falls back to `prisma db push`
+- The fallback ensures schema is synced even if migrations timeout
+- Build will continue successfully after fallback
+
+**Help Documentation Validation Failures:**
+- If build fails with "Help documentation validation FAILED", run `npm run validate:docs` locally
+- Fix any missing or outdated documentation
+- Documentation warnings (>90 days old) don't fail the build, but should be addressed

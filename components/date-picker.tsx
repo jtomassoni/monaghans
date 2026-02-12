@@ -277,7 +277,7 @@ export default function DatePicker({ value, onChange, min, max, label, required,
   // On mobile, use native date input
   if (isMobile) {
     return (
-      <div className="relative min-w-0 max-w-full">
+      <div className="relative min-w-0 max-w-full overflow-hidden">
         {label && (
           <label className="block mb-0.5 text-xs font-medium text-gray-700 dark:text-gray-300">
             {label} {required && '*'}
@@ -312,13 +312,13 @@ export default function DatePicker({ value, onChange, min, max, label, required,
           {label} {required && '*'}
         </label>
       )}
-      <div className="relative min-w-0 max-w-full" ref={containerRef}>
+      <div className="relative min-w-0 max-w-full overflow-hidden" ref={containerRef}>
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
           className="w-full min-w-0 max-w-full box-border px-4 py-3 sm:px-2.5 sm:py-1.5 bg-white dark:bg-gray-800/95 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-base sm:text-sm cursor-pointer hover:border-blue-500 dark:hover:border-blue-500 focus:border-blue-500 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 text-left flex items-center justify-between group touch-manipulation min-h-[44px]"
         >
-          <span className={displayValue ? 'font-medium' : 'text-gray-400 dark:text-gray-500'}>
+          <span className={`${displayValue ? 'font-medium' : 'text-gray-400 dark:text-gray-500'} truncate flex-1 min-w-0 text-left`}>
             {displayValue || 'Select date'}
           </span>
           <svg className={`w-5 h-5 text-gray-400 dark:text-gray-500 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''} group-hover:text-blue-500 dark:group-hover:text-blue-400`} fill="none" stroke="currentColor" viewBox="0 0 24 24">

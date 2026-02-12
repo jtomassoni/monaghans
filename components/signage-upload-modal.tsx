@@ -67,7 +67,8 @@ export default function SignageUploadModal({
       setProgress(100);
       showToast('Upload successful', 'success');
       onUploadComplete(result);
-      onClose();
+      // Don't call onClose() here - let the parent component handle closing
+      // after it processes the upload result
     } catch (error) {
       console.error('Upload error:', error);
       showToast(

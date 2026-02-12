@@ -56,6 +56,7 @@ export default async function AdminFoodSpecials() {
       <AdminPageHeader
         title="Food Specials"
         description="Manage daily food specials"
+        helpFeature="specials"
         action={
           <div className="flex gap-2">
             <GalleryButton />

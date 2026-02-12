@@ -24,9 +24,16 @@
     "generate-specials": "tsx scripts/generate-daily-specials.ts",
     "set-social": "tsx scripts/set-social-media.ts",
     "fix-taco-platter": "tsx scripts/fix-taco-platter.ts",
-    "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui",
-    "test:e2e:headed": "playwright test --headed"
+    "validate:docs": "tsx scripts/validate-help-docs.ts",
+    "validate:docs:report": "tsx scripts/validate-help-docs.ts --markdown --report validation-report.md",
+    "validate:docs:json": "tsx scripts/validate-help-docs.ts --json --report validation-report.json",
+    "detect:changes": "tsx scripts/detect-feature-changes.ts",
+    "detect:changes:save": "tsx scripts/detect-feature-changes.ts --save",
+    "detect:changes:report": "tsx scripts/detect-feature-changes.ts --markdown --report change-detection-report.md",
+    "suggest:doc-updates": "tsx scripts/suggest-doc-updates.ts",
+    "test:help-validation": "tsx scripts/test-help-validation.ts",
+    "test:help-quality": "tsx scripts/test-help-quality.ts",
+    "test:help": "npm run test:help-validation && npm run test:help-quality"
   },
   "keywords": [],
   "author": "",
@@ -62,7 +69,6 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.57.0",
-    "@tailwindcss/postcss": "^4.1.16",
     "@types/marked": "^6.0.0",
     "@typescript-eslint/eslint-plugin": "^8.46.3",
     "@typescript-eslint/parser": "^8.46.3",
@@ -74,7 +80,7 @@
     "postcss": "^8.5.6",
     "prettier": "^3.6.2",
     "prisma": "^6.19.0",
-    "tailwindcss": "^4.1.16",
+    "tailwindcss": "^3.4.1",
     "tsx": "^4.20.6"
   }
 }

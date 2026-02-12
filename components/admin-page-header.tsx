@@ -1,13 +1,25 @@
 import { ReactNode } from 'react';
+import HelpModal from './help-modal';
+import { FeatureKey } from '@/lib/help-keywords';
+import { FaQuestionCircle } from 'react-icons/fa';
 
 interface AdminPageHeaderProps {
   title: string;
   description?: string;
   action?: ReactNode;
   badge?: ReactNode;
+  helpFeature?: FeatureKey;
+  helpSlug?: string;
 }
 
-export default function AdminPageHeader({ title, description, action, badge }: AdminPageHeaderProps) {
+export default function AdminPageHeader({ 
+  title, 
+  description, 
+  action, 
+  badge,
+  helpFeature,
+  helpSlug,
+}: AdminPageHeaderProps) {
   return (
     <div className="flex-shrink-0 px-4 sm:px-6 py-4 pt-16 md:pt-4 border-b border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm relative z-10">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
@@ -24,11 +36,28 @@ export default function AdminPageHeader({ title, description, action, badge }: A
             </p>
           )}
         </div>
-        {action && (
-          <div className="flex-shrink-0">
-            {action}
-          </div>
-        )}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {helpFeature && (
+            <HelpModal
+              feature={helpFeature}
+              slug={helpSlug}
+              trigger={
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition-colors"
+                >
+                  <FaQuestionCircle className="w-4 h-4" />
+                  Help
+                </button>
+              }
+            />
+          )}
+          {action && (
+            <div>
+              {action}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -54,6 +54,7 @@ export default async function AdminSettings() {
       <AdminPageHeader
         title="Settings & Homepage"
         description="Configure company settings and homepage content"
+        helpFeature="settings"
       />
 
       {/* Main Content - Scrollable */}
