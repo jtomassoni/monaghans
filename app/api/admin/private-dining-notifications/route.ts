@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getPermissions } from '@/lib/permissions';
-import { prisma } from '@/lib/prisma';
 import { handleError, getCurrentUser, logActivity } from '@/lib/api-helpers';
 import {
-  PRIVATE_DINING_NOTIFICATION_EMAILS_KEY,
-  normalizeEmailList,
-  parseNotificationEmailsJson,
+  listStaffRecipientsForAdmin,
+  migrateLegacyNotificationRecipientsIfNeeded,
+  syncStaffRecipientsFromDesiredList,
+  updateStaffRecipientActive,
 } from '@/lib/private-dining-notifications';
 
 async function requireAdminAccess(_req: NextRequest) {
@@ -22,23 +22,25 @@ async function requireAdminAccess(_req: NextRequest) {
   return { session, permissions };
 }
 
+function jsonResponse(recipients: Awaited<ReturnType<typeof listStaffRecipientsForAdmin>>) {
+  const resendConfigured = Boolean(
+    process.env.RESEND_API_KEY?.trim() && process.env.RESEND_FROM?.trim()
+  );
+  const emails = recipients.map((r) => r.email);
+  return NextResponse.json({ recipients, emails, resendConfigured });
+}
+
 /**
  * GET /api/admin/private-dining-notifications
- * List notification recipient emails (admin only — not exposed on the public site).
  */
 export async function GET(_req: NextRequest) {
   const authResult = await requireAdminAccess(_req);
   if (authResult instanceof NextResponse) return authResult;
 
   try {
-    const row = await prisma.setting.findUnique({
-      where: { key: PRIVATE_DINING_NOTIFICATION_EMAILS_KEY },
-    });
-    const emails = parseNotificationEmailsJson(row?.value);
-    const resendConfigured = Boolean(
-      process.env.RESEND_API_KEY?.trim() && process.env.RESEND_FROM?.trim()
-    );
-    return NextResponse.json({ emails, resendConfigured });
+    await migrateLegacyNotificationRecipientsIfNeeded();
+    const recipients = await listStaffRecipientsForAdmin();
+    return jsonResponse(recipients);
   } catch (error) {
     return handleError(error, 'Failed to load notification settings');
   }
@@ -46,7 +48,6 @@ export async function GET(_req: NextRequest) {
 
 /**
  * PUT /api/admin/private-dining-notifications
- * Replace notification recipient list (admin only).
  */
 export async function PUT(req: NextRequest) {
   const authResult = await requireAdminAccess(req);
@@ -60,49 +61,77 @@ export async function PUT(req: NextRequest) {
 
     const body = await req.json();
     const rawList = Array.isArray(body.emails) ? body.emails : [];
-    const emails = normalizeEmailList(
-      rawList.map((e: unknown) => (typeof e === 'string' ? e : String(e)))
-    );
+    const desiredRaw = rawList.map((e: unknown) => (typeof e === 'string' ? e : String(e)));
 
-    const existing = await prisma.setting.findUnique({
-      where: { key: PRIVATE_DINING_NOTIFICATION_EMAILS_KEY },
-    });
+    const before = await listStaffRecipientsForAdmin();
+    const recipients = await syncStaffRecipientsFromDesiredList(desiredRaw);
 
-    const value = JSON.stringify(emails);
-    const setting = await prisma.setting.upsert({
-      where: { key: PRIVATE_DINING_NOTIFICATION_EMAILS_KEY },
-      update: {
-        value,
-        description: 'Staff email addresses notified on new private dining form submissions',
-      },
-      create: {
-        key: PRIVATE_DINING_NOTIFICATION_EMAILS_KEY,
-        value,
-        description: 'Staff email addresses notified on new private dining form submissions',
-      },
-    });
+    const fmt = (r: (typeof before)[0]) =>
+      `${r.email} (${r.status}${r.active ? '' : ', alerts off'})`;
+    const summaryBefore = before.map(fmt).join(', ') || '(none)';
+    const summaryAfter = recipients.map(fmt).join(', ') || '(none)';
 
-    const oldEmails = parseNotificationEmailsJson(existing?.value);
     await logActivity(
       user.id,
-      existing ? 'update' : 'create',
+      'update',
       'setting',
-      setting.id,
-      'Private dining notification emails',
+      'private-dining-notifications',
+      'Private dining notification recipients',
       {
         recipients: {
-          before: oldEmails.join(', ') || '(none)',
-          after: emails.join(', ') || '(none)',
+          before: summaryBefore,
+          after: summaryAfter,
         },
       },
       'Updated private dining notification recipients'
     );
 
-    const resendConfigured = Boolean(
-      process.env.RESEND_API_KEY?.trim() && process.env.RESEND_FROM?.trim()
-    );
-    return NextResponse.json({ emails, resendConfigured });
+    return jsonResponse(recipients);
   } catch (error) {
     return handleError(error, 'Failed to save notification settings');
+  }
+}
+
+/**
+ * PATCH /api/admin/private-dining-notifications
+ * Body: { email: string, active: boolean } — enable or disable lead-alert emails for one address.
+ */
+export async function PATCH(req: NextRequest) {
+  const authResult = await requireAdminAccess(req);
+  if (authResult instanceof NextResponse) return authResult;
+
+  try {
+    const user = await getCurrentUser(req);
+    if (!user?.id) {
+      return NextResponse.json({ error: 'User not found' }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const email = typeof body.email === 'string' ? body.email : '';
+    const active = Boolean(body.active);
+
+    const updated = await updateStaffRecipientActive(email, active);
+    if (!updated) {
+      return NextResponse.json({ error: 'Recipient not found' }, { status: 404 });
+    }
+
+    await logActivity(
+      user.id,
+      'update',
+      'setting',
+      'private-dining-notifications',
+      'Private dining notification recipients',
+      {
+        recipient: {
+          before: email.trim(),
+          after: `${email.trim()} (alerts ${active ? 'on' : 'off'})`,
+        },
+      },
+      `Set private dining email alerts ${active ? 'on' : 'off'} for ${email.trim()}`
+    );
+
+    return jsonResponse(updated);
+  } catch (error) {
+    return handleError(error, 'Failed to update recipient');
   }
 }
