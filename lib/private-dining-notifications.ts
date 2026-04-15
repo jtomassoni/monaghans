@@ -41,8 +41,22 @@ function escapeHtml(s: string): string {
     .replace(/"/g, '&quot;');
 }
 
+/**
+ * Base URL for links inside emails (verify, admin deep links).
+ * - Production: set NEXTAUTH_URL (e.g. https://monaghans.com).
+ * - Vercel preview: NEXTAUTH_URL is usually unset; VERCEL_URL is injected (e.g. *.vercel.app) — use it so verification links match the deployment you are testing.
+ */
 function getSiteBase(): string {
-  return (process.env.NEXTAUTH_URL || '').replace(/\/$/, '');
+  const explicit = (process.env.NEXTAUTH_URL || '').trim().replace(/\/$/, '');
+  if (explicit) return explicit;
+
+  const vercel = process.env.VERCEL_URL?.trim();
+  if (vercel) {
+    const host = vercel.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    return `https://${host}`;
+  }
+
+  return '';
 }
 
 function getResend(): { resend: Resend; from: string } | null {
