@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyRecaptcha } from '@/lib/recaptcha-verify';
+import { sendPrivateDiningLeadNotification } from '@/lib/private-dining-notifications';
 
 /**
  * POST /api/private-events/contact
@@ -62,6 +63,16 @@ export async function POST(req: NextRequest) {
         message: message || null,
         status: 'new',
       },
+    });
+
+    await sendPrivateDiningLeadNotification({
+      id: lead.id,
+      name,
+      phone,
+      email,
+      groupSize,
+      preferredDate,
+      message: message || null,
     });
 
     return NextResponse.json({
