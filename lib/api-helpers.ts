@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from './prisma';
+import { IntegrationConfigError } from './integration-config-error';
 
 export async function requireAuth(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -80,6 +81,13 @@ export async function getCurrentUser(req: NextRequest) {
 }
 
 export function handleError(error: unknown, message = 'An error occurred') {
+  if (error instanceof IntegrationConfigError) {
+    console.error(message, error);
+    return NextResponse.json(
+      { error: error.summary, details: error.message },
+      { status: 422 }
+    );
+  }
   console.error(message, error);
   return NextResponse.json(
     { error: message, details: error instanceof Error ? error.message : 'Unknown error' },

@@ -645,14 +645,16 @@ model LeadContact {
 
 // Staff emails for private-dining lead notifications (verify-by-link before receiving alerts)
 model PrivateDiningNotificationRecipient {
-  id                    String    @id @default(cuid())
-  email                 String    @unique
-  active                Boolean   @default(true)
-  verifiedAt            DateTime?
-  verificationToken     String?   @unique
-  verificationExpiresAt DateTime?
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  id                         String    @id @default(cuid())
+  email                      String    @unique
+  active                     Boolean   @default(true)
+  verifiedAt                 DateTime?
+  /** Set from Resend email.opened webhook when open tracking is enabled (best-effort; see docs). */
+  verificationEmailOpenedAt  DateTime?
+  verificationToken          String?   @unique
+  verificationExpiresAt      DateTime?
+  createdAt                  DateTime  @default(now())
+  updatedAt                  DateTime  @updatedAt
 
   @@index([verifiedAt])
   @@index([active])

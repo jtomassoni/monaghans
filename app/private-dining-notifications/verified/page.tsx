@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import VerifiedSuccessFlash from './verified-success-flash';
 
 type Props = { searchParams: Promise<{ error?: string }> };
 
@@ -12,7 +13,7 @@ export default async function PrivateDiningNotificationVerifiedPage({ searchPara
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Link expired</h1>
         <p className="mt-3 max-w-md text-gray-600 dark:text-gray-400">
           This confirmation link has expired. Ask an admin to save your email again under Private Dining
-          Leads → Communications so we can send a new link.
+          Leads → Email alerts so we can send a new link.
         </p>
         <Link href="/" className="mt-8 text-[var(--color-accent)] hover:underline">
           Back to home
@@ -35,17 +36,5 @@ export default async function PrivateDiningNotificationVerifiedPage({ searchPara
     );
   }
 
-  return (
-    <div className="min-h-[50vh] flex flex-col items-center justify-center px-4 py-16 text-center">
-      <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Email confirmed</h1>
-      <p className="mt-3 max-w-md text-gray-600 dark:text-gray-400">
-        You will receive private dining and event rental lead notifications at this address. Check your
-        inbox for a short welcome message with a link to the admin app — full inquiry details stay in the
-        app.
-      </p>
-      <Link href="/" className="mt-8 text-[var(--color-accent)] hover:underline">
-        Back to home
-      </Link>
-    </div>
-  );
+  return <VerifiedSuccessFlash />;
 }

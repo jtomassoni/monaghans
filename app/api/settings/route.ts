@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           error:
-            'This setting is managed in Admin → Private Dining Leads → Communications (or PUT /api/admin/private-dining-notifications).',
+            'This setting is managed in Admin → Private Dining Leads → Email alerts (or PUT /api/admin/private-dining-notifications).',
         },
         { status: 400 }
       );

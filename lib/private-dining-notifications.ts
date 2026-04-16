@@ -1,13 +1,20 @@
 import { randomBytes } from 'crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import type { Attachment } from 'resend';
 import { Resend } from 'resend';
+import { IntegrationConfigError } from '@/lib/integration-config-error';
 import { prisma } from '@/lib/prisma';
+
+const RESEND_FROM_FORMAT_SUMMARY = 'RESEND_FROM is invalid.';
 
 /** Legacy `Setting` key — migrated to `PrivateDiningNotificationRecipient`; kept for public API filtering. */
 export const PRIVATE_DINING_NOTIFICATION_EMAILS_KEY = 'private_dining_notification_emails';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const VERIFICATION_TOKEN_BYTES = 32;
-const VERIFICATION_VALID_DAYS = 7;
+/** Staff verification link lifetime (email + DB `verificationExpiresAt`). */
+const VERIFICATION_VALID_MINUTES = 30;
 
 export function parseNotificationEmailsJson(raw: string | null | undefined): string[] {
   if (!raw?.trim()) return [];
@@ -42,9 +49,106 @@ function escapeHtml(s: string): string {
 }
 
 /**
- * Base URL for links inside emails (verify, admin deep links).
- * - Production: set NEXTAUTH_URL (e.g. https://monaghans.com).
- * - Vercel preview: NEXTAUTH_URL is usually unset; VERCEL_URL is injected (e.g. *.vercel.app) — use it so verification links match the deployment you are testing.
+ * CID used in HTML and on the inline attachment. Remote image URLs fail for localhost in Gmail
+ * (Google's servers cannot reach your machine). Inline attachments work locally, on Vercel preview, and in prod.
+ */
+const EMAIL_FAVICON_CID = 'monaghans-pd-email-logo';
+
+/** Inline bytes — Resend rejects local `path` unless it is https:// (see invalid_attachment). */
+function loadFaviconInlineAttachment(): Attachment | null {
+  const candidates = [
+    path.join(process.cwd(), 'public', 'favicon.ico'),
+    path.join(process.cwd(), 'public', 'pics', 'favicon.ico'),
+  ];
+  for (const p of candidates) {
+    if (!fs.existsSync(p)) continue;
+    try {
+      const content = fs.readFileSync(p);
+      return {
+        filename: 'favicon.ico',
+        content,
+        contentId: EMAIL_FAVICON_CID,
+        contentType: 'image/x-icon',
+      };
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+/** Table-based HTML shell for staff private-dining emails. Prefer logoMode `inline` (CID attachment). */
+function wrapPrivateDiningEmailHtml(innerHtml: string, logoMode: 'inline' | 'fallback'): string {
+  const accent = '#dc2626';
+  const gold = '#d4af37';
+
+  const headerLogo =
+    logoMode === 'inline'
+      ? `<img src="cid:${EMAIL_FAVICON_CID}" width="56" height="56" alt="Monaghan's" style="display:block;border-radius:12px;border:1px solid #e5e7eb;background:#fff;" />`
+      : `<table role="presentation" cellpadding="0" cellspacing="0"><tr><td width="56" height="56" align="center" valign="middle" style="width:56px;height:56px;border-radius:12px;background:${accent};color:#ffffff;font-family:Georgia,'Times New Roman',serif;font-size:24px;font-weight:bold;">M</td></tr></table>`;
+
+  const footerMark =
+    logoMode === 'inline'
+      ? `<div style="margin-bottom:12px;"><img src="cid:${EMAIL_FAVICON_CID}" width="32" height="32" alt="" style="display:inline-block;border-radius:8px;opacity:0.95;" /></div>`
+      : '';
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#e5e7eb;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#e5e7eb;padding:28px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #d1d5db;">
+          <tr><td style="height:6px;background:${accent};font-size:0;line-height:0;">&nbsp;</td></tr>
+          <tr>
+            <td style="padding:26px 28px 0 28px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td width="68" valign="top" style="padding-right:14px;">${headerLogo}</td>
+                  <td valign="middle" style="font-family:Georgia,'Times New Roman',serif;">
+                    <div style="font-size:22px;font-weight:bold;color:#111827;line-height:1.2;">Monaghan's</div>
+                    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:11px;color:#6b7280;letter-spacing:0.07em;text-transform:uppercase;margin-top:6px;">Dive Bar · Denver</div>
+                  </td>
+                </tr>
+              </table>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:18px;"><tr><td style="height:2px;background:${gold};border-radius:1px;font-size:0;line-height:0;">&nbsp;</td></tr></table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:20px 28px 32px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',sans-serif;font-size:15px;line-height:1.6;color:#374151;">
+              ${innerHtml}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:20px 28px 24px;background:#f9fafb;border-top:1px solid #e5e7eb;text-align:center;">
+              ${footerMark}
+              <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:12px;color:#9ca3af;line-height:1.5;">Cold drinks, warm people.</div>
+              <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:11px;color:#d1d5db;margin-top:6px;">Private dining &amp; event notifications</div>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+function buildBrandedPrivateDiningEmail(innerHtml: string): { html: string; attachments: Attachment[] } {
+  const att = loadFaviconInlineAttachment();
+  const logoMode = att ? 'inline' : 'fallback';
+  const html = wrapPrivateDiningEmailHtml(innerHtml, logoMode);
+  return { html, attachments: att ? [att] : [] };
+}
+
+/**
+ * Canonical site URL for links in emails (verify, admin). Must be absolute https for production.
+ *
+ * - **Production:** set `NEXTAUTH_URL` to your live site (e.g. `https://www.monaghans.com`).
+ * - **Vercel Preview / staging:** `VERCEL_URL` is set automatically (`*.vercel.app`). If `NEXTAUTH_URL` is
+ *   unset, we use `https://` + `VERCEL_URL` so links match the deployment (preview or prod).
+ * - **Local:** set `NEXTAUTH_URL=http://localhost:3000` so links work on your machine (images use CID, not this URL).
  */
 function getSiteBase(): string {
   const explicit = (process.env.NEXTAUTH_URL || '').trim().replace(/\/$/, '');
@@ -59,17 +163,97 @@ function getSiteBase(): string {
   return '';
 }
 
+/**
+ * Validates `RESEND_FROM` when using the optional `Name <email@domain>` form.
+ * Display name must be plain text (letters, numbers, spaces, apostrophe, hyphen, period, & only) — no `@`, quotes, commas, or angle brackets.
+ */
+function assertValidResendFrom(raw: string): void {
+  const s = raw.trim();
+  if (!s) {
+    throw new IntegrationConfigError(
+      RESEND_FROM_FORMAT_SUMMARY,
+      'RESEND_FROM is empty while RESEND_API_KEY is set.'
+    );
+  }
+
+  const open = s.indexOf('<');
+  const close = s.indexOf('>');
+  if (open !== -1 || close !== -1) {
+    if (open === -1 || close === -1 || open >= close || s.indexOf('<', open + 1) !== -1) {
+      throw new IntegrationConfigError(
+        RESEND_FROM_FORMAT_SUMMARY,
+        'Use exactly one pair of angle brackets, e.g. Monaghans <noreply@yourdomain.com>.'
+      );
+    }
+    const display = s.slice(0, open).trim();
+    const email = s.slice(open + 1, close).trim();
+    const after = s.slice(close + 1).trim();
+    if (after.length > 0) {
+      throw new IntegrationConfigError(
+        RESEND_FROM_FORMAT_SUMMARY,
+        'Nothing may appear after the closing >.'
+      );
+    }
+    if (!display) {
+      throw new IntegrationConfigError(
+        RESEND_FROM_FORMAT_SUMMARY,
+        'Put a short name before <…>, e.g. Monaghans <noreply@yourdomain.com>.'
+      );
+    }
+    if (!/^[\p{L}\p{N}\s'.&-]+$/u.test(display)) {
+      throw new IntegrationConfigError(
+        RESEND_FROM_FORMAT_SUMMARY,
+        'Display name may only contain letters, numbers, spaces, hyphens, apostrophes, periods, and &. Do not use @ in the name (say “at” instead), and avoid quotes or commas.'
+      );
+    }
+    if (!EMAIL_RE.test(email)) {
+      throw new IntegrationConfigError(
+        RESEND_FROM_FORMAT_SUMMARY,
+        'The part inside <…> must be one valid email address.'
+      );
+    }
+    return;
+  }
+
+  if (!EMAIL_RE.test(s)) {
+    throw new IntegrationConfigError(
+      RESEND_FROM_FORMAT_SUMMARY,
+      'Use either a bare email (noreply@domain.com) or: Display Name <noreply@domain.com> with a plain display name (no special characters).'
+    );
+  }
+}
+
+/**
+ * When both Resend env vars are set, ensures RESEND_FROM is parseable. Call from API routes so bad config fails fast.
+ */
+export function assertResendFromEnvIfConfigured(): void {
+  const apiKey = process.env.RESEND_API_KEY?.trim();
+  const from = process.env.RESEND_FROM?.trim();
+  if (!apiKey || !from) return;
+  assertValidResendFrom(from);
+}
+
 function getResend(): { resend: Resend; from: string } | null {
   const apiKey = process.env.RESEND_API_KEY?.trim();
   const from = process.env.RESEND_FROM?.trim();
   if (!apiKey || !from) return null;
+  assertValidResendFrom(from);
   return { resend: new Resend(apiKey), from };
+}
+
+/** Optional Reply-To (e.g. owner’s Gmail) when using noreply@ for From. */
+function getResendReplyTo(): string | undefined {
+  const raw = process.env.RESEND_REPLY_TO?.trim();
+  if (!raw || !EMAIL_RE.test(raw)) return undefined;
+  return raw.toLowerCase();
 }
 
 export type StaffRecipientRow = {
   email: string;
   status: 'verified' | 'pending';
   active: boolean;
+  /** ISO string or null — from Resend open tracking webhook (pending only meaningful before verify). */
+  verificationEmailOpenedAt: string | null;
 };
 
 /**
@@ -111,12 +295,15 @@ export async function listStaffRecipientsForAdmin(): Promise<StaffRecipientRow[]
     email: r.email,
     status: r.verifiedAt ? 'verified' : 'pending',
     active: r.active,
+    verificationEmailOpenedAt: r.verificationEmailOpenedAt
+      ? r.verificationEmailOpenedAt.toISOString()
+      : null,
   }));
 }
 
 function newVerificationExpiry(): Date {
   const d = new Date();
-  d.setDate(d.getDate() + VERIFICATION_VALID_DAYS);
+  d.setMinutes(d.getMinutes() + VERIFICATION_VALID_MINUTES);
   return d;
 }
 
@@ -124,17 +311,60 @@ function generateVerificationToken(): string {
   return randomBytes(VERIFICATION_TOKEN_BYTES).toString('hex');
 }
 
+/** Tags let Resend webhooks (e.g. email.opened) match this row — name must be ASCII [a-zA-Z0-9_-]. */
+export const RESEND_TAG_PD_RECIPIENT = 'pd_recipient';
+
+type SendEmailResult = { ok: true } | { ok: false; detail: string };
+
+function resendFailureDetail(err: unknown): string {
+  if (err && typeof err === 'object' && 'message' in err && typeof (err as { message: unknown }).message === 'string') {
+    return (err as { message: string }).message;
+  }
+  try {
+    return JSON.stringify(err);
+  } catch {
+    return String(err);
+  }
+}
+
+function enhanceResendDetail(detail: string): string {
+  const d = detail.trim();
+  if (/domain is not verified|not verified.*resend\.com/i.test(d)) {
+    return (
+      `${d} Use RESEND_FROM with a sender on a domain you verify at https://resend.com/domains ` +
+      '(for example events@yourrestaurant.com). You cannot send from free-mail domains like @gmail.com as the From address.'
+    );
+  }
+  return d;
+}
+
 async function sendEmailOrLog(
   to: string[],
   subject: string,
   html: string,
-  text: string
-): Promise<boolean> {
-  const cfg = getResend();
+  text: string,
+  opts?: {
+    tags?: { name: string; value: string }[];
+    attachments?: Attachment[];
+  }
+): Promise<SendEmailResult> {
+  let cfg: ReturnType<typeof getResend>;
+  try {
+    cfg = getResend();
+  } catch (err) {
+    if (err instanceof IntegrationConfigError) {
+      return { ok: false, detail: `${err.summary} ${err.message}`.trim() };
+    }
+    throw err;
+  }
   if (!cfg) {
     console.warn('[private-dining] Resend not configured; skipping email.');
-    return false;
+    return {
+      ok: false,
+      detail: 'Resend is not configured. Set RESEND_API_KEY and RESEND_FROM in the server environment.',
+    };
   }
+  const replyTo = getResendReplyTo();
   try {
     const { error } = await cfg.resend.emails.send({
       from: cfg.from,
@@ -142,19 +372,33 @@ async function sendEmailOrLog(
       subject,
       html,
       text,
+      ...(replyTo ? { replyTo } : {}),
+      ...(opts?.tags && opts.tags.length > 0 ? { tags: opts.tags } : {}),
+      ...(opts?.attachments && opts.attachments.length > 0 ? { attachments: opts.attachments } : {}),
     });
     if (error) {
       console.error('[private-dining] Resend error:', error);
-      return false;
+      return { ok: false, detail: enhanceResendDetail(resendFailureDetail(error)) };
     }
-    return true;
+    return { ok: true };
   } catch (err) {
     console.error('[private-dining] Failed to send email:', err);
-    return false;
+    const msg = err instanceof Error ? err.message : String(err);
+    return { ok: false, detail: enhanceResendDetail(msg) };
   }
 }
 
-async function sendStaffVerificationEmail(email: string, token: string): Promise<void> {
+/** Subject line for the one-time staff inbox verification email (Resend). */
+export const STAFF_VERIFICATION_EMAIL_SUBJECT = "Confirm your email — Monaghan's private dining notifications";
+
+const RESEND_FROM_SETUP_SUMMARY =
+  'Could not send email (Resend). Fix RESEND_FROM format or verify your domain in Resend; see server logs for details.';
+
+async function sendStaffVerificationEmail(
+  email: string,
+  token: string,
+  recipientRowId: string
+): Promise<SendEmailResult> {
   const siteBase = getSiteBase();
   const verifyUrl = siteBase
     ? `${siteBase}/api/private-dining/verify-recipient?token=${encodeURIComponent(token)}`
@@ -163,39 +407,44 @@ async function sendStaffVerificationEmail(email: string, token: string): Promise
   const text = [
     "You've been added to receive private dining and event rental lead notifications at Monaghan's.",
     '',
-    'Confirm your email by opening this link (expires in a few days):',
+    `Confirm your email by opening this link (expires in ${VERIFICATION_VALID_MINUTES} minutes):`,
     verifyUrl || '(configure NEXTAUTH_URL for a working link)',
     '',
     "If you didn't expect this, you can ignore this message or call the bar.",
   ].join('\n');
 
-  const html = `
-    <p style="font-family:system-ui,sans-serif;font-size:15px;line-height:1.5;color:#111;">
-      You've been added to receive <strong>private dining and event rental</strong> lead notifications at Monaghan's.
+  const innerHtml = `
+    <p style="margin:0 0 16px;">
+      You've been added to receive <strong style="color:#111827;">private dining and event rental</strong> lead notifications at Monaghan's.
     </p>
-    <p style="font-family:system-ui,sans-serif;font-size:15px;line-height:1.5;color:#111;">
-      Confirm your email using the button below. This link expires in ${VERIFICATION_VALID_DAYS} days.
+    <p style="margin:0 0 20px;">
+      Confirm your email using the button below. This link expires in <strong>${VERIFICATION_VALID_MINUTES} minutes</strong>.
     </p>
     ${
       verifyUrl
-        ? `<p style="margin:24px 0;">
-            <a href="${escapeHtml(verifyUrl)}" style="display:inline-block;background:#111;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-family:system-ui,sans-serif;font-size:14px;">
+        ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 20px;"><tr><td>
+            <a href="${escapeHtml(verifyUrl)}" style="display:inline-block;background:#dc2626;color:#ffffff !important;padding:14px 28px;border-radius:10px;text-decoration:none;font-weight:600;font-size:15px;box-shadow:0 2px 6px rgba(220,38,38,0.35);">
               Verify my email
             </a>
-          </p>
-          <p style="font-family:system-ui,sans-serif;font-size:13px;color:#555;word-break:break-all;">${escapeHtml(verifyUrl)}</p>`
-        : '<p style="color:#b45309;">Server URL is not configured; ask an admin to set NEXTAUTH_URL.</p>'
+          </td></tr></table>
+          <p style="margin:0;font-size:12px;color:#6b7280;word-break:break-all;line-height:1.45;">${escapeHtml(verifyUrl)}</p>`
+        : '<p style="margin:0;color:#b45309;font-size:14px;">Server URL is not configured; ask an admin to set NEXTAUTH_URL.</p>'
     }
-    <p style="font-family:system-ui,sans-serif;font-size:14px;color:#555;">
+    <p style="margin:24px 0 0;font-size:13px;color:#6b7280;">
       If you didn't expect this message, you can ignore it or call the bar.
     </p>
   `;
+  const { html, attachments } = buildBrandedPrivateDiningEmail(innerHtml);
 
-  await sendEmailOrLog(
+  return sendEmailOrLog(
     [email],
-    "Confirm your email — Monaghan's private dining notifications",
+    STAFF_VERIFICATION_EMAIL_SUBJECT,
     html,
-    text
+    text,
+    {
+      tags: [{ name: RESEND_TAG_PD_RECIPIENT, value: recipientRowId }],
+      attachments,
+    }
   );
 }
 
@@ -212,31 +461,36 @@ async function sendStaffWelcomeEmail(email: string): Promise<void> {
     leadsSectionUrl ? `Private dining leads: ${leadsSectionUrl}` : '',
   ].filter(Boolean);
 
-  const html = `
-    <h2 style="font-family:system-ui,sans-serif;font-size:18px;">You're all set</h2>
-    <p style="font-family:system-ui,sans-serif;font-size:15px;line-height:1.5;color:#111;">
+  const innerHtml = `
+    <p style="margin:0 0 8px;font-size:18px;font-weight:700;color:#111827;">You're all set</p>
+    <p style="margin:0 0 20px;">
       Your email is verified. You'll get a short notice when new inquiries arrive — open the admin app for full details.
     </p>
     ${
       leadsSectionUrl
-        ? `<p style="margin:24px 0;">
-            <a href="${escapeHtml(leadsSectionUrl)}" style="display:inline-block;background:#111;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-family:system-ui,sans-serif;font-size:14px;">
+        ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 16px;"><tr><td>
+            <a href="${escapeHtml(leadsSectionUrl)}" style="display:inline-block;background:#dc2626;color:#ffffff !important;padding:14px 28px;border-radius:10px;text-decoration:none;font-weight:600;font-size:15px;box-shadow:0 2px 6px rgba(220,38,38,0.35);">
               Open private dining leads
             </a>
-          </p>
-          <p style="font-family:system-ui,sans-serif;font-size:13px;color:#555;">
+          </td></tr></table>
+          <p style="margin:0;font-size:13px;color:#6b7280;">
             Sign in to the dashboard if prompted. Customer contact information is not included in email alerts.
           </p>`
-        : '<p style="color:#b45309;">Ask an admin to set NEXTAUTH_URL so links work.</p>'
+        : '<p style="margin:0;color:#b45309;">Ask an admin to set NEXTAUTH_URL so links work.</p>'
     }
   `;
+  const { html, attachments } = buildBrandedPrivateDiningEmail(innerHtml);
 
-  await sendEmailOrLog(
+  const welcome = await sendEmailOrLog(
     [email],
     "Welcome — Monaghan's private dining notifications",
     html,
-    textLines.join('\n')
+    textLines.join('\n'),
+    { attachments }
   );
+  if (!welcome.ok) {
+    console.warn('[private-dining] Welcome email failed:', welcome.detail);
+  }
 }
 
 /**
@@ -267,7 +521,7 @@ export async function syncStaffRecipientsFromDesiredList(desiredEmails: string[]
 
     if (!row) {
       const token = generateVerificationToken();
-      await prisma.privateDiningNotificationRecipient.create({
+      const created = await prisma.privateDiningNotificationRecipient.create({
         data: {
           email,
           active: true,
@@ -275,7 +529,14 @@ export async function syncStaffRecipientsFromDesiredList(desiredEmails: string[]
           verificationExpiresAt: newVerificationExpiry(),
         },
       });
-      await sendStaffVerificationEmail(email, token);
+      const sent = await sendStaffVerificationEmail(email, token, created.id);
+      if (!sent.ok) {
+        await prisma.privateDiningNotificationRecipient.delete({ where: { id: created.id } });
+        throw new IntegrationConfigError(
+          RESEND_FROM_SETUP_SUMMARY,
+          `${sent.detail} Subject line for this message: ${STAFF_VERIFICATION_EMAIL_SUBJECT}`
+        );
+      }
       continue;
     }
 
@@ -292,10 +553,17 @@ export async function syncStaffRecipientsFromDesiredList(desiredEmails: string[]
         data: {
           verificationToken: token,
           verificationExpiresAt: newVerificationExpiry(),
+          verificationEmailOpenedAt: null,
         },
       });
       if (row.active) {
-        await sendStaffVerificationEmail(email, token);
+        const sent = await sendStaffVerificationEmail(email, token, row.id);
+        if (!sent.ok) {
+          throw new IntegrationConfigError(
+            RESEND_FROM_SETUP_SUMMARY,
+            `${sent.detail} Subject line: ${STAFF_VERIFICATION_EMAIL_SUBJECT}`
+          );
+        }
       }
     }
   }
@@ -347,9 +615,16 @@ export async function updateStaffRecipientActive(
         data: {
           verificationToken: token,
           verificationExpiresAt: newVerificationExpiry(),
+          verificationEmailOpenedAt: null,
         },
       });
-      await sendStaffVerificationEmail(email, token);
+      const sent = await sendStaffVerificationEmail(email, token, existing.id);
+      if (!sent.ok) {
+        throw new IntegrationConfigError(
+          RESEND_FROM_SETUP_SUMMARY,
+          `${sent.detail} Subject line: ${STAFF_VERIFICATION_EMAIL_SUBJECT}`
+        );
+      }
     }
   }
 
@@ -370,12 +645,21 @@ export async function sendPrivateDiningLeadNotification(lead: PrivateDiningLeadE
   const recipients = normalizeEmailList(await getVerifiedStaffNotificationEmails());
   if (recipients.length === 0) {
     console.warn(
-      '[private-dining] No verified recipients with email alerts on. Add or re-enable addresses in Admin → Private Dining Leads → Communications.'
+      '[private-dining] No verified recipients with email alerts on. Add or re-enable addresses under Admin → Private Dining Leads → Email alerts.'
     );
     return;
   }
 
-  const cfg = getResend();
+  let cfg: ReturnType<typeof getResend>;
+  try {
+    cfg = getResend();
+  } catch (err) {
+    if (err instanceof IntegrationConfigError) {
+      console.error('[private-dining] RESEND_FROM invalid:', err.summary, err.message);
+      return;
+    }
+    throw err;
+  }
   if (!cfg) {
     console.warn(
       '[private-dining] Skipping email: set RESEND_API_KEY and RESEND_FROM (verified sender in Resend).'
@@ -401,25 +685,28 @@ export async function sendPrivateDiningLeadNotification(lead: PrivateDiningLeadE
     adminLeadUrl ? `More details: ${adminLeadUrl}` : '',
   ].filter(Boolean);
 
-  const html = `
-    <p style="font-family:system-ui,sans-serif;font-size:16px;line-height:1.55;color:#111;">
+  const innerHtml = `
+    <p style="margin:0 0 10px;font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#dc2626;">New inquiry</p>
+    <p style="margin:0 0 18px;font-size:17px;line-height:1.45;color:#111827;">
       You have a <strong>new private dining inquiry</strong> from ${escapeHtml(lead.name)} for <strong>${escapeHtml(dateStr)}</strong>.
     </p>
     ${
       adminLeadUrl
-        ? `<p style="margin:28px 0;">
-            <a href="${escapeHtml(adminLeadUrl)}" style="display:inline-block;background:#111;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-family:system-ui,sans-serif;font-size:14px;">
+        ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 16px;"><tr><td>
+            <a href="${escapeHtml(adminLeadUrl)}" style="display:inline-block;background:#dc2626;color:#ffffff !important;padding:14px 28px;border-radius:10px;text-decoration:none;font-weight:600;font-size:15px;box-shadow:0 2px 6px rgba(220,38,38,0.35);">
               Open in admin for details
             </a>
-          </p>
-          <p style="font-family:system-ui,sans-serif;font-size:13px;color:#555;word-break:break-all;">${escapeHtml(adminLeadUrl)}</p>`
-        : '<p style="color:#b45309;">Configure NEXTAUTH_URL so the admin link works.</p>'
+          </td></tr></table>
+          <p style="margin:0;font-size:12px;color:#6b7280;word-break:break-all;line-height:1.45;">${escapeHtml(adminLeadUrl)}</p>`
+        : '<p style="margin:0;color:#b45309;">Configure NEXTAUTH_URL so the admin link works.</p>'
     }
-    <p style="font-family:system-ui,sans-serif;font-size:13px;color:#555;">
+    <p style="margin:20px 0 0;font-size:13px;color:#6b7280;">
       Phone, email, and messages are available only in the app after you sign in.
     </p>
   `;
+  const { html, attachments } = buildBrandedPrivateDiningEmail(innerHtml);
 
+  const replyTo = getResendReplyTo();
   try {
     const { error } = await cfg.resend.emails.send({
       from: cfg.from,
@@ -427,6 +714,8 @@ export async function sendPrivateDiningLeadNotification(lead: PrivateDiningLeadE
       subject: `New private dining inquiry`,
       text: textLines.join('\n'),
       html,
+      ...(replyTo ? { replyTo } : {}),
+      ...(attachments.length > 0 ? { attachments } : {}),
     });
 
     if (error) {
