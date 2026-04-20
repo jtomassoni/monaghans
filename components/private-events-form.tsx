@@ -37,7 +37,10 @@ export default function PrivateEventsForm({
     message: string;
   }>({ type: null, message: '' });
 
-  const recaptchaSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
+  const recaptchaEnabled = process.env.NEXT_PUBLIC_RECAPTCHA_ENABLED === 'true';
+  const recaptchaSiteKey = recaptchaEnabled
+    ? process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY
+    : undefined;
   const { getToken } = useReCaptcha(recaptchaSiteKey, 'private_events_form');
   const badgeAnchorRef = useRef<HTMLDivElement>(null);
   const shouldAnchorBadge = Boolean(recaptchaSiteKey && anchorRecaptchaBadge);
@@ -64,7 +67,7 @@ export default function PrivateEventsForm({
           recaptchaToken = await getToken();
         } catch (error) {
           console.error('reCAPTCHA error:', error);
-          if (process.env.NODE_ENV === 'production') {
+          if (recaptchaEnabled) {
             setSubmitStatus({
               type: 'error',
               message: 'Security verification failed. Please try again.',

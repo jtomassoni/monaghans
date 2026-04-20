@@ -1,6 +1,11 @@
 import type { NextConfig } from 'next'
+import { isRecaptchaEnabledForDeployment } from './lib/recaptcha-policy'
 
 const nextConfig: NextConfig = {
+  env: {
+    // Mirrors lib/recaptcha-policy.ts — client code must not load grecaptcha on preview/dev.
+    NEXT_PUBLIC_RECAPTCHA_ENABLED: isRecaptchaEnabledForDeployment() ? 'true' : 'false',
+  },
   images: {
     remotePatterns: [],
     unoptimized: false,

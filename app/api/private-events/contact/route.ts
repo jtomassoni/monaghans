@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { prisma } from '@/lib/prisma';
 import { verifyRecaptcha } from '@/lib/recaptcha-verify';
+import { isRecaptchaEnabledForDeployment } from '@/lib/recaptcha-policy';
 import {
   buildBrandedPrivateDiningEmail,
   getResendReplyTo,
@@ -96,33 +97,25 @@ export async function POST(req: NextRequest) {
     const { name, phone, email, groupSize, date, message, recaptchaToken } = body;
 
     const recaptchaSecret = process.env.RECAPTCHA_SECRET_KEY?.trim();
-    const isProduction = process.env.NODE_ENV === 'production';
+    const enforceRecaptcha =
+      Boolean(recaptchaSecret) && isRecaptchaEnabledForDeployment();
 
-    if (recaptchaSecret) {
+    if (enforceRecaptcha) {
       if (!recaptchaToken) {
-        if (isProduction) {
-          return NextResponse.json(
-            { error: 'Security verification failed. Please try again.' },
-            { status: 400 }
-          );
-        }
-        console.warn('[private-events/contact] Missing reCAPTCHA token in non-production; allowing submission.');
-      } else {
-        const verification = await verifyRecaptcha(recaptchaToken, recaptchaSecret);
+        return NextResponse.json(
+          { error: 'Security verification failed. Please try again.' },
+          { status: 400 }
+        );
+      }
 
-        if (!verification.success) {
-          if (isProduction) {
-            console.error('reCAPTCHA verification failed:', verification.error);
-            return NextResponse.json(
-              { error: 'Security verification failed. Please try again.' },
-              { status: 400 }
-            );
-          }
-          console.warn(
-            '[private-events/contact] reCAPTCHA verification failed in non-production; allowing submission:',
-            verification.error
-          );
-        }
+      const verification = await verifyRecaptcha(recaptchaToken, recaptchaSecret!);
+
+      if (!verification.success) {
+        console.error('reCAPTCHA verification failed:', verification.error);
+        return NextResponse.json(
+          { error: 'Security verification failed. Please try again.' },
+          { status: 400 }
+        );
       }
     }
 
