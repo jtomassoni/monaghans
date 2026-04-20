@@ -605,6 +605,7 @@ model PrivateDiningLead {
   event         Event?        @relation(fields: [eventId], references: [id], onDelete: SetNull)
   notes         LeadNote[] // Notes added by staff
   contacts      LeadContact[] // Additional contacts for this lead
+  emails        PrivateDiningLeadEmail[] // Outbound/inbound email thread items
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
@@ -612,6 +613,23 @@ model PrivateDiningLead {
   @@index([preferredDate])
   @@index([createdAt])
   @@index([email])
+}
+
+// Lead email activity rows (conversation timeline)
+model PrivateDiningLeadEmail {
+  id        String            @id @default(cuid())
+  leadId    String
+  lead      PrivateDiningLead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  direction String // "inbound" | "outbound"
+  from      String
+  to        String
+  subject   String
+  bodyText  String
+  bodyHtml  String?
+  messageId String?
+  createdAt DateTime          @default(now())
+
+  @@index([leadId, createdAt])
 }
 
 // Lead Notes - Staff notes on leads
@@ -641,6 +659,23 @@ model LeadContact {
   updatedAt DateTime          @updatedAt
 
   @@index([leadId])
+}
+
+// Staff emails for private-dining lead notifications (verify-by-link before receiving alerts)
+model PrivateDiningNotificationRecipient {
+  id                         String    @id @default(cuid())
+  email                      String    @unique
+  active                     Boolean   @default(true)
+  verifiedAt                 DateTime?
+  /** Set from Resend email.opened webhook when open tracking is enabled (best-effort; see docs). */
+  verificationEmailOpenedAt  DateTime?
+  verificationToken          String?   @unique
+  verificationExpiresAt      DateTime?
+  createdAt                  DateTime  @default(now())
+  updatedAt                  DateTime  @updatedAt
+
+  @@index([verifiedAt])
+  @@index([active])
 }
 
 // Digital Signage Ads Models

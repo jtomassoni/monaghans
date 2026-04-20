@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Modal from './modal';
-import { useReCaptcha } from './recaptcha';
+import { useReCaptcha, useRecaptchaBadgeAnchor } from './recaptcha';
 
 const privateEventsSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -21,9 +21,15 @@ type PrivateEventsFormData = z.infer<typeof privateEventsSchema>;
 interface PrivateEventsFormProps {
   onSuccess?: () => void;
   compact?: boolean;
+  /** Mount the Google reCAPTCHA badge inside the form instead of fixed to the viewport corner */
+  anchorRecaptchaBadge?: boolean;
 }
 
-export default function PrivateEventsForm({ onSuccess, compact = false }: PrivateEventsFormProps) {
+export default function PrivateEventsForm({
+  onSuccess,
+  compact = false,
+  anchorRecaptchaBadge = false,
+}: PrivateEventsFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<{
@@ -31,8 +37,14 @@ export default function PrivateEventsForm({ onSuccess, compact = false }: Privat
     message: string;
   }>({ type: null, message: '' });
 
-  const recaptchaSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
+  const recaptchaEnabled = process.env.NEXT_PUBLIC_RECAPTCHA_ENABLED === 'true';
+  const recaptchaSiteKey = recaptchaEnabled
+    ? process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY
+    : undefined;
   const { getToken } = useReCaptcha(recaptchaSiteKey, 'private_events_form');
+  const badgeAnchorRef = useRef<HTMLDivElement>(null);
+  const shouldAnchorBadge = Boolean(recaptchaSiteKey && anchorRecaptchaBadge);
+  useRecaptchaBadgeAnchor(shouldAnchorBadge, badgeAnchorRef);
 
   const {
     register,
@@ -55,8 +67,7 @@ export default function PrivateEventsForm({ onSuccess, compact = false }: Privat
           recaptchaToken = await getToken();
         } catch (error) {
           console.error('reCAPTCHA error:', error);
-          // Continue without token in development, but log the error
-          if (process.env.NODE_ENV === 'production') {
+          if (recaptchaEnabled) {
             setSubmitStatus({
               type: 'error',
               message: 'Security verification failed. Please try again.',
@@ -119,6 +130,55 @@ export default function PrivateEventsForm({ onSuccess, compact = false }: Privat
   const labelClasses = compact
     ? "block text-xs font-semibold text-white mb-1"
     : "block text-sm font-semibold text-white mb-2";
+
+  const submitErrorBanner =
+    submitStatus.type === 'error' ? (
+      <div
+        role="alert"
+        className={`rounded-lg border border-red-300/80 bg-red-950/40 px-3 py-2.5 text-red-100 dark:border-red-800 dark:bg-red-950/60 ${
+          compact ? 'text-xs leading-snug' : 'text-sm leading-relaxed'
+        }`}
+      >
+        {submitStatus.message}
+      </div>
+    ) : null;
+
+  const recaptchaInForm = shouldAnchorBadge ? (
+    <div className="space-y-1.5">
+      <div
+        ref={badgeAnchorRef}
+        className="recaptcha-badge-anchor flex min-h-[1.25rem] flex-wrap items-center gap-2"
+        aria-hidden
+      />
+      <p
+        className={
+          compact
+            ? 'text-[10px] leading-snug text-gray-500 dark:text-gray-400'
+            : 'text-xs leading-snug text-gray-500 dark:text-gray-400'
+        }
+      >
+        This site is protected by reCAPTCHA and the Google{' '}
+        <a
+          className="text-gray-600 underline decoration-gray-500/60 underline-offset-2 hover:text-gray-800 dark:text-gray-300 dark:hover:text-white"
+          href="https://policies.google.com/privacy"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Privacy Policy
+        </a>{' '}
+        and{' '}
+        <a
+          className="text-gray-600 underline decoration-gray-500/60 underline-offset-2 hover:text-gray-800 dark:text-gray-300 dark:hover:text-white"
+          href="https://policies.google.com/terms"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Terms of Service
+        </a>{' '}
+        apply.
+      </p>
+    </div>
+  ) : null;
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className={formClasses}>
@@ -249,6 +309,10 @@ export default function PrivateEventsForm({ onSuccess, compact = false }: Privat
               placeholder="Tell us about your event, special requests, or any questions..."
             />
           </div>
+
+          {recaptchaInForm}
+
+          {submitErrorBanner}
 
           {/* Submit Button */}
           <button
@@ -384,6 +448,10 @@ export default function PrivateEventsForm({ onSuccess, compact = false }: Privat
         />
       </div>
 
+      {recaptchaInForm}
+
+      {submitErrorBanner}
+
       {/* Submit Button */}
       <button
         type="submit"
@@ -393,13 +461,6 @@ export default function PrivateEventsForm({ onSuccess, compact = false }: Privat
         {isSubmitting ? 'Sending...' : 'Submit Request'}
       </button>
         </>
-      )}
-
-      {/* Error Message */}
-      {submitStatus.type === 'error' && (
-        <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/50 border border-red-200 dark:border-red-700 text-red-800 dark:text-red-200">
-          <p className={compact ? "text-xs" : "text-sm"}>{submitStatus.message}</p>
-        </div>
       )}
 
       {/* Success Modal */}

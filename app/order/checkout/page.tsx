@@ -64,7 +64,10 @@ function PaymentForm({
   const [processing, setProcessing] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const orderCreatedRef = useRef(false);
-  const recaptchaSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
+  const recaptchaEnabled = process.env.NEXT_PUBLIC_RECAPTCHA_ENABLED === 'true';
+  const recaptchaSiteKey = recaptchaEnabled
+    ? process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY
+    : undefined;
   const { getToken } = useReCaptcha(recaptchaSiteKey, 'order_checkout');
 
   const calculateSubtotal = () => {
@@ -97,8 +100,7 @@ function PaymentForm({
           recaptchaToken = await getToken();
         } catch (error) {
           console.error('reCAPTCHA error:', error);
-          // Continue without token in development, but log the error
-          if (process.env.NODE_ENV === 'production') {
+          if (recaptchaEnabled) {
             setPaymentError('Security verification failed. Please try again.');
             setProcessing(false);
             return;
@@ -460,7 +462,10 @@ export default function CheckoutPage() {
     sessionStorage.setItem('cart', JSON.stringify(newCart));
   };
 
-  const recaptchaSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
+  const recaptchaEnabled = process.env.NEXT_PUBLIC_RECAPTCHA_ENABLED === 'true';
+  const recaptchaSiteKey = recaptchaEnabled
+    ? process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY
+    : undefined;
   const { getToken } = useReCaptcha(recaptchaSiteKey, 'order_checkout');
 
   const handleDemoPayment = async () => {
@@ -473,8 +478,7 @@ export default function CheckoutPage() {
           recaptchaToken = await getToken();
         } catch (error) {
           console.error('reCAPTCHA error:', error);
-          // Continue without token in development
-          if (process.env.NODE_ENV === 'production') {
+          if (recaptchaEnabled) {
             alert('Security verification failed. Please try again.');
             setProcessingDemo(false);
             return;

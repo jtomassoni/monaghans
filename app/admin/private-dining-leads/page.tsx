@@ -3,8 +3,8 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { getPermissions } from '@/lib/permissions';
-import PrivateDiningLeadsList from './leads-list';
 import AdminPageHeader from '@/components/admin-page-header';
+import PrivateDiningLeadsTabs from './private-dining-leads-tabs';
 
 export default async function AdminPrivateDiningLeads() {
   const session = await getServerSession(authOptions);
@@ -63,8 +63,8 @@ export default async function AdminPrivateDiningLeads() {
 
       {/* Main Content */}
       <div className="flex-1 overflow-auto p-4 sm:p-6 relative z-10">
-        <div className="max-w-7xl mx-auto">
-          <PrivateDiningLeadsList initialLeads={serializedLeads} />
+        <div className="max-w-7xl mx-auto space-y-6">
+          <PrivateDiningLeadsTabs initialLeads={serializedLeads} />
         </div>
       </div>
     </div>

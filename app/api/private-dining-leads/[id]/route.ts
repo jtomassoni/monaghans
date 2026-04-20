@@ -18,6 +18,18 @@ async function requireAdminAccess(req: NextRequest) {
   return { session, permissions };
 }
 
+function isMissingLeadEmailTableError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    message.includes('PrivateDiningLeadEmail') ||
+    message.includes('private_dining_lead_email') ||
+    message.includes('does not exist') ||
+    message.includes("Unknown field `emails`") ||
+    message.includes("Unknown arg `emails`") ||
+    message.includes("Unknown argument `emails`")
+  );
+}
+
 /**
  * GET /api/private-dining-leads/[id]
  * Get a single lead with all related data
@@ -31,18 +43,39 @@ export async function GET(
 
   try {
     const { id } = await params;
-    const lead = await prisma.privateDiningLead.findUnique({
-      where: { id },
-      include: {
-        event: true,
-        notes: {
-          orderBy: { createdAt: 'desc' },
+    let lead;
+    try {
+      lead = await prisma.privateDiningLead.findUnique({
+        where: { id },
+        include: {
+          event: true,
+          emails: {
+            orderBy: { createdAt: 'asc' },
+          },
+          notes: {
+            orderBy: { createdAt: 'desc' },
+          },
+          contacts: {
+            orderBy: { createdAt: 'asc' },
+          },
         },
-        contacts: {
-          orderBy: { createdAt: 'asc' },
+      });
+    } catch (error) {
+      if (!isMissingLeadEmailTableError(error)) throw error;
+      const fallbackLead = await prisma.privateDiningLead.findUnique({
+        where: { id },
+        include: {
+          event: true,
+          notes: {
+            orderBy: { createdAt: 'desc' },
+          },
+          contacts: {
+            orderBy: { createdAt: 'asc' },
+          },
         },
-      },
-    });
+      });
+      lead = fallbackLead ? { ...fallbackLead, emails: [] } : null;
+    }
 
     if (!lead) {
       return NextResponse.json(
@@ -82,19 +115,41 @@ export async function PATCH(
     if (message !== undefined) updateData.message = message;
     if (status !== undefined) updateData.status = status;
 
-    const lead = await prisma.privateDiningLead.update({
-      where: { id },
-      data: updateData,
-      include: {
-        event: true,
-        notes: {
-          orderBy: { createdAt: 'desc' },
+    let lead;
+    try {
+      lead = await prisma.privateDiningLead.update({
+        where: { id },
+        data: updateData,
+        include: {
+          event: true,
+          emails: {
+            orderBy: { createdAt: 'asc' },
+          },
+          notes: {
+            orderBy: { createdAt: 'desc' },
+          },
+          contacts: {
+            orderBy: { createdAt: 'asc' },
+          },
         },
-        contacts: {
-          orderBy: { createdAt: 'asc' },
+      });
+    } catch (error) {
+      if (!isMissingLeadEmailTableError(error)) throw error;
+      const fallbackLead = await prisma.privateDiningLead.update({
+        where: { id },
+        data: updateData,
+        include: {
+          event: true,
+          notes: {
+            orderBy: { createdAt: 'desc' },
+          },
+          contacts: {
+            orderBy: { createdAt: 'asc' },
+          },
         },
-      },
-    });
+      });
+      lead = { ...fallbackLead, emails: [] };
+    }
 
     return NextResponse.json(lead);
   } catch (error) {

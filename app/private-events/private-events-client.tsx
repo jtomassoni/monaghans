@@ -19,7 +19,7 @@ export default function PrivateEventsClient() {
             Fill out the form below and we&apos;ll get back to you soon to discuss your private event needs.
           </p>
           <div className="max-w-3xl mx-auto">
-            <PrivateEventsForm compact={true} />
+            <PrivateEventsForm compact={true} anchorRecaptchaBadge={!isModalOpen} />
           </div>
         </div>
       </section>

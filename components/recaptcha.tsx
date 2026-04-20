@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type RefObject } from 'react';
 
 declare global {
   interface Window {
@@ -147,5 +147,37 @@ export function useReCaptcha(siteKey: string | undefined, action: string) {
   };
 
   return { getToken };
+}
+
+/**
+ * Moves Google's v3 `.grecaptcha-badge` into a container so it sits in the form flow
+ * instead of fixed at the viewport corner (and so related messages stay with the form).
+ */
+export function useRecaptchaBadgeAnchor(enabled: boolean, containerRef: RefObject<HTMLDivElement | null>) {
+  useEffect(() => {
+    if (!enabled || typeof document === 'undefined') return;
+
+    const move = () => {
+      const badge = document.querySelector<HTMLElement>('.grecaptcha-badge');
+      const el = containerRef.current;
+      if (!badge || !el) return;
+      if (badge.parentElement !== el) {
+        el.appendChild(badge);
+      }
+    };
+
+    move();
+    const observer = new MutationObserver(move);
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    return () => {
+      observer.disconnect();
+      const badge = document.querySelector<HTMLElement>('.grecaptcha-badge');
+      const el = containerRef.current;
+      if (badge && el?.contains(badge)) {
+        document.body.appendChild(badge);
+      }
+    };
+  }, [enabled, containerRef]);
 }
 

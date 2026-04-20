@@ -5,6 +5,11 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
+// Quieter Prisma CLI in CI (version nags; build still works on current Prisma 6)
+if (!process.env.PRISMA_HIDE_UPDATE_MESSAGE) {
+  process.env.PRISMA_HIDE_UPDATE_MESSAGE = '1';
+}
+
 // Load .env file (optional; ignore permission errors so builds can proceed)
 const envPath = path.join(__dirname, '..', '.env');
 if (fs.existsSync(envPath)) {
@@ -49,33 +54,48 @@ try {
   const hasDatabaseUrl = Boolean(process.env.DATABASE_URL);
 
   // Sync database schema (skip if SKIP_MIGRATIONS is set)
-  // We use db push as primary method since it's more reliable and automatically
-  // creates missing tables/columns without requiring migration files
+  const isVercel = process.env.VERCEL === '1' || process.env.VERCEL === 'true';
+  /** On Vercel, skip migrate deploy by default (avoids P3009 when prod DB has a failed migration row). Set PRISMA_MIGRATE_DEPLOY=true to force migrate deploy after fixing migrations. */
+  const forceMigrateDeploy = process.env.PRISMA_MIGRATE_DEPLOY === 'true';
+  const useMigrateDeploy = !isVercel || forceMigrateDeploy;
+
   if (!process.env.SKIP_MIGRATIONS && hasDatabaseUrl) {
-    try {
-      // First try migrations (for production with proper migration history)
-      console.log('Running Prisma migrations...');
-      execSync('npx prisma migrate deploy', { 
+    const runDbPush = () => {
+      execSync('npx prisma db push --accept-data-loss --skip-generate', {
         stdio: 'inherit',
-        timeout: 30000 // 30 second timeout
+        timeout: 30000,
       });
-      console.log('✅ Migrations applied successfully');
-    } catch (migrationError) {
-      // If migrations fail, use db push to sync schema automatically
-      // This is safe and will create missing tables/columns
-      console.log('🔄 Migrations not available, syncing schema with db push...');
+      console.log('✅ Database schema synced successfully');
+      console.log('🔧 Regenerating Prisma client...');
+      execSync('npx prisma generate', { stdio: 'inherit' });
+    };
+
+    if (!useMigrateDeploy) {
+      console.log(
+        'Database sync (Vercel): using prisma db push (set PRISMA_MIGRATE_DEPLOY=true to run migrate deploy instead).'
+      );
       try {
-        execSync('npx prisma db push --accept-data-loss --skip-generate', {
-          stdio: 'inherit',
-          timeout: 30000
-        });
-        console.log('✅ Database schema synced successfully');
-        // Regenerate client after schema sync
-        console.log('🔧 Regenerating Prisma client...');
-        execSync('npx prisma generate', { stdio: 'inherit' });
+        runDbPush();
       } catch (pushError) {
         console.warn('⚠️  Schema sync failed. Continuing with build...');
         console.warn('   (This may cause runtime errors if tables are missing)');
+      }
+    } else {
+      try {
+        console.log('Running Prisma migrations...');
+        execSync('npx prisma migrate deploy', {
+          stdio: 'inherit',
+          timeout: 30000,
+        });
+        console.log('✅ Migrations applied successfully');
+      } catch (migrationError) {
+        console.log('🔄 migrate deploy failed; syncing schema with db push...');
+        try {
+          runDbPush();
+        } catch (pushError) {
+          console.warn('⚠️  Schema sync failed. Continuing with build...');
+          console.warn('   (This may cause runtime errors if tables are missing)');
+        }
       }
     }
   } else {

@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { handleError } from '@/lib/api-helpers';
 import { calculateTipDistribution } from '@/lib/order-helpers';
 import { verifyRecaptcha } from '@/lib/recaptcha-verify';
+import { isRecaptchaEnabledForDeployment } from '@/lib/recaptcha-policy';
 
 /**
  * Demo Payment API
@@ -25,8 +26,11 @@ export async function POST(req: NextRequest) {
       recaptchaToken,
     } = body;
 
-    // Verify reCAPTCHA if configured
-    if (process.env.RECAPTCHA_SECRET_KEY) {
+    const recaptchaSecret = process.env.RECAPTCHA_SECRET_KEY?.trim();
+    const enforceRecaptcha =
+      Boolean(recaptchaSecret) && isRecaptchaEnabledForDeployment();
+
+    if (enforceRecaptcha) {
       if (!recaptchaToken) {
         return NextResponse.json(
           { error: 'Security verification failed. Please try again.' },
@@ -34,10 +38,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const verification = await verifyRecaptcha(
-        recaptchaToken,
-        process.env.RECAPTCHA_SECRET_KEY
-      );
+      const verification = await verifyRecaptcha(recaptchaToken, recaptchaSecret!);
 
       if (!verification.success) {
         console.error('reCAPTCHA verification failed:', verification.error);

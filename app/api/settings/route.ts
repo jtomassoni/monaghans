@@ -1,13 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
 import { prisma } from '@/lib/prisma';
+import { authOptions } from '@/lib/auth';
+import { getPermissions } from '@/lib/permissions';
+import { PRIVATE_DINING_NOTIFICATION_EMAILS_KEY } from '@/lib/private-dining-notifications';
 import { requireAuth, handleError, getCurrentUser, logActivity } from '@/lib/api-helpers';
+
+const SENSITIVE_SETTING_KEYS = new Set([PRIVATE_DINING_NOTIFICATION_EMAILS_KEY]);
 
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const key = searchParams.get('key');
+    const session = await getServerSession(authOptions);
+    const isAdmin = Boolean(session?.user && getPermissions(session.user.role).canAccessAdmin);
 
     if (key) {
+      if (SENSITIVE_SETTING_KEYS.has(key) && !isAdmin) {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 });
+      }
       const setting = await prisma.setting.findUnique({
         where: { key },
       });
@@ -18,7 +29,11 @@ export async function GET(req: NextRequest) {
       orderBy: { key: 'asc' },
     });
 
-    return NextResponse.json(settings);
+    const visible = isAdmin
+      ? settings
+      : settings.filter((s) => !SENSITIVE_SETTING_KEYS.has(s.key));
+
+    return NextResponse.json(visible);
   } catch (error) {
     return handleError(error, 'Failed to fetch settings');
   }
@@ -35,7 +50,17 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    
+
+    if (body.key === PRIVATE_DINING_NOTIFICATION_EMAILS_KEY) {
+      return NextResponse.json(
+        {
+          error:
+            'This setting is managed in Admin → Private Dining Leads → Email alerts (or PUT /api/admin/private-dining-notifications).',
+        },
+        { status: 400 }
+      );
+    }
+
     // Get existing setting to track changes
     const existingSetting = await prisma.setting.findUnique({
       where: { key: body.key },
