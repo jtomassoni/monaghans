@@ -1,6 +1,6 @@
 {
   "name": "monaghans",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Neighborhood dive bar website with owner-friendly CMS",
   "scripts": {
     "dev": "node scripts/show-ip.js && next dev -H 0.0.0.0",
