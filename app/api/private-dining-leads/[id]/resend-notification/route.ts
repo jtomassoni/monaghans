@@ -4,7 +4,11 @@ import { authOptions } from '@/lib/auth';
 import { getPermissions } from '@/lib/permissions';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser, handleError, logActivity } from '@/lib/api-helpers';
-import { sendPrivateDiningLeadNotification } from '@/lib/private-dining-notifications';
+import {
+  formatPrivateDiningLeadNotificationActivityLogDescription,
+  getVerifiedStaffNotificationEmails,
+  sendPrivateDiningLeadNotification,
+} from '@/lib/private-dining-notifications';
 
 async function requireAdminAccess() {
   const session = await getServerSession(authOptions);
@@ -44,7 +48,7 @@ export async function POST(
       return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
     }
 
-    await sendPrivateDiningLeadNotification({
+    const leadPayload = {
       id: lead.id,
       name: lead.name,
       phone: lead.phone,
@@ -52,17 +56,25 @@ export async function POST(
       groupSize: lead.groupSize,
       preferredDate: lead.preferredDate,
       message: lead.message,
-    });
+    };
 
-    await logActivity(
-      user.id,
-      'update',
-      'setting',
-      lead.id,
-      lead.name,
-      undefined,
-      `Re-sent private dining notification email for lead ${lead.name}`
+    const recipients = await getVerifiedStaffNotificationEmails();
+    if (recipients.length === 0) {
+      return NextResponse.json(
+        { error: 'No active staff notification emails configured for private dining alerts.' },
+        { status: 422 }
+      );
+    }
+
+    await sendPrivateDiningLeadNotification(leadPayload);
+
+    const activityDescription = formatPrivateDiningLeadNotificationActivityLogDescription(
+      leadPayload,
+      recipients,
+      'Re-sent private dining staff notification email.'
     );
+
+    await logActivity(user.id, 'update', 'setting', lead.id, lead.name, undefined, activityDescription);
 
     return NextResponse.json({ success: true });
   } catch (error) {

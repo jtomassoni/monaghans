@@ -572,32 +572,15 @@ export type PrivateDiningLeadEmailPayload = {
   message: string | null;
 };
 
-export async function sendPrivateDiningLeadNotification(lead: PrivateDiningLeadEmailPayload): Promise<void> {
-  const recipients = normalizeEmailList(await getVerifiedStaffNotificationEmails());
-  if (recipients.length === 0) {
-    console.warn(
-      '[private-dining] No active recipients with email alerts on. Add or re-enable addresses under Admin → Private Dining Leads → Email alerts.'
-    );
-    return;
-  }
-
-  let cfg: ReturnType<typeof getResend>;
-  try {
-    cfg = getResend();
-  } catch (err) {
-    if (err instanceof IntegrationConfigError) {
-      console.error('[private-dining] RESEND_FROM invalid:', err.summary, err.message);
-      return;
-    }
-    throw err;
-  }
-  if (!cfg) {
-    console.warn(
-      '[private-dining] Skipping email: set RESEND_API_KEY and RESEND_FROM (verified sender in Resend).'
-    );
-    return;
-  }
-
+/**
+ * Subject, plain-text body, and inner HTML fragment (before Monaghan's branded wrapper).
+ * Single source of truth for staff lead notification emails.
+ */
+export function composeStaffLeadNotificationEmail(lead: PrivateDiningLeadEmailPayload): {
+  subject: string;
+  textBody: string;
+  innerHtmlFragment: string;
+} {
   const dateStr = lead.preferredDate.toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
@@ -628,7 +611,7 @@ export async function sendPrivateDiningLeadNotification(lead: PrivateDiningLeadE
     adminLeadUrl ? `Open in admin: ${adminLeadUrl}` : '',
   ].filter(Boolean);
 
-  const innerHtml = `
+  const innerHtmlFragment = `
     <p style="margin:0 0 10px;font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#dc2626;">New inquiry</p>
     <p style="margin:0 0 18px;font-size:17px;line-height:1.45;color:#111827;">
       You have a <strong>new private dining inquiry</strong> from ${escapeHtml(lead.name)} for <strong>${escapeHtml(dateStr)}</strong>.
@@ -660,15 +643,69 @@ export async function sendPrivateDiningLeadNotification(lead: PrivateDiningLeadE
       You can review and update status, notes, and contacts in the admin app.
     </p>
   `;
-  const { html, attachments } = buildBrandedPrivateDiningEmail(innerHtml);
+
+  return {
+    subject: notificationSubject,
+    textBody: textLines.join('\n'),
+    innerHtmlFragment,
+  };
+}
+
+/** Activity log body: recipients, subject, and plain-text preview matching what Resend sends. */
+export function formatPrivateDiningLeadNotificationActivityLogDescription(
+  lead: PrivateDiningLeadEmailPayload,
+  recipientEmails: string[],
+  introLine = 'Private dining staff notification email.'
+): string {
+  const { subject, textBody } = composeStaffLeadNotificationEmail(lead);
+  const toDisplay = recipientEmails.length > 0 ? recipientEmails.join(', ') : '(none)';
+  return [
+    introLine.trim(),
+    `To: ${toDisplay}`,
+    `Subject: ${subject}`,
+    '',
+    'Preview (plain text as sent):',
+    '',
+    textBody,
+  ].join('\n');
+}
+
+export async function sendPrivateDiningLeadNotification(lead: PrivateDiningLeadEmailPayload): Promise<void> {
+  const recipients = normalizeEmailList(await getVerifiedStaffNotificationEmails());
+  if (recipients.length === 0) {
+    console.warn(
+      '[private-dining] No active recipients with email alerts on. Add or re-enable addresses under Admin → Private Dining Leads → Email alerts.'
+    );
+    return;
+  }
+
+  let cfg: ReturnType<typeof getResend>;
+  try {
+    cfg = getResend();
+  } catch (err) {
+    if (err instanceof IntegrationConfigError) {
+      console.error('[private-dining] RESEND_FROM invalid:', err.summary, err.message);
+      return;
+    }
+    throw err;
+  }
+  if (!cfg) {
+    console.warn(
+      '[private-dining] Skipping email: set RESEND_API_KEY and RESEND_FROM (verified sender in Resend).'
+    );
+    return;
+  }
+
+  const { subject, textBody, innerHtmlFragment } = composeStaffLeadNotificationEmail(lead);
+  const { html, attachments } = buildBrandedPrivateDiningEmail(innerHtmlFragment);
 
   const replyTo = getResendReplyTo();
   try {
     const { error } = await cfg.resend.emails.send({
       from: cfg.from,
       to: recipients,
-      subject: notificationSubject,
-      text: textLines.join('\n'),
+      subject,
+      text: textBody,
       html,
       ...(replyTo ? { replyTo } : {}),
       ...(attachments.length > 0 ? { attachments } : {}),
