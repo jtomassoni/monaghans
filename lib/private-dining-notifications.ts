@@ -609,13 +609,19 @@ export async function sendPrivateDiningLeadNotification(lead: PrivateDiningLeadE
 
   const siteBase = getSiteBase();
   const adminLeadUrl = siteBase ? `${siteBase}/admin/private-dining-leads/${lead.id}` : '';
+  const messageText = lead.message?.trim() || '(No message provided)';
 
   const textLines = [
     `You have a new private dining inquiry from ${lead.name} for ${dateStr}.`,
     '',
-    'Open the admin app for full contact details and notes — they are not included in this email.',
+    `Name: ${lead.name}`,
+    `Phone: ${lead.phone}`,
+    `Email: ${lead.email}`,
+    `Group size: ${lead.groupSize}`,
+    `Preferred date: ${dateStr}`,
+    `Message: ${messageText}`,
     '',
-    adminLeadUrl ? `More details: ${adminLeadUrl}` : '',
+    adminLeadUrl ? `Open in admin: ${adminLeadUrl}` : '',
   ].filter(Boolean);
 
   const innerHtml = `
@@ -623,18 +629,31 @@ export async function sendPrivateDiningLeadNotification(lead: PrivateDiningLeadE
     <p style="margin:0 0 18px;font-size:17px;line-height:1.45;color:#111827;">
       You have a <strong>new private dining inquiry</strong> from ${escapeHtml(lead.name)} for <strong>${escapeHtml(dateStr)}</strong>.
     </p>
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 18px;border-collapse:separate;border-spacing:0;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;">
+      <tr>
+        <td style="padding:12px 14px;font-size:13px;color:#374151;line-height:1.55;">
+          <div><strong style="color:#111827;">Name:</strong> ${escapeHtml(lead.name)}</div>
+          <div><strong style="color:#111827;">Phone:</strong> ${escapeHtml(lead.phone)}</div>
+          <div><strong style="color:#111827;">Email:</strong> <a href="mailto:${escapeHtml(lead.email)}" style="color:#dc2626;text-decoration:none;">${escapeHtml(lead.email)}</a></div>
+          <div><strong style="color:#111827;">Group size:</strong> ${escapeHtml(lead.groupSize)}</div>
+          <div><strong style="color:#111827;">Preferred date:</strong> ${escapeHtml(dateStr)}</div>
+          <div style="margin-top:8px;"><strong style="color:#111827;">Message:</strong></div>
+          <div style="white-space:pre-wrap;color:#111827;">${escapeHtml(messageText)}</div>
+        </td>
+      </tr>
+    </table>
     ${
       adminLeadUrl
         ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 16px;"><tr><td>
             <a href="${escapeHtml(adminLeadUrl)}" style="display:inline-block;background:#dc2626;color:#ffffff !important;padding:14px 28px;border-radius:10px;text-decoration:none;font-weight:600;font-size:15px;box-shadow:0 2px 6px rgba(220,38,38,0.35);">
-              Open in admin for details
+              Open in admin
             </a>
           </td></tr></table>
           <p style="margin:0;font-size:12px;color:#6b7280;word-break:break-all;line-height:1.45;">${escapeHtml(adminLeadUrl)}</p>`
         : '<p style="margin:0;color:#b45309;">Configure NEXTAUTH_URL so the admin link works.</p>'
     }
     <p style="margin:20px 0 0;font-size:13px;color:#6b7280;">
-      Phone, email, and messages are available only in the app after you sign in.
+      You can review and update status, notes, and contacts in the admin app.
     </p>
   `;
   const { html, attachments } = buildBrandedPrivateDiningEmail(innerHtml);

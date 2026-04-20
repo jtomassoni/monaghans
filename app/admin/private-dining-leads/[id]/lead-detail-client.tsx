@@ -56,6 +56,7 @@ export default function LeadDetailClient({ initialLead }: { initialLead: Lead })
   const [lead, setLead] = useState(initialLead);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isResendingNotification, setIsResendingNotification] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState(false);
   const [showNoteForm, setShowNoteForm] = useState(false);
   const [showContactForm, setShowContactForm] = useState(false);
@@ -129,6 +130,25 @@ export default function LeadDetailClient({ initialLead }: { initialLead: Lead })
       router.push('/admin/private-dining-leads');
     } catch (error) {
       showToast('Failed to delete lead', 'error');
+    }
+  };
+
+  const handleResendNotification = async () => {
+    setIsResendingNotification(true);
+    try {
+      const response = await fetch(`/api/private-dining-leads/${lead.id}/resend-notification`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to resend notification');
+      }
+
+      showToast('Private dining notification re-sent', 'success');
+    } catch (error) {
+      showToast('Failed to resend private dining notification', 'error');
+    } finally {
+      setIsResendingNotification(false);
     }
   };
 
@@ -212,6 +232,13 @@ export default function LeadDetailClient({ initialLead }: { initialLead: Lead })
           <div className="flex gap-2">
             {!isEditing ? (
               <>
+                <button
+                  onClick={handleResendNotification}
+                  disabled={isResendingNotification}
+                  className="px-3 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded transition disabled:opacity-50"
+                >
+                  {isResendingNotification ? 'Sending...' : 'Resend notification'}
+                </button>
                 <button
                   onClick={() => setIsEditing(true)}
                   className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition"
