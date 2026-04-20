@@ -46,7 +46,7 @@ export default function PrivateDiningCommunicationsPanel() {
 
   const [newEmail, setNewEmail] = useState('');
   const [verificationEmailSubject, setVerificationEmailSubject] = useState(
-    "Confirm your email — Monaghan's private dining notifications"
+    "You've been added — Monaghan's private dining notifications"
   );
 
   const load = useCallback(async () => {
@@ -122,14 +122,14 @@ export default function PrivateDiningCommunicationsPanel() {
     const ok = await putEmails(emails);
     if (ok) {
       setNewEmail('');
-      showToast('Added. They’ll get a verification email.', 'success');
+      showToast('Added. They will get a notification email.', 'success');
     }
   };
 
   const removeRecipient = async (email: string) => {
     if (
       !window.confirm(
-        `Remove ${email} from this list? They will no longer get verification or lead emails until added again.`
+        `Remove ${email} from this list? They will no longer get lead emails until added again.`
       )
     ) {
       return;
@@ -174,8 +174,6 @@ export default function PrivateDiningCommunicationsPanel() {
       setTogglingEmail(null);
     }
   };
-
-  const pending = recipients.filter((r) => r.status === 'pending');
 
   return (
     <div className="rounded-xl border border-amber-200/80 bg-white/90 p-4 shadow-sm dark:border-amber-900/40 dark:bg-gray-800/90">
@@ -257,7 +255,7 @@ export default function PrivateDiningCommunicationsPanel() {
           </button>
         </div>
         <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-          Each address verifies once from their inbox. Subject line:{' '}
+          New recipients get a one-time notice email. Subject line:{' '}
           <span className="font-medium text-gray-600 dark:text-gray-300">{verificationEmailSubject}</span>
         </p>
       </div>
@@ -373,11 +371,6 @@ export default function PrivateDiningCommunicationsPanel() {
         </div>
       )}
 
-      {pending.length > 0 && (
-        <p className="mt-3 text-xs text-amber-800 dark:text-amber-200/90">
-          {pending.length} address{pending.length !== 1 ? 'es' : ''} still need to verify from their inbox.
-        </p>
-      )}
     </div>
   );
 }

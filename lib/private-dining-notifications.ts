@@ -1,4 +1,3 @@
-import { randomBytes } from 'crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import type { Attachment } from 'resend';
@@ -12,9 +11,6 @@ const RESEND_FROM_FORMAT_SUMMARY = 'RESEND_FROM is invalid.';
 export const PRIVATE_DINING_NOTIFICATION_EMAILS_KEY = 'private_dining_notification_emails';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const VERIFICATION_TOKEN_BYTES = 32;
-/** Staff verification link lifetime (email + DB `verificationExpiresAt`). */
-const VERIFICATION_VALID_MINUTES = 30;
 
 export function parseNotificationEmailsJson(raw: string | null | undefined): string[] {
   if (!raw?.trim()) return [];
@@ -293,22 +289,12 @@ export async function listStaffRecipientsForAdmin(): Promise<StaffRecipientRow[]
   });
   return rows.map((r) => ({
     email: r.email,
-    status: r.verifiedAt ? 'verified' : 'pending',
+    status: 'verified',
     active: r.active,
     verificationEmailOpenedAt: r.verificationEmailOpenedAt
       ? r.verificationEmailOpenedAt.toISOString()
       : null,
   }));
-}
-
-function newVerificationExpiry(): Date {
-  const d = new Date();
-  d.setMinutes(d.getMinutes() + VERIFICATION_VALID_MINUTES);
-  return d;
-}
-
-function generateVerificationToken(): string {
-  return randomBytes(VERIFICATION_TOKEN_BYTES).toString('hex');
 }
 
 /** Tags let Resend webhooks (e.g. email.opened) match this row — name must be ASCII [a-zA-Z0-9_-]. */
@@ -388,50 +374,29 @@ async function sendEmailOrLog(
   }
 }
 
-/** Subject line for the one-time staff inbox verification email (Resend). */
-export const STAFF_VERIFICATION_EMAIL_SUBJECT = "Confirm your email — Monaghan's private dining notifications";
+/** Subject line for the one-time staff added/notice email (Resend). */
+export const STAFF_VERIFICATION_EMAIL_SUBJECT = "You've been added — Monaghan's private dining notifications";
 
 const RESEND_FROM_SETUP_SUMMARY =
   'Could not send email (Resend). Fix RESEND_FROM format or verify your domain in Resend; see server logs for details.';
 
-async function sendStaffVerificationEmail(
-  email: string,
-  token: string,
-  recipientRowId: string
-): Promise<SendEmailResult> {
-  const siteBase = getSiteBase();
-  const verifyUrl = siteBase
-    ? `${siteBase}/api/private-dining/verify-recipient?token=${encodeURIComponent(token)}`
-    : '';
-
+async function sendStaffVerificationEmail(email: string, recipientRowId: string): Promise<SendEmailResult> {
   const text = [
     "You've been added to receive private dining and event rental lead notifications at Monaghan's.",
     '',
-    `Confirm your email by opening this link (expires in ${VERIFICATION_VALID_MINUTES} minutes):`,
-    verifyUrl || '(configure NEXTAUTH_URL for a working link)',
-    '',
-    "If you didn't expect this, you can ignore this message or call the bar.",
+    'You will start receiving lead notification emails right away.',
+    "If this was a mistake, please contact the bar and we'll remove this address.",
   ].join('\n');
 
   const innerHtml = `
     <p style="margin:0 0 16px;">
       You've been added to receive <strong style="color:#111827;">private dining and event rental</strong> lead notifications at Monaghan's.
     </p>
-    <p style="margin:0 0 20px;">
-      Confirm your email using the button below. This link expires in <strong>${VERIFICATION_VALID_MINUTES} minutes</strong>.
+    <p style="margin:0 0 16px;">
+      You'll start receiving lead notification emails right away.
     </p>
-    ${
-      verifyUrl
-        ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 20px;"><tr><td>
-            <a href="${escapeHtml(verifyUrl)}" style="display:inline-block;background:#dc2626;color:#ffffff !important;padding:14px 28px;border-radius:10px;text-decoration:none;font-weight:600;font-size:15px;box-shadow:0 2px 6px rgba(220,38,38,0.35);">
-              Verify my email
-            </a>
-          </td></tr></table>
-          <p style="margin:0;font-size:12px;color:#6b7280;word-break:break-all;line-height:1.45;">${escapeHtml(verifyUrl)}</p>`
-        : '<p style="margin:0;color:#b45309;font-size:14px;">Server URL is not configured; ask an admin to set NEXTAUTH_URL.</p>'
-    }
     <p style="margin:24px 0 0;font-size:13px;color:#6b7280;">
-      If you didn't expect this message, you can ignore it or call the bar.
+      If you didn't expect this message, please contact the bar and we'll remove this address.
     </p>
   `;
   const { html, attachments } = buildBrandedPrivateDiningEmail(innerHtml);
@@ -494,7 +459,7 @@ async function sendStaffWelcomeEmail(email: string): Promise<void> {
 }
 
 /**
- * Apply desired email list: remove stragglers, add pending with verification email, refresh expired tokens.
+ * Apply desired email list: remove stragglers, add active recipients, send one-time "you were added" notice.
  */
 export async function syncStaffRecipientsFromDesiredList(desiredEmails: string[]): Promise<StaffRecipientRow[]> {
   await migrateLegacyNotificationRecipientsIfNeeded();
@@ -520,16 +485,14 @@ export async function syncStaffRecipientsFromDesiredList(desiredEmails: string[]
     const row = existingByEmail.get(email);
 
     if (!row) {
-      const token = generateVerificationToken();
       const created = await prisma.privateDiningNotificationRecipient.create({
         data: {
           email,
           active: true,
-          verificationToken: token,
-          verificationExpiresAt: newVerificationExpiry(),
+          verifiedAt: now,
         },
       });
-      const sent = await sendStaffVerificationEmail(email, token, created.id);
+      const sent = await sendStaffVerificationEmail(email, created.id);
       if (!sent.ok) {
         await prisma.privateDiningNotificationRecipient.delete({ where: { id: created.id } });
         throw new IntegrationConfigError(
@@ -540,31 +503,17 @@ export async function syncStaffRecipientsFromDesiredList(desiredEmails: string[]
       continue;
     }
 
-    if (row.verifiedAt) {
-      continue;
-    }
-
-    const expired =
-      !row.verificationExpiresAt || row.verificationExpiresAt.getTime() < now.getTime();
-    if (expired || !row.verificationToken) {
-      const token = generateVerificationToken();
+    // Backfill old pending rows so alerts no longer depend on inbox verification.
+    if (!row.verifiedAt) {
       await prisma.privateDiningNotificationRecipient.update({
         where: { id: row.id },
         data: {
-          verificationToken: token,
-          verificationExpiresAt: newVerificationExpiry(),
+          verifiedAt: now,
+          verificationToken: null,
+          verificationExpiresAt: null,
           verificationEmailOpenedAt: null,
         },
       });
-      if (row.active) {
-        const sent = await sendStaffVerificationEmail(email, token, row.id);
-        if (!sent.ok) {
-          throw new IntegrationConfigError(
-            RESEND_FROM_SETUP_SUMMARY,
-            `${sent.detail} Subject line: ${STAFF_VERIFICATION_EMAIL_SUBJECT}`
-          );
-        }
-      }
     }
   }
 
@@ -574,7 +523,7 @@ export async function syncStaffRecipientsFromDesiredList(desiredEmails: string[]
 export async function getVerifiedStaffNotificationEmails(): Promise<string[]> {
   await migrateLegacyNotificationRecipientsIfNeeded();
   const rows = await prisma.privateDiningNotificationRecipient.findMany({
-    where: { verifiedAt: { not: null }, active: true },
+    where: { active: true },
     select: { email: true },
   });
   return rows.map((r) => r.email);
@@ -599,34 +548,18 @@ export async function updateStaffRecipientActive(
 
   await prisma.privateDiningNotificationRecipient.update({
     where: { email },
-    data: { active },
+    data: {
+      active,
+      ...(existing.verifiedAt
+        ? {}
+        : {
+            verifiedAt: new Date(),
+            verificationToken: null,
+            verificationExpiresAt: null,
+            verificationEmailOpenedAt: null,
+          }),
+    },
   });
-
-  if (active && !existing.verifiedAt) {
-    const now = new Date();
-    const expired =
-      !existing.verificationExpiresAt ||
-      existing.verificationExpiresAt.getTime() < now.getTime() ||
-      !existing.verificationToken;
-    if (expired) {
-      const token = generateVerificationToken();
-      await prisma.privateDiningNotificationRecipient.update({
-        where: { email },
-        data: {
-          verificationToken: token,
-          verificationExpiresAt: newVerificationExpiry(),
-          verificationEmailOpenedAt: null,
-        },
-      });
-      const sent = await sendStaffVerificationEmail(email, token, existing.id);
-      if (!sent.ok) {
-        throw new IntegrationConfigError(
-          RESEND_FROM_SETUP_SUMMARY,
-          `${sent.detail} Subject line: ${STAFF_VERIFICATION_EMAIL_SUBJECT}`
-        );
-      }
-    }
-  }
 
   return listStaffRecipientsForAdmin();
 }
@@ -645,7 +578,7 @@ export async function sendPrivateDiningLeadNotification(lead: PrivateDiningLeadE
   const recipients = normalizeEmailList(await getVerifiedStaffNotificationEmails());
   if (recipients.length === 0) {
     console.warn(
-      '[private-dining] No verified recipients with email alerts on. Add or re-enable addresses under Admin → Private Dining Leads → Email alerts.'
+      '[private-dining] No active recipients with email alerts on. Add or re-enable addresses under Admin → Private Dining Leads → Email alerts.'
     );
     return;
   }
