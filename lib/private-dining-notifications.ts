@@ -1,5 +1,3 @@
-import fs from 'node:fs';
-import path from 'node:path';
 import type { Attachment } from 'resend';
 import { Resend } from 'resend';
 import { IntegrationConfigError } from '@/lib/integration-config-error';
@@ -44,49 +42,10 @@ function escapeHtml(s: string): string {
     .replace(/"/g, '&quot;');
 }
 
-/**
- * CID used in HTML and on the inline attachment. Remote image URLs fail for localhost in Gmail
- * (Google's servers cannot reach your machine). Inline attachments work locally, on Vercel preview, and in prod.
- */
-const EMAIL_FAVICON_CID = 'monaghans-pd-email-logo';
-
-/** Inline bytes — Resend rejects local `path` unless it is https:// (see invalid_attachment). */
-function loadFaviconInlineAttachment(): Attachment | null {
-  const candidates = [
-    path.join(process.cwd(), 'public', 'favicon.ico'),
-    path.join(process.cwd(), 'public', 'pics', 'favicon.ico'),
-  ];
-  for (const p of candidates) {
-    if (!fs.existsSync(p)) continue;
-    try {
-      const content = fs.readFileSync(p);
-      return {
-        filename: 'favicon.ico',
-        content,
-        contentId: EMAIL_FAVICON_CID,
-        contentType: 'image/x-icon',
-      };
-    } catch {
-      return null;
-    }
-  }
-  return null;
-}
-
-/** Table-based HTML shell for staff private-dining emails. Prefer logoMode `inline` (CID attachment). */
-function wrapPrivateDiningEmailHtml(innerHtml: string, logoMode: 'inline' | 'fallback'): string {
+/** Table-based HTML shell for private-dining emails with no image dependencies. */
+export function wrapPrivateDiningEmailHtml(innerHtml: string): string {
   const accent = '#dc2626';
   const gold = '#d4af37';
-
-  const headerLogo =
-    logoMode === 'inline'
-      ? `<img src="cid:${EMAIL_FAVICON_CID}" width="56" height="56" alt="Monaghan's" style="display:block;border-radius:12px;border:1px solid #e5e7eb;background:#fff;" />`
-      : `<table role="presentation" cellpadding="0" cellspacing="0"><tr><td width="56" height="56" align="center" valign="middle" style="width:56px;height:56px;border-radius:12px;background:${accent};color:#ffffff;font-family:Georgia,'Times New Roman',serif;font-size:24px;font-weight:bold;">M</td></tr></table>`;
-
-  const footerMark =
-    logoMode === 'inline'
-      ? `<div style="margin-bottom:12px;"><img src="cid:${EMAIL_FAVICON_CID}" width="32" height="32" alt="" style="display:inline-block;border-radius:8px;opacity:0.95;" /></div>`
-      : '';
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -101,7 +60,13 @@ function wrapPrivateDiningEmailHtml(innerHtml: string, logoMode: 'inline' | 'fal
             <td style="padding:26px 28px 0 28px;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                 <tr>
-                  <td width="68" valign="top" style="padding-right:14px;">${headerLogo}</td>
+                  <td width="68" valign="top" style="padding-right:14px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td width="56" height="56" align="center" valign="middle" style="width:56px;height:56px;border-radius:12px;background:${accent};color:#ffffff;font-family:Georgia,'Times New Roman',serif;font-size:24px;font-weight:bold;">M</td>
+                      </tr>
+                    </table>
+                  </td>
                   <td valign="middle" style="font-family:Georgia,'Times New Roman',serif;">
                     <div style="font-size:22px;font-weight:bold;color:#111827;line-height:1.2;">Monaghan's</div>
                     <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:11px;color:#6b7280;letter-spacing:0.07em;text-transform:uppercase;margin-top:6px;">Dive Bar · Denver</div>
@@ -118,7 +83,6 @@ function wrapPrivateDiningEmailHtml(innerHtml: string, logoMode: 'inline' | 'fal
           </tr>
           <tr>
             <td style="padding:20px 28px 24px;background:#f9fafb;border-top:1px solid #e5e7eb;text-align:center;">
-              ${footerMark}
               <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:12px;color:#9ca3af;line-height:1.5;">Cold drinks, warm people.</div>
               <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:11px;color:#d1d5db;margin-top:6px;">Private dining &amp; event notifications</div>
             </td>
@@ -131,11 +95,45 @@ function wrapPrivateDiningEmailHtml(innerHtml: string, logoMode: 'inline' | 'fal
 </html>`;
 }
 
-function buildBrandedPrivateDiningEmail(innerHtml: string): { html: string; attachments: Attachment[] } {
-  const att = loadFaviconInlineAttachment();
-  const logoMode = att ? 'inline' : 'fallback';
-  const html = wrapPrivateDiningEmailHtml(innerHtml, logoMode);
-  return { html, attachments: att ? [att] : [] };
+export function buildBrandedPrivateDiningEmail(innerHtml: string): { html: string; attachments: Attachment[] } {
+  const html = wrapPrivateDiningEmailHtml(innerHtml);
+  return { html, attachments: [] };
+}
+
+export function plainTextToEmailHtml(text: string): string {
+  const blocks = text
+    .split(/\n{2,}/)
+    .map((chunk) => chunk.trim())
+    .filter(Boolean);
+
+  const inner = blocks
+    .map(
+      (block) =>
+        `<p style="margin:0 0 14px;white-space:pre-wrap;color:#374151;">${escapeHtml(block)}</p>`
+    )
+    .join('');
+
+  return inner || '<p style="margin:0;color:#374151;">&nbsp;</p>';
+}
+
+export function buildCustomerConversationEmailHtml(text: string): string {
+  const messageHtml = plainTextToEmailHtml(text);
+
+  return `
+    <p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#6b7280;">
+      Message from Monaghan's
+    </p>
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 16px;border-collapse:separate;border-spacing:0;background:#ffffff;border:1px solid #e5e7eb;border-left:4px solid #dc2626;border-radius:10px;">
+      <tr>
+        <td style="padding:14px 16px;font-size:15px;line-height:1.65;color:#111827;">
+          ${messageHtml}
+        </td>
+      </tr>
+    </table>
+    <p style="margin:0;padding:12px 14px;border:1px solid #f3d7bf;background:#fff7ed;border-radius:10px;font-size:14px;line-height:1.55;color:#9a3412;">
+      <strong style="color:#7c2d12;">Reply directly to this email</strong> to continue the conversation.
+    </p>
+  `;
 }
 
 /**
@@ -238,7 +236,7 @@ function getResend(): { resend: Resend; from: string } | null {
 }
 
 /** Optional Reply-To (e.g. owner’s Gmail) when using noreply@ for From. */
-function getResendReplyTo(): string | undefined {
+export function getResendReplyTo(): string | undefined {
   const raw = process.env.RESEND_REPLY_TO?.trim();
   if (!raw || !EMAIL_RE.test(raw)) return undefined;
   return raw.toLowerCase();
@@ -610,6 +608,12 @@ export async function sendPrivateDiningLeadNotification(lead: PrivateDiningLeadE
   const siteBase = getSiteBase();
   const adminLeadUrl = siteBase ? `${siteBase}/admin/private-dining-leads/${lead.id}` : '';
   const messageText = lead.message?.trim() || '(No message provided)';
+  const dateForSubject = lead.preferredDate.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+  const notificationSubject = `New private dining inquiry — ${lead.name} (${dateForSubject})`;
 
   const textLines = [
     `You have a new private dining inquiry from ${lead.name} for ${dateStr}.`,
@@ -663,7 +667,7 @@ export async function sendPrivateDiningLeadNotification(lead: PrivateDiningLeadE
     const { error } = await cfg.resend.emails.send({
       from: cfg.from,
       to: recipients,
-      subject: `New private dining inquiry`,
+      subject: notificationSubject,
       text: textLines.join('\n'),
       html,
       ...(replyTo ? { replyTo } : {}),

@@ -4,6 +4,7 @@ import { handleError } from '@/lib/api-helpers';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getPermissions } from '@/lib/permissions';
+import { sendPrivateDiningLeadNotification } from '@/lib/private-dining-notifications';
 
 // Helper to require admin/owner access
 async function requireAdminAccess(req: NextRequest) {
@@ -80,26 +81,56 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Create lead
-    const lead = await prisma.privateDiningLead.create({
-      data: {
-        name,
-        phone,
-        email,
-        groupSize,
-        preferredDate: preferredDateObj,
-        message: message || null,
-        status: status || 'new',
-      },
-      include: {
-        event: true,
-        notes: {
-          orderBy: { createdAt: 'desc' },
+    // Create lead + initial creation context note
+    const lead = await prisma.$transaction(async (tx) => {
+      const createdLead = await tx.privateDiningLead.create({
+        data: {
+          name,
+          phone,
+          email,
+          groupSize,
+          preferredDate: preferredDateObj,
+          message: message || null,
+          status: status || 'new',
         },
-        contacts: {
-          orderBy: { createdAt: 'asc' },
+      });
+
+      await tx.leadNote.create({
+        data: {
+          leadId: createdLead.id,
+          content: [
+            'Lead created manually in CRM.',
+            `Created at: ${new Date().toISOString()}`,
+            `Preferred date: ${preferredDateObj.toISOString()}`,
+            `Group size: ${groupSize}`,
+            ...(message?.trim() ? [`Party request details: ${message.trim()}`] : []),
+          ].join('\n'),
+          createdBy: authResult.session.user?.id ?? null,
         },
-      },
+      });
+
+      return tx.privateDiningLead.findUniqueOrThrow({
+        where: { id: createdLead.id },
+        include: {
+          event: true,
+          notes: {
+            orderBy: { createdAt: 'desc' },
+          },
+          contacts: {
+            orderBy: { createdAt: 'asc' },
+          },
+        },
+      });
+    });
+
+    await sendPrivateDiningLeadNotification({
+      id: lead.id,
+      name: lead.name,
+      phone: lead.phone,
+      email: lead.email,
+      groupSize: lead.groupSize,
+      preferredDate: lead.preferredDate,
+      message: lead.message,
     });
 
     return NextResponse.json(lead, { status: 201 });

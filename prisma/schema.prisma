@@ -605,6 +605,7 @@ model PrivateDiningLead {
   event         Event?        @relation(fields: [eventId], references: [id], onDelete: SetNull)
   notes         LeadNote[] // Notes added by staff
   contacts      LeadContact[] // Additional contacts for this lead
+  emails        PrivateDiningLeadEmail[] // Outbound/inbound email thread items
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
@@ -612,6 +613,23 @@ model PrivateDiningLead {
   @@index([preferredDate])
   @@index([createdAt])
   @@index([email])
+}
+
+// Lead email activity rows (conversation timeline)
+model PrivateDiningLeadEmail {
+  id        String            @id @default(cuid())
+  leadId    String
+  lead      PrivateDiningLead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  direction String // "inbound" | "outbound"
+  from      String
+  to        String
+  subject   String
+  bodyText  String
+  bodyHtml  String?
+  messageId String?
+  createdAt DateTime          @default(now())
+
+  @@index([leadId, createdAt])
 }
 
 // Lead Notes - Staff notes on leads

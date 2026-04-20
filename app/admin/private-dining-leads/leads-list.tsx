@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import SearchSortFilter, { SortOption, FilterOption } from '@/components/search-sort-filter';
 import LeadFormModal from '@/components/lead-form-modal';
+import { showToast } from '@/components/toast';
 
 interface Lead {
   id: string;
@@ -52,15 +53,93 @@ export default function PrivateDiningLeadsList({
   const [leads, setLeads] = useState(initialLeads);
   const [filteredLeads, setFilteredLeads] = useState<Lead[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [deletingLeadId, setDeletingLeadId] = useState<string | null>(null);
+  const [newLeadCelebrationCount, setNewLeadCelebrationCount] = useState(0);
+  const knownLeadIdsRef = useRef<Set<string>>(new Set(initialLeads.map((lead) => lead.id)));
 
   useEffect(() => {
     setLeads(initialLeads);
     setFilteredLeads(initialLeads);
+    knownLeadIdsRef.current = new Set(initialLeads.map((lead) => lead.id));
   }, [initialLeads]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let animationTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    const pollForNewLeads = async () => {
+      try {
+        const response = await fetch('/api/private-dining-leads', { cache: 'no-store' });
+        if (!response.ok) return;
+
+        const latestLeads = (await response.json()) as Lead[];
+        if (cancelled) return;
+
+        const previousIds = knownLeadIdsRef.current;
+        const incomingCount = latestLeads.filter((lead) => !previousIds.has(lead.id)).length;
+
+        setLeads(latestLeads);
+        knownLeadIdsRef.current = new Set(latestLeads.map((lead) => lead.id));
+
+        if (incomingCount > 0) {
+          setNewLeadCelebrationCount(incomingCount);
+          showToast(
+            incomingCount === 1 ? 'New lead just came in!' : `${incomingCount} new leads just came in!`,
+            'success'
+          );
+          if (animationTimeout) clearTimeout(animationTimeout);
+          animationTimeout = setTimeout(() => {
+            setNewLeadCelebrationCount(0);
+          }, 3500);
+        }
+      } catch {
+        // Keep polling resilient; no user-facing error for background refresh.
+      }
+    };
+
+    const interval = setInterval(pollForNewLeads, 15000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      if (animationTimeout) clearTimeout(animationTimeout);
+    };
+  }, []);
 
   const handleLeadCreated = () => {
     // Refresh the page to get updated leads list
     router.refresh();
+  };
+
+  const handleDeleteLead = async (lead: Lead, event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (
+      !window.confirm(
+        `Delete ${lead.name}? This will permanently remove the lead and related notes/contacts.`
+      )
+    ) {
+      return;
+    }
+
+    setDeletingLeadId(lead.id);
+    try {
+      const response = await fetch(`/api/private-dining-leads/${lead.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete lead');
+      }
+
+      setLeads((prev) => prev.filter((l) => l.id !== lead.id));
+      setFilteredLeads((prev) => prev.filter((l) => l.id !== lead.id));
+      showToast('Lead deleted', 'success');
+      router.refresh();
+    } catch {
+      showToast('Failed to delete lead', 'error');
+    } finally {
+      setDeletingLeadId(null);
+    }
   };
 
   const sortOptions: SortOption<Lead>[] = [
@@ -139,6 +218,13 @@ export default function PrivateDiningLeadsList({
 
   return (
     <div className="space-y-3">
+      {newLeadCelebrationCount > 0 ? (
+        <div className="pointer-events-none fixed inset-x-0 top-20 z-50 flex justify-center px-4">
+          <div className="animate-bounce rounded-full border border-emerald-300 bg-emerald-500/95 px-5 py-2 text-sm font-semibold text-white shadow-lg">
+            🎉 {newLeadCelebrationCount === 1 ? 'New lead just came in!' : `${newLeadCelebrationCount} new leads just came in!`}
+          </div>
+        </div>
+      ) : null}
       <div className="flex items-center justify-between gap-3 mb-4">
         <div className="flex-1">
           <SearchSortFilter
@@ -261,6 +347,14 @@ export default function PrivateDiningLeadsList({
                       Updated {formatDate(lead.updatedAt)}
                     </div>
                   )}
+                  <button
+                    type="button"
+                    onClick={(e) => void handleDeleteLead(lead, e)}
+                    disabled={deletingLeadId === lead.id}
+                    className="mt-2 rounded-md border border-red-200 bg-white px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-900/50 dark:bg-gray-900 dark:text-red-300 dark:hover:bg-red-950/40"
+                  >
+                    {deletingLeadId === lead.id ? 'Deleting...' : 'Delete'}
+                  </button>
                 </div>
               </div>
             </Link>
