@@ -114,16 +114,17 @@ model MenuSection {
 }
 
 model User {
-  id         String        @id @default(cuid())
-  email      String        @unique
-  name       String?
-  image      String? // Profile image from Google
-  role       String        @default("admin") // "admin" or "owner"
-  isActive   Boolean       @default(true)
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
-  activities ActivityLog[]
-  uploads    Upload[] // Digital signage uploads
+  id                          String                           @id @default(cuid())
+  email                       String                           @unique
+  name                        String?
+  image                       String? // Profile image from Google
+  role                        String                           @default("admin") // "admin" or "owner"
+  isActive                    Boolean                          @default(true)
+  createdAt                   DateTime                         @default(now())
+  updatedAt                   DateTime                         @updatedAt
+  activities                  ActivityLog[]
+  uploads                     Upload[] // Digital signage uploads
+  privateDiningLeadAcknowledgments PrivateDiningLeadAcknowledgment[]
 }
 
 model ActivityLog {
@@ -593,26 +594,41 @@ model FeatureFlag {
 
 // Private Dining Leads - CRM for managing private event inquiries
 model PrivateDiningLead {
-  id            String        @id @default(cuid())
-  name          String
-  phone         String
-  email         String
-  groupSize     String // e.g., "25-30 guests"
-  preferredDate DateTime
-  message       String? // Additional details from form
-  status        String        @default("new") // "new", "contacted", "quoted", "booked", "cancelled", "lost"
-  eventId       String?       @unique // Link to Event if event was created from this lead
-  event         Event?        @relation(fields: [eventId], references: [id], onDelete: SetNull)
-  notes         LeadNote[] // Notes added by staff
-  contacts      LeadContact[] // Additional contacts for this lead
-  emails        PrivateDiningLeadEmail[] // Outbound/inbound email thread items
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  id               String                           @id @default(cuid())
+  name             String
+  phone            String
+  email            String
+  groupSize        String // e.g., "25-30 guests"
+  preferredDate    DateTime
+  message          String? // Additional details from form
+  status           String                           @default("new") // "new", "contacted", "quoted", "booked", "cancelled", "lost"
+  eventId          String?                          @unique // Link to Event if event was created from this lead
+  event            Event?                           @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  notes            LeadNote[] // Notes added by staff
+  contacts         LeadContact[] // Additional contacts for this lead
+  emails           PrivateDiningLeadEmail[] // Outbound/inbound email thread items
+  acknowledgments  PrivateDiningLeadAcknowledgment[]
+  createdAt        DateTime                         @default(now())
+  updatedAt        DateTime                         @updatedAt
 
   @@index([status])
   @@index([preferredDate])
   @@index([createdAt])
   @@index([email])
+}
+
+// Staff dismissed the "new lead" alert for this lead (per user).
+model PrivateDiningLeadAcknowledgment {
+  id        String              @id @default(cuid())
+  userId    String
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  leadId    String
+  lead      PrivateDiningLead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  createdAt DateTime            @default(now())
+
+  @@unique([userId, leadId])
+  @@index([userId])
+  @@index([leadId])
 }
 
 // Lead email activity rows (conversation timeline)
