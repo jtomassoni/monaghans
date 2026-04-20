@@ -74,6 +74,14 @@ export async function POST(
       'Re-sent private dining staff notification email.'
     );
 
+    await prisma.leadNote.create({
+      data: {
+        leadId: lead.id,
+        content: activityDescription,
+        createdBy: user.id,
+      },
+    });
+
     await logActivity(user.id, 'update', 'setting', lead.id, lead.name, undefined, activityDescription);
 
     return NextResponse.json({ success: true });

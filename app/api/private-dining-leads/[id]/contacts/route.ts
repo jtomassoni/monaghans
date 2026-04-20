@@ -4,6 +4,10 @@ import { handleError } from '@/lib/api-helpers';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getPermissions } from '@/lib/permissions';
+import {
+  buildContactAddedNote,
+  getUserIdForLeadNote,
+} from '@/lib/private-dining-lead-timeline';
 
 // Helper to require admin/owner access
 async function requireAdminAccess(req: NextRequest) {
@@ -28,6 +32,7 @@ export async function POST(
 ) {
   const authResult = await requireAdminAccess(req);
   if (authResult instanceof NextResponse) return authResult;
+  const { session } = authResult;
 
   try {
     const { id } = await params;
@@ -41,18 +46,38 @@ export async function POST(
       );
     }
 
-    const contact = await prisma.leadContact.create({
-      data: {
-        leadId: id,
-        name: name.trim(),
-        email: email?.trim() || null,
-        phone: phone?.trim() || null,
-        role: role?.trim() || null,
-        notes: notes?.trim() || null,
-      },
+    const snapshot = {
+      name: name.trim(),
+      email: email?.trim() || null,
+      phone: phone?.trim() || null,
+      role: role?.trim() || null,
+      notes: notes?.trim() || null,
+    };
+
+    const createdBy = await getUserIdForLeadNote(session);
+
+    const created = await prisma.$transaction(async (tx) => {
+      const row = await tx.leadContact.create({
+        data: {
+          leadId: id,
+          name: snapshot.name,
+          email: snapshot.email,
+          phone: snapshot.phone,
+          role: snapshot.role,
+          notes: snapshot.notes,
+        },
+      });
+      await tx.leadNote.create({
+        data: {
+          leadId: id,
+          content: buildContactAddedNote(snapshot),
+          createdBy,
+        },
+      });
+      return row;
     });
 
-    return NextResponse.json(contact);
+    return NextResponse.json(created);
   } catch (error) {
     return handleError(error, 'Failed to create contact');
   }

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import ConfirmationDialog from '@/components/confirmation-dialog';
 import { showToast } from '@/components/toast';
 import { inferReplyRecipient, replyEmailSubject } from '@/lib/email-threading';
@@ -95,6 +95,9 @@ function normalizeEmailSubject(subject: string | null | undefined) {
 
 const linkClass =
   'font-medium text-blue-700 underline-offset-2 hover:underline dark:text-indigo-300 dark:hover:text-indigo-200';
+
+/** Poll for inbound/outbound email rows & timeline notes without overwriting unsaved profile draft (merge-only). */
+const LEAD_TIMELINE_POLL_INTERVAL_MS = 45_000;
 
 function parseSubmittedRequestFromNote(note: LeadNote): string {
   const lines = note.content.split('\n');
@@ -227,8 +230,67 @@ export default function LeadDetailClient({
   const createdFromOnline = creationNote?.content.startsWith(
     'Lead created from online form submission.'
   );
+
+  // Full refresh from server props (browser reload, router.refresh(), navigate between leads)
+  useEffect(() => {
+    setLead(initialLead);
+    setForm({
+      name: initialLead.name,
+      email: initialLead.email,
+      phone: initialLead.phone,
+      groupSize: initialLead.groupSize,
+      preferredDate: new Date(initialLead.preferredDate).toISOString().split('T')[0],
+      message: initialLead.message ?? '',
+      status: initialLead.status,
+    });
+  }, [initialLead]);
+
+  // Poll API for new emails / notes / contacts while this page is open (tab visible)
+  useEffect(() => {
+    const leadId = initialLead.id;
+    let cancelled = false;
+
+    async function mergeTimelineFromApi() {
+      if (cancelled || document.visibilityState !== 'visible') return;
+      try {
+        const res = await fetch(`/api/private-dining-leads/${leadId}`, { cache: 'no-store' });
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as Lead;
+        if (cancelled || data.id !== leadId) return;
+        setLead((prev) =>
+          prev.id !== leadId
+            ? prev
+            : {
+                ...prev,
+                emails: data.emails ?? [],
+                notes: data.notes ?? [],
+                contacts: data.contacts ?? [],
+                updatedAt: data.updatedAt,
+              }
+        );
+      } catch {
+        // ignore transient network errors during background poll
+      }
+    }
+
+    void mergeTimelineFromApi();
+
+    const intervalId = window.setInterval(mergeTimelineFromApi, LEAD_TIMELINE_POLL_INTERVAL_MS);
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void mergeTimelineFromApi();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [initialLead.id]);
+
   async function refreshLead() {
-    const res = await fetch(`/api/private-dining-leads/${lead.id}`);
+    const res = await fetch(`/api/private-dining-leads/${lead.id}`, { cache: 'no-store' });
     if (!res.ok) return;
     const data = (await res.json()) as Lead;
     setLead(data);

@@ -10,6 +10,7 @@ import {
   buildCustomerConversationEmailHtml,
   getResendReplyTo,
 } from '@/lib/private-dining-notifications';
+import { getUserIdForLeadNote } from '@/lib/private-dining-lead-timeline';
 
 async function requireAdminAccess() {
   const session = await getServerSession(authOptions);
@@ -53,11 +54,12 @@ async function createFallbackEmailNote(input: {
   to: string;
   subject: string;
   text: string;
+  createdBy?: string | null;
 }) {
   await prisma.leadNote.create({
     data: {
       leadId: input.leadId,
-      createdBy: null,
+      createdBy: input.createdBy ?? null,
       content: [
         'Email sent from CRM (timeline fallback).',
         `From: ${input.from}`,
@@ -73,6 +75,8 @@ async function createFallbackEmailNote(input: {
 export async function POST(req: NextRequest, { params }: Params) {
   const authResult = await requireAdminAccess();
   if (authResult instanceof NextResponse) return authResult;
+  const { session } = authResult;
+  const noteUserId = await getUserIdForLeadNote(session);
 
   const apiKey = process.env.RESEND_API_KEY?.trim();
   const from = getFromAddress();
@@ -161,7 +165,14 @@ export async function POST(req: NextRequest, { params }: Params) {
   }
 
   if (!pdLeadEmail?.create) {
-    await createFallbackEmailNote({ leadId: lead.id, from, to: toDisplay, subject, text });
+    await createFallbackEmailNote({
+      leadId: lead.id,
+      from,
+      to: toDisplay,
+      subject,
+      text,
+      createdBy: noteUserId,
+    });
     return NextResponse.json({
       ok: true,
       warning:
@@ -187,7 +198,14 @@ export async function POST(req: NextRequest, { params }: Params) {
   } catch (error) {
     // Keep email sending operational while DB migrations catch up.
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2021') {
-      await createFallbackEmailNote({ leadId: lead.id, from, to: toDisplay, subject, text });
+      await createFallbackEmailNote({
+        leadId: lead.id,
+        from,
+        to: toDisplay,
+        subject,
+        text,
+        createdBy: noteUserId,
+      });
       return NextResponse.json({
         ok: true,
         warning:
