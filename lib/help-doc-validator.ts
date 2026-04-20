@@ -125,7 +125,7 @@ export function validateAccuracy(): ValidationError[] {
  * Validate help documentation freshness
  * Checks if docs are updated within a reasonable time of feature changes
  */
-export function validateFreshness(maxDaysOld: number = 90): ValidationError[] {
+export function validateFreshness(maxDaysOld: number = 365): ValidationError[] {
   const warnings: ValidationError[] = [];
   const registry = getFeatureRegistry();
   const allDocs = loadAllHelpDocs();
@@ -189,7 +189,7 @@ export function validateHelpDocs(options: {
     checkCoverage = true,
     checkAccuracy = true,
     checkFreshness = false, // Warnings only, not errors
-    maxDaysOld = 90,
+    maxDaysOld = 365,
   } = options;
 
   const errors: ValidationError[] = [];

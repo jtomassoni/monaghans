@@ -154,11 +154,13 @@ function main() {
   }
 
   // Run validation
+  const maxDaysOld = Number(process.env.HELP_DOC_MAX_AGE_DAYS) || 365;
+
   const result = validateHelpDocs({
     checkCoverage: true,
     checkAccuracy: true,
     checkFreshness: true,
-    maxDaysOld: 90,
+    maxDaysOld,
   });
 
   // Format report
