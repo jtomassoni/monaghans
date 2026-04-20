@@ -3,59 +3,6 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getPermissions } from '@/lib/permissions';
 import { prisma } from '@/lib/prisma';
-import { handleError } from '@/lib/api-helpers';
-import { sendPrivateDiningLeadNotification } from '@/lib/private-dining-notifications';
-
-async function requireAdminAccess() {
-  const session = await getServerSession(authOptions);
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-  const permissions = getPermissions(session.user.role);
-  if (!permissions.canAccessAdmin) {
-    return NextResponse.json({ error: 'Forbidden: Admin or Owner access required' }, { status: 403 });
-  }
-  return { session, permissions };
-}
-
-export async function POST(
-  _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const authResult = await requireAdminAccess();
-  if (authResult instanceof NextResponse) return authResult;
-
-  try {
-    const { id } = await params;
-    const lead = await prisma.privateDiningLead.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        name: true,
-        phone: true,
-        email: true,
-        groupSize: true,
-        preferredDate: true,
-        message: true,
-      },
-    });
-
-    if (!lead) {
-      return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
-    }
-
-    await sendPrivateDiningLeadNotification(lead);
-
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    return handleError(error, 'Failed to resend lead notification');
-  }
-}
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { getPermissions } from '@/lib/permissions';
-import { prisma } from '@/lib/prisma';
 import { getCurrentUser, handleError, logActivity } from '@/lib/api-helpers';
 import { sendPrivateDiningLeadNotification } from '@/lib/private-dining-notifications';
 
