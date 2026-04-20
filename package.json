@@ -15,6 +15,7 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
+    "db:resolve:prep-time-migration": "prisma migrate resolve --applied 20251204000000_add_menu_item_prep_time",
     "db:sync": "tsx scripts/sync-db-schema.ts",
     "db:seed": "tsx scripts/seed.ts",
     "db:setup": "tsx scripts/setup-local-db.ts",

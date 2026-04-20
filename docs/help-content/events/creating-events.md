@@ -14,7 +14,7 @@ relatedFeatures:
   - events
   - recurring-events
 version: 1.0.0
-lastUpdated: 2026-01-14
+lastUpdated: 2026-04-20
 ---
 
 # Creating One-Time Events

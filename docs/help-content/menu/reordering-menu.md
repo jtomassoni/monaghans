@@ -15,7 +15,7 @@ relatedFeatures:
   - menu-sections
   - menu-items
 version: 1.0.0
-lastUpdated: 2026-01-14
+lastUpdated: 2026-04-20
 ---
 
 # Reordering Menu Sections and Items

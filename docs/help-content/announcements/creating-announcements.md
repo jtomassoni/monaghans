@@ -14,7 +14,7 @@ relatedFeatures:
   - announcements
   - homepage
 version: 1.0.0
-lastUpdated: 2026-01-14
+lastUpdated: 2026-04-20
 ---
 
 # Creating and Managing Announcements
