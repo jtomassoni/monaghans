@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useId } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -18,6 +18,10 @@ const privateEventsSchema = z.object({
 
 type PrivateEventsFormData = z.infer<typeof privateEventsSchema>;
 
+/** Short placeholder — concrete examples stay in the hint line below (readable on small screens). */
+const MESSAGE_PLACEHOLDER =
+  'Favorites, dietary needs, AV, timing—whatever helps us plan';
+
 interface PrivateEventsFormProps {
   onSuccess?: () => void;
   compact?: boolean;
@@ -30,6 +34,7 @@ export default function PrivateEventsForm({
   compact = false,
   anchorRecaptchaBadge = false,
 }: PrivateEventsFormProps) {
+  const messageHintId = useId();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<{
@@ -130,6 +135,10 @@ export default function PrivateEventsForm({
   const labelClasses = compact
     ? "block text-xs font-semibold text-white mb-1"
     : "block text-sm font-semibold text-white mb-2";
+
+  const messageHintClasses = compact
+    ? 'mt-1 text-[10px] leading-snug text-gray-400'
+    : 'mt-1.5 text-xs leading-relaxed text-gray-400';
 
   const submitErrorBanner =
     submitStatus.type === 'error' ? (
@@ -299,14 +308,18 @@ export default function PrivateEventsForm({
           {/* Message (Optional) */}
           <div>
             <label htmlFor="message" className={labelClasses}>
-              Additional Details (Optional)
+              Tell us more <span className="font-normal text-gray-400">(optional)</span>
             </label>
+            <p id={messageHintId} className={messageHintClasses}>
+              Ideas: loved the taco bar · vegetarian or gluten-free · AV or slideshow · flexible on date or time
+            </p>
             <textarea
               id="message"
               {...register('message')}
               rows={3}
-              className={inputClasses + " resize-none"}
-              placeholder="Tell us about your event, special requests, or any questions..."
+              className={inputClasses + ' mt-1.5 resize-none'}
+              placeholder={MESSAGE_PLACEHOLDER}
+              aria-describedby={messageHintId}
             />
           </div>
 
@@ -437,29 +450,33 @@ export default function PrivateEventsForm({
           {/* Message (Optional) */}
           <div>
             <label htmlFor="message" className={labelClasses}>
-              Additional Details (Optional)
+              Tell us more <span className="font-normal text-gray-400">(optional)</span>
             </label>
+            <p id={messageHintId} className={messageHintClasses}>
+              Ideas: loved the taco bar · vegetarian or gluten-free · AV or slideshow · flexible on date or time
+            </p>
             <textarea
               id="message"
               {...register('message')}
               rows={4}
-          className={inputClasses + " resize-none"}
-          placeholder="Tell us about your event, special requests, or any questions..."
-        />
-      </div>
+              className={inputClasses + ' mt-1.5 resize-none'}
+              placeholder={MESSAGE_PLACEHOLDER}
+              aria-describedby={messageHintId}
+            />
+          </div>
 
-      {recaptchaInForm}
+          {recaptchaInForm}
 
-      {submitErrorBanner}
+          {submitErrorBanner}
 
-      {/* Submit Button */}
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="w-full px-8 py-4 bg-[var(--color-accent)] hover:bg-[var(--color-accent-dark)] text-white rounded-lg transition-all shadow-lg hover:shadow-xl hover:scale-105 font-semibold text-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-      >
-        {isSubmitting ? 'Sending...' : 'Submit Request'}
-      </button>
+          {/* Submit Button */}
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full px-8 py-4 bg-[var(--color-accent)] hover:bg-[var(--color-accent-dark)] text-white rounded-lg transition-all shadow-lg hover:shadow-xl hover:scale-105 font-semibold text-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+          >
+            {isSubmitting ? 'Sending...' : 'Submit Request'}
+          </button>
         </>
       )}
 
