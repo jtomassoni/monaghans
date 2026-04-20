@@ -120,7 +120,14 @@ function parseOnlineSubmissionFields(note: LeadNote) {
   return { preferredDisplay, groupSize, channel, request: parseSubmittedRequestFromNote(note) };
 }
 
-export default function LeadDetailClient({ initialLead }: { initialLead: Lead }) {
+export default function LeadDetailClient({
+  initialLead,
+  hasStaffNotificationRecipients,
+}: {
+  initialLead: Lead;
+  /** Active private-dining staff notification emails (Admin → Email alerts). */
+  hasStaffNotificationRecipients: boolean;
+}) {
   const router = useRouter();
   const [lead, setLead] = useState(initialLead);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -401,13 +408,15 @@ export default function LeadDetailClient({ initialLead }: { initialLead: Lead })
             <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusColors[lead.status] ?? statusColors.new}`}>
               {lead.status}
             </span>
-            <button
-              onClick={resendLeadNotification}
-              disabled={resendingNotification}
-              className="rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-100 disabled:opacity-60 dark:border-zinc-600 dark:bg-transparent dark:text-zinc-200 dark:hover:bg-zinc-800"
-            >
-              {resendingNotification ? 'Resending...' : 'Resend notification'}
-            </button>
+            {hasStaffNotificationRecipients ? (
+              <button
+                onClick={resendLeadNotification}
+                disabled={resendingNotification}
+                className="rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-100 disabled:opacity-60 dark:border-zinc-600 dark:bg-transparent dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                {resendingNotification ? 'Resending...' : 'Resend notification'}
+              </button>
+            ) : null}
             <button onClick={saveLead} disabled={saving} className="rounded-lg bg-slate-900 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:opacity-60 dark:bg-indigo-600 dark:text-white dark:hover:bg-indigo-500">
               {saving ? 'Saving...' : 'Save'}
             </button>

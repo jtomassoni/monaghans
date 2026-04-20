@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { getPermissions } from '@/lib/permissions';
+import { migrateLegacyNotificationRecipientsIfNeeded } from '@/lib/private-dining-notifications';
 import LeadDetailClient from './lead-detail-client';
 
 function isMissingLeadEmailTableError(error: unknown): boolean {
@@ -66,6 +67,16 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
     redirect('/admin/private-dining-leads');
   }
 
-  return <LeadDetailClient initialLead={lead} />;
+  await migrateLegacyNotificationRecipientsIfNeeded();
+  const staffNotificationCount = await prisma.privateDiningNotificationRecipient.count({
+    where: { active: true },
+  });
+
+  return (
+    <LeadDetailClient
+      initialLead={lead}
+      hasStaffNotificationRecipients={staffNotificationCount > 0}
+    />
+  );
 }
 
