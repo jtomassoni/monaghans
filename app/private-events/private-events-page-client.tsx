@@ -88,7 +88,7 @@ export default function PrivateEventsPageClient({ contact }: { contact: any }) {
                       Tell us about your event and we&apos;ll get back to you with personalized options.
                     </p>
                     <div className="max-w-2xl mx-auto">
-                      <PrivateEventsForm compact={true} />
+                      <PrivateEventsForm compact={true} anchorRecaptchaBadge={!isModalOpen} />
                     </div>
                   </div>
                 </div>
@@ -430,7 +430,7 @@ export default function PrivateEventsPageClient({ contact }: { contact: any }) {
                   Request More Information
                 </h3>
                 <div className="max-w-2xl mx-auto">
-                  <PrivateEventsForm compact={true} />
+                  <PrivateEventsForm compact={true} anchorRecaptchaBadge={false} />
                 </div>
               </div>
             </div>

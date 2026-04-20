@@ -245,6 +245,21 @@ body {
   scrollbar-color: rgb(75 85 99) rgb(17 24 39);
 }
 
+/* reCAPTCHA v3 badge lives in normal flow when anchored in a form (see useRecaptchaBadgeAnchor) */
+.recaptcha-badge-anchor .grecaptcha-badge {
+  position: static !important;
+  visibility: visible !important;
+  right: auto !important;
+  bottom: auto !important;
+  float: none !important;
+  margin: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  z-index: auto !important;
+  transform: none !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12) !important;
+}
+
 /* Form container utilities for mobile */
 @layer utilities {
   /* Ensure forms fit within viewport on mobile */

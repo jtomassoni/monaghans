@@ -23,7 +23,7 @@ export default function PrivateEventsFormModal({ isOpen, onClose }: PrivateEvent
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Request a Quote">
-      <PrivateEventsForm onSuccess={handleFormSuccess} compact={true} />
+      <PrivateEventsForm onSuccess={handleFormSuccess} compact={true} anchorRecaptchaBadge={isOpen} />
     </Modal>
   );
 }

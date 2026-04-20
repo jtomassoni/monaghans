@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Modal from './modal';
-import { useReCaptcha } from './recaptcha';
+import { useReCaptcha, useRecaptchaBadgeAnchor } from './recaptcha';
 
 const privateEventsSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -21,9 +21,15 @@ type PrivateEventsFormData = z.infer<typeof privateEventsSchema>;
 interface PrivateEventsFormProps {
   onSuccess?: () => void;
   compact?: boolean;
+  /** Mount the Google reCAPTCHA badge inside the form instead of fixed to the viewport corner */
+  anchorRecaptchaBadge?: boolean;
 }
 
-export default function PrivateEventsForm({ onSuccess, compact = false }: PrivateEventsFormProps) {
+export default function PrivateEventsForm({
+  onSuccess,
+  compact = false,
+  anchorRecaptchaBadge = false,
+}: PrivateEventsFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<{
@@ -33,6 +39,9 @@ export default function PrivateEventsForm({ onSuccess, compact = false }: Privat
 
   const recaptchaSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
   const { getToken } = useReCaptcha(recaptchaSiteKey, 'private_events_form');
+  const badgeAnchorRef = useRef<HTMLDivElement>(null);
+  const shouldAnchorBadge = Boolean(recaptchaSiteKey && anchorRecaptchaBadge);
+  useRecaptchaBadgeAnchor(shouldAnchorBadge, badgeAnchorRef);
 
   const {
     register,
@@ -130,6 +139,43 @@ export default function PrivateEventsForm({ onSuccess, compact = false }: Privat
         {submitStatus.message}
       </div>
     ) : null;
+
+  const recaptchaInForm = shouldAnchorBadge ? (
+    <div className="space-y-1.5">
+      <div
+        ref={badgeAnchorRef}
+        className="recaptcha-badge-anchor flex min-h-[1.25rem] flex-wrap items-center gap-2"
+        aria-hidden
+      />
+      <p
+        className={
+          compact
+            ? 'text-[10px] leading-snug text-gray-500 dark:text-gray-400'
+            : 'text-xs leading-snug text-gray-500 dark:text-gray-400'
+        }
+      >
+        This site is protected by reCAPTCHA and the Google{' '}
+        <a
+          className="text-gray-600 underline decoration-gray-500/60 underline-offset-2 hover:text-gray-800 dark:text-gray-300 dark:hover:text-white"
+          href="https://policies.google.com/privacy"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Privacy Policy
+        </a>{' '}
+        and{' '}
+        <a
+          className="text-gray-600 underline decoration-gray-500/60 underline-offset-2 hover:text-gray-800 dark:text-gray-300 dark:hover:text-white"
+          href="https://policies.google.com/terms"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Terms of Service
+        </a>{' '}
+        apply.
+      </p>
+    </div>
+  ) : null;
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className={formClasses}>
@@ -260,6 +306,8 @@ export default function PrivateEventsForm({ onSuccess, compact = false }: Privat
               placeholder="Tell us about your event, special requests, or any questions..."
             />
           </div>
+
+          {recaptchaInForm}
 
           {submitErrorBanner}
 
@@ -396,6 +444,8 @@ export default function PrivateEventsForm({ onSuccess, compact = false }: Privat
           placeholder="Tell us about your event, special requests, or any questions..."
         />
       </div>
+
+      {recaptchaInForm}
 
       {submitErrorBanner}
 
