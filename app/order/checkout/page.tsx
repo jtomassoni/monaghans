@@ -97,7 +97,6 @@ function PaymentForm({
           recaptchaToken = await getToken();
         } catch (error) {
           console.error('reCAPTCHA error:', error);
-          // Continue without token in development, but log the error
           if (process.env.NODE_ENV === 'production') {
             setPaymentError('Security verification failed. Please try again.');
             setProcessing(false);
@@ -473,7 +472,6 @@ export default function CheckoutPage() {
           recaptchaToken = await getToken();
         } catch (error) {
           console.error('reCAPTCHA error:', error);
-          // Continue without token in development
           if (process.env.NODE_ENV === 'production') {
             alert('Security verification failed. Please try again.');
             setProcessingDemo(false);

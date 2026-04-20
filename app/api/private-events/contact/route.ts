@@ -95,10 +95,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { name, phone, email, groupSize, date, message, recaptchaToken } = body;
 
-    const recaptchaSecret = process.env.RECAPTCHA_SECRET_KEY;
+    const recaptchaSecret = process.env.RECAPTCHA_SECRET_KEY?.trim();
     const isProduction = process.env.NODE_ENV === 'production';
 
-    // Verify reCAPTCHA when configured. In local/dev, do not hard-block submissions if token is missing/invalid.
     if (recaptchaSecret) {
       if (!recaptchaToken) {
         if (isProduction) {

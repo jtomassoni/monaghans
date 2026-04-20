@@ -55,7 +55,6 @@ export default function PrivateEventsForm({ onSuccess, compact = false }: Privat
           recaptchaToken = await getToken();
         } catch (error) {
           console.error('reCAPTCHA error:', error);
-          // Continue without token in development, but log the error
           if (process.env.NODE_ENV === 'production') {
             setSubmitStatus({
               type: 'error',
@@ -119,6 +118,18 @@ export default function PrivateEventsForm({ onSuccess, compact = false }: Privat
   const labelClasses = compact
     ? "block text-xs font-semibold text-white mb-1"
     : "block text-sm font-semibold text-white mb-2";
+
+  const submitErrorBanner =
+    submitStatus.type === 'error' ? (
+      <div
+        role="alert"
+        className={`rounded-lg border border-red-300/80 bg-red-950/40 px-3 py-2.5 text-red-100 dark:border-red-800 dark:bg-red-950/60 ${
+          compact ? 'text-xs leading-snug' : 'text-sm leading-relaxed'
+        }`}
+      >
+        {submitStatus.message}
+      </div>
+    ) : null;
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className={formClasses}>
@@ -249,6 +260,8 @@ export default function PrivateEventsForm({ onSuccess, compact = false }: Privat
               placeholder="Tell us about your event, special requests, or any questions..."
             />
           </div>
+
+          {submitErrorBanner}
 
           {/* Submit Button */}
           <button
@@ -384,6 +397,8 @@ export default function PrivateEventsForm({ onSuccess, compact = false }: Privat
         />
       </div>
 
+      {submitErrorBanner}
+
       {/* Submit Button */}
       <button
         type="submit"
@@ -393,13 +408,6 @@ export default function PrivateEventsForm({ onSuccess, compact = false }: Privat
         {isSubmitting ? 'Sending...' : 'Submit Request'}
       </button>
         </>
-      )}
-
-      {/* Error Message */}
-      {submitStatus.type === 'error' && (
-        <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/50 border border-red-200 dark:border-red-700 text-red-800 dark:text-red-200">
-          <p className={compact ? "text-xs" : "text-sm"}>{submitStatus.message}</p>
-        </div>
       )}
 
       {/* Success Modal */}

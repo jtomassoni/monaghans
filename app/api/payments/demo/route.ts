@@ -25,7 +25,6 @@ export async function POST(req: NextRequest) {
       recaptchaToken,
     } = body;
 
-    // Verify reCAPTCHA if configured
     if (process.env.RECAPTCHA_SECRET_KEY) {
       if (!recaptchaToken) {
         return NextResponse.json(
