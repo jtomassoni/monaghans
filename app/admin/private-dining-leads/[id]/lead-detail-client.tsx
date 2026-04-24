@@ -434,19 +434,27 @@ export default function LeadDetailClient({
 
   function applyInquiryTemplate() {
     const name = lead.name?.trim() || 'there';
+    const eventDate = new Date(lead.preferredDate).toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
     setCompose((prev) => ({
       ...prev,
-      subject: `Thanks for your inquiry, ${name}`,
+      subject: `Private event ${eventDate} — deposit & scheduling`,
       body: [
         `Hi ${name},`,
         '',
-        'Thanks for your inquiry about hosting your event with us. To hold the space, we do require a deposit, and there is a 22% gratuity on any food and drinks sold.',
+        `We're excited about your ${eventDate} date at Monaghan's. Here's how we lock it in:`,
         '',
-        'We offer several drink package options, including pre-paid tabs, drink tickets, cash bars, and more. If you share a few details about your event goals, we can recommend the best setup for your group.',
+        'We take a deposit to hold the room. Food and beverage tabs include a 22% gratuity.',
         '',
-        "If you give me a good time, I can call you directly to collect the deposit and finalize details. I'm not in the bar every day, but feel free to call and ask for Victoria.",
+        'For the bar, we can do pre-paid tabs, drink tickets, cash bar, and a few other setups. Reply with what you have in mind (rough headcount and whether you want open bar vs. guest-paid), and we will recommend the best fit.',
         '',
-        'Thanks again,',
+        'What is a good day and time for a quick call so Victoria can take the deposit and finalize details? You can also call the bar and ask for her, but she is not on site every shift, so scheduling a time is the fastest path.',
+        '',
+        'Thanks,',
         "Monaghan's Private Events Team",
       ].join('\n'),
     }));
