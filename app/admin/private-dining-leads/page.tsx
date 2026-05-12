@@ -18,34 +18,54 @@ export default async function AdminPrivateDiningLeads() {
     redirect('/admin/login');
   }
 
-  const leads = await prisma.privateDiningLead.findMany({
-    include: {
-      notes: {
-        orderBy: { createdAt: 'desc' },
-        take: 1, // Get most recent note for preview
-      },
-      contacts: true,
-      _count: {
-        select: {
-          notes: true,
-          contacts: true,
-        },
+  const isAdmin = session.user.role === 'admin';
+
+  const leadInclude = {
+    notes: {
+      orderBy: { createdAt: 'desc' as const },
+      take: 1,
+    },
+    contacts: true,
+    _count: {
+      select: {
+        notes: true,
+        contacts: true,
       },
     },
+  };
+
+  const activeLeads = await prisma.privateDiningLead.findMany({
+    where: { hiddenAt: null },
+    include: leadInclude,
     orderBy: { createdAt: 'desc' },
   });
 
+  let removedLeads: typeof activeLeads = [];
+  if (isAdmin) {
+    removedLeads = await prisma.privateDiningLead.findMany({
+      where: { hiddenAt: { not: null } },
+      include: leadInclude,
+      orderBy: { hiddenAt: 'desc' },
+    });
+  }
+
+  const serializeList = (leads: typeof activeLeads) =>
+    leads.map((lead) => ({
+      ...lead,
+      preferredDate: lead.preferredDate.toISOString(),
+      createdAt: lead.createdAt.toISOString(),
+      updatedAt: lead.updatedAt.toISOString(),
+      hiddenAt: lead.hiddenAt ? lead.hiddenAt.toISOString() : null,
+      notes: lead.notes.map((note) => ({
+        ...note,
+        createdAt: note.createdAt.toISOString(),
+      })),
+    }));
+
+  const serializedLeads = serializeList(activeLeads);
+  const serializedRemoved = isAdmin ? serializeList(removedLeads) : [];
+
   // Serialize dates to strings for client component
-  const serializedLeads = leads.map(lead => ({
-    ...lead,
-    preferredDate: lead.preferredDate.toISOString(),
-    createdAt: lead.createdAt.toISOString(),
-    updatedAt: lead.updatedAt.toISOString(),
-    notes: lead.notes.map(note => ({
-      ...note,
-      createdAt: note.createdAt.toISOString(),
-    })),
-  }));
 
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 overflow-hidden relative">
@@ -64,7 +84,11 @@ export default async function AdminPrivateDiningLeads() {
       {/* Main Content */}
       <div className="flex-1 overflow-auto p-4 sm:p-6 relative z-10">
         <div className="max-w-7xl mx-auto space-y-6">
-          <PrivateDiningLeadsTabs initialLeads={serializedLeads} />
+          <PrivateDiningLeadsTabs
+            initialLeads={serializedLeads}
+            initialRemovedLeads={serializedRemoved}
+            userRole={session.user.role}
+          />
         </div>
       </div>
     </div>

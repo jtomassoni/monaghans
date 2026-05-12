@@ -9,6 +9,7 @@ import {
   buildContactRemovedNote,
   getUserIdForLeadNote,
 } from '@/lib/private-dining-lead-timeline';
+import { leadBlockedForOwner } from '@/lib/private-dining-lead-access';
 
 // Helper to require admin/owner access
 async function requireAdminAccess(req: NextRequest) {
@@ -45,6 +46,14 @@ export async function PATCH(
     });
     if (!existing || existing.leadId !== leadId) {
       return NextResponse.json({ error: 'Contact not found' }, { status: 404 });
+    }
+
+    const leadRow = await prisma.privateDiningLead.findUnique({
+      where: { id: leadId },
+      select: { hiddenAt: true },
+    });
+    if (!leadRow || leadBlockedForOwner(session.user.role, leadRow.hiddenAt)) {
+      return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
     }
 
     const updateData: Record<string, unknown> = {};
@@ -122,6 +131,14 @@ export async function DELETE(
     });
     if (!existing || existing.leadId !== leadId) {
       return NextResponse.json({ error: 'Contact not found' }, { status: 404 });
+    }
+
+    const leadRow = await prisma.privateDiningLead.findUnique({
+      where: { id: leadId },
+      select: { hiddenAt: true },
+    });
+    if (!leadRow || leadBlockedForOwner(session.user.role, leadRow.hiddenAt)) {
+      return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
     }
 
     const snapshot = {

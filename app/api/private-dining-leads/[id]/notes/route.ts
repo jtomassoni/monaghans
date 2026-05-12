@@ -4,6 +4,7 @@ import { handleError } from '@/lib/api-helpers';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getPermissions } from '@/lib/permissions';
+import { leadBlockedForOwner } from '@/lib/private-dining-lead-access';
 
 // Helper to require admin/owner access
 async function requireAdminAccess(req: NextRequest) {
@@ -40,6 +41,14 @@ export async function POST(
         { error: 'Note content is required' },
         { status: 400 }
       );
+    }
+
+    const leadRow = await prisma.privateDiningLead.findUnique({
+      where: { id },
+      select: { id: true, hiddenAt: true },
+    });
+    if (!leadRow || leadBlockedForOwner(session.user.role, leadRow.hiddenAt)) {
+      return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
     }
 
     // Get user ID from email

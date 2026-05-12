@@ -45,6 +45,7 @@ type Lead = {
   status: string;
   createdAt: string | Date;
   updatedAt: string | Date;
+  hiddenAt?: string | Date | null;
   emails: LeadEmail[];
   notes: LeadNote[];
   contacts: LeadContact[];
@@ -126,14 +127,19 @@ function parseOnlineSubmissionFields(note: LeadNote) {
 export default function LeadDetailClient({
   initialLead,
   hasStaffNotificationRecipients,
+  userRole,
 }: {
   initialLead: Lead;
   /** Active private-dining staff notification emails (Admin → Email alerts). */
   hasStaffNotificationRecipients: boolean;
+  userRole: string;
 }) {
   const router = useRouter();
   const [lead, setLead] = useState(initialLead);
-  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [hideFromListOpen, setHideFromListOpen] = useState(false);
+  const [deletePermanentOpen, setDeletePermanentOpen] = useState(false);
+  const [restoreOpen, setRestoreOpen] = useState(false);
+  const [restoring, setRestoring] = useState(false);
   const [saving, setSaving] = useState(false);
   const [resendingNotification, setResendingNotification] = useState(false);
   const [sending, setSending] = useState(false);
@@ -231,6 +237,8 @@ export default function LeadDetailClient({
     'Lead created from online form submission.'
   );
 
+  const isHidden = Boolean(lead.hiddenAt);
+
   // Full refresh from server props (browser reload, router.refresh(), navigate between leads)
   useEffect(() => {
     setLead(initialLead);
@@ -266,6 +274,7 @@ export default function LeadDetailClient({
                 notes: data.notes ?? [],
                 contacts: data.contacts ?? [],
                 updatedAt: data.updatedAt,
+                hiddenAt: data.hiddenAt ?? null,
               }
         );
       } catch {
@@ -325,14 +334,64 @@ export default function LeadDetailClient({
     }
   }
 
-  async function deleteLead() {
+  async function hideLeadFromList() {
     try {
       const res = await fetch(`/api/private-dining-leads/${lead.id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed');
-      showToast('Lead deleted', 'success');
+      const payload = (await res.json().catch(() => ({}))) as { softDeleted?: boolean };
+      if (userRole === 'owner' && payload.softDeleted) {
+        showToast('Lead removed from your list', 'success');
+      } else if (userRole === 'admin' && payload.softDeleted) {
+        showToast('Lead hidden from the active list', 'success');
+      } else {
+        showToast('Lead updated', 'success');
+      }
+      setHideFromListOpen(false);
+      router.push('/admin/private-dining-leads');
+    } catch {
+      showToast('Failed to remove lead from list', 'error');
+    }
+  }
+
+  async function deleteLeadPermanent() {
+    try {
+      const res = await fetch(`/api/private-dining-leads/${lead.id}?permanent=1`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed');
+      showToast('Lead permanently deleted', 'success');
+      setDeletePermanentOpen(false);
       router.push('/admin/private-dining-leads');
     } catch {
       showToast('Failed to delete lead', 'error');
+    }
+  }
+
+  async function restoreLead() {
+    setRestoring(true);
+    try {
+      const res = await fetch(`/api/private-dining-leads/${lead.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ restore: true }),
+      });
+      if (!res.ok) throw new Error('Failed');
+      const data = (await res.json()) as Lead;
+      setLead(data);
+      setForm({
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        groupSize: data.groupSize,
+        preferredDate: new Date(data.preferredDate).toISOString().split('T')[0],
+        message: data.message ?? '',
+        status: data.status,
+      });
+      setRestoreOpen(false);
+      showToast('Lead restored to the active list', 'success');
+      router.refresh();
+    } catch {
+      showToast('Failed to restore lead', 'error');
+    } finally {
+      setRestoring(false);
     }
   }
 
@@ -482,11 +541,63 @@ export default function LeadDetailClient({
             <button onClick={saveLead} disabled={saving} className="rounded-lg bg-slate-900 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:opacity-60 dark:bg-indigo-600 dark:text-white dark:hover:bg-indigo-500">
               {saving ? 'Saving...' : 'Save'}
             </button>
-            <button onClick={() => setDeleteOpen(true)} className="rounded-lg border border-rose-200 bg-white px-3.5 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 dark:border-rose-500/35 dark:bg-transparent dark:text-rose-300 dark:hover:bg-rose-950/35">
-              Delete
-            </button>
+            {userRole === 'admin' && isHidden ? (
+              <button
+                type="button"
+                onClick={() => setRestoreOpen(true)}
+                disabled={restoring}
+                className="rounded-lg border border-emerald-300 bg-white px-3.5 py-2 text-sm font-semibold text-emerald-800 shadow-sm transition hover:bg-emerald-50 disabled:opacity-60 dark:border-emerald-700 dark:bg-transparent dark:text-emerald-200 dark:hover:bg-emerald-950/40"
+              >
+                Restore to active list
+              </button>
+            ) : null}
+            {userRole === 'admin' && !isHidden ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setHideFromListOpen(true)}
+                  className="rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-100 dark:border-zinc-600 dark:bg-transparent dark:text-zinc-200 dark:hover:bg-zinc-800"
+                >
+                  Hide from list
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeletePermanentOpen(true)}
+                  className="rounded-lg border border-rose-200 bg-white px-3.5 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 dark:border-rose-500/35 dark:bg-transparent dark:text-rose-300 dark:hover:bg-rose-950/35"
+                >
+                  Delete permanently
+                </button>
+              </>
+            ) : null}
+            {userRole === 'admin' && isHidden ? (
+              <button
+                type="button"
+                onClick={() => setDeletePermanentOpen(true)}
+                className="rounded-lg border border-rose-200 bg-white px-3.5 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 dark:border-rose-500/35 dark:bg-transparent dark:text-rose-300 dark:hover:bg-rose-950/35"
+              >
+                Delete permanently
+              </button>
+            ) : null}
+            {userRole === 'owner' && !isHidden ? (
+              <button
+                type="button"
+                onClick={() => setHideFromListOpen(true)}
+                className="rounded-lg border border-rose-200 bg-white px-3.5 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 dark:border-rose-500/35 dark:bg-transparent dark:text-rose-300 dark:hover:bg-rose-950/35"
+              >
+                Remove from list
+              </button>
+            ) : null}
           </div>
         </header>
+
+        {userRole === 'admin' && isHidden ? (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 shadow-sm dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-100">
+            <p className="font-medium">This lead is hidden from owner accounts.</p>
+            <p className="mt-1 text-amber-900/90 dark:text-amber-200/90">
+              It is hidden from the main active leads list. Restore it to show it again for everyone, or delete it permanently.
+            </p>
+          </div>
+        ) : null}
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
           <aside className="space-y-4">
@@ -978,13 +1089,36 @@ export default function LeadDetailClient({
       </div>
 
       <ConfirmationDialog
-        isOpen={deleteOpen}
-        onClose={() => setDeleteOpen(false)}
-        onConfirm={deleteLead}
-        title="Delete lead"
-        message="Are you sure you want to delete this lead? This cannot be undone."
-        confirmText="Delete"
+        isOpen={hideFromListOpen}
+        onClose={() => setHideFromListOpen(false)}
+        onConfirm={hideLeadFromList}
+        title={userRole === 'owner' ? 'Remove lead from list' : 'Hide lead from active list'}
+        message={
+          userRole === 'owner'
+            ? 'This removes the lead from your active list. Nothing is erased; an administrator can restore it later.'
+            : 'This hides the lead from the active list for everyone (including owners). You can restore it from the Removed tab or this page.'
+        }
+        confirmText={userRole === 'owner' ? 'Remove from list' : 'Hide from list'}
+        variant="warning"
+      />
+      <ConfirmationDialog
+        isOpen={deletePermanentOpen}
+        onClose={() => setDeletePermanentOpen(false)}
+        onConfirm={deleteLeadPermanent}
+        title="Delete lead permanently"
+        message="This permanently deletes the lead and all related notes, contacts, and email history. This cannot be undone."
+        confirmText="Delete permanently"
         variant="danger"
+      />
+      <ConfirmationDialog
+        isOpen={restoreOpen}
+        onClose={() => setRestoreOpen(false)}
+        onConfirm={restoreLead}
+        title="Restore lead"
+        message="This lead will appear again on the active list and to owner accounts."
+        confirmText={restoring ? 'Restoring…' : 'Restore'}
+        variant="info"
+        disabled={restoring}
       />
     </div>
   );

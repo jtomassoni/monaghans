@@ -8,6 +8,7 @@ import {
   buildCalendarEventCreatedFromLeadNote,
   getUserIdForLeadNote,
 } from '@/lib/private-dining-lead-timeline';
+import { leadBlockedForOwner } from '@/lib/private-dining-lead-access';
 
 function isMissingLeadEmailTableError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
@@ -68,6 +69,10 @@ export async function POST(
         { error: 'Lead not found' },
         { status: 404 }
       );
+    }
+
+    if (leadBlockedForOwner(session.user.role, lead.hiddenAt)) {
+      return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
     }
 
     const start = new Date(startDateTime);

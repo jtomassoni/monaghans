@@ -606,6 +606,7 @@ model PrivateDiningLead {
   notes         LeadNote[] // Notes added by staff
   contacts      LeadContact[] // Additional contacts for this lead
   emails        PrivateDiningLeadEmail[] // Outbound/inbound email thread items
+  hiddenAt      DateTime? // Set when owner removes lead from list; admin can clear to restore
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
@@ -613,6 +614,7 @@ model PrivateDiningLead {
   @@index([preferredDate])
   @@index([createdAt])
   @@index([email])
+  @@index([hiddenAt])
 }
 
 // Lead email activity rows (conversation timeline)

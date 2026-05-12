@@ -6,7 +6,15 @@ import PrivateDiningCommunicationsPanel from '@/components/private-dining-commun
 
 type Lead = ComponentProps<typeof PrivateDiningLeadsList>['initialLeads'][number];
 
-export default function PrivateDiningLeadsTabs({ initialLeads }: { initialLeads: Lead[] }) {
+export default function PrivateDiningLeadsTabs({
+  initialLeads,
+  initialRemovedLeads = [],
+  userRole,
+}: {
+  initialLeads: Lead[];
+  initialRemovedLeads?: Lead[];
+  userRole: string;
+}) {
   const [tab, setTab] = useState<'leads' | 'email'>('leads');
 
   return (
@@ -55,7 +63,11 @@ export default function PrivateDiningLeadsTabs({ initialLeads }: { initialLeads:
         hidden={tab !== 'leads'}
         className={tab !== 'leads' ? 'hidden' : undefined}
       >
-        <PrivateDiningLeadsList initialLeads={initialLeads} />
+        <PrivateDiningLeadsList
+          initialLeads={initialLeads}
+          initialRemovedLeads={initialRemovedLeads}
+          userRole={userRole}
+        />
       </div>
 
       <div
