@@ -9,6 +9,7 @@ import {
   getVerifiedStaffNotificationEmails,
   sendPrivateDiningLeadNotification,
 } from '@/lib/private-dining-notifications';
+import { leadBlockedForOwner } from '@/lib/private-dining-lead-access';
 
 async function requireAdminAccess() {
   const session = await getServerSession(authOptions);
@@ -32,6 +33,7 @@ export async function POST(
 ) {
   const authResult = await requireAdminAccess();
   if (authResult instanceof NextResponse) return authResult;
+  const { session } = authResult;
 
   try {
     const user = await getCurrentUser(req);
@@ -45,6 +47,10 @@ export async function POST(
     });
 
     if (!lead) {
+      return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
+    }
+
+    if (leadBlockedForOwner(session.user.role, lead.hiddenAt)) {
       return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
     }
 

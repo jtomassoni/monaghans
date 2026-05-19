@@ -18,6 +18,7 @@ interface Lead {
   status: string;
   createdAt: string | Date;
   updatedAt: string | Date;
+  hiddenAt?: string | Date | null;
   notes: Array<{
     id: string;
     content: string;
@@ -46,76 +47,189 @@ const statusColors: Record<string, string> = {
 
 export default function PrivateDiningLeadsList({
   initialLeads,
+  initialRemovedLeads = [],
+  userRole,
 }: {
   initialLeads: Lead[];
+  initialRemovedLeads?: Lead[];
+  userRole: string;
 }) {
   const router = useRouter();
+  const [listView, setListView] = useState<'active' | 'removed'>('active');
   const [leads, setLeads] = useState(initialLeads);
+  const [removedLeads, setRemovedLeads] = useState<Lead[]>(initialRemovedLeads);
   const [filteredLeads, setFilteredLeads] = useState<Lead[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [deletingLeadId, setDeletingLeadId] = useState<string | null>(null);
+  const [hidingLeadId, setHidingLeadId] = useState<string | null>(null);
+  const [restoringLeadId, setRestoringLeadId] = useState<string | null>(null);
   const [newLeadCelebrationCount, setNewLeadCelebrationCount] = useState(0);
   const knownLeadIdsRef = useRef<Set<string>>(new Set(initialLeads.map((lead) => lead.id)));
 
+  const isAdmin = userRole === 'admin';
+  const listForView = listView === 'active' ? leads : removedLeads;
+
   useEffect(() => {
     setLeads(initialLeads);
-    setFilteredLeads(initialLeads);
     knownLeadIdsRef.current = new Set(initialLeads.map((lead) => lead.id));
   }, [initialLeads]);
+
+  useEffect(() => {
+    setRemovedLeads(initialRemovedLeads);
+  }, [initialRemovedLeads]);
 
   useEffect(() => {
     let cancelled = false;
     let animationTimeout: ReturnType<typeof setTimeout> | null = null;
 
-    const pollForNewLeads = async () => {
+    const poll = async () => {
       try {
-        const response = await fetch('/api/private-dining-leads', { cache: 'no-store' });
+        const url =
+          isAdmin && listView === 'removed'
+            ? '/api/private-dining-leads?removed=1'
+            : '/api/private-dining-leads';
+        const response = await fetch(url, { cache: 'no-store' });
         if (!response.ok) return;
 
-        const latestLeads = (await response.json()) as Lead[];
+        const latest = (await response.json()) as Lead[];
         if (cancelled) return;
 
-        const previousIds = knownLeadIdsRef.current;
-        const incomingCount = latestLeads.filter((lead) => !previousIds.has(lead.id)).length;
+        if (listView === 'active') {
+          const previousIds = knownLeadIdsRef.current;
+          const incomingCount = latest.filter((lead) => !previousIds.has(lead.id)).length;
 
-        setLeads(latestLeads);
-        knownLeadIdsRef.current = new Set(latestLeads.map((lead) => lead.id));
+          setLeads(latest);
+          knownLeadIdsRef.current = new Set(latest.map((lead) => lead.id));
 
-        if (incomingCount > 0) {
-          setNewLeadCelebrationCount(incomingCount);
-          showToast(
-            incomingCount === 1 ? 'New lead just came in!' : `${incomingCount} new leads just came in!`,
-            'success'
-          );
-          if (animationTimeout) clearTimeout(animationTimeout);
-          animationTimeout = setTimeout(() => {
-            setNewLeadCelebrationCount(0);
-          }, 3500);
+          if (incomingCount > 0) {
+            setNewLeadCelebrationCount(incomingCount);
+            showToast(
+              incomingCount === 1 ? 'New lead just came in!' : `${incomingCount} new leads just came in!`,
+              'success'
+            );
+            if (animationTimeout) clearTimeout(animationTimeout);
+            animationTimeout = setTimeout(() => {
+              setNewLeadCelebrationCount(0);
+            }, 3500);
+          }
+        } else {
+          setRemovedLeads(latest);
         }
       } catch {
         // Keep polling resilient; no user-facing error for background refresh.
       }
     };
 
-    const interval = setInterval(pollForNewLeads, 15000);
+    const interval = setInterval(poll, 15000);
     return () => {
       cancelled = true;
       clearInterval(interval);
       if (animationTimeout) clearTimeout(animationTimeout);
     };
-  }, []);
+  }, [listView, isAdmin]);
 
   const handleLeadCreated = () => {
     // Refresh the page to get updated leads list
     router.refresh();
   };
 
-  const handleDeleteLead = async (lead: Lead, event: React.MouseEvent<HTMLButtonElement>) => {
+  const handleRestoreLead = async (lead: Lead, event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
     if (
       !window.confirm(
-        `Delete ${lead.name}? This will permanently remove the lead and related notes/contacts.`
+        `Restore ${lead.name} to the active leads list? It will be visible to owners again.`
+      )
+    ) {
+      return;
+    }
+
+    setRestoringLeadId(lead.id);
+    try {
+      const response = await fetch(`/api/private-dining-leads/${lead.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ restore: true }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to restore lead');
+      }
+
+      setRemovedLeads((prev) => prev.filter((l) => l.id !== lead.id));
+      setFilteredLeads((prev) => prev.filter((l) => l.id !== lead.id));
+      showToast('Lead restored', 'success');
+      router.refresh();
+    } catch {
+      showToast('Failed to restore lead', 'error');
+    } finally {
+      setRestoringLeadId(null);
+    }
+  };
+
+  const handleSoftRemoveFromList = async (lead: Lead, event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (listView !== 'active') return;
+
+    if (userRole === 'owner') {
+      if (
+        !window.confirm(
+          `Remove ${lead.name} from the active list? The record is kept and an administrator can restore it later.`
+        )
+      ) {
+        return;
+      }
+    } else if (userRole === 'admin') {
+      if (
+        !window.confirm(
+          `Hide ${lead.name} from the active list? The lead stays in the database and can be restored from the Removed tab or lead page.`
+        )
+      ) {
+        return;
+      }
+    } else {
+      return;
+    }
+
+    setHidingLeadId(lead.id);
+    try {
+      const response = await fetch(`/api/private-dining-leads/${lead.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to hide lead');
+      }
+
+      const payload = (await response.json().catch(() => ({}))) as { softDeleted?: boolean };
+
+      setLeads((prev) => prev.filter((l) => l.id !== lead.id));
+      setFilteredLeads((prev) => prev.filter((l) => l.id !== lead.id));
+
+      if (payload.softDeleted) {
+        showToast(userRole === 'owner' ? 'Lead removed from your list' : 'Lead hidden from the active list', 'success');
+      } else {
+        showToast('Lead updated', 'success');
+      }
+      router.refresh();
+    } catch {
+      showToast('Failed to hide lead', 'error');
+    } finally {
+      setHidingLeadId(null);
+    }
+  };
+
+  const handlePermanentDelete = async (lead: Lead, event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (userRole !== 'admin') return;
+
+    if (
+      !window.confirm(
+        `Permanently delete ${lead.name}? This removes the lead and all related notes and contacts. This cannot be undone.`
       )
     ) {
       return;
@@ -123,7 +237,7 @@ export default function PrivateDiningLeadsList({
 
     setDeletingLeadId(lead.id);
     try {
-      const response = await fetch(`/api/private-dining-leads/${lead.id}`, {
+      const response = await fetch(`/api/private-dining-leads/${lead.id}?permanent=1`, {
         method: 'DELETE',
       });
 
@@ -131,9 +245,13 @@ export default function PrivateDiningLeadsList({
         throw new Error('Failed to delete lead');
       }
 
-      setLeads((prev) => prev.filter((l) => l.id !== lead.id));
+      if (listView === 'removed') {
+        setRemovedLeads((prev) => prev.filter((l) => l.id !== lead.id));
+      } else {
+        setLeads((prev) => prev.filter((l) => l.id !== lead.id));
+      }
       setFilteredLeads((prev) => prev.filter((l) => l.id !== lead.id));
-      showToast('Lead deleted', 'success');
+      showToast('Lead permanently deleted', 'success');
       router.refresh();
     } catch {
       showToast('Failed to delete lead', 'error');
@@ -225,10 +343,45 @@ export default function PrivateDiningLeadsList({
           </div>
         </div>
       ) : null}
+      {isAdmin ? (
+        <div
+          className="inline-flex rounded-lg border border-gray-200/80 bg-white/80 p-0.5 shadow-sm dark:border-gray-700 dark:bg-gray-900/60"
+          role="tablist"
+          aria-label="Lead visibility"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={listView === 'active'}
+            onClick={() => setListView('active')}
+            className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+              listView === 'active'
+                ? 'bg-[var(--color-accent)] text-white shadow-sm'
+                : 'text-gray-600 hover:bg-gray-100/80 dark:text-gray-300 dark:hover:bg-gray-800/80'
+            }`}
+          >
+            Active leads
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={listView === 'removed'}
+            onClick={() => setListView('removed')}
+            className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+              listView === 'removed'
+                ? 'bg-[var(--color-accent)] text-white shadow-sm'
+                : 'text-gray-600 hover:bg-gray-100/80 dark:text-gray-300 dark:hover:bg-gray-800/80'
+            }`}
+          >
+            Removed by owner ({removedLeads.length})
+          </button>
+        </div>
+      ) : null}
       <div className="flex items-center justify-between gap-3 mb-4">
         <div className="flex-1">
           <SearchSortFilter
-            items={leads}
+            key={listView}
+            items={listForView}
             onFilteredItemsChange={setFilteredLeads}
             sortOptions={sortOptions}
             filterOptions={filterOptions}
@@ -236,15 +389,17 @@ export default function PrivateDiningLeadsList({
             searchFields={['name', 'email', 'phone', 'groupSize']}
           />
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="px-4 py-2 bg-[var(--color-accent)] text-white rounded-lg hover:opacity-90 transition-opacity whitespace-nowrap flex items-center gap-2 shadow-sm"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Create New Lead
-        </button>
+        {listView === 'active' ? (
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="px-4 py-2 bg-[var(--color-accent)] text-white rounded-lg hover:opacity-90 transition-opacity whitespace-nowrap flex items-center gap-2 shadow-sm"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Create New Lead
+          </button>
+        ) : null}
       </div>
 
       <LeadFormModal
@@ -255,7 +410,9 @@ export default function PrivateDiningLeadsList({
 
       {filteredLeads.length === 0 ? (
         <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-          <p className="text-gray-500 dark:text-gray-400">No leads found</p>
+          <p className="text-gray-500 dark:text-gray-400">
+            {listView === 'removed' ? 'No removed leads' : 'No leads found'}
+          </p>
         </div>
       ) : (
         <div className="grid gap-2">
@@ -276,6 +433,11 @@ export default function PrivateDiningLeadsList({
                     <span className={`px-2 py-0.5 text-xs font-medium rounded-full whitespace-nowrap ${statusColors[lead.status] || statusColors.new}`}>
                       {lead.status.charAt(0).toUpperCase() + lead.status.slice(1)}
                     </span>
+                    {listView === 'removed' && lead.hiddenAt ? (
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-950/50 dark:text-amber-200">
+                        Hidden {formatDateTime(lead.hiddenAt)}
+                      </span>
+                    ) : null}
                   </div>
 
                   {/* Contact Info - Compact Grid */}
@@ -347,14 +509,54 @@ export default function PrivateDiningLeadsList({
                       Updated {formatDate(lead.updatedAt)}
                     </div>
                   )}
-                  <button
-                    type="button"
-                    onClick={(e) => void handleDeleteLead(lead, e)}
-                    disabled={deletingLeadId === lead.id}
-                    className="mt-2 rounded-md border border-red-200 bg-white px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-900/50 dark:bg-gray-900 dark:text-red-300 dark:hover:bg-red-950/40"
-                  >
-                    {deletingLeadId === lead.id ? 'Deleting...' : 'Delete'}
-                  </button>
+                  {listView === 'removed' && isAdmin ? (
+                    <div className="mt-2 flex flex-col items-end gap-1.5">
+                      <button
+                        type="button"
+                        onClick={(e) => void handleRestoreLead(lead, e)}
+                        disabled={restoringLeadId === lead.id || deletingLeadId === lead.id || hidingLeadId === lead.id}
+                        className="rounded-md border border-emerald-200 bg-white px-2.5 py-1 text-xs font-medium text-emerald-800 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-emerald-900/50 dark:bg-gray-900 dark:text-emerald-200 dark:hover:bg-emerald-950/40"
+                      >
+                        {restoringLeadId === lead.id ? 'Restoring...' : 'Restore'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => void handlePermanentDelete(lead, e)}
+                        disabled={deletingLeadId === lead.id || restoringLeadId === lead.id || hidingLeadId === lead.id}
+                        className="rounded-md border border-red-200 bg-white px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-900/50 dark:bg-gray-900 dark:text-red-300 dark:hover:bg-red-950/40"
+                      >
+                        {deletingLeadId === lead.id ? 'Deleting...' : 'Delete forever'}
+                      </button>
+                    </div>
+                  ) : isAdmin ? (
+                    <div className="mt-2 flex flex-col items-end gap-1.5">
+                      <button
+                        type="button"
+                        onClick={(e) => void handleSoftRemoveFromList(lead, e)}
+                        disabled={hidingLeadId === lead.id || deletingLeadId === lead.id}
+                        className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-800 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-600 dark:bg-gray-900 dark:text-zinc-200 dark:hover:bg-zinc-800/80"
+                      >
+                        {hidingLeadId === lead.id ? 'Hiding…' : 'Hide from list'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => void handlePermanentDelete(lead, e)}
+                        disabled={deletingLeadId === lead.id || hidingLeadId === lead.id}
+                        className="rounded-md border border-red-200 bg-white px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-900/50 dark:bg-gray-900 dark:text-red-300 dark:hover:bg-red-950/40"
+                      >
+                        {deletingLeadId === lead.id ? 'Deleting…' : 'Delete forever'}
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={(e) => void handleSoftRemoveFromList(lead, e)}
+                      disabled={hidingLeadId === lead.id}
+                      className="mt-2 rounded-md border border-red-200 bg-white px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-900/50 dark:bg-gray-900 dark:text-red-300 dark:hover:bg-red-950/40"
+                    >
+                      {hidingLeadId === lead.id ? 'Removing…' : 'Remove from list'}
+                    </button>
+                  )}
                 </div>
               </div>
             </Link>

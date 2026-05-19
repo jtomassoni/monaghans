@@ -8,6 +8,7 @@ import {
   buildContactAddedNote,
   getUserIdForLeadNote,
 } from '@/lib/private-dining-lead-timeline';
+import { leadBlockedForOwner } from '@/lib/private-dining-lead-access';
 
 // Helper to require admin/owner access
 async function requireAdminAccess(req: NextRequest) {
@@ -44,6 +45,14 @@ export async function POST(
         { error: 'Contact name is required' },
         { status: 400 }
       );
+    }
+
+    const leadRow = await prisma.privateDiningLead.findUnique({
+      where: { id },
+      select: { id: true, hiddenAt: true },
+    });
+    if (!leadRow || leadBlockedForOwner(session.user.role, leadRow.hiddenAt)) {
+      return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
     }
 
     const snapshot = {

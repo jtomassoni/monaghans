@@ -9,6 +9,7 @@ import {
   buildLeadProfileChangeNote,
   getUserIdForLeadNote,
 } from '@/lib/private-dining-lead-timeline';
+import { leadBlockedForOwner, leadNotFoundResponse } from '@/lib/private-dining-lead-access';
 
 type PrismaTransactionClient = Omit<
   PrismaClient,
@@ -88,10 +89,11 @@ export async function GET(
     }
 
     if (!lead) {
-      return NextResponse.json(
-        { error: 'Lead not found' },
-        { status: 404 }
-      );
+      return leadNotFoundResponse();
+    }
+
+    if (leadBlockedForOwner(authResult.session.user.role, lead.hiddenAt)) {
+      return leadNotFoundResponse();
     }
 
     return NextResponse.json(lead);
@@ -115,11 +117,71 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await req.json();
+
+    if (body?.restore === true) {
+      if (session.user.role !== 'admin') {
+        return NextResponse.json({ error: 'Only an administrator can restore a removed lead.' }, { status: 403 });
+      }
+      const existingForRestore = await prisma.privateDiningLead.findUnique({ where: { id } });
+      if (!existingForRestore) {
+        return leadNotFoundResponse();
+      }
+      if (!existingForRestore.hiddenAt) {
+        return NextResponse.json({ error: 'Lead is already active' }, { status: 400 });
+      }
+
+      const createdBy = await getUserIdForLeadNote(session);
+      await prisma.$transaction(async (tx: PrismaTransactionClient) => {
+        await tx.privateDiningLead.update({
+          where: { id },
+          data: { hiddenAt: null },
+        });
+        await tx.leadNote.create({
+          data: {
+            leadId: id,
+            content: 'Lead restored to the active list (admin).',
+            createdBy,
+          },
+        });
+      });
+
+      let restored;
+      try {
+        restored = await prisma.privateDiningLead.findUnique({
+          where: { id },
+          include: {
+            event: true,
+            emails: { orderBy: { createdAt: 'asc' } },
+            notes: { orderBy: { createdAt: 'desc' } },
+            contacts: { orderBy: { createdAt: 'asc' } },
+          },
+        });
+      } catch (error) {
+        if (!isMissingLeadEmailTableError(error)) throw error;
+        const fb = await prisma.privateDiningLead.findUnique({
+          where: { id },
+          include: {
+            event: true,
+            notes: { orderBy: { createdAt: 'desc' } },
+            contacts: { orderBy: { createdAt: 'asc' } },
+          },
+        });
+        restored = fb ? { ...fb, emails: [] } : null;
+      }
+      if (!restored) {
+        return leadNotFoundResponse();
+      }
+      return NextResponse.json(restored);
+    }
+
     const { name, phone, email, groupSize, preferredDate, message, status } = body;
 
     const existing = await prisma.privateDiningLead.findUnique({ where: { id } });
     if (!existing) {
-      return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
+      return leadNotFoundResponse();
+    }
+    if (leadBlockedForOwner(session.user.role, existing.hiddenAt)) {
+      return leadNotFoundResponse();
     }
 
     const noteContent = buildLeadProfileChangeNote(
@@ -240,7 +302,9 @@ export async function PATCH(
 
 /**
  * DELETE /api/private-dining-leads/[id]
- * Delete a lead
+ * - Owner: always soft-hide (retain data).
+ * - Admin on a visible lead (no `hiddenAt`): soft-hide unless `?permanent=1`.
+ * - Admin with `?permanent=1`, or admin deleting an already-hidden lead: hard delete.
  */
 export async function DELETE(
   req: NextRequest,
@@ -248,14 +312,65 @@ export async function DELETE(
 ) {
   const authResult = await requireAdminAccess(req);
   if (authResult instanceof NextResponse) return authResult;
+  const { session } = authResult;
 
   try {
     const { id } = await params;
-    await prisma.privateDiningLead.delete({
-      where: { id },
-    });
+    const existing = await prisma.privateDiningLead.findUnique({ where: { id } });
+    if (!existing) {
+      return leadNotFoundResponse();
+    }
+    if (leadBlockedForOwner(session.user.role, existing.hiddenAt)) {
+      return leadNotFoundResponse();
+    }
 
-    return NextResponse.json({ success: true });
+    const wantsPermanent =
+      req.nextUrl.searchParams.get('permanent') === '1' ||
+      req.nextUrl.searchParams.get('permanent') === 'true';
+
+    if (session.user.role === 'owner') {
+      const createdBy = await getUserIdForLeadNote(session);
+      await prisma.$transaction(async (tx: PrismaTransactionClient) => {
+        await tx.privateDiningLead.update({
+          where: { id },
+          data: { hiddenAt: new Date() },
+        });
+        await tx.leadNote.create({
+          data: {
+            leadId: id,
+            content:
+              'Lead removed from the active list. Records are kept; an administrator can restore this lead.',
+            createdBy,
+          },
+        });
+      });
+      return NextResponse.json({ success: true, softDeleted: true });
+    }
+
+    // admin
+    if (wantsPermanent || existing.hiddenAt) {
+      await prisma.privateDiningLead.delete({
+        where: { id },
+      });
+      return NextResponse.json({ success: true });
+    }
+
+    const createdBy = await getUserIdForLeadNote(session);
+    await prisma.$transaction(async (tx: PrismaTransactionClient) => {
+      await tx.privateDiningLead.update({
+        where: { id },
+        data: { hiddenAt: new Date() },
+      });
+      await tx.leadNote.create({
+        data: {
+          leadId: id,
+          content:
+            'Lead hidden from the active list by an administrator. Records are kept; restore from the Removed list or lead detail.',
+          createdBy,
+        },
+      });
+    });
+    return NextResponse.json({ success: true, softDeleted: true });
   } catch (error) {
     return handleError(error, 'Failed to delete lead');
   }

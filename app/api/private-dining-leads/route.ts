@@ -26,9 +26,20 @@ async function requireAdminAccess(req: NextRequest) {
 export async function GET(req: NextRequest) {
   const authResult = await requireAdminAccess(req);
   if (authResult instanceof NextResponse) return authResult;
+  const { session } = authResult;
 
   try {
+    const removedOnly = req.nextUrl.searchParams.get('removed') === '1';
+    if (removedOnly && session.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const where = removedOnly
+      ? { hiddenAt: { not: null } }
+      : { hiddenAt: null };
+
     const leads = await prisma.privateDiningLead.findMany({
+      where,
       include: {
         event: true,
         notes: {

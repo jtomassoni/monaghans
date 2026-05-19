@@ -608,6 +608,7 @@ model PrivateDiningLead {
   contacts         LeadContact[] // Additional contacts for this lead
   emails           PrivateDiningLeadEmail[] // Outbound/inbound email thread items
   acknowledgments  PrivateDiningLeadAcknowledgment[]
+  hiddenAt         DateTime? // Set when owner removes lead from list; admin can clear to restore
   createdAt        DateTime                         @default(now())
   updatedAt        DateTime                         @updatedAt
 
@@ -615,6 +616,7 @@ model PrivateDiningLead {
   @@index([preferredDate])
   @@index([createdAt])
   @@index([email])
+  @@index([hiddenAt])
 }
 
 // Staff dismissed the "new lead" alert for this lead (per user).

@@ -11,6 +11,7 @@ import {
   getResendReplyTo,
 } from '@/lib/private-dining-notifications';
 import { getUserIdForLeadNote } from '@/lib/private-dining-lead-timeline';
+import { leadBlockedForOwner } from '@/lib/private-dining-lead-access';
 
 async function requireAdminAccess() {
   const session = await getServerSession(authOptions);
@@ -90,6 +91,9 @@ export async function POST(req: NextRequest, { params }: Params) {
   const { id } = await params;
   const lead = await prisma.privateDiningLead.findUnique({ where: { id } });
   if (!lead) {
+    return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
+  }
+  if (leadBlockedForOwner(session.user.role, lead.hiddenAt)) {
     return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
   }
 

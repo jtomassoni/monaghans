@@ -67,6 +67,10 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
     redirect('/admin/private-dining-leads');
   }
 
+  if (lead.hiddenAt && session.user.role === 'owner') {
+    redirect('/admin/private-dining-leads');
+  }
+
   await migrateLegacyNotificationRecipientsIfNeeded();
   const staffNotificationCount = await prisma.privateDiningNotificationRecipient.count({
     where: { active: true },
@@ -76,6 +80,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
     <LeadDetailClient
       initialLead={lead}
       hasStaffNotificationRecipients={staffNotificationCount > 0}
+      userRole={session.user.role}
     />
   );
 }
