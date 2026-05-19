@@ -4,6 +4,7 @@ import AdminNav from '@/components/admin-nav';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { Providers } from '@/components/providers';
+import AdminPendingLeadsModal from '@/components/admin-pending-leads-modal';
 
 export default async function AdminLayout({
   children,
@@ -44,6 +45,7 @@ export default async function AdminLayout({
         <main className="flex-1 overflow-hidden relative z-0 text-gray-900 dark:text-white">
           {children}
         </main>
+        <AdminPendingLeadsModal />
       </div>
     </Providers>
   );
