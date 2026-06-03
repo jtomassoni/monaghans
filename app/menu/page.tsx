@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import OrderingInterface from '@/components/ordering-interface';
+import PartnerOrderingBanner from '@/components/partner-ordering-banner';
 import { getMountainTimeToday, getMountainTimeTomorrow, parseMountainTimeDate, getMountainTimeDateString } from '@/lib/timezone';
 import { startOfDay, endOfDay } from 'date-fns';
 
@@ -108,6 +109,8 @@ export default async function MenuPage() {
           <h1 className="text-3xl md:text-4xl font-bold mb-2 text-white">Our Menu</h1>
           <p className="text-sm text-gray-400">*Prices subject to change</p>
         </div>
+
+        <PartnerOrderingBanner variant="inline" className="mb-8 max-w-4xl mx-auto" />
 
         {/* Ordering Interface */}
         <OrderingInterface 

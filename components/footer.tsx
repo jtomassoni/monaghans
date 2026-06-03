@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
+import { orderingRedirectPath } from '@/lib/ordering-partners';
 
 export default async function Footer() {
   let contactSetting, socialSetting, hoursSetting, mapSetting;
@@ -283,6 +284,12 @@ export default async function Footer() {
               >
                 Menu
               </Link>
+              <a
+                href={orderingRedirectPath('online-ordering')}
+                className="text-gray-500 hover:text-[#F63440] transition cursor-pointer"
+              >
+                Order Pickup (Grubhub)
+              </a>
               <Link
                 href="/events"
                 className="text-gray-500 hover:text-[var(--color-accent)] transition cursor-pointer"
