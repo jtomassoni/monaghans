@@ -28,6 +28,7 @@ import {
   FaWineGlass,
   FaChevronDown,
   FaChevronRight,
+  FaShoppingCart,
 } from 'react-icons/fa';
 import { useTheme } from './theme-provider';
 import { getPermissions } from '@/lib/permissions';
@@ -150,6 +151,7 @@ export default function AdminMobileMenu({
       title: 'Insights',
       items: [
         ...(permissions.canAccessReporting && featureFlags.reporting_analytics ? [{ href: '/admin/reporting', label: 'Reporting', icon: FaChartLine }] : []),
+        ...(permissions.canAccessReporting ? [{ href: '/admin/ordering-partners', label: 'Ordering Links', icon: FaShoppingCart }] : []),
         ...(permissions.canAccessAdmin ? [{ href: '/admin/activity', label: 'Activity', icon: FaHistory }] : []),
       ],
     },

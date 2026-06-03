@@ -30,7 +30,8 @@ import {
   FaDrumstickBite,
   FaWineGlass,
   FaCog,
-  FaQuestionCircle
+  FaQuestionCircle,
+  FaShoppingCart,
 } from 'react-icons/fa';
 import { useTheme } from './theme-provider';
 import { useEffect } from 'react';
@@ -152,6 +153,7 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
       title: 'Insights',
       items: [
         ...(permissions.canAccessReporting && featureFlags.reporting_analytics ? [{ href: '/admin/reporting', label: 'Reporting', icon: FaChartLine }] : []),
+        ...(permissions.canAccessReporting ? [{ href: '/admin/ordering-partners', label: 'Ordering Links', icon: FaShoppingCart }] : []),
         ...(permissions.canAccessAdmin ? [{ href: '/admin/activity', label: 'Activity', icon: FaHistory }] : []),
       ],
     },
@@ -195,6 +197,9 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
     }
     if (href === '/admin/reporting') {
       return pathname?.startsWith('/admin/reporting');
+    }
+    if (href === '/admin/ordering-partners') {
+      return pathname?.startsWith('/admin/ordering-partners');
     }
     if (href === '/admin/orders') {
       return pathname?.startsWith('/admin/orders');

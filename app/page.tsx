@@ -5,6 +5,7 @@ import ImageCarousel from '@/components/image-carousel';
 import Footer from '@/components/footer';
 import AnnouncementsHandler from '@/components/announcements-handler';
 import HeroImage from '@/components/hero-image';
+import PartnerOrderingBanner from '@/components/partner-ordering-banner';
 import { marked } from 'marked';
 import { getMountainTimeToday, getMountainTimeTomorrow, getMountainTimeWeekday, getMountainTimeNow, getMountainTimeDateString, parseMountainTimeDate } from '@/lib/timezone';
 import { startOfDay, endOfDay, isWithinInterval, format } from 'date-fns';
@@ -715,6 +716,11 @@ export default async function HomePage() {
           
           {/* Announcements Handler - Integrated into hero */}
           <AnnouncementsHandler announcements={publishedAnnouncements} />
+
+          {/* Partner ordering — permanent strip, not specials-style cards */}
+          <div className="max-w-6xl mx-auto w-full">
+            <PartnerOrderingBanner variant="hero" />
+          </div>
           
           {/* Compact Grid Layout for Specials and Events */}
           {totalItems > 0 ? (
@@ -917,16 +923,6 @@ export default async function HomePage() {
             >
               Private Events & Dining
             </Link>
-            <div
-              className="group inline-flex w-full items-center justify-center gap-2 rounded-full px-6 py-2.5 sm:px-8 sm:py-3 text-sm sm:text-base font-semibold transition-all shadow-lg bg-gray-600/50 cursor-not-allowed opacity-75 sm:w-auto text-white"
-              title="Online ordering coming soon"
-            >
-              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
-              Order Online
-              <span className="text-xs ml-1">(Coming Soon)</span>
-            </div>
             <Link
               href="/menu"
               className="group inline-flex w-full items-center justify-center gap-2 rounded-full border-2 border-white/30 px-6 py-2.5 sm:px-8 sm:py-3 text-sm sm:text-base font-semibold transition-all hover:scale-105 bg-white/10 backdrop-blur-sm hover:border-white/50 hover:bg-white/20 sm:w-auto text-white"
