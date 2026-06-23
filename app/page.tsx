@@ -8,6 +8,7 @@ import HeroImage from '@/components/hero-image';
 import PartnerOrderingBanner from '@/components/partner-ordering-banner';
 import { marked } from 'marked';
 import { getMountainTimeToday, getMountainTimeTomorrow, getMountainTimeWeekday, getMountainTimeNow, getMountainTimeDateString, parseMountainTimeDate } from '@/lib/timezone';
+import { isFoodSpecialActiveOnDate } from '@/lib/food-specials';
 import { startOfDay, endOfDay, isWithinInterval, format } from 'date-fns';
 import { RRule } from 'rrule';
 import { FaCalendarAlt, FaUtensils, FaBeer } from 'react-icons/fa';
@@ -416,89 +417,12 @@ export default async function HomePage() {
     },
   });
 
-  const todaysFoodSpecials: typeof allFoodSpecials = [];
-  for (const special of allFoodSpecials) {
-    // Parse appliesOn if it exists
-    let appliesOn: string[] = [];
-    try {
-      if (special.appliesOn) {
-        appliesOn = typeof special.appliesOn === 'string' 
-          ? JSON.parse(special.appliesOn) 
-          : special.appliesOn;
-        if (!Array.isArray(appliesOn)) {
-          appliesOn = [];
-        }
-        // Normalize day names (trim whitespace, ensure proper case)
-        appliesOn = appliesOn.map(day => day.trim()).filter(day => day.length > 0);
-      }
-    } catch {
-      // Invalid JSON, skip
-      appliesOn = [];
-    }
-
-    // Parse dates as Mountain Time dates (not UTC) to prevent day shifts
-    let startDateStr: string | null = null;
-    let endDateStr: string | null = null;
-    
-    if (special.startDate) {
-      const startDateValue = special.startDate as string | Date;
-      startDateStr = typeof startDateValue === 'string' 
-        ? startDateValue.split('T')[0] 
-        : getMountainTimeDateString(startDateValue);
-    }
-    
-    if (special.endDate) {
-      const endDateValue = special.endDate as string | Date;
-      endDateStr = typeof endDateValue === 'string' 
-        ? endDateValue.split('T')[0] 
-        : getMountainTimeDateString(endDateValue);
-    }
-    
-    const startDate = startDateStr ? parseMountainTimeDate(startDateStr) : null;
-    const endDate = endDateStr ? parseMountainTimeDate(endDateStr) : null;
-
-    // If weekly recurring days are set
-    if (appliesOn.length > 0) {
-      // Check if today matches a recurring day (case-insensitive comparison)
-      const matchesDay = appliesOn.some(day => 
-        day.toLowerCase() === todayName.toLowerCase()
-      );
-      
-      if (matchesDay) {
-        // Weekly recurring specials: check day match AND date range if set
-        let isInDateRange = true;
-        
-        // Check if we're past the start date (if set) - use Date comparison
-        if (startDate) {
-          if (today < startOfDay(startDate)) {
-            isInDateRange = false;
-          }
-        }
-        
-        // Check if we're before the end date (if set) - use Date comparison
-        if (endDate && isInDateRange) {
-          if (today > endOfDay(endDate)) {
-            isInDateRange = false;
-          }
-        }
-        
-        if (isInDateRange) {
-          todaysFoodSpecials.push(special);
-        }
-      }
-    } else if (startDateStr && startDate) {
-      // Date-based special (no weekly recurring)
-      // Use Date objects with startOfDay/endOfDay for accurate comparison (same as menu page)
-      const effectiveEndDate = endDate || startDate;
-      const start = startOfDay(startDate);
-      const end = endOfDay(effectiveEndDate);
-      
-      // Check if today is within the date range
-      if (today >= start && today <= end) {
-        todaysFoodSpecials.push(special);
-      }
-    }
-  }
+  // Show food specials active today. Supports both weekly recurring specials
+  // (appliesOn, e.g. Taco Tuesday) and date-based specials. See
+  // lib/food-specials.ts for the shared recurrence logic used across all surfaces.
+  const todaysFoodSpecials = allFoodSpecials.filter((special) =>
+    isFoodSpecialActiveOnDate(special, today)
+  );
 
   // Get today's drink special (weekly recurring or date-based)
   const allDrinkSpecials = await prisma.special.findMany({
@@ -678,7 +602,7 @@ export default async function HomePage() {
   return (
     <main id="main-content" className="min-h-screen bg-[var(--color-background)] text-[var(--color-foreground)] scroll-smooth" role="main" aria-label="Main content">
       {/* Hero Section */}
-      <section aria-label="Hero section" className="relative h-screen w-full overflow-hidden">
+      <section aria-label="Hero section" className="relative min-h-screen w-full overflow-hidden">
         <div className="absolute inset-0 z-0">
           <HeroImage
             src={getHeroImage()}
@@ -686,29 +610,29 @@ export default async function HomePage() {
           />
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/80" />
         </div>
-        <div className="relative z-10 container mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-16 flex flex-col h-full justify-center">
+        <div className="relative z-10 container mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-10 sm:py-12 lg:py-16 flex flex-col min-h-screen justify-start sm:justify-center">
           {/* Welcome Title */}
-          <div className="text-center mb-6 sm:mb-8 lg:mb-10 max-w-6xl mx-auto w-full">
-            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold text-white mb-4 sm:mb-5 lg:mb-6 drop-shadow-lg leading-tight">
+          <div className="text-center mb-4 sm:mb-8 lg:mb-10 max-w-6xl mx-auto w-full">
+            <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold text-white mb-2 sm:mb-5 lg:mb-6 drop-shadow-lg leading-tight">
               {hero?.title || "Monaghan's"}
             </h1>
             {hero?.tagline && (
-              <p className="text-xl sm:text-2xl md:text-3xl lg:text-4xl text-white/90 drop-shadow-md mb-3 sm:mb-4 font-semibold">
+              <p className="text-lg sm:text-2xl md:text-3xl lg:text-4xl text-white/90 drop-shadow-md mb-2 sm:mb-4 font-semibold">
                 {hero.tagline}
               </p>
             )}
             {!hero?.tagline && (
-              <p className="text-xl sm:text-2xl md:text-3xl lg:text-4xl text-white/90 drop-shadow-md mb-3 sm:mb-4 font-semibold">
+              <p className="text-lg sm:text-2xl md:text-3xl lg:text-4xl text-white/90 drop-shadow-md mb-2 sm:mb-4 font-semibold">
                 Bar & Grill
               </p>
             )}
             {hero?.subtitle && (
-              <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-white/80 drop-shadow-md">
+              <p className="text-sm sm:text-lg md:text-xl lg:text-2xl text-white/80 drop-shadow-md">
                 {hero.subtitle}
               </p>
             )}
             {!hero?.subtitle && (
-              <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-white/80 drop-shadow-md max-w-4xl mx-auto">
+              <p className="text-sm sm:text-lg md:text-xl lg:text-2xl text-white/80 drop-shadow-md max-w-4xl mx-auto">
                 Established 1892 • Denver's Second-Oldest Bar • Minority Woman Owned
               </p>
             )}
@@ -724,7 +648,7 @@ export default async function HomePage() {
           
           {/* Compact Grid Layout for Specials and Events */}
           {totalItems > 0 ? (
-            <div className={`grid ${gridConfig.cols} gap-3 sm:gap-4 mb-4 sm:mb-6 ${gridConfig.maxWidth} mx-auto w-full`}>
+            <div className={`grid ${gridConfig.cols} gap-2.5 sm:gap-4 mb-3 sm:mb-6 ${gridConfig.maxWidth} mx-auto w-full`}>
             {/* Today's Events - Recurring and Ad Hoc */}
             {todaysEvents.map((event, index) => {
               // Check if event is recurring - either has recurrenceRule or is an expanded occurrence
@@ -739,50 +663,45 @@ export default async function HomePage() {
               return (
                 <div 
                   key={`${event.id}-${event.startDateTime}-${index}`} 
-                  className="group relative rounded-2xl p-3 sm:p-4 border-l-4 border-purple-400 shadow-xl hover:shadow-2xl hover:shadow-purple-500/20 overflow-hidden"
+                  className="group relative rounded-xl sm:rounded-2xl p-2.5 sm:p-4 border-l-4 border-purple-400 shadow-xl hover:shadow-2xl hover:shadow-purple-500/20 overflow-hidden"
                 >
                   {/* Solid background layer for maximum opacity */}
-                  <div className="absolute inset-0 bg-purple-900 rounded-2xl"></div>
+                  <div className="absolute inset-0 bg-purple-900 rounded-xl sm:rounded-2xl"></div>
                   {/* Gradient overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-purple-900/98 via-purple-800/98 to-indigo-900/98 backdrop-blur-md rounded-2xl"></div>
+                  <div className="absolute inset-0 bg-gradient-to-br from-purple-900/98 via-purple-800/98 to-indigo-900/98 backdrop-blur-md rounded-xl sm:rounded-2xl"></div>
                   {/* Decorative pattern overlay */}
                   <div className="absolute inset-0 opacity-10">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-purple-400/20 rounded-full blur-3xl"></div>
                     <div className="absolute bottom-0 left-0 w-24 h-24 bg-indigo-400/20 rounded-full blur-2xl"></div>
                   </div>
-                  <div className="relative flex items-start gap-2 sm:gap-3">
-                    <div className="p-2 sm:p-2.5 bg-purple-500/50 rounded-xl flex-shrink-0 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 shadow-lg ring-2 ring-purple-300/30">
-                      <FaCalendarAlt className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                  <div className="relative flex items-center gap-2.5 sm:gap-3">
+                    <div className="p-2 sm:p-2.5 bg-purple-500/50 rounded-lg sm:rounded-xl flex-shrink-0 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 shadow-lg ring-2 ring-purple-300/30">
+                      <FaCalendarAlt className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-base sm:text-lg font-bold text-white mb-1.5 line-clamp-2 leading-tight drop-shadow-sm break-words">
+                      <span className="text-purple-300 text-[9px] sm:text-xs font-bold uppercase tracking-wider block sm:hidden">
+                        Event
+                      </span>
+                      <h3 className="text-sm sm:text-lg font-bold text-white line-clamp-1 sm:line-clamp-2 leading-tight drop-shadow-sm break-words">
                         {event.title}
                       </h3>
                       {event.description && (
-                        <p className="text-purple-50/90 text-xs sm:text-sm mb-2 line-clamp-2 leading-relaxed break-words">
+                        <p className="text-purple-50/90 text-[11px] sm:text-sm line-clamp-1 sm:line-clamp-2 leading-snug break-words">
                           {event.description}
                         </p>
                       )}
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-1.5 text-purple-100 text-[10px] sm:text-xs font-semibold">
-                          <svg className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          <span>
-                            {new Date(event.startDateTime).toLocaleTimeString('en-US', {
-                              hour: 'numeric',
-                              minute: '2-digit',
-                              timeZone: 'America/Denver',
-                            })}
-                            {event.endDateTime &&
-                              ` - ${new Date(event.endDateTime).toLocaleTimeString('en-US', {
-                                hour: 'numeric',
-                                minute: '2-digit',
-                                timeZone: 'America/Denver',
-                              })}`}
-                          </span>
-                        </div>
-                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 text-purple-100 text-[10px] sm:text-xs font-semibold whitespace-nowrap flex-shrink-0 self-start">
+                      <svg className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span>
+                        {new Date(event.startDateTime).toLocaleTimeString('en-US', {
+                          hour: 'numeric',
+                          minute: '2-digit',
+                          timeZone: 'America/Denver',
+                        })}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -793,36 +712,34 @@ export default async function HomePage() {
             {todaysFoodSpecials.map((special, index) => (
               <div 
                 key={`food-special-${special.id}-${index}`}
-                className="group relative bg-gradient-to-br from-orange-900/70 via-red-800/60 to-pink-900/70 backdrop-blur-md rounded-2xl p-3 sm:p-4 border-l-4 border-orange-400 shadow-xl overflow-hidden"
+                className="group relative bg-gradient-to-br from-orange-900/70 via-red-800/60 to-pink-900/70 backdrop-blur-md rounded-xl sm:rounded-2xl p-2.5 sm:p-4 border-l-4 border-orange-400 shadow-xl overflow-hidden"
               >
                 {/* Decorative pattern overlay */}
                 <div className="absolute inset-0 opacity-20">
                   <div className="absolute top-2 right-2 w-20 h-20 bg-orange-500 rounded-full blur-2xl"></div>
                   <div className="absolute bottom-2 left-2 w-16 h-16 bg-red-500 rounded-full blur-xl"></div>
                 </div>
-                <div className="relative flex flex-col">
-                  <div className="flex items-start gap-2 sm:gap-3 mb-2">
-                    <div className="p-2 sm:p-2.5 bg-orange-500/60 rounded-xl flex-shrink-0 shadow-lg ring-2 ring-orange-400/30">
-                      <FaUtensils className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <span className="text-orange-300 text-[10px] sm:text-xs font-bold uppercase tracking-wider block mb-1.5">
-                        Food Special
-                      </span>
-                      <h3 className="text-base sm:text-lg font-bold text-white mb-1.5 line-clamp-2 leading-tight drop-shadow-sm">
-                        {special.title}
-                      </h3>
-                    </div>
+                <div className="relative flex items-center gap-2.5 sm:gap-3">
+                  <div className="p-2 sm:p-2.5 bg-orange-500/60 rounded-lg sm:rounded-xl flex-shrink-0 shadow-lg ring-2 ring-orange-400/30">
+                    <FaUtensils className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
                   </div>
-                  {special.description && (
-                    <p className="text-orange-50/90 text-xs sm:text-sm mb-2 line-clamp-2 leading-relaxed ml-0 sm:ml-[3.5rem] break-words">
-                      {special.description}
-                    </p>
-                  )}
+                  <div className="flex-1 min-w-0">
+                    <span className="text-orange-300 text-[9px] sm:text-xs font-bold uppercase tracking-wider block">
+                      Food Special
+                    </span>
+                    <h3 className="text-sm sm:text-lg font-bold text-white line-clamp-1 sm:line-clamp-2 leading-tight drop-shadow-sm">
+                      {special.title}
+                    </h3>
+                    {special.description && (
+                      <p className="text-orange-50/90 text-[11px] sm:text-sm line-clamp-1 sm:line-clamp-2 leading-snug break-words">
+                        {special.description}
+                      </p>
+                    )}
+                  </div>
                   {special.priceNotes && (
-                    <p className="text-orange-200/80 text-[10px] sm:text-xs mb-2 font-semibold ml-0 sm:ml-[3.5rem] line-clamp-1 break-words">
+                    <span className="text-orange-100 text-xs sm:text-sm font-bold whitespace-nowrap flex-shrink-0 self-start">
                       {special.priceNotes}
-                    </p>
+                    </span>
                   )}
                 </div>
               </div>
@@ -830,35 +747,33 @@ export default async function HomePage() {
 
             {/* Drink Special */}
             {todaysDrinkSpecial && (
-              <div className="group relative bg-slate-900/70 backdrop-blur-md rounded-2xl p-3 sm:p-4 border-l-4 border-blue-400 shadow-xl overflow-hidden">
+              <div className="group relative bg-slate-900/70 backdrop-blur-md rounded-xl sm:rounded-2xl p-2.5 sm:p-4 border-l-4 border-blue-400 shadow-xl overflow-hidden">
                 {/* Animated background circles */}
                 <div className="absolute inset-0 opacity-20">
                   <div className="absolute top-2 right-2 w-20 h-20 bg-blue-500 rounded-full blur-2xl"></div>
                   <div className="absolute bottom-2 left-2 w-16 h-16 bg-cyan-500 rounded-full blur-xl"></div>
                 </div>
-                <div className="relative flex flex-col">
-                  <div className="flex items-start gap-2 sm:gap-3 mb-2">
-                    <div className="p-2 sm:p-2.5 bg-blue-500/60 rounded-xl flex-shrink-0 shadow-lg ring-2 ring-blue-400/30">
-                      <FaBeer className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <span className="text-blue-300 text-[10px] sm:text-xs font-bold uppercase tracking-wider block mb-1.5">
-                        Drink Special
-                      </span>
-                      <h3 className="text-base sm:text-lg font-bold text-white mb-1.5 line-clamp-2 leading-tight drop-shadow-sm">
-                        {todaysDrinkSpecial.title}
-                      </h3>
-                    </div>
+                <div className="relative flex items-center gap-2.5 sm:gap-3">
+                  <div className="p-2 sm:p-2.5 bg-blue-500/60 rounded-lg sm:rounded-xl flex-shrink-0 shadow-lg ring-2 ring-blue-400/30">
+                    <FaBeer className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
                   </div>
-                  {todaysDrinkSpecial.description && (
-                    <p className="text-blue-50/90 text-xs sm:text-sm mb-2 line-clamp-2 leading-relaxed ml-0 sm:ml-[3.5rem] break-words">
-                      {todaysDrinkSpecial.description}
-                    </p>
-                  )}
+                  <div className="flex-1 min-w-0">
+                    <span className="text-blue-300 text-[9px] sm:text-xs font-bold uppercase tracking-wider block">
+                      Drink Special
+                    </span>
+                    <h3 className="text-sm sm:text-lg font-bold text-white line-clamp-1 sm:line-clamp-2 leading-tight drop-shadow-sm">
+                      {todaysDrinkSpecial.title}
+                    </h3>
+                    {todaysDrinkSpecial.description && (
+                      <p className="text-blue-50/90 text-[11px] sm:text-sm line-clamp-1 sm:line-clamp-2 leading-snug break-words">
+                        {todaysDrinkSpecial.description}
+                      </p>
+                    )}
+                  </div>
                   {todaysDrinkSpecial.priceNotes && (
-                    <p className="text-blue-200/80 text-[10px] sm:text-xs mb-2 font-semibold ml-0 sm:ml-[3.5rem] line-clamp-1 break-words">
+                    <span className="text-blue-100 text-xs sm:text-sm font-bold whitespace-nowrap flex-shrink-0 self-start">
                       {todaysDrinkSpecial.priceNotes}
-                    </p>
+                    </span>
                   )}
                 </div>
               </div>
@@ -866,39 +781,39 @@ export default async function HomePage() {
 
             {/* Happy Hour */}
             {shouldShowHappyHour && (
-              <div className="group relative bg-gradient-to-br from-green-900/70 via-emerald-800/60 to-teal-900/70 backdrop-blur-md rounded-2xl p-3 sm:p-4 border-l-4 border-green-400 shadow-xl overflow-hidden">
+              <div className="group relative bg-gradient-to-br from-green-900/70 via-emerald-800/60 to-teal-900/70 backdrop-blur-md rounded-xl sm:rounded-2xl p-2.5 sm:p-4 border-l-4 border-green-400 shadow-xl overflow-hidden">
                 {/* Decorative pattern overlay */}
                 <div className="absolute inset-0 opacity-20">
                   <div className="absolute top-2 right-2 w-20 h-20 bg-green-500 rounded-full blur-2xl"></div>
                   <div className="absolute bottom-2 left-2 w-16 h-16 bg-emerald-500 rounded-full blur-xl"></div>
                 </div>
-                <div className="relative flex items-start gap-2 sm:gap-3">
-                  <div className="p-2 sm:p-2.5 bg-green-500/60 rounded-xl flex-shrink-0 shadow-lg ring-2 ring-green-400/30">
-                    <FaBeer className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                <div className="relative flex items-center gap-2.5 sm:gap-3">
+                  <div className="p-2 sm:p-2.5 bg-green-500/60 rounded-lg sm:rounded-xl flex-shrink-0 shadow-lg ring-2 ring-green-400/30">
+                    <FaBeer className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <span className="text-green-300 text-[10px] sm:text-xs font-bold uppercase tracking-wider block mb-1.5">
+                    <span className="text-green-300 text-[9px] sm:text-xs font-bold uppercase tracking-wider block">
                       Happy Hour
                     </span>
                     {happyHour.title && (
-                      <h3 className="text-base sm:text-lg font-bold text-white mb-1.5 line-clamp-2 leading-tight drop-shadow-sm break-words">
+                      <h3 className="text-sm sm:text-lg font-bold text-white line-clamp-1 sm:line-clamp-2 leading-tight drop-shadow-sm break-words">
                         {happyHour.title}
                       </h3>
                     )}
                     {happyHour.description && (
-                      <p className="text-green-50/90 text-xs sm:text-sm mb-2 line-clamp-2 leading-relaxed break-words">
+                      <p className="text-green-50/90 text-[11px] sm:text-sm line-clamp-1 sm:line-clamp-2 leading-snug break-words">
                         {happyHour.description}
                       </p>
                     )}
-                    {happyHour.times && (
-                      <div className="flex items-center gap-1.5 text-green-200 text-[10px] sm:text-xs font-semibold">
-                        <svg className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span>{happyHour.times}</span>
-                      </div>
-                    )}
                   </div>
+                  {happyHour.times && (
+                    <div className="flex items-center gap-1 text-green-200 text-[10px] sm:text-xs font-semibold whitespace-nowrap flex-shrink-0 self-start">
+                      <svg className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span className="hidden sm:inline">{happyHour.times}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -916,10 +831,10 @@ export default async function HomePage() {
           )}
           
           {/* Call to Action Buttons */}
-          <div className="flex flex-wrap justify-center gap-2 sm:gap-3 max-w-6xl mx-auto w-full mt-4 sm:mt-6">
+          <div className="flex flex-wrap justify-center gap-2 sm:gap-3 max-w-6xl mx-auto w-full mt-3 sm:mt-6">
             <Link
               href="/private-events"
-              className="group inline-flex w-full items-center justify-center gap-2 rounded-full px-8 py-3.5 sm:px-10 sm:py-4 text-base sm:text-lg font-bold transition-all hover:scale-105 bg-[var(--color-accent)] hover:bg-[var(--color-accent-dark)] shadow-lg hover:shadow-xl sm:w-auto text-white"
+              className="group inline-flex w-full items-center justify-center gap-2 rounded-full px-8 py-3 sm:px-10 sm:py-4 text-base sm:text-lg font-bold transition-all hover:scale-105 bg-[var(--color-accent)] hover:bg-[var(--color-accent-dark)] shadow-lg hover:shadow-xl sm:w-auto text-white"
             >
               Private Events & Dining
             </Link>

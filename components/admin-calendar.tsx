@@ -706,8 +706,9 @@ export default function CalendarView({ events, specials, announcements = [], bus
     // Process specials (daily specials - food type with dates, and drink specials)
     // Show all specials (active and inactive) for historical and future reference
     specials.forEach((special) => {
-      // Handle food specials (with dates)
+      // Handle food specials (weekly recurring via appliesOn, e.g. Taco Tuesday, or with dates)
       if (special.type === 'food') {
+        const appliesOn = special.appliesOn ? (typeof special.appliesOn === 'string' ? JSON.parse(special.appliesOn) : special.appliesOn) : [];
         // Parse dates as Mountain Time dates (not UTC) to prevent day shifts
         // Handle both string and Date object formats
         let startDateStr: string | null = null;
@@ -735,7 +736,34 @@ export default function CalendarView({ events, specials, announcements = [], bus
         const startDate = startDateStr ? parseMountainTimeDate(startDateStr) : null;
         const endDate = endDateStr ? parseMountainTimeDate(endDateStr) : null;
 
-        if (startDate && startDateStr) {
+        if (appliesOn.length > 0) {
+          // Weekly recurring food special (e.g. Taco Tuesday). Show on matching
+          // days of the week within the visible range, optionally bounded by a
+          // start/end date range. Mirrors the drink special logic below.
+          let date = new Date(rangeStart);
+          while (date <= rangeEnd) {
+            const dateStr = getMountainTimeDateString(date);
+            const dateInCompanyTz = parseMountainTimeDate(dateStr);
+            const dayName = dateInCompanyTz.toLocaleDateString('en-US', {
+              weekday: 'long',
+              timeZone: companyTimezone,
+            });
+
+            const matchesDay = appliesOn.some(
+              (day: string) => day.trim().toLowerCase() === dayName.toLowerCase()
+            );
+            const withinStart = !startDateStr || dateStr >= startDateStr;
+            const withinEnd = !endDateStr || dateStr <= endDateStr;
+
+            if (matchesDay && withinStart && withinEnd && isWithinInterval(date, { start: rangeStart, end: rangeEnd })) {
+              items.push({
+                ...special,
+                date: startOfDay(new Date(date)),
+              });
+            }
+            date = addDays(date, 1);
+          }
+        } else if (startDate && startDateStr) {
           // Use date strings directly for comparison (already in Mountain Time format)
           // Both startDate and endDate were parsed from date strings, so we can compare the strings directly
           const isSingleDay = !endDateStr || startDateStr === endDateStr;

@@ -24,7 +24,7 @@ export default function PartnerOrderingBanner({
       <div className="absolute inset-x-0 bottom-0 h-1 bg-[#F63440] sm:h-1.5" aria-hidden />
 
       <div
-        className={`relative flex flex-col gap-4 bg-neutral-950 px-4 py-5 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-6 sm:py-5 ${
+        className={`relative flex flex-col gap-3 bg-neutral-950 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-6 sm:py-5 ${
           isHero ? 'shadow-[0_8px_32px_rgba(246,52,64,0.25)]' : 'shadow-lg'
         }`}
       >
@@ -37,12 +37,12 @@ export default function PartnerOrderingBanner({
           aria-hidden
         />
 
-        <div className="relative flex min-w-0 flex-1 items-center gap-4">
+        <div className="relative flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
           <div
-            className="flex h-14 w-14 shrink-0 items-center justify-center bg-[#F63440] text-white sm:h-16 sm:w-16"
+            className="flex h-11 w-11 shrink-0 items-center justify-center bg-[#F63440] text-white sm:h-16 sm:w-16"
             aria-hidden
           >
-            <svg className="h-7 w-7 sm:h-8 sm:w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="h-6 w-6 sm:h-8 sm:w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="square"
                 strokeLinejoin="miter"
@@ -58,7 +58,7 @@ export default function PartnerOrderingBanner({
             <p className="text-lg font-bold leading-tight text-white sm:text-xl md:text-2xl">
               Pickup on <span className="text-[#F63440]">Grubhub</span>
             </p>
-            <p className="mt-1 text-xs text-neutral-400 sm:text-sm">
+            <p className="mt-1 hidden text-xs text-neutral-400 sm:block sm:text-sm">
               Sheridan neighborhood favorites — order ahead for pickup at the bar.
             </p>
           </div>
@@ -66,7 +66,7 @@ export default function PartnerOrderingBanner({
 
         <a
           href={orderingRedirectPath('online-ordering')}
-          className="relative inline-flex min-h-[48px] w-full shrink-0 items-center justify-center gap-2 bg-[#F63440] px-6 py-3 text-sm font-bold uppercase tracking-wide text-white transition hover:bg-[#d42a35] sm:w-auto sm:min-w-[200px]"
+          className="relative inline-flex min-h-[44px] w-full shrink-0 items-center justify-center gap-2 bg-[#F63440] px-6 py-2.5 text-sm font-bold uppercase tracking-wide text-white transition hover:bg-[#d42a35] sm:min-h-[48px] sm:w-auto sm:min-w-[200px] sm:py-3"
         >
           <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
             <path strokeLinecap="square" strokeLinejoin="miter" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
