@@ -288,7 +288,7 @@ export default async function Footer() {
                 href={orderingRedirectPath('online-ordering')}
                 className="text-gray-500 hover:text-[#F63440] transition cursor-pointer"
               >
-                Order Pickup (Grubhub)
+                Order Pickup (Toast)
               </a>
               <Link
                 href="/events"

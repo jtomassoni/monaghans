@@ -111,7 +111,7 @@ export default function OrderingPartnersClient() {
             <p className="text-3xl font-bold text-gray-900 dark:text-white mt-1">
               {data.summary.totalClicks}
             </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Pickup-only — all links redirect to Grubhub pickup.</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Pickup-only — all links redirect to Toast pickup.</p>
           </div>
 
           <div className="space-y-4">

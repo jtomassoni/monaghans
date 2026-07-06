@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
-import OrderingInterface from '@/components/ordering-interface';
+import MenuDisplay from '@/components/menu-display';
 import PartnerOrderingBanner from '@/components/partner-ordering-banner';
 import { getMountainTimeToday } from '@/lib/timezone';
 import { isFoodSpecialActiveOnDate } from '@/lib/food-specials';
@@ -81,8 +81,8 @@ export default async function MenuPage() {
 
         <PartnerOrderingBanner variant="inline" className="mb-8 max-w-4xl mx-auto" />
 
-        {/* Ordering Interface */}
-        <OrderingInterface 
+        {/* Read-only menu display — ordering happens via Toast */}
+        <MenuDisplay 
           breakfastSections={breakfastSections} 
           dinnerSections={dinnerSections}
           dailySpecials={dailySpecials}
