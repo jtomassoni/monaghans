@@ -19,7 +19,6 @@ export default async function AdminOverview() {
   const featureFlags = await getAllFeatureFlags();
   const flagsMap = new Map(featureFlags.map(flag => [flag.key, flag.isEnabled]));
   
-  const isOnlineOrderingEnabled = flagsMap.get('online_ordering') ?? false;
   const isStaffManagementEnabled = flagsMap.get('staff_management') ?? false;
 
   // Use Mountain Time for date calculations to match events page
@@ -35,14 +34,6 @@ export default async function AdminOverview() {
   startOfToday.setHours(0, 0, 0, 0);
   const endOfToday = new Date(now);
   endOfToday.setHours(23, 59, 59, 999);
-
-  // Date ranges for this week
-  const startOfWeek = new Date(now);
-  startOfWeek.setDate(now.getDate() - now.getDay()); // Sunday
-  startOfWeek.setHours(0, 0, 0, 0);
-  const endOfWeek = new Date(startOfWeek);
-  endOfWeek.setDate(startOfWeek.getDate() + 6);
-  endOfWeek.setHours(23, 59, 59, 999);
 
   // Build promises array conditionally based on feature flags
   const promises: Promise<any>[] = [];
@@ -102,98 +93,6 @@ export default async function AdminOverview() {
       take: 3,
     })
   );
-
-  // Orders data (if online_ordering enabled)
-  if (isOnlineOrderingEnabled) {
-    promiseIndices.todayOrdersCount = promises.length;
-    promises.push(
-      prisma.order.count({
-        where: {
-          createdAt: {
-            gte: startOfToday,
-            lte: endOfToday,
-          },
-        },
-      })
-    );
-    promiseIndices.pendingOrdersCount = promises.length;
-    promises.push(
-      prisma.order.count({
-        where: {
-          status: {
-            notIn: ['completed', 'cancelled'],
-          },
-        },
-      })
-    );
-    promiseIndices.kitchenOrdersCount = promises.length;
-    promises.push(
-      prisma.order.count({
-        where: {
-          status: {
-            in: ['acknowledged', 'preparing', 'ready'],
-          },
-        },
-      })
-    );
-    promiseIndices.todayRevenue = promises.length;
-    promises.push(
-      prisma.order.aggregate({
-        where: {
-          createdAt: {
-            gte: startOfToday,
-            lte: endOfToday,
-          },
-          paymentStatus: 'paid',
-        },
-        _sum: {
-          total: true,
-        },
-      })
-    );
-    promiseIndices.weekRevenue = promises.length;
-    promises.push(
-      prisma.order.aggregate({
-        where: {
-          createdAt: {
-            gte: startOfWeek,
-            lte: endOfWeek,
-          },
-          paymentStatus: 'paid',
-        },
-        _sum: {
-          total: true,
-        },
-      })
-    );
-    promiseIndices.recentOrders = promises.length;
-    promises.push(
-      prisma.order.findMany({
-        where: {
-          status: {
-            notIn: ['completed', 'cancelled'],
-          },
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 5,
-        select: {
-          id: true,
-          orderNumber: true,
-          status: true,
-          customerName: true,
-          total: true,
-          createdAt: true,
-        },
-      })
-    );
-  } else {
-    promiseIndices.todayOrdersCount = -1;
-    promiseIndices.pendingOrdersCount = -1;
-    promiseIndices.kitchenOrdersCount = -1;
-    promiseIndices.todayRevenue = -1;
-    promiseIndices.weekRevenue = -1;
-    promiseIndices.recentOrders = -1;
-  }
 
   // Staff data (if staff_management enabled)
   if (isStaffManagementEnabled) {
@@ -321,12 +220,6 @@ export default async function AdminOverview() {
   const recentActivities = getResult(promiseIndices.recentActivities, []);
   const inactiveMenuItems = getResult(promiseIndices.inactiveMenuItems);
   const unpublishedAnnouncements = getResult(promiseIndices.unpublishedAnnouncements, []);
-  const todayOrdersCount = getResult(promiseIndices.todayOrdersCount);
-  const pendingOrdersCount = getResult(promiseIndices.pendingOrdersCount);
-  const kitchenOrdersCount = getResult(promiseIndices.kitchenOrdersCount);
-  const todayRevenue = getResult(promiseIndices.todayRevenue, { _sum: { total: 0 } });
-  const weekRevenue = getResult(promiseIndices.weekRevenue, { _sum: { total: 0 } });
-  const recentOrders = getResult(promiseIndices.recentOrders, []);
   const activeEmployeesCount = getResult(promiseIndices.activeEmployeesCount);
   const clockedInCount = getResult(promiseIndices.clockedInCount);
   const todaySchedulesCount = getResult(promiseIndices.todaySchedulesCount);
@@ -363,23 +256,6 @@ export default async function AdminOverview() {
 
   // Build stats array conditionally based on feature flags
   const stats = [];
-
-  // Orders stat (only if online_ordering enabled)
-  if (isOnlineOrderingEnabled) {
-    stats.push({
-      title: 'Orders',
-      total: todayOrdersCount,
-      active: pendingOrdersCount,
-      iconName: 'FaShoppingCart',
-      href: '/admin/orders',
-      color: 'bg-green-500/80 dark:bg-green-600/80',
-      bgColor: 'bg-green-50 dark:bg-green-900/20',
-      textColor: 'text-green-600 dark:text-green-400',
-      details: `$${(todayRevenue._sum.total || 0).toFixed(2)} today • ${kitchenOrdersCount} in kitchen`,
-      revenue: todayRevenue._sum.total || 0,
-      kitchenOrders: kitchenOrdersCount,
-    });
-  }
 
   // Staff stat (only if staff_management enabled)
   if (isStaffManagementEnabled) {
@@ -439,12 +315,6 @@ export default async function AdminOverview() {
   });
 
 
-  // Format recent orders
-  const formattedRecentOrders = recentOrders.map((order: any) => ({
-    ...order,
-    formattedDateTime: formatDateTime(order.createdAt),
-  }));
-
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 overflow-hidden relative">
       {/* Decorative background elements */}
@@ -464,12 +334,8 @@ export default async function AdminOverview() {
         upcomingEvents={formattedUpcomingEvents}
         recentActivities={formattedRecentActivities}
         publishedAnnouncementsCount={publishedAnnouncementsCount}
-        recentOrders={formattedRecentOrders}
-        todayRevenue={todayRevenue._sum.total || 0}
-        weekRevenue={weekRevenue._sum.total || 0}
         clockedInCount={clockedInCount}
         featureFlags={{
-          online_ordering: isOnlineOrderingEnabled,
           staff_management: isStaffManagementEnabled,
         }}
       />

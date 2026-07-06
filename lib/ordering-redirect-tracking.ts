@@ -60,6 +60,21 @@ export async function recordOrderingRedirectClick(slug: OrderingRedirectSlug): P
   }
 }
 
+/** Clears all recorded ordering-redirect click counts back to zero. */
+export async function resetOrderingRedirectClicks(): Promise<void> {
+  const value = JSON.stringify({} as OrderingRedirectClickStore);
+
+  await prisma.setting.upsert({
+    where: { key: SETTINGS_KEY },
+    update: { value, updatedAt: new Date() },
+    create: {
+      key: SETTINGS_KEY,
+      value,
+      description: 'Tracked clicks on Toast marketing redirect links (slug + date)',
+    },
+  });
+}
+
 export function aggregateOrderingRedirectClicks(
   store: OrderingRedirectClickStore,
   periodDays: number

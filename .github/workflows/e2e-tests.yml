@@ -186,7 +186,6 @@ jobs:
           # Parallelization: Use 4 workers by default (can be overridden)
           PLAYWRIGHT_WORKERS: ${{ vars.PLAYWRIGHT_WORKERS || '4' }}
           # Disable features that might interfere with tests
-          ENABLE_ONLINE_ORDERING: "false"
           ENABLE_SOCIAL_POSTING: "false"
 
       - name: 📊 Upload test results

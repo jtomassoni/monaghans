@@ -199,12 +199,6 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
     if (href === '/admin/ordering-partners') {
       return pathname?.startsWith('/admin/ordering-partners');
     }
-    if (href === '/admin/orders') {
-      return pathname?.startsWith('/admin/orders');
-    }
-    if (href === '/admin/kds') {
-      return pathname?.startsWith('/admin/kds');
-    }
     if (href === '/admin/staff') {
       return pathname?.startsWith('/admin/staff');
     }
@@ -500,9 +494,7 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
     if (path?.startsWith('/admin/drink-specials')) return 'Drink Specials';
     if (path?.startsWith('/admin/menu')) return 'Menu';
     if (path?.startsWith('/admin/staff')) return 'Staff & Scheduling';
-    if (path?.startsWith('/admin/orders')) return 'Orders';
     if (path?.startsWith('/admin/private-dining-leads')) return 'Private Dining Leads';
-    if (path?.startsWith('/admin/kds')) return 'Kitchen Display';
     if (path?.startsWith('/admin/pos-integrations')) return 'POS Integrations';
     if (path?.startsWith('/admin/homepage')) return 'Settings & Homepage';
     if (path?.startsWith('/admin/social')) return 'Social Media';

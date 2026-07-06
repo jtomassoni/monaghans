@@ -28,7 +28,6 @@ export function clearFeatureFlagsCache() {
 export function useFeatureFlags(): FeatureFlagsState {
   // Initialize with default disabled flags for safety
   const defaultFlags: Record<FeatureFlagKey, boolean> = {
-    online_ordering: false,
     boh_connections: false,
     staff_management: false,
     reporting_analytics: false,

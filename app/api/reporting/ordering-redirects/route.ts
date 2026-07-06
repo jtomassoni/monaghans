@@ -5,6 +5,7 @@ import { handleError } from '@/lib/api-helpers';
 import { getPermissions } from '@/lib/permissions';
 import {
   getOrderingRedirectAnalytics,
+  resetOrderingRedirectClicks,
   ORDERING_REDIRECT_PATHS,
 } from '@/lib/ordering-redirect-tracking';
 
@@ -38,5 +39,29 @@ export async function GET(req: NextRequest) {
     });
   } catch (error) {
     return handleError(error, 'Failed to fetch ordering redirect analytics');
+  }
+}
+
+export async function DELETE() {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const permissions = getPermissions(session.user.role);
+  if (!permissions.canAccessReporting) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  // Resetting the counters is restricted to admins only.
+  if (session.user.role !== 'admin') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  try {
+    await resetOrderingRedirectClicks();
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return handleError(error, 'Failed to reset ordering redirect clicks');
   }
 }

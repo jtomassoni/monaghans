@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { FaExternalLinkAlt, FaCopy, FaShoppingCart, FaFacebook } from 'react-icons/fa';
+import { FaExternalLinkAlt, FaCopy, FaShoppingCart, FaFacebook, FaTrashAlt } from 'react-icons/fa';
 
 interface OrderingRedirectAnalytics {
   period: number;
@@ -28,12 +28,13 @@ const SLUG_LABELS: Record<string, { title: string; description: string; icon: ty
   },
 };
 
-export default function OrderingPartnersClient() {
+export default function OrderingPartnersClient({ isAdmin = false }: { isAdmin?: boolean }) {
   const [period, setPeriod] = useState(30);
   const [data, setData] = useState<OrderingRedirectAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [resetting, setResetting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -55,6 +56,26 @@ export default function OrderingPartnersClient() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const resetCounts = async () => {
+    if (!window.confirm('Reset all ordering link click counts to zero? This cannot be undone.')) {
+      return;
+    }
+    setResetting(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/reporting/ordering-redirects', { method: 'DELETE' });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || 'Failed to reset counts');
+      }
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to reset counts');
+    } finally {
+      setResetting(false);
+    }
+  };
 
   const copyLink = async (path: string) => {
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -90,6 +111,17 @@ export default function OrderingPartnersClient() {
         >
           Refresh
         </button>
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={resetCounts}
+            disabled={resetting}
+            className="ml-auto inline-flex items-center gap-2 rounded-lg border border-red-300 dark:border-red-800 px-3 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50"
+          >
+            <FaTrashAlt className="w-3.5 h-3.5" />
+            {resetting ? 'Resetting…' : 'Reset counts'}
+          </button>
+        )}
       </div>
 
       {data?.note && (
