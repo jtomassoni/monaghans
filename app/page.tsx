@@ -576,16 +576,16 @@ export default async function HomePage() {
   };
 
   // Collect all available content for dynamic display
-  // Note: Announcements are shown as modals, not in the grid
+  // Note: Announcements are shown as modals, not in the grid.
+  // Happy hour lives in its own dedicated section below the hero.
   const allContent = [
     ...todaysEvents,
     ...todaysFoodSpecials,
     ...(todaysDrinkSpecial ? [todaysDrinkSpecial] : []),
-    ...(shouldShowHappyHour ? ['happyHour'] : []),
   ];
 
   // Calculate total number of items for dynamic grid layout
-  const totalItems = todaysEvents.length + todaysFoodSpecials.length + (todaysDrinkSpecial ? 1 : 0) + (shouldShowHappyHour ? 1 : 0);
+  const totalItems = todaysEvents.length + todaysFoodSpecials.length + (todaysDrinkSpecial ? 1 : 0);
   
   // Determine grid columns and max width based on number of items
   const getGridCols = () => {
@@ -779,44 +779,7 @@ export default async function HomePage() {
               </div>
             )}
 
-            {/* Happy Hour */}
-            {shouldShowHappyHour && (
-              <div className="group relative bg-gradient-to-br from-green-900/70 via-emerald-800/60 to-teal-900/70 backdrop-blur-md rounded-xl sm:rounded-2xl p-2.5 sm:p-4 border-l-4 border-green-400 shadow-xl overflow-hidden">
-                {/* Decorative pattern overlay */}
-                <div className="absolute inset-0 opacity-20">
-                  <div className="absolute top-2 right-2 w-20 h-20 bg-green-500 rounded-full blur-2xl"></div>
-                  <div className="absolute bottom-2 left-2 w-16 h-16 bg-emerald-500 rounded-full blur-xl"></div>
-                </div>
-                <div className="relative flex items-center gap-2.5 sm:gap-3">
-                  <div className="p-2 sm:p-2.5 bg-green-500/60 rounded-lg sm:rounded-xl flex-shrink-0 shadow-lg ring-2 ring-green-400/30">
-                    <FaBeer className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <span className="text-green-300 text-[9px] sm:text-xs font-bold uppercase tracking-wider block">
-                      Happy Hour
-                    </span>
-                    {happyHour.title && (
-                      <h3 className="text-sm sm:text-lg font-bold text-white line-clamp-1 sm:line-clamp-2 leading-tight drop-shadow-sm break-words">
-                        {happyHour.title}
-                      </h3>
-                    )}
-                    {happyHour.description && (
-                      <p className="text-green-50/90 text-[11px] sm:text-sm line-clamp-1 sm:line-clamp-2 leading-snug break-words">
-                        {happyHour.description}
-                      </p>
-                    )}
-                  </div>
-                  {happyHour.times && (
-                    <div className="flex items-center gap-1 text-green-200 text-[10px] sm:text-xs font-semibold whitespace-nowrap flex-shrink-0 self-start">
-                      <svg className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <span className="hidden sm:inline">{happyHour.times}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+            {/* Happy hour has its own dedicated section below the hero */}
 
             {/* Announcements are now shown as modals, not in the grid */}
           </div>
@@ -850,6 +813,55 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* Happy Hour Section — glowing neon bar sign, distinct from the hero specials tiles */}
+      {shouldShowHappyHour && (
+        <section
+          aria-label="Happy hour"
+          className="relative overflow-hidden bg-neutral-950 py-16 sm:py-20 px-4"
+        >
+          {/* subtle brick-toned vignette behind the sign */}
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(16,185,129,0.12),_transparent_70%)]" />
+
+          <div className="relative mx-auto max-w-3xl">
+            {/* neon tube frame */}
+            <div className="relative rounded-[2rem] border-2 border-emerald-400/70 px-6 py-10 text-center shadow-[0_0_20px_rgba(52,211,153,0.5),inset_0_0_20px_rgba(52,211,153,0.25)] sm:px-12 sm:py-12">
+              {/* top marquee label */}
+              <p className="text-xs sm:text-sm font-semibold uppercase tracking-[0.5em] text-emerald-300/90 [text-shadow:0_0_8px_rgba(52,211,153,0.9)]">
+                Every&nbsp;Day
+              </p>
+
+              {/* main neon headline */}
+              <h2 className="mt-4 font-serif text-5xl sm:text-6xl md:text-7xl italic leading-none text-emerald-50 [text-shadow:0_0_10px_rgba(52,211,153,0.9),0_0_30px_rgba(16,185,129,0.7),0_0_60px_rgba(16,185,129,0.4)]">
+                Happy Hour
+              </h2>
+
+              {/* offer */}
+              <p className="mt-5 text-2xl sm:text-3xl font-black uppercase tracking-wide text-white [text-shadow:0_0_10px_rgba(255,255,255,0.4)]">
+                {happyHour.title}
+              </p>
+              {happyHour.description && (
+                <p className="mt-2 text-sm sm:text-base font-medium tracking-wide text-emerald-100/70">
+                  {happyHour.description}
+                </p>
+              )}
+
+              {/* glowing divider */}
+              <div className="mx-auto my-7 h-px w-24 bg-emerald-400/70 shadow-[0_0_10px_rgba(52,211,153,0.9)]" />
+
+              {/* times */}
+              {happyHour.times && (
+                <div className="inline-flex items-center gap-3 text-emerald-100">
+                  <FaBeer className="h-6 w-6 text-emerald-300 [filter:drop-shadow(0_0_6px_rgba(52,211,153,0.9))]" />
+                  <span className="text-xl sm:text-2xl font-bold tracking-wide [text-shadow:0_0_10px_rgba(52,211,153,0.7)]">
+                    {happyHour.times}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* About Section */}
       <section id="about" aria-label="About section" className="py-20 md:py-32 px-4 bg-gradient-to-b from-gray-50 via-white to-gray-50 dark:from-black dark:via-gray-900 dark:to-black">

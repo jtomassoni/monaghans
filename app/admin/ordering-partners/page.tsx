@@ -29,7 +29,7 @@ export default async function AdminOrderingPartnersPage() {
       </div>
       <AdminPageHeader
         title="Online Ordering Links"
-        description="Tracked Grubhub pickup redirect links — click counts by channel"
+        description="Tracked Toast pickup redirect links — click counts by channel"
       />
       <div className="flex-1 overflow-auto p-4 sm:p-6 relative z-10">
         <div className="max-w-5xl mx-auto">

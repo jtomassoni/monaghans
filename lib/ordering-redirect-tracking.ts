@@ -54,7 +54,7 @@ export async function recordOrderingRedirectClick(slug: OrderingRedirectSlug): P
       data: {
         key: SETTINGS_KEY,
         value,
-        description: 'Tracked clicks on Grubhub marketing redirect links (slug + date)',
+        description: 'Tracked clicks on Toast marketing redirect links (slug + date)',
       },
     });
   }

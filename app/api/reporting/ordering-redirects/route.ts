@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
       ...analytics,
       links: ORDERING_REDIRECT_PATHS,
       note:
-        'Counts visitors who hit each redirect link on your site. Grubhub does not report orders back to us, so completed orders cannot be attributed per link.',
+        'Counts visitors who hit each redirect link on your site. Toast does not report orders back to us, so completed orders cannot be attributed per link.',
     });
   } catch (error) {
     return handleError(error, 'Failed to fetch ordering redirect analytics');
