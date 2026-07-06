@@ -124,7 +124,6 @@ export default function AdminMobileMenu({
       id: 'orders-leads',
       title: 'Orders & Leads',
       items: [
-        ...(permissions.canAccessAdmin && featureFlags.online_ordering ? [{ href: '/admin/orders', label: 'Orders', icon: FaCashRegister }] : []),
         ...(permissions.canAccessAdmin ? [{ href: '/admin/private-dining-leads', label: 'Private Dining Leads', icon: FaUsers }] : []),
       ],
     },
@@ -133,7 +132,6 @@ export default function AdminMobileMenu({
       title: 'Back of House',
       items: [
         ...(permissions.canManageStaff && featureFlags.staff_management ? [{ href: '/admin/staff', label: 'Staff Management', icon: FaClock }] : []),
-        ...(permissions.canAccessKDS && featureFlags.boh_connections ? [{ href: '/admin/kds', label: 'Kitchen Display', icon: FaUtensils }] : []),
         ...(permissions.canAccessAdmin && featureFlags.boh_connections ? [{ href: '/admin/pos-integrations', label: 'POS Integrations', icon: FaCashRegister }] : []),
         ...(permissions.canAccessAdmin && featureFlags.purchase_orders ? [{ href: '/admin/purchase-orders', label: 'Purchase Orders', icon: FaUtensils }] : []),
         ...(permissions.canAccessAdmin && featureFlags.ingredients_management ? [{ href: '/admin/ingredients', label: 'Ingredients', icon: FaUtensils }] : []),
@@ -224,9 +222,6 @@ export default function AdminMobileMenu({
     }
     if (href === '/admin/social') {
       return pathname?.startsWith('/admin/social');
-    }
-    if (href === '/admin/kds') {
-      return pathname?.startsWith('/admin/kds');
     }
     return pathname?.startsWith(href);
   };

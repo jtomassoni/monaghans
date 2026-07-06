@@ -8,7 +8,6 @@
 import { prisma } from './prisma';
 
 export type FeatureFlagKey =
-  | 'online_ordering' // Online ordering system
   | 'boh_connections' // BOH connections (KDS, POS integrations, printing)
   | 'staff_management' // Staff management suite (employees, scheduling, availability, timeclock, payroll)
   | 'reporting_analytics' // Reporting and analytics
@@ -18,7 +17,6 @@ export type FeatureFlagKey =
 
 // Feature flag dependencies - flags that require other flags to be enabled
 export const FEATURE_FLAG_DEPENDENCIES: Record<FeatureFlagKey, FeatureFlagKey[]> = {
-  online_ordering: [],
   boh_connections: [],
   staff_management: [],
   reporting_analytics: [],
@@ -38,15 +36,9 @@ export interface FeatureFlag {
 // Default feature flags configuration
 const DEFAULT_FEATURE_FLAGS: Omit<FeatureFlag, 'isEnabled'>[] = [
   {
-    key: 'online_ordering',
-    name: 'Online Ordering',
-    description: 'Enables the Orders page at /admin/orders and the customer ordering interface. When OFF, order management and customer ordering are disabled.',
-    category: 'operations',
-  },
-  {
     key: 'boh_connections',
     name: 'BOH Connections',
-    description: 'Enables Kitchen Display System (KDS) at /admin/kds and POS Integrations at /admin/pos-integrations. When OFF, BOH connection features are hidden from navigation.',
+    description: 'Enables POS Integrations at /admin/pos-integrations. When OFF, BOH connection features are hidden from navigation.',
     category: 'operations',
   },
   {
@@ -154,6 +146,11 @@ export async function initializeFeatureFlags() {
   // Remove menu_management flag if it exists (menu management is always enabled, not a feature flag)
   await prisma.featureFlag.deleteMany({
     where: { key: 'menu_management' },
+  });
+  
+  // Remove online_ordering flag (built-in ordering removed — ordering goes through Toast)
+  await prisma.featureFlag.deleteMany({
+    where: { key: 'online_ordering' },
   });
   
   // Initialize all feature flags
