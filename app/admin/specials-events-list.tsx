@@ -357,11 +357,7 @@ export default function EventsList({
       }
     } else if (item.eventType === 'special') {
       const special = item as Special;
-      const formatDate = (date: string | null): string | null => {
-        if (!date) return null;
-        if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
-        return getMountainTimeDateString(new Date(date));
-      };
+      const todayStr = getMountainTimeDateString(getMountainTimeToday());
       setSpecialType(special.type);
       setEditingSpecial({
         id: '',
@@ -371,8 +367,8 @@ export default function EventsList({
         type: special.type,
         appliesOn: special.appliesOn ?? null,
         timeWindow: special.timeWindow ?? null,
-        startDate: formatDate(special.startDate),
-        endDate: formatDate(special.endDate),
+        startDate: todayStr,
+        endDate: todayStr,
         image: special.image ?? null,
         isActive: special.isActive ?? true,
         eventType: 'special',

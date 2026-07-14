@@ -232,25 +232,17 @@ export default function DrinkSpecialsList({ initialSpecials }: DrinkSpecialsList
       const res = await fetch(`/api/specials/${item.id}`);
       if (res.ok) {
         const specialData = await res.json();
-        // Create a duplicate without the ID
+        const todayStr = getMountainTimeDateString(getMountainTimeToday());
         setEditingSpecial({
-          id: '', // No ID means it's a new special
+          id: '',
           title: `${specialData.title} (Copy)`,
           description: specialData.description || null,
           priceNotes: specialData.priceNotes || null,
           type: specialData.type,
           appliesOn: specialData.appliesOn,
           timeWindow: null, // Specials are always all day
-          startDate: specialData.startDate 
-            ? (typeof specialData.startDate === 'string' 
-                ? specialData.startDate 
-                : new Date(specialData.startDate).toISOString().split('T')[0])
-            : null,
-          endDate: specialData.endDate
-            ? (typeof specialData.endDate === 'string'
-                ? specialData.endDate
-                : new Date(specialData.endDate).toISOString().split('T')[0])
-            : null,
+          startDate: todayStr,
+          endDate: todayStr,
           isActive: specialData.isActive ?? true,
         });
         setSpecialModalOpen(true);

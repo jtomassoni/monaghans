@@ -228,11 +228,7 @@ export default function DailySpecialsList({ initialSpecials }: DailySpecialsList
       const res = await fetch(`/api/specials/${item.id}`);
       if (res.ok) {
         const specialData = await res.json();
-        const formatDate = (date: string | Date | null | undefined): string | null => {
-          if (!date) return null;
-          if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
-          return getMountainTimeDateString(typeof date === 'string' ? new Date(date) : date);
-        };
+        const todayStr = getMountainTimeDateString(getMountainTimeToday());
 
         setEditingSpecial({
           id: '',
@@ -242,8 +238,8 @@ export default function DailySpecialsList({ initialSpecials }: DailySpecialsList
           type: specialData.type,
           appliesOn: specialData.appliesOn ?? null,
           timeWindow: specialData.timeWindow ?? null,
-          startDate: formatDate(specialData.startDate),
-          endDate: formatDate(specialData.endDate),
+          startDate: todayStr,
+          endDate: todayStr,
           image: specialData.image ?? null,
           isActive: specialData.isActive ?? true,
         });

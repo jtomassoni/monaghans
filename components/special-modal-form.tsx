@@ -696,6 +696,7 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
               <button
                 type="button"
                 onClick={() => {
+                  const todayStr = getMountainTimeDateString(getMountainTimeToday());
                   onDuplicate({
                     id: '',
                     title: `${formData.title} (Copy)`,
@@ -704,8 +705,8 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
                     type: formData.type,
                     appliesOn: formData.appliesOn,
                     timeWindow: formData.timeWindow,
-                    startDate: formData.date || formData.startDate,
-                    endDate: formData.date || formData.endDate,
+                    startDate: todayStr,
+                    endDate: todayStr,
                     image: formData.image || undefined,
                     isActive: formData.isActive,
                   });
