@@ -60,6 +60,35 @@ interface Announcement {
 
 type ListItem = Event | Special | Announcement;
 
+function mapApiSpecialToListSpecial(apiSpecial: any): Special {
+  const specialType = apiSpecial.type === 'drink' ? 'drink' : 'food';
+  return {
+    id: apiSpecial.id,
+    title: apiSpecial.title,
+    description: apiSpecial.description ?? null,
+    priceNotes: apiSpecial.priceNotes ?? null,
+    type: specialType,
+    appliesOn:
+      typeof apiSpecial.appliesOn === 'string'
+        ? apiSpecial.appliesOn
+        : JSON.stringify(apiSpecial.appliesOn || []),
+    timeWindow: apiSpecial.timeWindow ?? null,
+    startDate: apiSpecial.startDate
+      ? typeof apiSpecial.startDate === 'string'
+        ? apiSpecial.startDate
+        : new Date(apiSpecial.startDate).toISOString()
+      : null,
+    endDate: apiSpecial.endDate
+      ? typeof apiSpecial.endDate === 'string'
+        ? apiSpecial.endDate
+        : new Date(apiSpecial.endDate).toISOString()
+      : null,
+    image: apiSpecial.image ?? null,
+    isActive: apiSpecial.isActive ?? true,
+    eventType: 'special',
+  };
+}
+
 interface EventsListProps {
   initialEvents: Event[];
   initialSpecials?: Special[];
@@ -328,20 +357,24 @@ export default function EventsList({
       }
     } else if (item.eventType === 'special') {
       const special = item as Special;
-      const todayStr = getMountainTimeDateString(getMountainTimeToday());
+      const formatDate = (date: string | null): string | null => {
+        if (!date) return null;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
+        return getMountainTimeDateString(new Date(date));
+      };
       setSpecialType(special.type);
       setEditingSpecial({
-        id: '', // No ID means it's a new special
+        id: '',
         title: `${special.title} (Copy)`,
-        description: special.description || null,
-        priceNotes: special.priceNotes || null,
+        description: special.description ?? null,
+        priceNotes: special.priceNotes ?? null,
         type: special.type,
-        appliesOn: special.appliesOn,
-        timeWindow: special.timeWindow || null,
-        startDate: todayStr,
-        endDate: todayStr,
-        image: special.image || null,
-        isActive: false, // Start as inactive so user can review before activating
+        appliesOn: special.appliesOn ?? null,
+        timeWindow: special.timeWindow ?? null,
+        startDate: formatDate(special.startDate),
+        endDate: formatDate(special.endDate),
+        image: special.image ?? null,
+        isActive: special.isActive ?? true,
         eventType: 'special',
       });
       setSpecialModalOpen(true);
@@ -430,8 +463,17 @@ export default function EventsList({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, eventModalOpen, specialModalOpen, announcementModalOpen]);
 
+  const handleSpecialAdded = (newSpecial: any) => {
+    setSpecials((prev) => [mapApiSpecialToListSpecial(newSpecial), ...prev]);
+  };
+
+  const handleSpecialUpdated = (updatedSpecial: any) => {
+    const mapped = mapApiSpecialToListSpecial(updatedSpecial);
+    setSpecials((prev) => prev.map((s) => (s.id === mapped.id ? mapped : s)));
+  };
+
   const handleModalSuccess = () => {
-    // No longer need to refresh - state is managed locally
+    // Local state is updated via onSpecialAdded/onSpecialUpdated callbacks
   };
 
   function handleDelete(item: ListItem) {
@@ -820,6 +862,8 @@ export default function EventsList({
           } : undefined}
           defaultType={specialType}
           onSuccess={handleModalSuccess}
+          onSpecialAdded={handleSpecialAdded}
+          onSpecialUpdated={handleSpecialUpdated}
           onDelete={(specialId) => {
             setSpecials(prev => prev.filter(s => s.id !== specialId));
           }}
@@ -829,12 +873,12 @@ export default function EventsList({
             description: copy.description ?? null,
             priceNotes: copy.priceNotes ?? null,
             type: (copy.type ?? 'food') as 'food' | 'drink',
-            appliesOn: Array.isArray(copy.appliesOn) ? JSON.stringify(copy.appliesOn) : null,
+            appliesOn: copy.appliesOn ?? null,
             timeWindow: copy.timeWindow ?? null,
             startDate: copy.startDate ?? null,
             endDate: copy.endDate ?? null,
             image: copy.image ?? null,
-            isActive: copy.isActive ?? false,
+            isActive: copy.isActive ?? true,
             eventType: 'special',
           })}
         />

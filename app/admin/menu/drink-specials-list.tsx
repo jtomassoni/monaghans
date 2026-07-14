@@ -251,7 +251,7 @@ export default function DrinkSpecialsList({ initialSpecials }: DrinkSpecialsList
                 ? specialData.endDate
                 : new Date(specialData.endDate).toISOString().split('T')[0])
             : null,
-          isActive: false, // Start as inactive so user can review before activating
+          isActive: specialData.isActive ?? true,
         });
         setSpecialModalOpen(true);
       }

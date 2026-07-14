@@ -25,6 +25,8 @@ interface NewItemFormModalProps {
   onEventDeleted?: (eventId: string) => void;
   onExceptionAdded?: (eventId: string, updatedEvent: any) => void;
   onSpecialDeleted?: (specialId: string) => void;
+  onSpecialAdded?: (special: any) => void;
+  onSpecialUpdated?: (special: any) => void;
   onAnnouncementAdded?: (announcement: any) => void;
   onAnnouncementUpdated?: (announcement: any) => void;
   onAnnouncementDeleted?: (announcementId: string) => void;
@@ -39,6 +41,8 @@ export default function NewItemFormModal({
   onEventDeleted,
   onExceptionAdded,
   onSpecialDeleted,
+  onSpecialAdded,
+  onSpecialUpdated,
   onAnnouncementAdded,
   onAnnouncementUpdated,
   onAnnouncementDeleted,
@@ -92,6 +96,8 @@ export default function NewItemFormModal({
               special={undefined}
               defaultType="food"
               onSuccess={handleSuccess}
+              onSpecialAdded={onSpecialAdded}
+              onSpecialUpdated={onSpecialUpdated}
               onDelete={onSpecialDeleted}
               embed
             />

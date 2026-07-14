@@ -37,6 +37,8 @@ interface SpecialModalFormProps {
   defaultType?: 'food' | 'drink';
   onSuccess?: () => void;
   onDelete?: (specialId: string) => void;
+  onSpecialAdded?: (special: any) => void;
+  onSpecialUpdated?: (special: any) => void;
   /** Callback when user clicks Duplicate (food specials). Parent should set special to the copy and keep modal open. */
   onDuplicate?: (copy: Partial<Special>) => void;
   /** When true, render form content only (no Modal wrapper). Used when embedding in another modal. */
@@ -49,7 +51,7 @@ interface GalleryImage {
   inUse?: boolean;
 }
 
-export default function SpecialModalForm({ isOpen, onClose, special, defaultType, onSuccess, onDelete, onDuplicate, embed }: SpecialModalFormProps) {
+export default function SpecialModalForm({ isOpen, onClose, special, defaultType, onSuccess, onDelete, onSpecialAdded, onSpecialUpdated, onDuplicate, embed }: SpecialModalFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -114,7 +116,7 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
   const [formData, setFormData] = useState({
     title: special?.title || '',
     description: special?.description || '',
-    priceNotes: special?.priceNotes || getDefaultPriceNotes(resolvedType),
+    priceNotes: special ? (special.priceNotes ?? '') : getDefaultPriceNotes(resolvedType),
     type: resolvedType,
     appliesOn: special?.appliesOn || [],
     timeWindow: resolvedType === 'food' ? '' : (special?.timeWindow || ''), // Always empty for food
@@ -149,7 +151,7 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
       const newFormData = {
         title: special.title || '',
         description: special.description || '',
-        priceNotes: special.priceNotes || getDefaultPriceNotes(nextType),
+        priceNotes: special.priceNotes ?? '',
         type: nextType,
         appliesOn: normalizeAppliesOn((special as any).appliesOn),
         timeWindow: nextType === 'food' ? '' : (special.timeWindow || ''), // Always empty for food
@@ -215,7 +217,7 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
         const newFormData = {
           title: special.title || '',
           description: special.description || '',
-          priceNotes: special.priceNotes || getDefaultPriceNotes(nextType),
+          priceNotes: special.priceNotes ?? '',
           type: nextType,
           appliesOn: special.appliesOn || [],
           timeWindow: '', // Always empty - specials are all day
@@ -283,6 +285,7 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
       const submitData = {
         ...formData,
         type: isFoodOnly ? 'food' : formData.type,
+        appliesOn: isFood ? [] : formData.appliesOn,
         timeWindow: isFoodOnly ? '' : formData.timeWindow, // Always empty for food
         startDate: isFood ? formData.date : formData.startDate,
         endDate: isFood ? formData.date : formData.endDate,
@@ -299,11 +302,17 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
       });
 
       if (res.ok) {
+        const specialData = await res.json();
         router.refresh();
         showToast(
           special?.id ? 'Special updated successfully' : 'Special created successfully',
           'success'
         );
+        if (special?.id) {
+          onSpecialUpdated?.(specialData);
+        } else {
+          onSpecialAdded?.(specialData);
+        }
         onSuccess?.();
         onClose();
       } else {
@@ -687,19 +696,18 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
               <button
                 type="button"
                 onClick={() => {
-                  const todayStr = getMountainTimeDateString(getMountainTimeToday());
                   onDuplicate({
                     id: '',
                     title: `${formData.title} (Copy)`,
                     description: formData.description,
                     priceNotes: formData.priceNotes,
-                    type: 'food',
+                    type: formData.type,
                     appliesOn: formData.appliesOn,
                     timeWindow: formData.timeWindow,
-                    startDate: todayStr,
-                    endDate: todayStr,
+                    startDate: formData.date || formData.startDate,
+                    endDate: formData.date || formData.endDate,
                     image: formData.image || undefined,
-                    isActive: false,
+                    isActive: formData.isActive,
                   });
                 }}
                 disabled={loading}

@@ -228,20 +228,24 @@ export default function DailySpecialsList({ initialSpecials }: DailySpecialsList
       const res = await fetch(`/api/specials/${item.id}`);
       if (res.ok) {
         const specialData = await res.json();
-        const todayStr = getMountainTimeDateString(getMountainTimeToday());
-        // Create a duplicate without the ID; default date to today so it's ready to use
+        const formatDate = (date: string | Date | null | undefined): string | null => {
+          if (!date) return null;
+          if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
+          return getMountainTimeDateString(typeof date === 'string' ? new Date(date) : date);
+        };
+
         setEditingSpecial({
-          id: '', // No ID so the form will POST (create)
+          id: '',
           title: `${specialData.title} (Copy)`,
-          description: specialData.description || null,
-          priceNotes: specialData.priceNotes || null,
+          description: specialData.description ?? null,
+          priceNotes: specialData.priceNotes ?? null,
           type: specialData.type,
-          appliesOn: specialData.appliesOn || null,
-          timeWindow: null, // Specials are always all day
-          startDate: todayStr,
-          endDate: todayStr,
-          image: specialData.image || null,
-          isActive: false, // Start as inactive so user can review before activating
+          appliesOn: specialData.appliesOn ?? null,
+          timeWindow: specialData.timeWindow ?? null,
+          startDate: formatDate(specialData.startDate),
+          endDate: formatDate(specialData.endDate),
+          image: specialData.image ?? null,
+          isActive: specialData.isActive ?? true,
         });
         setSpecialModalOpen(true);
       } else {
@@ -250,6 +254,63 @@ export default function DailySpecialsList({ initialSpecials }: DailySpecialsList
     } catch (error) {
       showToast('Failed to duplicate special', 'error');
     }
+  };
+
+  const handleSpecialAdded = (newSpecial: any) => {
+    setSpecials((prev) => [
+      {
+        id: newSpecial.id,
+        title: newSpecial.title,
+        description: newSpecial.description ?? null,
+        priceNotes: newSpecial.priceNotes ?? null,
+        type: newSpecial.type,
+        timeWindow: newSpecial.timeWindow ?? null,
+        startDate: newSpecial.startDate
+          ? typeof newSpecial.startDate === 'string'
+            ? newSpecial.startDate
+            : new Date(newSpecial.startDate).toISOString()
+          : null,
+        endDate: newSpecial.endDate
+          ? typeof newSpecial.endDate === 'string'
+            ? newSpecial.endDate
+            : new Date(newSpecial.endDate).toISOString()
+          : null,
+        appliesOn: newSpecial.appliesOn ?? null,
+        image: newSpecial.image ?? null,
+        isActive: newSpecial.isActive ?? true,
+      },
+      ...prev,
+    ]);
+  };
+
+  const handleSpecialUpdated = (updatedSpecial: any) => {
+    setSpecials((prev) =>
+      prev.map((s) =>
+        s.id === updatedSpecial.id
+          ? {
+              id: updatedSpecial.id,
+              title: updatedSpecial.title,
+              description: updatedSpecial.description ?? null,
+              priceNotes: updatedSpecial.priceNotes ?? null,
+              type: updatedSpecial.type,
+              timeWindow: updatedSpecial.timeWindow ?? null,
+              startDate: updatedSpecial.startDate
+                ? typeof updatedSpecial.startDate === 'string'
+                  ? updatedSpecial.startDate
+                  : new Date(updatedSpecial.startDate).toISOString()
+                : null,
+              endDate: updatedSpecial.endDate
+                ? typeof updatedSpecial.endDate === 'string'
+                  ? updatedSpecial.endDate
+                  : new Date(updatedSpecial.endDate).toISOString()
+                : null,
+              appliesOn: updatedSpecial.appliesOn ?? null,
+              image: updatedSpecial.image ?? null,
+              isActive: updatedSpecial.isActive ?? true,
+            }
+          : s
+      )
+    );
   };
 
   const handleModalSuccess = () => {
@@ -813,6 +874,8 @@ export default function DailySpecialsList({ initialSpecials }: DailySpecialsList
         } : undefined}
         defaultType="food"
         onSuccess={handleModalSuccess}
+        onSpecialAdded={handleSpecialAdded}
+        onSpecialUpdated={handleSpecialUpdated}
         onDelete={handleSpecialDeleted}
         onDuplicate={(copy) => setEditingSpecial({
           id: copy.id ?? '',
@@ -823,9 +886,9 @@ export default function DailySpecialsList({ initialSpecials }: DailySpecialsList
           timeWindow: copy.timeWindow ?? null,
           startDate: copy.startDate ?? null,
           endDate: copy.endDate ?? null,
-          appliesOn: null,
+          appliesOn: copy.appliesOn ?? null,
           image: copy.image ?? null,
-          isActive: copy.isActive ?? false,
+          isActive: copy.isActive ?? true,
         })}
       />
     </div>

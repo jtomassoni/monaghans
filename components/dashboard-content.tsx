@@ -99,11 +99,41 @@ interface DashboardContentProps {
 
 type ViewType = 'calendar' | 'list';
 
-export default function DashboardContent({ events: initialEvents, specials, announcements = [], businessHours, calendarHours, isAdmin }: DashboardContentProps) {
+function mapApiSpecialToCalendarSpecial(apiSpecial: any): Special {
+  const specialType = apiSpecial.type === 'drink' ? 'drink' : 'food';
+  return {
+    id: apiSpecial.id,
+    title: apiSpecial.title,
+    description: apiSpecial.description ?? null,
+    priceNotes: apiSpecial.priceNotes ?? null,
+    type: specialType,
+    appliesOn:
+      typeof apiSpecial.appliesOn === 'string'
+        ? apiSpecial.appliesOn
+        : JSON.stringify(apiSpecial.appliesOn || []),
+    timeWindow: apiSpecial.timeWindow ?? null,
+    startDate: apiSpecial.startDate
+      ? typeof apiSpecial.startDate === 'string'
+        ? apiSpecial.startDate
+        : new Date(apiSpecial.startDate).toISOString()
+      : null,
+    endDate: apiSpecial.endDate
+      ? typeof apiSpecial.endDate === 'string'
+        ? apiSpecial.endDate
+        : new Date(apiSpecial.endDate).toISOString()
+      : null,
+    image: apiSpecial.image ?? null,
+    isActive: apiSpecial.isActive ?? true,
+    eventType: 'special',
+  };
+}
+
+export default function DashboardContent({ events: initialEvents, specials: initialSpecials, announcements = [], businessHours, calendarHours, isAdmin }: DashboardContentProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { setRightAction } = useAdminMobileHeader();
   const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
+  const [localSpecials, setLocalSpecials] = useState<Special[]>(initialSpecials);
   const [eventModalOpen, setEventModalOpen] = useState(false);
   const [specialModalOpen, setSpecialModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
@@ -124,6 +154,7 @@ export default function DashboardContent({ events: initialEvents, specials, anno
   
   // Track the last initialEvents IDs to prevent unnecessary updates
   const lastInitialEventsIdsRef = useRef<string>(JSON.stringify(initialEvents.map(e => e.id).sort()));
+  const lastInitialSpecialsIdsRef = useRef<string>(JSON.stringify(initialSpecials.map(s => s.id).sort()));
   const lastInitialAnnouncementsIdsRef = useRef<string>(JSON.stringify(announcements.map(a => a.id).sort()));
 
   // Update viewType when URL param changes
@@ -147,6 +178,16 @@ export default function DashboardContent({ events: initialEvents, specials, anno
       setEvents(initialEvents);
     }
   }, [initialEvents]);
+
+  // Update specials when initialSpecials changes (e.g., from server)
+  useEffect(() => {
+    const currentInitialIds = JSON.stringify(initialSpecials.map((s) => s.id).sort());
+
+    if (currentInitialIds !== lastInitialSpecialsIdsRef.current) {
+      lastInitialSpecialsIdsRef.current = currentInitialIds;
+      setLocalSpecials(initialSpecials);
+    }
+  }, [initialSpecials]);
 
   // Update announcements when props change
   useEffect(() => {
@@ -207,7 +248,7 @@ export default function DashboardContent({ events: initialEvents, specials, anno
   };
 
   const handleSpecialClick = async (specialId: string) => {
-    const special = specials.find((s) => s.id === specialId);
+    const special = localSpecials.find((s) => s.id === specialId);
     if (special) {
       const appliesOn = special.appliesOn ? JSON.parse(special.appliesOn) : [];
       setEditingSpecial({
@@ -314,6 +355,15 @@ export default function DashboardContent({ events: initialEvents, specials, anno
     ));
   };
 
+  const handleSpecialAdded = (newSpecial: any) => {
+    setLocalSpecials((prev) => [mapApiSpecialToCalendarSpecial(newSpecial), ...prev]);
+  };
+
+  const handleSpecialUpdated = (updatedSpecial: any) => {
+    const mapped = mapApiSpecialToCalendarSpecial(updatedSpecial);
+    setLocalSpecials((prev) => prev.map((s) => (s.id === mapped.id ? mapped : s)));
+  };
+
   const handleModalSuccess = () => {
     // Refresh from server to get latest data
     router.refresh();
@@ -335,7 +385,7 @@ export default function DashboardContent({ events: initialEvents, specials, anno
   };
 
   const handleSpecialDeleted = (specialId: string) => {
-    // Refresh from server since we don't maintain local specials state
+    setLocalSpecials((prev) => prev.filter((s) => s.id !== specialId));
     router.refresh();
   };
 
@@ -535,7 +585,7 @@ export default function DashboardContent({ events: initialEvents, specials, anno
             <div className="flex-1 overflow-hidden p-2 sm:p-6 pb-2 sm:pb-6 min-h-0 flex flex-col">
               <CalendarView
                 events={events}
-                specials={specials}
+                specials={localSpecials}
                 announcements={localAnnouncements}
                 businessHours={businessHours}
                 calendarHours={calendarHours}
@@ -568,7 +618,7 @@ export default function DashboardContent({ events: initialEvents, specials, anno
                     isActive: e.isActive,
                     eventType: 'event' as const,
                   }))}
-                  initialSpecials={specials.map(s => ({
+                  initialSpecials={localSpecials.map(s => ({
                     id: s.id,
                     title: s.title,
                     description: s.description,
@@ -656,11 +706,12 @@ export default function DashboardContent({ events: initialEvents, specials, anno
           } as any : undefined}
           defaultType={specialType}
           onSuccess={handleModalSuccess}
+          onSpecialAdded={handleSpecialAdded}
+          onSpecialUpdated={handleSpecialUpdated}
           onDelete={handleSpecialDeleted}
           onDuplicate={(copy) => setEditingSpecial({
             ...copy,
             id: copy.id ?? '',
-            appliesOn: Array.isArray(copy.appliesOn) ? JSON.stringify(copy.appliesOn) : null,
             eventType: 'special',
           } as Special)}
         />
@@ -689,6 +740,8 @@ export default function DashboardContent({ events: initialEvents, specials, anno
         onEventDeleted={handleEventDeleted}
         onExceptionAdded={handleExceptionAdded}
         onSpecialDeleted={handleSpecialDeleted}
+        onSpecialAdded={handleSpecialAdded}
+        onSpecialUpdated={handleSpecialUpdated}
         onAnnouncementAdded={handleAnnouncementAdded}
         onAnnouncementUpdated={handleAnnouncementUpdated}
         onAnnouncementDeleted={handleAnnouncementDeleted}
