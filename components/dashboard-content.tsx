@@ -710,10 +710,21 @@ export default function DashboardContent({ events: initialEvents, specials: init
           onSpecialUpdated={handleSpecialUpdated}
           onDelete={handleSpecialDeleted}
           onDuplicate={(copy) => setEditingSpecial({
-            ...copy,
             id: copy.id ?? '',
+            title: copy.title ?? '',
+            description: copy.description ?? null,
+            priceNotes: copy.priceNotes ?? null,
+            type: (copy.type === 'drink' ? 'drink' : 'food') as 'food' | 'drink',
+            appliesOn: Array.isArray(copy.appliesOn) && copy.appliesOn.length > 0
+              ? JSON.stringify(copy.appliesOn)
+              : null,
+            timeWindow: copy.timeWindow ?? null,
+            startDate: copy.startDate ?? null,
+            endDate: copy.endDate ?? null,
+            image: copy.image ?? null,
+            isActive: copy.isActive ?? true,
             eventType: 'special',
-          } as Special)}
+          })}
         />
       )}
 

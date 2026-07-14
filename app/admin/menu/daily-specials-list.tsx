@@ -886,7 +886,9 @@ export default function DailySpecialsList({ initialSpecials }: DailySpecialsList
           timeWindow: copy.timeWindow ?? null,
           startDate: copy.startDate ?? null,
           endDate: copy.endDate ?? null,
-          appliesOn: copy.appliesOn ?? null,
+          appliesOn: Array.isArray(copy.appliesOn) && copy.appliesOn.length > 0
+            ? JSON.stringify(copy.appliesOn)
+            : null,
           image: copy.image ?? null,
           isActive: copy.isActive ?? true,
         })}

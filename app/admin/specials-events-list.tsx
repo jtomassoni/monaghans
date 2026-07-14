@@ -873,7 +873,9 @@ export default function EventsList({
             description: copy.description ?? null,
             priceNotes: copy.priceNotes ?? null,
             type: (copy.type ?? 'food') as 'food' | 'drink',
-            appliesOn: copy.appliesOn ?? null,
+            appliesOn: Array.isArray(copy.appliesOn) && copy.appliesOn.length > 0
+              ? JSON.stringify(copy.appliesOn)
+              : null,
             timeWindow: copy.timeWindow ?? null,
             startDate: copy.startDate ?? null,
             endDate: copy.endDate ?? null,
