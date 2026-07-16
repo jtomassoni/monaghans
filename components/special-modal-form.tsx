@@ -219,7 +219,7 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
           description: special.description || '',
           priceNotes: special.priceNotes ?? '',
           type: nextType,
-          appliesOn: special.appliesOn || [],
+          appliesOn: normalizeAppliesOn((special as any).appliesOn),
           timeWindow: '', // Always empty - specials are all day
           date: formattedStartDate,
           startDate: formattedStartDate,
@@ -254,12 +254,8 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
     }
   }
 
-  // Clear appliesOn when switching to food type (food specials aren't recurring)
-  useEffect(() => {
-    if (formData.type === 'food' && formData.appliesOn.length > 0) {
-      setFormData((prev) => ({ ...prev, appliesOn: [] }));
-    }
-  }, [formData.type, formData.appliesOn.length]);
+  const isFoodType = isFoodOnly || formData.type === 'food';
+  const hasWeeklyRecurring = formData.appliesOn.length > 0;
 
   // Sync date field with startDate/endDate when type changes
   useEffect(() => {
@@ -280,16 +276,15 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
       const url = special?.id ? `/api/specials/${special.id}` : '/api/specials';
       const method = special?.id ? 'PUT' : 'POST';
 
-      // For food type, set both startDate and endDate to the same date, and ensure timeWindow is empty
       const isFood = isFoodOnly || formData.type === 'food';
+      const isWeekly = formData.appliesOn.length > 0;
       const submitData = {
         ...formData,
         type: isFoodOnly ? 'food' : formData.type,
-        appliesOn: isFood ? [] : formData.appliesOn,
-        timeWindow: isFoodOnly ? '' : formData.timeWindow, // Always empty for food
-        startDate: isFood ? formData.date : formData.startDate,
-        endDate: isFood ? formData.date : formData.endDate,
-        // Always include image for food specials - send null if empty string to ensure it's saved
+        appliesOn: isWeekly ? formData.appliesOn : [],
+        timeWindow: isFoodOnly ? '' : formData.timeWindow,
+        startDate: isWeekly ? null : (isFood ? formData.date : formData.startDate),
+        endDate: isWeekly ? null : (isFood ? formData.date : formData.endDate),
         image: isFood ? (formData.image?.trim() || null) : undefined,
       };
       // Remove the date field before submitting
@@ -335,11 +330,16 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
   }
 
   function toggleDay(day: string) {
+    const newAppliesOn = formData.appliesOn.includes(day)
+      ? formData.appliesOn.filter((d) => d !== day)
+      : [...formData.appliesOn, day];
+
     setFormData({
       ...formData,
-      appliesOn: formData.appliesOn.includes(day)
-        ? formData.appliesOn.filter((d) => d !== day)
-        : [...formData.appliesOn, day],
+      appliesOn: newAppliesOn,
+      ...(newAppliesOn.length > 0
+        ? { date: '', startDate: '', endDate: '' }
+        : {}),
     });
   }
 
@@ -450,7 +450,7 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
             </div>
 
             {/* Date before Image when embedded (mobile-friendly: reach date without scrolling past gallery) */}
-            {embed && (isFoodOnly || formData.type === 'food') && (
+            {embed && isFoodType && !hasWeeklyRecurring && (
               <div className="space-y-1">
                 <DatePicker
                   label="Date *"
@@ -459,6 +459,45 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
                   required
                   dateOnly={true}
                 />
+              </div>
+            )}
+
+            {isFoodType && (
+              <div className="space-y-2">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Weekly Schedule</p>
+                  <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                    {hasWeeklyRecurring
+                      ? 'This special will run every selected day, ongoing forever (e.g. Taco Tuesday).'
+                      : 'Select days for a recurring weekly special, or leave empty and pick a single date below.'}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white/70 dark:bg-gray-900/40 p-3 shadow-inner space-y-2.5">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Applies On</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {WEEKDAYS.map((day) => {
+                      const isSelected = formData.appliesOn.includes(day);
+                      return (
+                        <label
+                          key={day}
+                          className={`flex items-center justify-center rounded-lg border px-2 py-2.5 text-xs font-semibold transition-all cursor-pointer touch-manipulation min-h-[44px] ${
+                            isSelected
+                              ? 'border-orange-500 bg-orange-600 text-white shadow-sm shadow-orange-500/30'
+                              : 'border-gray-200/70 dark:border-gray-700/60 text-gray-700 dark:text-gray-200 bg-white/80 dark:bg-gray-900/40 hover:border-orange-400/70 active:scale-95'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleDay(day)}
+                            className="sr-only"
+                          />
+                          {day}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             )}
 
@@ -623,6 +662,7 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
           </div>
         )}
 
+        {((isFoodType && !hasWeeklyRecurring) || (formData.type === 'drink' && !hasWeeklyRecurring)) ? (
         <div className={`rounded-lg sm:rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 ${isFoodOnly ? 'p-3 sm:p-4 space-y-2.5 sm:space-y-3' : 'p-3 sm:p-6 space-y-3 sm:space-y-6'} backdrop-blur-sm`}>
           {!isFoodOnly && (
             <div>
@@ -641,7 +681,7 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
             {/* Time window removed - specials are always all day */}
 
             {/* Food date: when embed, shown above Image in first card; when !embed, show here */}
-            {(isFoodOnly || formData.type === 'food') && !embed ? (
+            {isFoodType && !embed ? (
               <div className="space-y-1 w-full max-w-full min-w-0 overflow-hidden">
                 <DatePicker
                   label="Date *"
@@ -654,7 +694,7 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
                   <p className="text-xs text-gray-500 dark:text-gray-400 break-words">This special applies for the full day</p>
                 )}
               </div>
-            ) : (isFoodOnly || formData.type === 'food') ? null : (
+            ) : formData.type === 'drink' ? (
               <div className="grid gap-3 md:grid-cols-2 w-full max-w-full min-w-0 overflow-hidden">
                 <div className="relative isolate w-full max-w-full min-w-0 overflow-hidden">
                   <DatePicker
@@ -674,9 +714,10 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
                   />
                 </div>
               </div>
-            )}
+            ) : null}
           </div>
         </div>
+        ) : null}
         </div>
 
         <div className={`fixed bottom-0 left-0 right-0 sm:relative sm:bottom-auto sm:left-auto sm:right-auto bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 sm:border-t-0 sm:bg-transparent sm:dark:bg-transparent z-20 sm:z-auto shadow-lg sm:shadow-none ${embed ? 'sm:sticky sm:bottom-0 sm:left-0 sm:right-0 sm:border-t sm:bg-white sm:dark:bg-gray-800 sm:shadow-lg shrink-0 py-3' : ''}`}>
@@ -703,10 +744,10 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
                     description: formData.description,
                     priceNotes: formData.priceNotes,
                     type: formData.type,
-                    appliesOn: formData.appliesOn,
+                    appliesOn: hasWeeklyRecurring ? formData.appliesOn : [],
                     timeWindow: formData.timeWindow,
-                    startDate: todayStr,
-                    endDate: todayStr,
+                    startDate: hasWeeklyRecurring ? '' : todayStr,
+                    endDate: hasWeeklyRecurring ? '' : todayStr,
                     image: formData.image || undefined,
                     isActive: formData.isActive,
                   });
@@ -732,8 +773,8 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
               disabled={
                 loading ||
                 (special?.id && !isDirty) ||
-                (formData.type === 'food' && !formData.date) ||
-                (formData.type === 'drink' && formData.appliesOn.length === 0 && !formData.startDate && !formData.endDate)
+                (isFoodType && !hasWeeklyRecurring && !formData.date) ||
+                (formData.type === 'drink' && !hasWeeklyRecurring && !formData.startDate && !formData.endDate)
               }
               className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-base font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl cursor-pointer touch-manipulation min-h-[48px] w-full sm:w-auto sm:min-h-[44px] sm:text-sm sm:font-semibold sm:px-5 sm:py-2.5 order-1 sm:order-none"
             >

@@ -2,6 +2,7 @@
 
 import { StatusType } from '../components/status-badge';
 import { getMountainTimeDateString, getMountainTimeToday, parseMountainTimeDate } from './timezone';
+import { isFoodSpecialActiveOnDate } from './food-specials';
 
 /**
  * Helper function to determine status based on item properties
@@ -100,24 +101,25 @@ export function getItemStatus(item: {
   }
 
   // Active/Inactive status
-  // For food specials with dates: only show as active if date matches today AND isActive is true
   if (item.isActive !== undefined) {
+    let isActiveToday = false;
+
     if (item.startDate) {
-      // For date-based specials, only show active if the date is today
       const startDateValue = item.startDate as string | Date;
-      const startDateStr = typeof startDateValue === 'string' 
-        ? startDateValue.split('T')[0] 
+      const startDateStr = typeof startDateValue === 'string'
+        ? startDateValue.split('T')[0]
         : getMountainTimeDateString(startDateValue);
-      
-      if (item.isActive && startDateStr === mtTodayStr) {
-        statuses.push('active');
-      } else {
-        statuses.push('inactive');
-      }
+      isActiveToday = item.isActive && startDateStr === mtTodayStr;
+    } else if (item.appliesOn) {
+      isActiveToday = item.isActive && isFoodSpecialActiveOnDate(
+        { appliesOn: item.appliesOn, startDate: item.startDate, endDate: item.endDate },
+        mtToday
+      );
     } else {
-      // For non-date-based items, use isActive as-is
-      statuses.push(item.isActive ? 'active' : 'inactive');
+      isActiveToday = item.isActive;
     }
+
+    statuses.push(isActiveToday ? 'active' : 'inactive');
   }
 
   // Available/Unavailable status (for menu items)

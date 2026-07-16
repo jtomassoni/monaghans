@@ -10,6 +10,7 @@ import DatePicker from '@/components/date-picker';
 import FoodSpecialsGalleryEmbedded from '@/components/food-specials-gallery-embedded';
 import ConfirmationDialog from '@/components/confirmation-dialog';
 import { formatDateAsDateTimeLocal, parseDateTimeLocalAsCompanyTimezone, getCompanyTimezoneSync } from '@/lib/timezone';
+import { parseAppliesOn } from '@/lib/food-specials';
 
 interface Event {
   id?: string;
@@ -286,7 +287,7 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
           description: special.description || '',
           priceNotes: special.priceNotes || '',
           type: (special.type === 'drink' ? 'drink' : 'food') as 'food' | 'drink',
-          appliesOn: Array.isArray(special.appliesOn) ? special.appliesOn : [],
+          appliesOn: parseAppliesOn((special as any).appliesOn),
           timeWindow: '', // Always empty - specials are all day
           startDate: special.startDate || '',
           endDate: special.endDate || '',
@@ -417,13 +418,6 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
     }
   }, [isOpen, currentItemType, announcementData.crossPostFacebook]);
 
-  // Clear appliesOn when switching to food type
-  useEffect(() => {
-    if (currentItemType === 'food' && specialData.appliesOn.length > 0) {
-      setSpecialData(prev => ({ ...prev, appliesOn: [] }));
-    }
-  }, [currentItemType]);
-
   const validateDateTime = (start: string, end: string | null, isAllDay: boolean): string | null => {
     if (!start) return null;
     if (!end) return null;
@@ -492,13 +486,18 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
   };
 
   const toggleSpecialDay = (day: string) => {
+    const newAppliesOn = specialData.appliesOn.includes(day)
+      ? specialData.appliesOn.filter((d) => d !== day)
+      : [...specialData.appliesOn, day];
+
     setSpecialData({
       ...specialData,
-      appliesOn: specialData.appliesOn.includes(day)
-        ? specialData.appliesOn.filter((d) => d !== day)
-        : [...specialData.appliesOn, day],
+      appliesOn: newAppliesOn,
+      ...(newAppliesOn.length > 0 ? { startDate: '', endDate: '' } : {}),
     });
   };
+
+  const hasWeeklyRecurring = specialData.appliesOn.length > 0;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -612,9 +611,17 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
         const url = (item && 'type' in item && item.id) ? `/api/specials/${item.id}` : '/api/specials';
         const method = (item && 'type' in item && item.id) ? 'PUT' : 'POST';
 
+        const hasWeekly = specialData.appliesOn.length > 0;
+        const isFood = currentItemType === 'food';
+
         const specialPayload = {
           ...specialData,
           type: currentItemType === 'drink' ? 'drink' : 'food',
+          appliesOn: hasWeekly ? specialData.appliesOn : [],
+          timeWindow: '',
+          startDate: hasWeekly ? null : (specialData.startDate || null),
+          endDate: hasWeekly ? null : (specialData.endDate || null),
+          image: isFood ? (specialData.image?.trim() || null) : undefined,
         };
 
         const res = await fetch(url, {
@@ -1022,85 +1029,86 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
               </div>
             </div>
 
-            {currentItemType === 'drink' && (
-              <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 backdrop-blur-sm space-y-3">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Weekly Schedule</p>
-                  <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300">
-                    Select which days this special applies each week. Leave empty if using start/end dates.
-                  </p>
-                </div>
-
-                <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/70 dark:bg-gray-900/40 p-3 shadow-inner space-y-2.5">
-                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Applies On</p>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {WEEKDAYS.map((day) => {
-                      const isSelected = specialData.appliesOn.includes(day);
-                      return (
-                        <label
-                          key={day}
-                          className={`flex items-center justify-center rounded-lg border px-2 py-2.5 text-xs font-semibold transition-all cursor-pointer ${
-                            isSelected
-                              ? 'border-blue-500 bg-blue-600 text-white shadow-sm shadow-blue-500/30'
-                              : 'border-gray-200/70 dark:border-gray-700/60 text-gray-700 dark:text-gray-200 bg-white/80 dark:bg-gray-900/40 hover:border-blue-400/70'
-                          }`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => toggleSpecialDay(day)}
-                            className="sr-only"
-                          />
-                          {day}
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-2 sm:p-3 backdrop-blur-sm space-y-3 w-full max-w-full min-w-0 overflow-hidden">
-              <div className="w-full max-w-full min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">
-                  {currentItemType === 'food' ? 'Date' : 'Timing'}
-                </p>
-                <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300 break-words">
-                  {currentItemType === 'food' 
-                    ? 'Select the date this daily special applies (full day).'
-                    : 'Set when this special is available.'}
+            <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-3 backdrop-blur-sm space-y-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Weekly Schedule</p>
+                <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300">
+                  {hasWeeklyRecurring
+                    ? 'This special will run every selected day, ongoing forever.'
+                    : 'Select days for a recurring weekly special, or leave empty and pick a date below.'}
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-full min-w-0">
-                <div className="relative isolate w-full max-w-full min-w-0 overflow-hidden" style={{ width: '100%', maxWidth: '100%' }}>
-                  <DatePicker
-                    label={currentItemType === 'food' ? 'Date *' : 'Start Date (optional)'}
-                    value={currentItemType === 'food' ? (specialData.startDate || '') : (specialData.startDate || '')}
-                    onChange={(value) => {
-                      if (currentItemType === 'food') {
-                        setSpecialData({ ...specialData, startDate: value || '', endDate: value || '' });
-                      } else {
-                        setSpecialData({ ...specialData, startDate: value || '' });
-                      }
-                    }}
-                    required={currentItemType === 'food'}
-                    dateOnly={true}
-                    min={currentItemType === 'drink' ? undefined : undefined}
-                  />
+              <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white/70 dark:bg-gray-900/40 p-3 shadow-inner space-y-2.5">
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Applies On</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {WEEKDAYS.map((day) => {
+                    const isSelected = specialData.appliesOn.includes(day);
+                    return (
+                      <label
+                        key={day}
+                        className={`flex items-center justify-center rounded-lg border px-2 py-2.5 text-xs font-semibold transition-all cursor-pointer ${
+                          isSelected
+                            ? 'border-blue-500 bg-blue-600 text-white shadow-sm shadow-blue-500/30'
+                            : 'border-gray-200/70 dark:border-gray-700/60 text-gray-700 dark:text-gray-200 bg-white/80 dark:bg-gray-900/40 hover:border-blue-400/70'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSpecialDay(day)}
+                          className="sr-only"
+                        />
+                        {day}
+                      </label>
+                    );
+                  })}
                 </div>
-                {currentItemType === 'drink' && (
-                  <div className="relative isolate w-full max-w-full min-w-0 overflow-hidden" style={{ width: '100%', maxWidth: '100%' }}>
-                    <DatePicker
-                      label="End Date (optional)"
-                      value={specialData.endDate || ''}
-                      onChange={(value) => setSpecialData({ ...specialData, endDate: value || '' })}
-                      min={specialData.startDate || undefined}
-                      dateOnly={true}
-                    />
-                  </div>
-                )}
               </div>
+
+              {((currentItemType === 'food' || currentItemType === 'drink') && !hasWeeklyRecurring) && (
+                <div className="space-y-3 w-full max-w-full min-w-0 overflow-hidden">
+                  <div className="w-full max-w-full min-w-0">
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">
+                      {currentItemType === 'food' ? 'Date' : 'Timing'}
+                    </p>
+                    <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300 break-words">
+                      {currentItemType === 'food'
+                        ? 'Select the date this daily special applies (full day).'
+                        : 'Set when this special is available.'}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-full min-w-0">
+                    <div className="relative isolate w-full max-w-full min-w-0 overflow-hidden" style={{ width: '100%', maxWidth: '100%' }}>
+                      <DatePicker
+                        label={currentItemType === 'food' ? 'Date *' : 'Start Date (optional)'}
+                        value={specialData.startDate || ''}
+                        onChange={(value) => {
+                          if (currentItemType === 'food') {
+                            setSpecialData({ ...specialData, startDate: value || '', endDate: value || '' });
+                          } else {
+                            setSpecialData({ ...specialData, startDate: value || '' });
+                          }
+                        }}
+                        required={currentItemType === 'food'}
+                        dateOnly={true}
+                      />
+                    </div>
+                    {currentItemType === 'drink' && (
+                      <div className="relative isolate w-full max-w-full min-w-0 overflow-hidden" style={{ width: '100%', maxWidth: '100%' }}>
+                        <DatePicker
+                          label="End Date (optional)"
+                          value={specialData.endDate || ''}
+                          onChange={(value) => setSpecialData({ ...specialData, endDate: value || '' })}
+                          min={specialData.startDate || undefined}
+                          dateOnly={true}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1343,8 +1351,8 @@ export default function UnifiedItemModalForm({ isOpen, onClose, item, itemType: 
             disabled={
               loading ||
               (currentItemType === 'event' && !eventData.startDateTime) ||
-              (currentItemType === 'food' && !specialData.startDate && !specialData.endDate) ||
-              (currentItemType === 'drink' && specialData.appliesOn.length === 0 && !specialData.startDate && !specialData.endDate) ||
+              (currentItemType === 'food' && !hasWeeklyRecurring && !specialData.startDate && !specialData.endDate) ||
+              (currentItemType === 'drink' && !hasWeeklyRecurring && !specialData.startDate && !specialData.endDate) ||
               (currentItemType === 'announcement' && (!announcementData.title || !announcementData.body || !announcementData.publishAt || !announcementData.expiresAt))
             }
             className="px-3 py-1.5 bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white rounded-lg text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-blue-500/20 cursor-pointer"
