@@ -9,8 +9,8 @@ import PartnerOrderingBanner from '@/components/partner-ordering-banner';
 import { marked } from 'marked';
 import { getMountainTimeToday, getMountainTimeTomorrow, getMountainTimeWeekday, getMountainTimeNow, getMountainTimeDateString, parseMountainTimeDate } from '@/lib/timezone';
 import { isFoodSpecialActiveOnDate } from '@/lib/food-specials';
-import { startOfDay, endOfDay, isWithinInterval, format } from 'date-fns';
-import { RRule } from 'rrule';
+import { getRecurringEventOccurrences } from '@/lib/recurring-event-occurrences';
+import { startOfDay, endOfDay, isWithinInterval } from 'date-fns';
 import { FaCalendarAlt, FaUtensils, FaBeer } from 'react-icons/fa';
 
 // Configure marked to allow HTML
@@ -28,6 +28,7 @@ export default async function HomePage() {
   const today = getMountainTimeToday();
   const tomorrowStart = getMountainTimeTomorrow();
   const now = getMountainTimeNow();
+  const todayDateStr = getMountainTimeDateString(today);
 
   // Fetch all active events (including recurring ones)
   const allEvents = await prisma.event.findMany({
@@ -37,270 +38,21 @@ export default async function HomePage() {
     orderBy: { startDateTime: 'asc' },
   });
 
-  // Helper function to get recurring event occurrences for a date range
-  const getRecurringEventOccurrences = (event: any, rangeStart: Date, rangeEnd: Date) => {
-    if (!event.recurrenceRule) return [];
-    
-    try {
-      const exceptions: string[] = event.exceptions ? JSON.parse(event.exceptions) : [];
-      const startDate = new Date(event.startDateTime);
-      
-      // Extract the original time components in Mountain Time
-      // This ensures recurring events always show at the same time of day
-      const mtFormatter = new Intl.DateTimeFormat('en-US', {
-        timeZone: 'America/Denver',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false
-      });
-      const originalStartMTParts = mtFormatter.formatToParts(startDate);
-      const originalHours = parseInt(originalStartMTParts.find(p => p.type === 'hour')!.value);
-      const originalMinutes = parseInt(originalStartMTParts.find(p => p.type === 'minute')!.value);
-      const originalSeconds = parseInt(originalStartMTParts.find(p => p.type === 'second')?.value || '0');
-      
-      // Extract original end time components if endDateTime exists
-      let originalEndHours = 0;
-      let originalEndMinutes = 0;
-      let originalEndSeconds = 0;
-      if (event.endDateTime) {
-        const endDate = new Date(event.endDateTime);
-        const originalEndMTParts = mtFormatter.formatToParts(endDate);
-        originalEndHours = parseInt(originalEndMTParts.find(p => p.type === 'hour')!.value);
-        originalEndMinutes = parseInt(originalEndMTParts.find(p => p.type === 'minute')!.value);
-        originalEndSeconds = parseInt(originalEndMTParts.find(p => p.type === 'second')?.value || '0');
-      }
-      
-      // Helper function to create a Date object for a specific date and time in Mountain Time
-      const createMountainTimeDate = (year: number, month: number, day: number, hours: number, minutes: number, seconds: number): Date => {
-        // Try different UTC offsets to find the one that gives us the desired Mountain Time
-        // MT is UTC-7 (MST) or UTC-6 (MDT)
-        for (let offsetHours = 6; offsetHours <= 7; offsetHours++) {
-          const candidateUTC = new Date(Date.UTC(year, month, day, hours + offsetHours, minutes, seconds));
-          const candidateParts = mtFormatter.formatToParts(candidateUTC);
-          const candidateYear = parseInt(candidateParts.find(p => p.type === 'year')!.value);
-          const candidateMonth = parseInt(candidateParts.find(p => p.type === 'month')!.value);
-          const candidateDay = parseInt(candidateParts.find(p => p.type === 'day')!.value);
-          const candidateHour = parseInt(candidateParts.find(p => p.type === 'hour')!.value);
-          const candidateMinute = parseInt(candidateParts.find(p => p.type === 'minute')!.value);
-          const candidateSecond = parseInt(candidateParts.find(p => p.type === 'second')?.value || '0');
-          
-          // candidateMonth is 1-indexed (1-12), month is 0-indexed (0-11)
-          if (candidateYear === year && candidateMonth === month + 1 && candidateDay === day &&
-              candidateHour === hours && candidateMinute === minutes && candidateSecond === seconds) {
-            return candidateUTC;
-          }
-        }
-        
-        // Fallback: use UTC-7 (MST)
-        return new Date(Date.UTC(year, month, day, hours + 7, minutes, seconds));
-      };
-      
-      // Handle monthly events with BYMONTHDAY (similar to calendar logic)
-      // For weekly events, we need to ensure dtstart represents the correct day of week in Mountain Time
-      let ruleToUse = event.recurrenceRule;
-      let dtstartDate: Date;
-      
-      if (event.recurrenceRule.includes('BYMONTHDAY')) {
-        const monthDayMatch = event.recurrenceRule.match(/BYMONTHDAY=(\d+)/);
-        if (monthDayMatch) {
-          const targetDay = parseInt(monthDayMatch[1]);
-          const localYear = startDate.getFullYear();
-          const localMonth = startDate.getMonth();
-          const localTargetMidday = new Date(localYear, localMonth, targetDay, 12, 0, 0);
-          const utcMiddayDay = localTargetMidday.getUTCDate();
-          const utcTargetYear = localTargetMidday.getUTCFullYear();
-          const utcTargetMonth = localTargetMidday.getUTCMonth();
-          const utcCorrespondingDay = utcMiddayDay;
-          ruleToUse = event.recurrenceRule.replace(/BYMONTHDAY=\d+/, `BYMONTHDAY=${utcCorrespondingDay}`);
-          dtstartDate = new Date(Date.UTC(utcTargetYear, utcTargetMonth, utcCorrespondingDay, 12, 0, 0));
-        } else {
-          dtstartDate = startDate;
-        }
-      } else if (event.recurrenceRule.includes('FREQ=WEEKLY')) {
-        // For weekly events, ensure dtstart is on one of the days specified in BYDAY
-        // Extract the target days of week from BYDAY in the RRULE
-        const bydayMatch = event.recurrenceRule.match(/BYDAY=([^;]+)/);
-        const dayMap: Record<string, number> = {
-          'SU': 0, 'MO': 1, 'TU': 2, 'WE': 3, 'TH': 4, 'FR': 5, 'SA': 6
-        };
-        
-        // Get the start date components in Mountain Time
-        const startMTParts = mtFormatter.formatToParts(startDate);
-        const startMTYear = parseInt(startMTParts.find(p => p.type === 'year')!.value);
-        const startMTMonth = parseInt(startMTParts.find(p => p.type === 'month')!.value) - 1; // 0-indexed
-        const startMTDay = parseInt(startMTParts.find(p => p.type === 'day')!.value);
-        
-        // Get the day of the week in Mountain Time (0 = Sunday, 1 = Monday, etc.)
-        const startMTDayOfWeek = new Date(startMTYear, startMTMonth, startMTDay).getDay();
-        
-        // Create dtstart at the original time but ensure it represents the correct day in Mountain Time
-        let candidateDtstart = createMountainTimeDate(startMTYear, startMTMonth, startMTDay, originalHours, originalMinutes, originalSeconds);
-        
-        // If BYDAY is specified, check if the start date's day matches any of the specified days
-        if (bydayMatch) {
-          const bydayStr = bydayMatch[1];
-          const targetDays = bydayStr.split(',').map((d: string) => dayMap[d.trim()]).filter((d: number | undefined): d is number => d !== undefined);
-          
-          // Check if the start date's day of week (in MT) matches any of the target days
-          const startDateMatches = targetDays.includes(startMTDayOfWeek);
-          
-          // For weekly events, RRule uses the day of week from dtstart to determine recurrence
-          // If the start date matches BYDAY, use it as dtstart
-          // If not, we need to find the first occurrence that matches BYDAY on or after the start date
-          if (startDateMatches) {
-            // The start date already matches one of the BYDAY days, use it as-is
-            dtstartDate = candidateDtstart;
-          } else {
-            // The start date doesn't match any of the BYDAY days
-            // Find the first target day that comes on or after the start date
-            const sortedTargetDays = [...targetDays].sort((a, b) => a - b);
-            let targetDay = sortedTargetDays.find(d => d >= startMTDayOfWeek) || sortedTargetDays[0];
-            
-            // Calculate days to add to get to the target day
-            let dayDiff = targetDay - startMTDayOfWeek;
-            if (dayDiff < 0) dayDiff += 7; // Wrap around to next week
-            
-            // Adjust the date to the target day
-            const adjustedDate = new Date(startMTYear, startMTMonth, startMTDay + dayDiff);
-            const adjustedMTYear = adjustedDate.getFullYear();
-            const adjustedMTMonth = adjustedDate.getMonth();
-            const adjustedMTDay = adjustedDate.getDate();
-            
-            // Create dtstart on the target day with the original time
-            dtstartDate = createMountainTimeDate(adjustedMTYear, adjustedMTMonth, adjustedMTDay, originalHours, originalMinutes, originalSeconds);
-          }
-        } else {
-          // No BYDAY specified, use the start date as-is
-          dtstartDate = candidateDtstart;
-        }
-      } else {
-        dtstartDate = startDate;
-      }
-      
-      const rule = RRule.fromString(ruleToUse);
-      const ruleOptions = {
-        ...rule.options,
-        dtstart: dtstartDate,
-      };
-      const ruleWithDtstart = new RRule(ruleOptions);
-      
-      const searchStart = startDate > rangeStart ? startDate : rangeStart;
-      const occurrences = ruleWithDtstart.between(searchStart, rangeEnd, true);
-      
-      // Filter out exceptions and create event objects for each occurrence
-      return occurrences
-        .filter(occurrence => {
-          const occurrenceDateStr = format(occurrence, 'yyyy-MM-dd');
-          return !exceptions.includes(occurrenceDateStr);
-        })
-        .map(occurrence => {
-          // Get the occurrence date components in Mountain Time
-          const occurrenceMTParts = mtFormatter.formatToParts(occurrence);
-          const occurrenceMTYear = parseInt(occurrenceMTParts.find(p => p.type === 'year')!.value);
-          const occurrenceMTMonth = parseInt(occurrenceMTParts.find(p => p.type === 'month')!.value);
-          const occurrenceMTDay = parseInt(occurrenceMTParts.find(p => p.type === 'day')!.value);
-          
-          // For monthly events with BYMONTHDAY, RRule returns UTC dates
-          // We need to ensure these display correctly in local time
-          // If the target day and occurrence day don't match in local time, adjust
-          let eventStart: Date;
-          if (event.recurrenceRule && event.recurrenceRule.includes('BYMONTHDAY')) {
-            const monthDayMatch = event.recurrenceRule.match(/BYMONTHDAY=(\d+)/);
-            if (monthDayMatch) {
-              const targetDay = parseInt(monthDayMatch[1]); // This is the original local day from RRULE
-              const occurrenceLocalDay = occurrence.getDate(); // What day the occurrence shows in local time
-              
-              // If RRule returned a date that displays as a different day in local time,
-              // we need to adjust it to match the target day
-              if (occurrenceLocalDay !== targetDay) {
-                // Use the target day with the original time in Mountain Time
-                eventStart = createMountainTimeDate(occurrenceMTYear, occurrenceMTMonth - 1, targetDay, originalHours, originalMinutes, originalSeconds);
-              } else {
-                // Use the occurrence date but preserve the original time in Mountain Time
-                eventStart = createMountainTimeDate(occurrenceMTYear, occurrenceMTMonth - 1, occurrenceMTDay, originalHours, originalMinutes, originalSeconds);
-              }
-            } else {
-              // Use the occurrence date but preserve the original time in Mountain Time
-              eventStart = createMountainTimeDate(occurrenceMTYear, occurrenceMTMonth - 1, occurrenceMTDay, originalHours, originalMinutes, originalSeconds);
-            }
-          } else if (event.recurrenceRule && event.recurrenceRule.includes('FREQ=WEEKLY')) {
-            // For weekly events, ensure the occurrence appears on the correct day of week in Mountain Time
-            // Get the target days of week from BYDAY
-            const bydayMatch = event.recurrenceRule.match(/BYDAY=([^;]+)/);
-            const dayMap: Record<string, number> = {
-              'SU': 0, 'MO': 1, 'TU': 2, 'WE': 3, 'TH': 4, 'FR': 5, 'SA': 6
-            };
-            
-            // Check what day of week the occurrence represents in Mountain Time
-            const occurrenceMTDayOfWeek = new Date(occurrenceMTYear, occurrenceMTMonth - 1, occurrenceMTDay).getDay();
-            
-            // If BYDAY is specified, check if the occurrence's day matches any of the specified days
-            if (bydayMatch) {
-              const bydayStr = bydayMatch[1];
-              const targetDays = bydayStr.split(',').map((d: string) => dayMap[d.trim()]).filter((d: number | undefined): d is number => d !== undefined);
-              
-              // Check if the occurrence's day of week matches any of the target days
-              if (targetDays.includes(occurrenceMTDayOfWeek)) {
-                // The occurrence is on one of the target days, use it as-is
-                eventStart = createMountainTimeDate(occurrenceMTYear, occurrenceMTMonth - 1, occurrenceMTDay, originalHours, originalMinutes, originalSeconds);
-              } else {
-                // The occurrence is not on a target day (timezone issue), find the nearest target day
-                const sortedTargetDays = [...targetDays].sort((a, b) => a - b);
-                let targetDay = sortedTargetDays.find(d => d >= occurrenceMTDayOfWeek) || sortedTargetDays[0];
-                
-                // Calculate days to add to get to the target day
-                let dayDiff = targetDay - occurrenceMTDayOfWeek;
-                if (dayDiff < 0) dayDiff += 7; // Wrap around to next week
-                
-                const adjustedDay = occurrenceMTDay + dayDiff;
-                eventStart = createMountainTimeDate(occurrenceMTYear, occurrenceMTMonth - 1, adjustedDay, originalHours, originalMinutes, originalSeconds);
-              }
-            } else {
-              // No BYDAY specified, use the occurrence date as-is
-              eventStart = createMountainTimeDate(occurrenceMTYear, occurrenceMTMonth - 1, occurrenceMTDay, originalHours, originalMinutes, originalSeconds);
-            }
-          } else {
-            // For other recurring events, use the occurrence date
-            // but preserve the original time components in Mountain Time
-            eventStart = createMountainTimeDate(occurrenceMTYear, occurrenceMTMonth - 1, occurrenceMTDay, originalHours, originalMinutes, originalSeconds);
-          }
-          
-          // Calculate end time by preserving the time from the original event in Mountain Time
-          let eventEnd: Date | null = null;
-          if (event.endDateTime) {
-            eventEnd = createMountainTimeDate(occurrenceMTYear, occurrenceMTMonth - 1, occurrenceMTDay, originalEndHours, originalEndMinutes, originalEndSeconds);
-          }
-          
-          return {
-            ...event,
-            startDateTime: eventStart.toISOString(),
-            endDateTime: eventEnd?.toISOString() || null,
-            isRecurringOccurrence: true,
-            recurrenceRule: event.recurrenceRule, // Preserve recurrenceRule for consistent display
-          };
-        });
-    } catch (e) {
-      // If RRule parsing fails, return empty array
-      return [];
-    }
-  };
-
   // Get today's events (one-time events + recurring occurrences)
   // IMPORTANT: We show ALL events for today, not just the first one
   const todaysOneTimeEvents = allEvents.filter(event => {
     if (event.recurrenceRule) return false; // Skip recurring events here
-    const eventDate = new Date(event.startDateTime);
-    // Include any event that starts today (between today midnight and tomorrow midnight in Mountain Time)
-    return eventDate >= today && eventDate < tomorrowStart;
+    const eventDateStr = getMountainTimeDateString(new Date(event.startDateTime));
+    return eventDateStr === todayDateStr;
   });
 
   const todaysRecurringOccurrences = allEvents
     .filter(event => event.recurrenceRule)
-    .flatMap(event => getRecurringEventOccurrences(event, today, tomorrowStart));
+    .flatMap(event => getRecurringEventOccurrences(event, today, tomorrowStart))
+    .filter((occurrence) => {
+      const occurrenceDateStr = getMountainTimeDateString(new Date(occurrence.startDateTime));
+      return occurrenceDateStr === todayDateStr;
+    });
 
   // Combine all events for today and sort by start time
   // This will include multiple events if there are multiple events scheduled for the same day
@@ -405,8 +157,7 @@ export default async function HomePage() {
 
   // Fetch today's specials using Mountain Time
   const todayName = getMountainTimeWeekday();
-  const todayStart = getMountainTimeToday();
-  const todayDateStr = getMountainTimeDateString(todayStart);
+  const todayStart = today;
 
   // Get today's food specials (date-based or weekly recurring)
   // Collect ALL matching food specials, not just the first one
