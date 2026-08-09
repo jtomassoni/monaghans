@@ -77,8 +77,9 @@ export default async function HomePage() {
     }),
   ]);
 
-  // Get today's events (one-time events + recurring occurrences)
-  // IMPORTANT: We show ALL events for today, not just the first one
+  // Today's events for the hero: any one-time or recurring occurrence on today's
+  // Mountain Time calendar date. Shown all day as "Upcoming" (morning included),
+  // and kept until the occurrence ends (or end of day if it has no end time).
   const todaysOneTimeEvents = allEvents.filter(event => {
     if (event.recurrenceRule) return false; // Skip recurring events here
     const eventDateStr = getMountainTimeDateString(new Date(event.startDateTime));
@@ -93,9 +94,14 @@ export default async function HomePage() {
       return occurrenceDateStr === todayDateStr;
     });
 
-  // Combine all events for today and sort by start time
-  // This will include multiple events if there are multiple events scheduled for the same day
   const todaysEvents = [...todaysOneTimeEvents, ...todaysRecurringOccurrences]
+    .filter((event) => {
+      if (event.endDateTime) {
+        return new Date(event.endDateTime).getTime() >= now.getTime();
+      }
+      // No end time: keep on the hero for the rest of the calendar day
+      return true;
+    })
     .sort((a, b) => new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime());
 
   // Get upcoming events (one-time events + recurring occurrences, starting from now)
@@ -348,17 +354,16 @@ export default async function HomePage() {
           {/* Compact Grid Layout for Specials and Events */}
           {totalItems > 0 ? (
             <div className={`grid ${gridConfig.cols} gap-2.5 sm:gap-4 mb-3 sm:mb-6 ${gridConfig.maxWidth} mx-auto w-full`}>
-            {/* Today's Events - Recurring and Ad Hoc */}
+            {/* Today's upcoming events — shown all day in the hero until each occurrence ends */}
             {todaysEvents.map((event, index) => {
-              // Check if event is recurring - either has recurrenceRule or is an expanded occurrence
-              const isRecurring = !!(event.recurrenceRule || (event as any).isRecurringOccurrence);
-              // Get the original event to check recurrence rule (for expanded occurrences, use the event itself)
-              const originalEvent = allEvents.find(e => e.id === event.id);
-              const hasRecurrenceRule = event.recurrenceRule || originalEvent?.recurrenceRule;
-              
-              // All recurring events display the same way regardless of frequency
-              // No need to show specific recurrence pattern - just mark as recurring
-              
+              const startMs = new Date(event.startDateTime).getTime();
+              const hasStarted = startMs <= now.getTime();
+              const timeLabel = new Date(event.startDateTime).toLocaleTimeString('en-US', {
+                hour: 'numeric',
+                minute: '2-digit',
+                timeZone: 'America/Denver',
+              });
+
               return (
                 <div 
                   key={`${event.id}-${event.startDateTime}-${index}`} 
@@ -378,8 +383,8 @@ export default async function HomePage() {
                       <FaCalendarAlt className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <span className="text-purple-300 text-[9px] sm:text-xs font-bold uppercase tracking-wider block sm:hidden">
-                        Event
+                      <span className="text-purple-300 text-[9px] sm:text-xs font-bold uppercase tracking-wider block">
+                        {hasStarted ? 'Happening Now' : 'Upcoming'}
                       </span>
                       <h3 className="text-sm sm:text-lg font-bold text-white line-clamp-1 sm:line-clamp-2 leading-tight drop-shadow-sm break-words">
                         {event.title}
@@ -394,13 +399,7 @@ export default async function HomePage() {
                       <svg className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
-                      <span>
-                        {new Date(event.startDateTime).toLocaleTimeString('en-US', {
-                          hour: 'numeric',
-                          minute: '2-digit',
-                          timeZone: 'America/Denver',
-                        })}
-                      </span>
+                      <span>{timeLabel}</span>
                     </div>
                   </div>
                 </div>
