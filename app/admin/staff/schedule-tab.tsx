@@ -120,41 +120,33 @@ export default function ScheduleTab({ employees, schedules, onSchedulesChange }:
 
   const [shiftConfigFormData, setShiftConfigFormData] = useState<ShiftTypeConfig[]>([]);
 
-  // Get start of week (Sunday) in Mountain Time
+  // Get start of week (Sunday) in Mountain Time calendar days.
+  // Important: advance via YYYY-MM-DD strings — never setUTCHours(0), which
+  // shifts Mountain midnight back to the previous local calendar day.
   const getStartOfWeek = (date: Date) => {
-    // Get the date string in Mountain Time to normalize it
     const dateStr = getMountainTimeDateString(date);
-    const parsedDate = parseMountainTimeDate(dateStr);
-    
-    // Get day of week in Mountain Time using Intl API
     const formatter = new Intl.DateTimeFormat('en-US', {
       timeZone: 'America/Denver',
-      weekday: 'short'
+      weekday: 'short',
     });
-    const weekday = formatter.format(parsedDate);
+    const weekday = formatter.format(parseMountainTimeDate(dateStr));
     const dayIndex = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(weekday);
-    
-    // Calculate days to subtract to get to Sunday (day 0)
-    const daysToSubtract = dayIndex;
-    const start = new Date(parsedDate);
-    start.setUTCDate(parsedDate.getUTCDate() - daysToSubtract);
-    start.setUTCHours(0, 0, 0, 0);
-    
-    return start;
+    const daysToSubtract = Math.max(0, dayIndex);
+
+    const anchor = new Date(`${dateStr}T12:00:00.000Z`);
+    anchor.setUTCDate(anchor.getUTCDate() - daysToSubtract);
+    const sundayStr = anchor.toISOString().slice(0, 10);
+    return parseMountainTimeDate(sundayStr);
   };
 
-  // Get week days (all normalized to Mountain Time)
+  // Get week days (all normalized to Mountain Time midnight)
   const getWeekDays = () => {
-    const start = getStartOfWeek(currentWeek);
+    const startStr = getMountainTimeDateString(getStartOfWeek(currentWeek));
     const days = [];
     for (let i = 0; i < 7; i++) {
-      // Add days using UTC to preserve Mountain Time normalization
-      const day = new Date(start);
-      day.setUTCDate(start.getUTCDate() + i);
-      day.setUTCHours(0, 0, 0, 0);
-      // Re-normalize to ensure it's Mountain Time midnight
-      const dateStr = getMountainTimeDateString(day);
-      days.push(parseMountainTimeDate(dateStr));
+      const anchor = new Date(`${startStr}T12:00:00.000Z`);
+      anchor.setUTCDate(anchor.getUTCDate() + i);
+      days.push(parseMountainTimeDate(anchor.toISOString().slice(0, 10)));
     }
     return days;
   };

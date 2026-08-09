@@ -5,6 +5,11 @@ import { prisma } from '@/lib/prisma';
 import { isFeatureEnabled } from '@/lib/feature-flags';
 import StaffContent from './staff-content';
 import AdminPageHeader from '@/components/admin-page-header';
+import {
+  getMountainTimeDateString,
+  getMountainTimeToday,
+  parseMountainTimeDate,
+} from '@/lib/timezone';
 
 export default async function AdminStaff() {
   const session = await getServerSession(authOptions);
@@ -24,21 +29,28 @@ export default async function AdminStaff() {
     orderBy: [{ name: 'asc' }],
   });
 
-  // Get current week's schedules
-  const today = new Date();
-  const startOfWeek = new Date(today);
-  startOfWeek.setDate(today.getDate() - today.getDay()); // Sunday
-  startOfWeek.setHours(0, 0, 0, 0);
-  
-  const endOfWeek = new Date(startOfWeek);
-  endOfWeek.setDate(startOfWeek.getDate() + 6);
-  endOfWeek.setHours(23, 59, 59, 999);
+  // Current week in Mountain Time (not server UTC — Vercel is UTC and shifts the day)
+  const todayStr = getMountainTimeDateString(getMountainTimeToday());
+  const todayWeekday = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Denver',
+    weekday: 'short',
+  }).format(parseMountainTimeDate(todayStr));
+  const dayIndex = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(todayWeekday);
+  const sundayAnchor = new Date(`${todayStr}T12:00:00.000Z`);
+  sundayAnchor.setUTCDate(sundayAnchor.getUTCDate() - Math.max(0, dayIndex));
+  const startOfWeek = parseMountainTimeDate(sundayAnchor.toISOString().slice(0, 10));
+  // Exclusive upper bound: next Sunday at Mountain midnight
+  const nextSundayAnchor = new Date(sundayAnchor);
+  nextSundayAnchor.setUTCDate(sundayAnchor.getUTCDate() + 7);
+  const endOfWeekExclusive = parseMountainTimeDate(
+    nextSundayAnchor.toISOString().slice(0, 10)
+  );
 
   const schedules = await prisma.schedule.findMany({
     where: {
       date: {
         gte: startOfWeek,
-        lte: endOfWeek,
+        lt: endOfWeekExclusive,
       },
     },
     include: {

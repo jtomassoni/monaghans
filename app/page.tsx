@@ -6,18 +6,11 @@ import Footer from '@/components/footer';
 import AnnouncementsHandler from '@/components/announcements-handler';
 import HeroImage from '@/components/hero-image';
 import PartnerOrderingBanner from '@/components/partner-ordering-banner';
-import { marked } from 'marked';
 import { getMountainTimeToday, getMountainTimeTomorrow, getMountainTimeWeekday, getMountainTimeNow, getMountainTimeDateString, parseMountainTimeDate } from '@/lib/timezone';
 import { isFoodSpecialActiveOnDate } from '@/lib/food-specials';
 import { getRecurringEventOccurrences } from '@/lib/recurring-event-occurrences';
-import { startOfDay, endOfDay, isWithinInterval } from 'date-fns';
+import { startOfDay, endOfDay } from 'date-fns';
 import { FaCalendarAlt, FaUtensils, FaBeer } from 'react-icons/fa';
-
-// Configure marked to allow HTML
-marked.setOptions({
-  breaks: true,
-  gfm: true,
-});
 
 // Force dynamic rendering to prevent caching - we need fresh data for today's specials
 export const dynamic = 'force-dynamic';
@@ -30,13 +23,59 @@ export default async function HomePage() {
   const now = getMountainTimeNow();
   const todayDateStr = getMountainTimeDateString(today);
 
-  // Fetch all active events (including recurring ones)
-  const allEvents = await prisma.event.findMany({
-    where: {
-      isActive: true,
-    },
-    orderBy: { startDateTime: 'asc' },
-  });
+  const announcementWhere = {
+    isPublished: true,
+    AND: [
+      {
+        OR: [
+          { publishAt: null },
+          { publishAt: { lte: now } },
+        ],
+      },
+      {
+        OR: [
+          { expiresAt: null },
+          { expiresAt: { gte: now } },
+        ],
+      },
+    ],
+  };
+
+  // Fetch homepage data in parallel (same pattern as /menu). Sequential awaits
+  // on serverless can burn the whole function budget before render starts.
+  const [
+    allEvents,
+    publishedAnnouncements,
+    hoursSetting,
+    contactSetting,
+    heroSetting,
+    aboutSetting,
+    gallerySetting,
+    allFoodSpecials,
+    allDrinkSpecials,
+  ] = await Promise.all([
+    prisma.event.findMany({
+      where: { isActive: true },
+      orderBy: { startDateTime: 'asc' },
+    }),
+    // Cap at 3 — never hard-fail the public homepage over announcement count
+    prisma.announcement.findMany({
+      where: announcementWhere,
+      orderBy: { createdAt: 'desc' },
+      take: 3,
+    }),
+    prisma.setting.findUnique({ where: { key: 'hours' } }),
+    prisma.setting.findUnique({ where: { key: 'contact' } }),
+    prisma.setting.findUnique({ where: { key: 'homepageHero' } }),
+    prisma.setting.findUnique({ where: { key: 'homepageAbout' } }),
+    prisma.setting.findUnique({ where: { key: 'homepageGallery' } }),
+    prisma.special.findMany({
+      where: { isActive: true, type: 'food' },
+    }),
+    prisma.special.findMany({
+      where: { isActive: true, type: 'drink' },
+    }),
+  ]);
 
   // Get today's events (one-time events + recurring occurrences)
   // IMPORTANT: We show ALL events for today, not just the first one
@@ -82,91 +121,8 @@ export default async function HomePage() {
     .sort((a, b) => new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime())
     .slice(0, 3);
 
-  // Fetch published announcements (most recent first)
-  // First check total count to enforce 3-announcement limit
-  const totalPublishedAnnouncements = await prisma.announcement.count({
-    where: {
-      isPublished: true,
-      AND: [
-        {
-          OR: [
-            { publishAt: null },
-            { publishAt: { lte: now } },
-          ],
-        },
-        {
-          OR: [
-            { expiresAt: null },
-            { expiresAt: { gte: now } },
-          ] as any,
-        },
-      ],
-    },
-  });
-
-  // Throw error if more than 3 announcements are published
-  if (totalPublishedAnnouncements > 3) {
-    throw new Error(
-      `Too many published announcements (${totalPublishedAnnouncements}). Maximum of 3 announcements can be published at once. Please unpublish or expire some announcements.`
-    );
-  }
-
-  const publishedAnnouncements = await prisma.announcement.findMany({
-    where: {
-      isPublished: true,
-      AND: [
-        {
-          OR: [
-            { publishAt: null },
-            { publishAt: { lte: now } },
-          ],
-        },
-        {
-          OR: [
-            { expiresAt: null },
-            { expiresAt: { gte: now } },
-          ] as any,
-        },
-      ],
-    },
-    orderBy: { createdAt: 'desc' },
-    take: 3, // Show up to 3 announcements
-  });
-
-  const hoursSetting = await prisma.setting.findUnique({
-    where: { key: 'hours' },
-  });
-
-  const contactSetting = await prisma.setting.findUnique({
-    where: { key: 'contact' },
-  });
-
-  // Happy hour is hardcoded - always the same, no need for settings
-
-  const heroSetting = await prisma.setting.findUnique({
-    where: { key: 'homepageHero' },
-  });
-
-  const aboutSetting = await prisma.setting.findUnique({
-    where: { key: 'homepageAbout' },
-  });
-
-  const gallerySetting = await prisma.setting.findUnique({
-    where: { key: 'homepageGallery' },
-  });
-
   // Fetch today's specials using Mountain Time
   const todayName = getMountainTimeWeekday();
-  const todayStart = today;
-
-  // Get today's food specials (date-based or weekly recurring)
-  // Collect ALL matching food specials, not just the first one
-  const allFoodSpecials = await prisma.special.findMany({
-    where: {
-      isActive: true,
-      type: 'food',
-    },
-  });
 
   // Show food specials active today. Supports both weekly recurring specials
   // (appliesOn, e.g. Taco Tuesday) and date-based specials. See
@@ -174,14 +130,6 @@ export default async function HomePage() {
   const todaysFoodSpecials = allFoodSpecials.filter((special) =>
     isFoodSpecialActiveOnDate(special, today)
   );
-
-  // Get today's drink special (weekly recurring or date-based)
-  const allDrinkSpecials = await prisma.special.findMany({
-    where: {
-      isActive: true,
-      type: 'drink',
-    },
-  });
 
   let todaysDrinkSpecial = null;
   for (const special of allDrinkSpecials) {

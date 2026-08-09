@@ -1,4 +1,3 @@
-import { addDays } from 'date-fns';
 import { RRule } from 'rrule';
 import {
   getMountainTimeDateString,
@@ -96,13 +95,21 @@ function createMountainTimeDate(
   return new Date(Date.UTC(year, month, day, hours + 7, minutes, seconds));
 }
 
+/** Advance a YYYY-MM-DD calendar date without 24h/DST arithmetic (avoids day-stuck loops). */
+function addCalendarDays(dateStr: string, days: number): string {
+  const anchor = new Date(`${dateStr}T12:00:00.000Z`);
+  anchor.setUTCDate(anchor.getUTCDate() + days);
+  return anchor.toISOString().slice(0, 10);
+}
+
 function getCalendarDatesInRange(rangeStart: Date, rangeEnd: Date): Set<string> {
   const dates = new Set<string>();
-  let cursor = parseMountainTimeDate(getMountainTimeDateString(rangeStart));
-  while (cursor < rangeEnd) {
-    const dateStr = getMountainTimeDateString(cursor);
+  let dateStr = getMountainTimeDateString(rangeStart);
+  const endStr = getMountainTimeDateString(rangeEnd);
+  // Guard: never walk more than ~400 days even if range math is wrong
+  for (let i = 0; i < 400 && dateStr < endStr; i++) {
     dates.add(dateStr);
-    cursor = addDays(parseMountainTimeDate(dateStr), 1);
+    dateStr = addCalendarDays(dateStr, 1);
   }
   return dates;
 }
@@ -176,9 +183,9 @@ function getWeeklyByDayOccurrences<T extends RecurringEventInput>(
   const searchStart = startDate > rangeStart ? startDate : rangeStart;
   const results: RecurringEventOccurrence<T>[] = [];
 
-  let cursor = parseMountainTimeDate(getMountainTimeDateString(rangeStart));
-  while (cursor < rangeEnd) {
-    const dateStr = getMountainTimeDateString(cursor);
+  let dateStr = getMountainTimeDateString(rangeStart);
+  const endStr = getMountainTimeDateString(rangeEnd);
+  for (let i = 0; i < 400 && dateStr < endStr; i++) {
     const dow = weekdayForMountainDate(dateStr);
 
     if (targetDays.includes(dow) && !exceptions.includes(dateStr)) {
@@ -209,7 +216,7 @@ function getWeeklyByDayOccurrences<T extends RecurringEventInput>(
       }
     }
 
-    cursor = addDays(parseMountainTimeDate(dateStr), 1);
+    dateStr = addCalendarDays(dateStr, 1);
   }
 
   return results;
