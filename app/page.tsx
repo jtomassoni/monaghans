@@ -307,8 +307,8 @@ export default async function HomePage() {
   return (
     <main id="main-content" className="min-h-screen bg-[var(--color-background)] text-[var(--color-foreground)] scroll-smooth" role="main" aria-label="Main content">
       {/* Hero Section */}
-      <section aria-label="Hero section" className="relative min-h-screen w-full overflow-hidden">
-        <div className="absolute inset-0 z-0">
+      <section aria-label="Hero section" className="relative min-h-screen w-full">
+        <div className="absolute inset-0 z-0 overflow-hidden">
           <HeroImage
             src={getHeroImage()}
             alt="Monaghan's Bar and Grill"
@@ -378,7 +378,7 @@ export default async function HomePage() {
                     <div className="absolute top-0 right-0 w-32 h-32 bg-purple-400/20 rounded-full blur-3xl"></div>
                     <div className="absolute bottom-0 left-0 w-24 h-24 bg-indigo-400/20 rounded-full blur-2xl"></div>
                   </div>
-                  <div className="relative flex items-center gap-2.5 sm:gap-3">
+                  <div className="relative flex items-start gap-2.5 sm:gap-3">
                     <div className="p-2 sm:p-2.5 bg-purple-500/50 rounded-lg sm:rounded-xl flex-shrink-0 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 shadow-lg ring-2 ring-purple-300/30">
                       <FaCalendarAlt className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
                     </div>
@@ -386,16 +386,16 @@ export default async function HomePage() {
                       <span className="text-purple-300 text-[9px] sm:text-xs font-bold uppercase tracking-wider block">
                         {hasStarted ? 'Happening Now' : 'Upcoming'}
                       </span>
-                      <h3 className="text-sm sm:text-lg font-bold text-white line-clamp-1 sm:line-clamp-2 leading-tight drop-shadow-sm break-words">
+                      <h3 className="text-sm sm:text-lg font-bold text-white leading-tight drop-shadow-sm break-words">
                         {event.title}
                       </h3>
                       {event.description && (
-                        <p className="text-purple-50/90 text-[11px] sm:text-sm line-clamp-1 sm:line-clamp-2 leading-snug break-words">
+                        <p className="text-purple-50/90 text-[11px] sm:text-sm leading-snug break-words">
                           {event.description}
                         </p>
                       )}
                     </div>
-                    <div className="flex items-center gap-1 text-purple-100 text-[10px] sm:text-xs font-semibold whitespace-nowrap flex-shrink-0 self-start">
+                    <div className="flex items-center gap-1 text-purple-100 text-[10px] sm:text-xs font-semibold whitespace-nowrap flex-shrink-0">
                       <svg className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
@@ -417,7 +417,7 @@ export default async function HomePage() {
                   <div className="absolute top-2 right-2 w-20 h-20 bg-orange-500 rounded-full blur-2xl"></div>
                   <div className="absolute bottom-2 left-2 w-16 h-16 bg-red-500 rounded-full blur-xl"></div>
                 </div>
-                <div className="relative flex items-center gap-2.5 sm:gap-3">
+                <div className="relative flex items-start gap-2.5 sm:gap-3">
                   <div className="p-2 sm:p-2.5 bg-orange-500/60 rounded-lg sm:rounded-xl flex-shrink-0 shadow-lg ring-2 ring-orange-400/30">
                     <FaUtensils className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
                   </div>
@@ -425,20 +425,20 @@ export default async function HomePage() {
                     <span className="text-orange-300 text-[9px] sm:text-xs font-bold uppercase tracking-wider block">
                       Food Special
                     </span>
-                    <h3 className="text-sm sm:text-lg font-bold text-white line-clamp-1 sm:line-clamp-2 leading-tight drop-shadow-sm">
+                    <h3 className="text-sm sm:text-lg font-bold text-white leading-tight drop-shadow-sm break-words">
                       {special.title}
                     </h3>
                     {special.description && (
-                      <p className="text-orange-50/90 text-[11px] sm:text-sm line-clamp-1 sm:line-clamp-2 leading-snug break-words">
+                      <p className="text-orange-50/90 text-[11px] sm:text-sm leading-snug break-words">
                         {special.description}
                       </p>
                     )}
+                    {special.priceNotes && (
+                      <p className="text-orange-100 text-xs sm:text-sm font-bold break-words mt-0.5">
+                        {special.priceNotes}
+                      </p>
+                    )}
                   </div>
-                  {special.priceNotes && (
-                    <span className="text-orange-100 text-xs sm:text-sm font-bold whitespace-nowrap flex-shrink-0 self-start">
-                      {special.priceNotes}
-                    </span>
-                  )}
                 </div>
               </div>
             ))}
@@ -451,7 +451,7 @@ export default async function HomePage() {
                   <div className="absolute top-2 right-2 w-20 h-20 bg-blue-500 rounded-full blur-2xl"></div>
                   <div className="absolute bottom-2 left-2 w-16 h-16 bg-cyan-500 rounded-full blur-xl"></div>
                 </div>
-                <div className="relative flex items-center gap-2.5 sm:gap-3">
+                <div className="relative flex items-start gap-2.5 sm:gap-3">
                   <div className="p-2 sm:p-2.5 bg-blue-500/60 rounded-lg sm:rounded-xl flex-shrink-0 shadow-lg ring-2 ring-blue-400/30">
                     <FaBeer className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
                   </div>
@@ -459,20 +459,20 @@ export default async function HomePage() {
                     <span className="text-blue-300 text-[9px] sm:text-xs font-bold uppercase tracking-wider block">
                       Drink Special
                     </span>
-                    <h3 className="text-sm sm:text-lg font-bold text-white line-clamp-1 sm:line-clamp-2 leading-tight drop-shadow-sm">
+                    <h3 className="text-sm sm:text-lg font-bold text-white leading-tight drop-shadow-sm break-words">
                       {todaysDrinkSpecial.title}
                     </h3>
                     {todaysDrinkSpecial.description && (
-                      <p className="text-blue-50/90 text-[11px] sm:text-sm line-clamp-1 sm:line-clamp-2 leading-snug break-words">
+                      <p className="text-blue-50/90 text-[11px] sm:text-sm leading-snug break-words">
                         {todaysDrinkSpecial.description}
                       </p>
                     )}
+                    {todaysDrinkSpecial.priceNotes && (
+                      <p className="text-blue-100 text-xs sm:text-sm font-bold break-words mt-0.5">
+                        {todaysDrinkSpecial.priceNotes}
+                      </p>
+                    )}
                   </div>
-                  {todaysDrinkSpecial.priceNotes && (
-                    <span className="text-blue-100 text-xs sm:text-sm font-bold whitespace-nowrap flex-shrink-0 self-start">
-                      {todaysDrinkSpecial.priceNotes}
-                    </span>
-                  )}
                 </div>
               </div>
             )}
