@@ -6,11 +6,13 @@ import EventModalForm from '@/components/event-modal-form';
 import SpecialModalForm from '@/components/special-modal-form';
 import DrinkSpecialModalForm from '@/components/drink-special-modal-form';
 import AnnouncementModalForm from '@/components/announcement-modal-form';
+import FootballGameModalForm from '@/components/football-game-modal-form';
 
-export type NewItemType = 'event' | 'food' | 'drink' | 'announcement';
+export type NewItemType = 'event' | 'football-game' | 'food' | 'drink' | 'announcement';
 
 const TYPE_OPTIONS: { value: NewItemType; label: string }[] = [
   { value: 'event', label: 'Event' },
+  { value: 'football-game', label: 'Football Game' },
   { value: 'food', label: 'Food Special' },
   { value: 'drink', label: 'Drink Special' },
   { value: 'announcement', label: 'Announcement' },
@@ -86,6 +88,18 @@ export default function NewItemFormModal({
               onEventUpdated={onEventUpdated}
               onDelete={onEventDeleted}
               onExceptionAdded={onExceptionAdded}
+              embed
+            />
+          )}
+          {itemType === 'football-game' && (
+            <FootballGameModalForm
+              isOpen={true}
+              onClose={onClose}
+              event={undefined}
+              onSuccess={handleSuccess}
+              onEventAdded={onEventAdded}
+              onEventUpdated={onEventUpdated}
+              onDelete={onEventDeleted}
               embed
             />
           )}

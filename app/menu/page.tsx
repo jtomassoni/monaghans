@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import MenuDisplay from '@/components/menu-display';
-import PartnerOrderingBanner from '@/components/partner-ordering-banner';
+import { orderingRedirectPath } from '@/lib/ordering-partners';
 import { getMountainTimeToday } from '@/lib/timezone';
 import { isFoodSpecialActiveOnDate } from '@/lib/food-specials';
 
@@ -76,10 +76,14 @@ export default async function MenuPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl md:text-4xl font-bold mb-2 text-white">Our Menu</h1>
-          <p className="text-sm text-gray-400">*Prices subject to change</p>
+          <p className="text-sm text-gray-400 mb-6">*Prices subject to change</p>
+          <Link
+            href={orderingRedirectPath('online-ordering')}
+            className="inline-flex items-center justify-center rounded-full px-8 py-3 text-base font-bold bg-[var(--color-accent)] hover:bg-[var(--color-accent-dark)] text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all"
+          >
+            Order Pickup
+          </Link>
         </div>
-
-        <PartnerOrderingBanner variant="inline" className="mb-8 max-w-4xl mx-auto" />
 
         {/* Read-only menu display — ordering happens via Toast */}
         <MenuDisplay 

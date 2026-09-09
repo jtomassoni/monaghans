@@ -40,6 +40,12 @@ Create single events that don't repeat.
 2. Select **"New Event"**
 3. Fill details and save
 
+## Football Games
+
+Add Broncos watch-party games from Calendar → **New** → **Football Game**.
+
+Each game is a regular calendar event you can edit later. Enter the opponent, kickoff time, and the house meal for the pot luck buffet (tacos, lasagna, and so on). The next upcoming game appears on the homepage hero with those three highlights, plus a note that guests should bring a side or dessert.
+
 ## Event Details
 
 ### Required

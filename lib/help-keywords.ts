@@ -57,6 +57,14 @@ export const helpKeywords: Record<FeatureKey, string[]> = {
     'monthly view',
     'week view',
     'month view',
+    'football',
+    'football game',
+    'broncos',
+    'game day',
+    'kickoff',
+    'opponent',
+    'pot luck',
+    'house meal',
   ],
 
   // Menu Management
@@ -137,6 +145,11 @@ export const helpKeywords: Record<FeatureKey, string[]> = {
     'homepage images',
     'homepage content',
     'homepage layout',
+    'football',
+    'broncos',
+    'game day',
+    'pot luck',
+    'house meal',
   ],
 
   // Digital Signage

@@ -11,11 +11,13 @@ import EventModalForm from '@/components/event-modal-form';
 import SpecialModalForm from '@/components/special-modal-form';
 import DrinkSpecialModalForm from '@/components/drink-special-modal-form';
 import AnnouncementModalForm from '@/components/announcement-modal-form';
+import FootballGameModalForm from '@/components/football-game-modal-form';
 import StatusBadge from '@/components/status-badge';
 import { getItemStatus } from '@/lib/status-helpers';
 import { getMountainTimeToday, getMountainTimeDateString, formatDateAsDateTimeLocal, getCompanyTimezoneSync } from '@/lib/timezone';
 import DuplicateCalendarModal from '@/components/duplicate-calendar-modal';
 import { FaCopy } from 'react-icons/fa';
+import { isFootballGameEvent, parseEventTags } from '@/lib/football-games';
 
 interface Event {
   id: string;
@@ -55,6 +57,7 @@ interface Announcement {
   publishAt: string | null;
   expiresAt: string | null;
   isPublished: boolean;
+  isHighSeverity?: boolean;
   eventType: 'announcement';
 }
 
@@ -112,6 +115,7 @@ export default function EventsList({
   const [specialModalOpen, setSpecialModalOpen] = useState(false);
   const [announcementModalOpen, setAnnouncementModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [footballModalOpen, setFootballModalOpen] = useState(false);
   const [editingSpecial, setEditingSpecial] = useState<Special | null>(null);
   const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
   const [specialType, setSpecialType] = useState<'food' | 'drink'>('food');
@@ -282,7 +286,8 @@ export default function EventsList({
         const res = await fetch(`/api/events/${item.id}`);
         if (res.ok) {
           const eventData = await res.json();
-          setEditingEvent({
+          const tags = parseEventTags(eventData.tags);
+          const loaded = {
             id: eventData.id,
             title: eventData.title,
             description: eventData.description || '',
@@ -291,12 +296,17 @@ export default function EventsList({
             venueArea: eventData.venueArea || 'bar',
             recurrenceRule: eventData.recurrenceRule || '',
             isAllDay: eventData.isAllDay || false,
-            tags: eventData.tags ? JSON.parse(eventData.tags) : [],
+            tags,
             image: eventData.image || null,
             isActive: eventData.isActive,
-            eventType: 'event',
-          });
-          setEventModalOpen(true);
+            eventType: 'event' as const,
+          };
+          setEditingEvent(loaded);
+          if (isFootballGameEvent(loaded)) {
+            setFootballModalOpen(true);
+          } else {
+            setEventModalOpen(true);
+          }
         }
       } catch (error) {
         showToast('Failed to load event', 'error');
@@ -318,6 +328,7 @@ export default function EventsList({
             publishAt: announcementData.publishAt,
             expiresAt: announcementData.expiresAt,
             isPublished: announcementData.isPublished,
+            isHighSeverity: announcementData.isHighSeverity ?? false,
             eventType: 'announcement',
           });
           setAnnouncementModalOpen(true);
@@ -387,6 +398,7 @@ export default function EventsList({
             publishAt: todayNoonMT.toISOString(),
             expiresAt: new Date(todayNoonMT.getTime() + 24 * 60 * 60 * 1000).toISOString(),
             isPublished: false,
+            isHighSeverity: ann.isHighSeverity ?? false,
             eventType: 'announcement',
           });
           setAnnouncementModalOpen(true);
@@ -649,6 +661,11 @@ export default function EventsList({
                       <span className={`px-2 py-0.5 text-xs rounded-full font-medium capitalize flex-shrink-0 ${typeColor} border`}>
                         {itemType}
                       </span>
+                      {item.eventType === 'announcement' && (item as Announcement).isHighSeverity ? (
+                        <span className="px-2 py-0.5 text-xs rounded-full font-medium flex-shrink-0 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                          High severity
+                        </span>
+                      ) : null}
                     </div>
                     {/* Badges Row */}
                     <div className="flex flex-wrap items-center gap-2 mb-2">
@@ -812,6 +829,60 @@ export default function EventsList({
         }}
       />
 
+      <FootballGameModalForm
+        isOpen={footballModalOpen}
+        onClose={() => {
+          setFootballModalOpen(false);
+          setEditingEvent(null);
+        }}
+        event={editingEvent ? {
+          id: editingEvent.id,
+          title: editingEvent.title,
+          description: editingEvent.description || '',
+          startDateTime: editingEvent.startDateTime,
+          endDateTime: editingEvent.endDateTime || '',
+          tags: editingEvent.tags || [],
+          isActive: editingEvent.isActive,
+        } : undefined}
+        onSuccess={handleModalSuccess}
+        onEventAdded={(newEvent) => {
+          setEvents(prev => [...prev, {
+            id: newEvent.id,
+            title: newEvent.title,
+            description: newEvent.description || null,
+            startDateTime: newEvent.startDateTime,
+            endDateTime: newEvent.endDateTime || null,
+            venueArea: newEvent.venueArea || null,
+            recurrenceRule: newEvent.recurrenceRule || null,
+            isAllDay: newEvent.isAllDay,
+            tags: parseEventTags(newEvent.tags),
+            image: newEvent.image || null,
+            isActive: newEvent.isActive,
+            eventType: 'event',
+          }]);
+        }}
+        onEventUpdated={(updatedEvent) => {
+          setEvents(prev => prev.map(e =>
+            e.id === updatedEvent.id ? {
+              ...e,
+              title: updatedEvent.title,
+              description: updatedEvent.description || null,
+              startDateTime: updatedEvent.startDateTime,
+              endDateTime: updatedEvent.endDateTime || null,
+              venueArea: updatedEvent.venueArea || null,
+              recurrenceRule: updatedEvent.recurrenceRule || null,
+              isAllDay: updatedEvent.isAllDay,
+              tags: parseEventTags(updatedEvent.tags),
+              image: updatedEvent.image || null,
+              isActive: updatedEvent.isActive,
+            } : e
+          ));
+        }}
+        onDelete={(eventId) => {
+          setEvents(prev => prev.filter(e => e.id !== eventId));
+        }}
+      />
+
       {/* Special Modal */}
       {specialType === 'drink' ? (
         <DrinkSpecialModalForm
@@ -896,6 +967,7 @@ export default function EventsList({
           publishAt: editingAnnouncement.publishAt,
           expiresAt: editingAnnouncement.expiresAt,
           isPublished: editingAnnouncement.isPublished,
+          isHighSeverity: editingAnnouncement.isHighSeverity ?? false,
           crossPostFacebook: false,
           crossPostInstagram: false,
         } : undefined}
@@ -908,6 +980,7 @@ export default function EventsList({
             publishAt: newAnn.publishAt,
             expiresAt: newAnn.expiresAt,
             isPublished: newAnn.isPublished,
+            isHighSeverity: newAnn.isHighSeverity ?? false,
             eventType: 'announcement',
           }]);
         }}

@@ -26,7 +26,9 @@ import {
 import { FaMicrophone, FaBrain, FaCalendarAlt, FaUtensils, FaBeer, FaTable, FaCalendarWeek, FaDice, FaBullhorn, FaClock, FaCalendarDay } from 'react-icons/fa';
 import { FaFootball } from 'react-icons/fa6';
 import { HiChevronLeft, HiChevronRight } from 'react-icons/hi';
-import { parseMountainTimeDate, getMountainTimeDateString, getMountainTimeToday, getMountainTimeNow, getCompanyTimezoneSync, getCompanyTimezoneDateString } from '@/lib/timezone';
+import { parseMountainTimeDate, getMountainTimeDateString, getMountainTimeToday, getMountainTimeNow, getCompanyTimezoneSync, getCompanyTimezoneDateString, parseDateTimeLocalAsCompanyTimezone } from '@/lib/timezone';
+import { showToast } from '@/components/toast';
+import { isFootballGameEvent } from '@/lib/football-games';
 
 interface CalendarEvent {
   id: string;
@@ -94,6 +96,71 @@ interface CalendarViewProps {
 
 type ViewMode = 'month' | 'week' | 'day';
 
+const RRULE_WEEKDAY_FROM_SHORT: Record<string, string> = {
+  Sun: 'SU',
+  Mon: 'MO',
+  Tue: 'TU',
+  Wed: 'WE',
+  Thu: 'TH',
+  Fri: 'FR',
+  Sat: 'SA',
+};
+
+function addDaysToDateString(dateStr: string, days: number): string {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const utc = new Date(Date.UTC(year, month - 1, day + days));
+  return utc.toISOString().slice(0, 10);
+}
+
+function getSlotFromCalendarDrop(y: number, hourHeight: number, visibleHours: number[]) {
+  const hours = visibleHours.length > 0 ? visibleHours : Array.from({ length: 24 }, (_, i) => i);
+  const maxIndex = Math.max(0, hours.length - 1);
+  const rawIndex = hourHeight > 0 ? y / hourHeight : 0;
+  const clamped = Math.max(0, Math.min(maxIndex + 0.999, rawIndex));
+  const hourIndex = Math.min(maxIndex, Math.floor(clamped));
+  const minutes = Math.floor(((clamped - hourIndex) * 60) / 30) * 30;
+  return { hours, hourIndex, minutes, visibleHour: hours[hourIndex] ?? 0 };
+}
+
+function getDateTimeFromCalendarDrop(
+  day: Date,
+  y: number,
+  hourHeight: number,
+  visibleHours: number[]
+): { start: Date; previewTop: number } {
+  const { hours, hourIndex, minutes, visibleHour } = getSlotFromCalendarDrop(y, hourHeight, visibleHours);
+  const startHour = hours[0] ?? 0;
+  const isNextDay = visibleHour >= 24 || visibleHour < startHour;
+  const clockHour = ((visibleHour % 24) + 24) % 24;
+
+  let dateStr = getMountainTimeDateString(day);
+  if (isNextDay) {
+    dateStr = addDaysToDateString(dateStr, 1);
+  }
+
+  const datetimeLocal = `${dateStr}T${String(clockHour).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  const start = parseDateTimeLocalAsCompanyTimezone(datetimeLocal, getCompanyTimezoneSync());
+  const previewTop = hourIndex * hourHeight + (minutes / 60) * hourHeight;
+
+  return { start, previewTop };
+}
+
+function updateWeeklyBydayIfSingleDay(rrule: string | null, newStart: Date): string | null {
+  if (!rrule || !/FREQ=WEEKLY/i.test(rrule)) return rrule;
+  const match = rrule.match(/BYDAY=([^;]+)/i);
+  if (!match) return rrule;
+  const days = match[1].split(',').map((d) => d.trim()).filter(Boolean);
+  if (days.length !== 1) return rrule;
+
+  const shortDay = newStart.toLocaleDateString('en-US', {
+    weekday: 'short',
+    timeZone: getCompanyTimezoneSync(),
+  });
+  const newByday = RRULE_WEEKDAY_FROM_SHORT[shortDay];
+  if (!newByday) return rrule;
+  return rrule.replace(/BYDAY=[^;]+/i, `BYDAY=${newByday}`);
+}
+
 export default function CalendarView({ events, specials, announcements = [], businessHours, calendarHours, onEventClick, onSpecialClick, onAnnouncementClick, onNewEvent, onNewAnnouncement, onEventUpdate, onEventAdded, onEventDeleted }: CalendarViewProps) {
   // Use company timezone for all date operations, not browser locale
   const companyTimezone = getCompanyTimezoneSync();
@@ -109,6 +176,7 @@ export default function CalendarView({ events, specials, announcements = [], bus
   const yearPickerRef = useRef<HTMLDivElement>(null);
   const [calendarHeight, setCalendarHeight] = useState(600);
   const [draggedEvent, setDraggedEvent] = useState<CalendarEvent | null>(null);
+  const draggedEventRef = useRef<CalendarEvent | null>(null);
   const [dragPreview, setDragPreview] = useState<{ top: number; day: Date } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [hasDragged, setHasDragged] = useState(false);
@@ -976,8 +1044,8 @@ export default function CalendarView({ events, specials, announcements = [], bus
     const eventItems = allItems.filter(item => item.eventType === 'event');
     
     const sortedEvents = eventItems.sort((a, b) => {
-      const aIsBroncos = a.title.toLowerCase().includes('broncos');
-      const bIsBroncos = b.title.toLowerCase().includes('broncos');
+      const aIsBroncos = isFootballGameEvent(a);
+      const bIsBroncos = isFootballGameEvent(b);
       const aIsPoker = a.title.toLowerCase().includes('poker');
       const bIsPoker = b.title.toLowerCase().includes('poker');
       const aIsKaraoke = a.title.toLowerCase().includes('karaoke') || a.title.toLowerCase().includes('kareoke');
@@ -1036,7 +1104,10 @@ export default function CalendarView({ events, specials, announcements = [], bus
         ? 'bg-amber-500/85 dark:bg-amber-600/85 border-amber-400 dark:border-amber-500'
         : 'bg-gray-500/60 dark:bg-gray-600/60 border-gray-400 dark:border-gray-500';
     }
-    // For events, assign colors based on icon type and recurrence status
+    // Sports / Broncos game days
+    if (item.eventType === 'event' && isFootballGameEvent(item as CalendarEvent)) {
+      return 'bg-[#002244]/90 dark:bg-[#002244]/90 border-[#FB4F14]';
+    }
     const title = item.title.toLowerCase();
     const isRecurring = item.eventType === 'event' && (item as CalendarEvent).recurrenceRule !== null;
     
@@ -1076,6 +1147,9 @@ export default function CalendarView({ events, specials, announcements = [], bus
     }
     if (item.eventType === 'announcement') {
       return <FaBullhorn className="inline-block w-2.5 h-2.5" />;
+    }
+    if (item.eventType === 'event' && isFootballGameEvent(item as CalendarEvent)) {
+      return <FaFootball className="inline-block w-2.5 h-2.5" />;
     }
     const title = item.title.toLowerCase();
     if (title.includes('broncos')) return <FaFootball className="inline-block w-2.5 h-2.5" />;
@@ -1129,6 +1203,7 @@ export default function CalendarView({ events, specials, announcements = [], bus
     if (event.isAllDay) return; // Don't allow dragging all-day events
     setIsDragging(true);
     setHasDragged(false);
+    draggedEventRef.current = event;
     setDraggedEvent(event);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', event.id);
@@ -1171,17 +1246,14 @@ export default function CalendarView({ events, specials, announcements = [], bus
     e.dataTransfer.dropEffect = 'move';
     setHasDragged(true);
     
-    if (!draggedEvent) return;
+    if (!draggedEventRef.current) return;
     
     const rect = e.currentTarget.getBoundingClientRect();
     const y = e.clientY - rect.top;
-    const hour = Math.floor(y / hourHeight);
-    const minutes = Math.floor((y % hourHeight) / hourHeight * 60);
-    const clampedHour = Math.max(0, Math.min(23, hour));
-    const clampedMinutes = Math.floor(minutes / 30) * 30; // Snap to 30-minute intervals (:00 or :30)
+    const { previewTop } = getDateTimeFromCalendarDrop(day, y, hourHeight, getVisibleHours);
     
     setDragPreview({
-      top: clampedHour * hourHeight + (clampedMinutes / 60) * hourHeight,
+      top: previewTop,
       day: day
     });
   };
@@ -1189,8 +1261,10 @@ export default function CalendarView({ events, specials, announcements = [], bus
   const handleDrop = async (e: React.DragEvent, day: Date, hourHeight: number) => {
     e.preventDefault();
     e.stopPropagation();
+
+    const eventToMove = draggedEventRef.current;
     
-    if (!draggedEvent) {
+    if (!eventToMove) {
       setIsDragging(false);
       setDragPreview(null);
       return;
@@ -1198,72 +1272,73 @@ export default function CalendarView({ events, specials, announcements = [], bus
 
     const rect = e.currentTarget.getBoundingClientRect();
     const y = e.clientY - rect.top;
-    const hour = Math.floor(y / hourHeight);
-    const minutes = Math.floor((y % hourHeight) / hourHeight * 60);
-    const clampedHour = Math.max(0, Math.min(23, hour));
-    const clampedMinutes = Math.floor(minutes / 30) * 30; // Snap to 30-minute intervals (:00 or :30)
+    const { start: newStart } = getDateTimeFromCalendarDrop(day, y, hourHeight, getVisibleHours);
 
-    // Calculate new start date/time
-    const originalStart = new Date(draggedEvent.startDateTime);
-    const originalEnd = draggedEvent.endDateTime ? new Date(draggedEvent.endDateTime) : null;
-    const duration = originalEnd ? originalEnd.getTime() - originalStart.getTime() : 60 * 60 * 1000; // Default 1 hour
-
-    const newStart = new Date(day);
-    newStart.setHours(clampedHour, clampedMinutes, 0, 0);
-    
+    const originalStart = new Date(eventToMove.startDateTime);
+    const originalEnd = eventToMove.endDateTime ? new Date(eventToMove.endDateTime) : null;
+    const duration = originalEnd ? originalEnd.getTime() - originalStart.getTime() : 60 * 60 * 1000;
     const newEnd = new Date(newStart.getTime() + duration);
+    const recurrenceRule = updateWeeklyBydayIfSingleDay(eventToMove.recurrenceRule, newStart);
+    let exceptions: string[] | null = null;
+    if (eventToMove.exceptions) {
+      try {
+        const parsed = typeof eventToMove.exceptions === 'string'
+          ? JSON.parse(eventToMove.exceptions)
+          : eventToMove.exceptions;
+        exceptions = Array.isArray(parsed) ? parsed : null;
+      } catch {
+        exceptions = null;
+      }
+    }
 
     try {
-      // Update the event
-      const res = await fetch(`/api/events/${draggedEvent.id}`, {
+      const res = await fetch(`/api/events/${eventToMove.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: draggedEvent.title,
-          description: draggedEvent.description || '',
+          title: eventToMove.title,
+          description: eventToMove.description || '',
           startDateTime: newStart.toISOString(),
           endDateTime: newEnd.toISOString(),
-          venueArea: draggedEvent.venueArea || 'bar',
-          recurrenceRule: draggedEvent.recurrenceRule || null,
+          venueArea: eventToMove.venueArea || 'bar',
+          recurrenceRule,
+          exceptions,
           isAllDay: false,
-          tags: draggedEvent.tags || [],
-          isActive: draggedEvent.isActive,
+          tags: eventToMove.tags || [],
+          isActive: eventToMove.isActive,
         }),
       });
 
       if (res.ok) {
         const updatedEvent = await res.json();
         
-        // Update local state immediately for smooth UX
         setLocalEvents(prevEvents => 
           prevEvents.map(event => 
-            event.id === draggedEvent.id 
+            event.id === eventToMove.id 
               ? {
                   ...event,
                   startDateTime: updatedEvent.startDateTime,
                   endDateTime: updatedEvent.endDateTime,
+                  recurrenceRule: updatedEvent.recurrenceRule,
+                  exceptions: updatedEvent.exceptions || null,
                 } as CalendarEvent
               : event
           )
         );
         
-        // Also notify parent if callback exists
         if (onEventUpdate) {
           onEventUpdate();
         }
-        
-        // Don't refresh - local state update is enough for smooth UX
       } else {
         console.error('Failed to update event');
-        // On error, show toast but don't reload
-        // The error is already logged, user can try again
+        showToast('Could not move event', 'error', 'Please try dragging it again.');
       }
     } catch (error) {
       console.error('Failed to update event:', error);
-      // On error, show toast but don't reload
-      // The error is already logged, user can try again
+      showToast('Could not move event', 'error', error instanceof Error ? error.message : 'Please try again.');
     }
 
+    draggedEventRef.current = null;
     setIsDragging(false);
     setDraggedEvent(null);
     setDragPreview(null);
@@ -1600,11 +1675,10 @@ export default function CalendarView({ events, specials, announcements = [], bus
         const eventHour = getHours(eventDate);
         const minutes = getMinutes(eventDate);
         
-        // Find the index of this hour in visible hours, or use the closest visible hour
+        // Find the index of this hour in visible hours, or pin to the top if it's outside the range
         const hourIndex = getVisibleHours.findIndex(h => h % 24 === eventHour);
         if (hourIndex === -1) {
-          // Hour not visible, skip this event (or position at start/end)
-          return null;
+          return { item, top: 0, height: hourHeight };
         }
         
         const top = (hourIndex * hourHeight) + (minutes / 60 * hourHeight);
@@ -2060,11 +2134,10 @@ export default function CalendarView({ events, specials, announcements = [], bus
         const eventHour = getHours(eventDate);
         const minutes = getMinutes(eventDate);
         
-        // Find the index of this hour in visible hours, or use the closest visible hour
+        // Find the index of this hour in visible hours, or pin to the top if it's outside the range
         const hourIndex = getVisibleHours.findIndex(h => h % 24 === eventHour);
         if (hourIndex === -1) {
-          // Hour not visible, skip this event (or position at start/end)
-          return null;
+          return { item, top: 0, height: hourHeight };
         }
         
         const top = (hourIndex * hourHeight) + (minutes / 60 * hourHeight);

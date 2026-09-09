@@ -43,6 +43,7 @@ interface Announcement {
   crossPostInstagram: boolean;
   ctaText?: string;
   ctaUrl?: string;
+  isHighSeverity?: boolean;
 }
 
 interface AnnouncementModalFormProps {
@@ -78,6 +79,7 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
     crossPostInstagram: announcement?.crossPostInstagram ?? false,
     ctaText: announcement?.ctaText || '',
     ctaUrl: announcement?.ctaUrl || '',
+    isHighSeverity: announcement?.isHighSeverity ?? false,
   });
 
   const [initialFormData, setInitialFormData] = useState(formData);
@@ -101,6 +103,7 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
         crossPostInstagram: announcement.crossPostInstagram ?? false,
         ctaText: announcement.ctaText || '',
         ctaUrl: announcement.ctaUrl || '',
+        isHighSeverity: announcement.isHighSeverity ?? false,
       };
     } else {
       setShowCTA(false);
@@ -119,6 +122,7 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
         crossPostInstagram: false,
         ctaText: '',
         ctaUrl: '',
+        isHighSeverity: false,
       };
     }
     setFormData(newFormData);
@@ -175,6 +179,7 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
           crossPostInstagram: announcement.crossPostInstagram ?? false,
           ctaText: announcement.ctaText || '',
           ctaUrl: announcement.ctaUrl || '',
+          isHighSeverity: announcement.isHighSeverity ?? false,
         };
         setFormData(newFormData);
         setInitialFormData(newFormData);
@@ -195,6 +200,7 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
           crossPostInstagram: false,
           ctaText: '',
           ctaUrl: '',
+          isHighSeverity: false,
         };
         setFormData(newFormData);
         setInitialFormData(newFormData);
@@ -355,6 +361,50 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
               />
               <p className="text-xs text-gray-500 dark:text-gray-400">Supports markdown and HTML</p>
             </div>
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-900/40 shadow-sm shadow-black/5 p-4 backdrop-blur-sm space-y-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">Display</p>
+            <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300 max-w-sm">
+              Choose how this announcement appears on the public site.
+            </p>
+          </div>
+
+          <div
+            role="radiogroup"
+            aria-label="Announcement display"
+            className="grid grid-cols-1 sm:grid-cols-2 gap-2"
+          >
+            <button
+              type="button"
+              role="radio"
+              aria-checked={!formData.isHighSeverity}
+              onClick={() => setFormData({ ...formData, isHighSeverity: false })}
+              className={`rounded-2xl border px-4 py-3 text-left transition-colors min-h-[44px] ${
+                !formData.isHighSeverity
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40 ring-2 ring-blue-500/30'
+                  : 'border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 hover:border-blue-400/70'
+              }`}
+            >
+              <span className="block text-sm font-semibold text-gray-900 dark:text-white">Notice bar</span>
+              <span className="mt-0.5 block text-xs text-gray-600 dark:text-gray-400">Slim banner across the top of every public page.</span>
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={formData.isHighSeverity}
+              onClick={() => setFormData({ ...formData, isHighSeverity: true })}
+              className={`rounded-2xl border px-4 py-3 text-left transition-colors min-h-[44px] ${
+                formData.isHighSeverity
+                  ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/40 ring-2 ring-amber-500/30'
+                  : 'border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 hover:border-amber-400/70'
+              }`}
+            >
+              <span className="block text-sm font-semibold text-gray-900 dark:text-white">High-severity popup</span>
+              <span className="mt-0.5 block text-xs text-gray-600 dark:text-gray-400">Modal visitors must acknowledge. Use for closures, weather, sold-out nights.</span>
+            </button>
           </div>
         </div>
 

@@ -62,6 +62,7 @@ model Announcement {
   ctaText            String? // Call-to-action button text
   ctaUrl             String? // Call-to-action button URL
   dismissable        Boolean   @default(true) // Whether the announcement can be dismissed
+  isHighSeverity     Boolean   @default(false) // When true, show as a modal visitors must acknowledge
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 }

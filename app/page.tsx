@@ -3,14 +3,15 @@ import Image from 'next/image';
 import { prisma } from '@/lib/prisma';
 import ImageCarousel from '@/components/image-carousel';
 import Footer from '@/components/footer';
-import AnnouncementsHandler from '@/components/announcements-handler';
 import HeroImage from '@/components/hero-image';
-import PartnerOrderingBanner from '@/components/partner-ordering-banner';
+import { orderingRedirectPath } from '@/lib/ordering-partners';
 import { getMountainTimeToday, getMountainTimeTomorrow, getMountainTimeWeekday, getMountainTimeNow, getMountainTimeDateString, parseMountainTimeDate } from '@/lib/timezone';
 import { isFoodSpecialActiveOnDate } from '@/lib/food-specials';
 import { getRecurringEventOccurrences } from '@/lib/recurring-event-occurrences';
 import { startOfDay, endOfDay } from 'date-fns';
 import { FaCalendarAlt, FaUtensils, FaBeer } from 'react-icons/fa';
+import FootballGameHeroTile from '@/components/football-game-hero-tile';
+import { findUpcomingFootballGame, houseMealFromEvent, isFootballGameEvent } from '@/lib/football-games';
 
 // Force dynamic rendering to prevent caching - we need fresh data for today's specials
 export const dynamic = 'force-dynamic';
@@ -23,29 +24,10 @@ export default async function HomePage() {
   const now = getMountainTimeNow();
   const todayDateStr = getMountainTimeDateString(today);
 
-  const announcementWhere = {
-    isPublished: true,
-    AND: [
-      {
-        OR: [
-          { publishAt: null },
-          { publishAt: { lte: now } },
-        ],
-      },
-      {
-        OR: [
-          { expiresAt: null },
-          { expiresAt: { gte: now } },
-        ],
-      },
-    ],
-  };
-
   // Fetch homepage data in parallel (same pattern as /menu). Sequential awaits
   // on serverless can burn the whole function budget before render starts.
   const [
     allEvents,
-    publishedAnnouncements,
     hoursSetting,
     contactSetting,
     heroSetting,
@@ -57,12 +39,6 @@ export default async function HomePage() {
     prisma.event.findMany({
       where: { isActive: true },
       orderBy: { startDateTime: 'asc' },
-    }),
-    // Cap at 3 — never hard-fail the public homepage over announcement count
-    prisma.announcement.findMany({
-      where: announcementWhere,
-      orderBy: { createdAt: 'desc' },
-      take: 3,
     }),
     prisma.setting.findUnique({ where: { key: 'hours' } }),
     prisma.setting.findUnique({ where: { key: 'contact' } }),
@@ -103,6 +79,9 @@ export default async function HomePage() {
       return true;
     })
     .sort((a, b) => new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime());
+
+  const upcomingFootballGame = findUpcomingFootballGame(allEvents, now);
+  const heroTodaysEvents = todaysEvents.filter((event) => !isFootballGameEvent(event));
 
   // Get upcoming events (one-time events + recurring occurrences, starting from now)
   const futureDate = new Date(now);
@@ -281,16 +260,15 @@ export default async function HomePage() {
   };
 
   // Collect all available content for dynamic display
-  // Note: Announcements are shown as modals, not in the grid.
   // Happy hour lives in its own dedicated section below the hero.
   const allContent = [
-    ...todaysEvents,
+    ...heroTodaysEvents,
     ...todaysFoodSpecials,
     ...(todaysDrinkSpecial ? [todaysDrinkSpecial] : []),
   ];
 
   // Calculate total number of items for dynamic grid layout
-  const totalItems = todaysEvents.length + todaysFoodSpecials.length + (todaysDrinkSpecial ? 1 : 0);
+  const totalItems = heroTodaysEvents.length + todaysFoodSpecials.length + (todaysDrinkSpecial ? 1 : 0);
   
   // Determine grid columns and max width based on number of items
   const getGridCols = () => {
@@ -343,19 +321,45 @@ export default async function HomePage() {
             )}
           </div>
           
-          {/* Announcements Handler - Integrated into hero */}
-          <AnnouncementsHandler announcements={publishedAnnouncements} />
-
-          {/* Partner ordering — permanent strip, not specials-style cards */}
-          <div className="max-w-6xl mx-auto w-full">
-            <PartnerOrderingBanner variant="hero" />
+          {/* Primary CTAs — kept above the fold, matching pill buttons */}
+          <div className="flex flex-wrap justify-center gap-2 sm:gap-3 max-w-6xl mx-auto w-full mb-3 sm:mb-6">
+            <Link
+              href={orderingRedirectPath('online-ordering')}
+              className="group inline-flex w-full items-center justify-center gap-2 rounded-full px-8 py-3 sm:px-10 sm:py-4 text-base sm:text-lg font-bold transition-all hover:scale-105 bg-[var(--color-accent)] hover:bg-[var(--color-accent-dark)] shadow-lg hover:shadow-xl sm:w-auto text-white"
+            >
+              Order Pickup
+            </Link>
+            <Link
+              href="/private-events"
+              className="group inline-flex w-full items-center justify-center gap-2 rounded-full px-8 py-3 sm:px-10 sm:py-4 text-base sm:text-lg font-bold transition-all hover:scale-105 bg-[var(--color-accent)] hover:bg-[var(--color-accent-dark)] shadow-lg hover:shadow-xl sm:w-auto text-white"
+            >
+              Private Events & Dining
+            </Link>
+            <Link
+              href="/menu"
+              className="group inline-flex w-full items-center justify-center gap-2 rounded-full border-2 border-white/30 px-6 py-2.5 sm:px-8 sm:py-3 text-sm sm:text-base font-semibold transition-all hover:scale-105 bg-white/10 backdrop-blur-sm hover:border-white/50 hover:bg-white/20 sm:w-auto text-white"
+            >
+              <svg className="w-4 h-4 sm:w-5 sm:h-5 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              </svg>
+              View Menu
+            </Link>
           </div>
           
+          {upcomingFootballGame && (
+            <FootballGameHeroTile
+              title={upcomingFootballGame.title}
+              startDateTime={upcomingFootballGame.startDateTime}
+              now={now}
+              houseMeal={houseMealFromEvent(upcomingFootballGame)}
+            />
+          )}
+
           {/* Compact Grid Layout for Specials and Events */}
           {totalItems > 0 ? (
             <div className={`grid ${gridConfig.cols} gap-2.5 sm:gap-4 mb-3 sm:mb-6 ${gridConfig.maxWidth} mx-auto w-full`}>
             {/* Today's upcoming events — shown all day in the hero until each occurrence ends */}
-            {todaysEvents.map((event, index) => {
+            {heroTodaysEvents.map((event, index) => {
               const startMs = new Date(event.startDateTime).getTime();
               const hasStarted = startMs <= now.getTime();
               const timeLabel = new Date(event.startDateTime).toLocaleTimeString('en-US', {
@@ -478,10 +482,8 @@ export default async function HomePage() {
             )}
 
             {/* Happy hour has its own dedicated section below the hero */}
-
-            {/* Announcements are now shown as modals, not in the grid */}
           </div>
-          ) : (
+          ) : !upcomingFootballGame ? (
             <div className="mb-4 sm:mb-6 max-w-6xl mx-auto w-full">
               <div className="bg-gradient-to-br from-gray-900/70 via-gray-800/60 to-gray-900/70 backdrop-blur-md rounded-2xl p-6 sm:p-8 border-l-4 border-gray-500 shadow-xl text-center">
                 <p className="text-gray-300 text-sm sm:text-base">
@@ -489,26 +491,7 @@ export default async function HomePage() {
                 </p>
               </div>
             </div>
-          )}
-          
-          {/* Call to Action Buttons */}
-          <div className="flex flex-wrap justify-center gap-2 sm:gap-3 max-w-6xl mx-auto w-full mt-3 sm:mt-6">
-            <Link
-              href="/private-events"
-              className="group inline-flex w-full items-center justify-center gap-2 rounded-full px-8 py-3 sm:px-10 sm:py-4 text-base sm:text-lg font-bold transition-all hover:scale-105 bg-[var(--color-accent)] hover:bg-[var(--color-accent-dark)] shadow-lg hover:shadow-xl sm:w-auto text-white"
-            >
-              Private Events & Dining
-            </Link>
-            <Link
-              href="/menu"
-              className="group inline-flex w-full items-center justify-center gap-2 rounded-full border-2 border-white/30 px-6 py-2.5 sm:px-8 sm:py-3 text-sm sm:text-base font-semibold transition-all hover:scale-105 bg-white/10 backdrop-blur-sm hover:border-white/50 hover:bg-white/20 sm:w-auto text-white"
-            >
-              <svg className="w-4 h-4 sm:w-5 sm:h-5 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-              </svg>
-              View Menu
-            </Link>
-          </div>
+          ) : null}
         </div>
       </section>
 

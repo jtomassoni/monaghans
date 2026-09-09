@@ -21,6 +21,7 @@ interface Announcement {
   crossPostInstagram: boolean;
   ctaText?: string;
   ctaUrl?: string;
+  isHighSeverity?: boolean;
 }
 
 export default function AdminAnnouncementsList({
@@ -175,6 +176,7 @@ export default function AdminAnnouncementsList({
           crossPostInstagram: announcement.crossPostInstagram ?? false,
           ctaText: announcement.ctaText || '',
           ctaUrl: announcement.ctaUrl || '',
+          isHighSeverity: announcement.isHighSeverity ?? false,
         });
         setIsModalOpen(true);
       }
@@ -293,6 +295,11 @@ export default function AdminAnnouncementsList({
                       }).map((status) => (
                         <StatusBadge key={status} status={status} />
                       ))}
+                      {announcement.isHighSeverity ? (
+                        <span className="px-2 py-0.5 text-xs rounded-full font-medium flex-shrink-0 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                          High severity
+                        </span>
+                      ) : null}
                     </div>
                     <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-1">{announcement.body}</p>
                   </div>

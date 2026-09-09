@@ -1,58 +1,97 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import AnnouncementBanner from './announcement-modal';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
+import AnnouncementNoticeBar from '@/components/announcement-notice-bar';
+import AnnouncementSeverityModal from '@/components/announcement-severity-modal';
+import {
+  persistDismissedAnnouncementId,
+  readDismissedAnnouncementIds,
+} from '@/lib/announcement-dismissals';
+import type { PublicAnnouncement } from '@/lib/announcements';
 
-interface Announcement {
-  id: string;
-  title: string;
-  body: string;
-  ctaText?: string | null;
-  ctaUrl?: string | null;
-}
-
-interface AnnouncementsHandlerProps {
-  announcements: Announcement[];
-}
-
-export default function AnnouncementsHandler({ announcements }: AnnouncementsHandlerProps) {
-  const [currentAnnouncementIndex, setCurrentAnnouncementIndex] = useState<number | null>(
-    announcements.length > 0 ? 0 : null
+function isPublicPath(pathname: string | null) {
+  if (!pathname) return true;
+  return (
+    !pathname.startsWith('/admin') &&
+    pathname !== '/timeclock' &&
+    pathname !== '/specials-tv'
   );
+}
 
-  useEffect(() => {
-    if (announcements.length === 0) {
-      setCurrentAnnouncementIndex(null);
+export default function AnnouncementsHandler({
+  announcements,
+}: {
+  announcements: PublicAnnouncement[];
+}) {
+  const pathname = usePathname();
+  const barRef = useRef<HTMLDivElement>(null);
+  const [ready, setReady] = useState(false);
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => new Set());
+
+  const visibleOnThisRoute = isPublicPath(pathname);
+
+  useLayoutEffect(() => {
+    setDismissedIds(new Set(readDismissedAnnouncementIds()));
+    setReady(true);
+  }, []);
+
+  const handleDismiss = useCallback((id: string) => {
+    persistDismissedAnnouncementId(id);
+    setDismissedIds((current) => {
+      const next = new Set(current);
+      next.add(id);
+      return next;
+    });
+  }, []);
+
+  const visible = announcements.filter((announcement) => !dismissedIds.has(announcement.id));
+  const notices = visible.filter((announcement) => !announcement.isHighSeverity);
+  const highSeverity = visible.filter((announcement) => announcement.isHighSeverity);
+  const currentModal = visibleOnThisRoute && ready ? highSeverity[0] ?? null : null;
+  const showBar = visibleOnThisRoute && ready && notices.length > 0 && !currentModal;
+
+  useLayoutEffect(() => {
+    if (!showBar) {
+      document.documentElement.style.setProperty('--notice-bar-h', '0px');
       return;
     }
 
-    // Always show the first announcement, rotate through them if multiple
-    setCurrentAnnouncementIndex(0);
-  }, [announcements]);
+    const el = barRef.current;
+    if (!el) {
+      document.documentElement.style.setProperty('--notice-bar-h', '0px');
+      return;
+    }
 
-  // Auto-rotate through announcements every 10 seconds if multiple exist
-  useEffect(() => {
-    if (announcements.length <= 1) return;
+    const applyHeight = () => {
+      document.documentElement.style.setProperty('--notice-bar-h', `${el.offsetHeight}px`);
+    };
+    applyHeight();
+    const observer = new ResizeObserver(applyHeight);
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      document.documentElement.style.setProperty('--notice-bar-h', '0px');
+    };
+  }, [showBar, notices.length, currentModal?.id]);
 
-    const interval = setInterval(() => {
-      setCurrentAnnouncementIndex((prev) => {
-        if (prev === null) return 0;
-        return (prev + 1) % announcements.length;
-      });
-    }, 10000); // Rotate every 10 seconds
-
-    return () => clearInterval(interval);
-  }, [announcements.length]);
-
-  const currentAnnouncement =
-    currentAnnouncementIndex !== null ? announcements[currentAnnouncementIndex] : null;
+  if (!visibleOnThisRoute || !ready) return null;
 
   return (
-    <AnnouncementBanner
-      isOpen={currentAnnouncement !== null}
-      announcement={currentAnnouncement}
-    />
+    <>
+      {showBar ? (
+        <AnnouncementNoticeBar
+          ref={barRef}
+          announcements={notices}
+          onDismiss={handleDismiss}
+        />
+      ) : null}
+      {currentModal ? (
+        <AnnouncementSeverityModal
+          announcement={currentModal}
+          onDismiss={handleDismiss}
+        />
+      ) : null}
+    </>
   );
 }
-
-

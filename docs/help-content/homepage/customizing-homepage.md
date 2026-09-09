@@ -93,6 +93,7 @@ Homepage automatically shows:
 - **Upcoming Events**: Scheduled for near future
 - **Current Specials**: Active food and drink specials
 - **Business Hours**: Current hours
+- **Broncos football games**: The next game added via Calendar → New → Football Game, highlighting opponent, kickoff, and the house meal for the pot luck buffet (bring a side or dessert)
 
 ## Tips
 

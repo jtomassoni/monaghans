@@ -30,6 +30,7 @@ export default async function AdminAnnouncements() {
     crossPostInstagram: announcement.crossPostInstagram || false,
     ctaText: announcement.ctaText || undefined,
     ctaUrl: announcement.ctaUrl || undefined,
+    isHighSeverity: announcement.isHighSeverity,
   }));
 
   return (

@@ -10,8 +10,10 @@ import AnnouncementModalForm from '@/components/announcement-modal-form';
 import EventsList from '@/app/admin/specials-events-list';
 import HelpModal from '@/components/help-modal';
 import NewItemFormModal from '@/components/new-item-form-modal';
+import FootballGameModalForm, { FootballGameFormEvent } from '@/components/football-game-modal-form';
 import { FaCalendarAlt, FaList, FaPlus, FaQuestionCircle } from 'react-icons/fa';
 import { useAdminMobileHeader } from '@/components/admin-mobile-header-context';
+import { isFootballGameEvent } from '@/lib/football-games';
 
 interface CalendarEvent {
   id: string;
@@ -65,6 +67,7 @@ interface CalendarAnnouncement {
   publishAt: string | null;
   expiresAt: string | null;
   isPublished: boolean;
+  isHighSeverity?: boolean;
   eventType: 'announcement';
 }
 
@@ -79,6 +82,7 @@ interface Announcement {
   crossPostInstagram: boolean;
   ctaText?: string;
   ctaUrl?: string;
+  isHighSeverity?: boolean;
 }
 
 interface BusinessHours {
@@ -151,6 +155,8 @@ export default function DashboardContent({ events: initialEvents, specials: init
   const [unifiedFormOpen, setUnifiedFormOpen] = useState(false);
   const [unifiedFormItem, setUnifiedFormItem] = useState<Event | Special | Announcement | null>(null);
   const [unifiedFormItemType, setUnifiedFormItemType] = useState<'event' | 'food' | 'drink' | 'announcement' | undefined>(undefined);
+  const [footballModalOpen, setFootballModalOpen] = useState(false);
+  const [editingFootballEvent, setEditingFootballEvent] = useState<FootballGameFormEvent | null>(null);
   
   // Track the last initialEvents IDs to prevent unnecessary updates
   const lastInitialEventsIdsRef = useRef<string>(JSON.stringify(initialEvents.map(e => e.id).sort()));
@@ -200,12 +206,42 @@ export default function DashboardContent({ events: initialEvents, specials: init
   }, [announcements]);
 
   const handleEventClick = async (eventId: string, occurrenceDate?: Date) => {
+    const openEvent = (data: {
+      id: string;
+      title: string;
+      description: string;
+      startDateTime: string;
+      endDateTime: string;
+      venueArea: string;
+      recurrenceRule: string;
+      isAllDay: boolean;
+      tags: string[];
+      image?: string;
+      isActive: boolean;
+    }) => {
+      setEventOccurrenceDate(occurrenceDate);
+      if (isFootballGameEvent(data)) {
+        setEditingFootballEvent({
+          id: data.id,
+          title: data.title,
+          description: data.description,
+          startDateTime: data.startDateTime,
+          endDateTime: data.endDateTime,
+          tags: data.tags,
+          isActive: data.isActive,
+        });
+        setFootballModalOpen(true);
+        return;
+      }
+      setEditingEvent(data);
+      setEventModalOpen(true);
+    };
+
     try {
-      // Fetch full event data from API to ensure consistency
       const res = await fetch(`/api/events/${eventId}`);
       if (res.ok) {
         const eventData = await res.json();
-        setEditingEvent({
+        openEvent({
           id: eventData.id,
           title: eventData.title,
           description: eventData.description || '',
@@ -218,17 +254,14 @@ export default function DashboardContent({ events: initialEvents, specials: init
           image: eventData.image || undefined,
           isActive: eventData.isActive,
         });
-        setEventOccurrenceDate(occurrenceDate);
-        setEventModalOpen(true);
       } else {
         console.error('Failed to fetch event data');
       }
     } catch (error) {
       console.error('Error fetching event:', error);
-      // Fallback to local event data if API fails
       const event = events.find((e) => e.id === eventId);
       if (event) {
-        setEditingEvent({
+        openEvent({
           id: event.id,
           title: event.title,
           description: event.description || '',
@@ -241,8 +274,6 @@ export default function DashboardContent({ events: initialEvents, specials: init
           image: event.image || undefined,
           isActive: event.isActive,
         });
-        setEventOccurrenceDate(occurrenceDate);
-        setEventModalOpen(true);
       }
     }
   };
@@ -405,6 +436,7 @@ export default function DashboardContent({ events: initialEvents, specials: init
           crossPostInstagram: announcementData.crossPostInstagram || false,
           ctaText: announcementData.ctaText,
           ctaUrl: announcementData.ctaUrl,
+          isHighSeverity: announcementData.isHighSeverity ?? false,
         });
         setAnnouncementModalOpen(true);
       } else {
@@ -424,6 +456,7 @@ export default function DashboardContent({ events: initialEvents, specials: init
           isPublished: announcement.isPublished,
           crossPostFacebook: false,
           crossPostInstagram: false,
+          isHighSeverity: announcement.isHighSeverity ?? false,
         });
         setAnnouncementModalOpen(true);
       }
@@ -447,6 +480,7 @@ export default function DashboardContent({ events: initialEvents, specials: init
       isPublished: true,
       crossPostFacebook: false,
       crossPostInstagram: false,
+      isHighSeverity: false,
     });
     setAnnouncementModalOpen(true);
   };
@@ -460,6 +494,7 @@ export default function DashboardContent({ events: initialEvents, specials: init
       publishAt: newAnnouncement.publishAt,
       expiresAt: newAnnouncement.expiresAt,
       isPublished: newAnnouncement.isPublished,
+      isHighSeverity: newAnnouncement.isHighSeverity ?? false,
       eventType: 'announcement' as const,
     }]);
   };
@@ -474,6 +509,7 @@ export default function DashboardContent({ events: initialEvents, specials: init
         publishAt: updatedAnnouncement.publishAt,
         expiresAt: updatedAnnouncement.expiresAt,
         isPublished: updatedAnnouncement.isPublished,
+        isHighSeverity: updatedAnnouncement.isHighSeverity ?? a.isHighSeverity,
       } : a
     ));
   };
@@ -639,6 +675,7 @@ export default function DashboardContent({ events: initialEvents, specials: init
                     publishAt: a.publishAt,
                     expiresAt: a.expiresAt,
                     isPublished: a.isPublished,
+                    isHighSeverity: a.isHighSeverity,
                     eventType: 'announcement' as const,
                   }))}
                   showNewButtons={true}
@@ -664,6 +701,19 @@ export default function DashboardContent({ events: initialEvents, specials: init
         onEventUpdated={handleEventUpdated}
         onDelete={handleEventDeleted}
         onExceptionAdded={handleExceptionAdded}
+      />
+
+      <FootballGameModalForm
+        isOpen={footballModalOpen}
+        onClose={() => {
+          setFootballModalOpen(false);
+          setEditingFootballEvent(null);
+        }}
+        event={editingFootballEvent || undefined}
+        onSuccess={handleModalSuccess}
+        onEventAdded={handleEventAdded}
+        onEventUpdated={handleEventUpdated}
+        onDelete={handleEventDeleted}
       />
 
       {specialType === 'drink' ? (

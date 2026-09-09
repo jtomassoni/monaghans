@@ -1,11 +1,13 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import ConditionalNavigation from '@/components/conditional-navigation';
+import AnnouncementsHandler from '@/components/announcements-handler';
 import ToastContainer from '@/components/toast';
 import { Providers } from '@/components/providers';
 import Analytics from '@/components/analytics';
 import Script from 'next/script';
 import { prisma } from '@/lib/prisma';
+import { getPublishedAnnouncements } from '@/lib/announcements';
 
 // Get base URL for absolute image URLs (needed for SMS previews)
 const baseUrl = process.env.NEXTAUTH_URL || 'https://monaghans.com';
@@ -56,11 +58,12 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const publishedAnnouncements = await getPublishedAnnouncements();
   // Google Analytics 4 Measurement ID
   const ga4MeasurementId = 'G-ZXF5XYV2RY';
 
@@ -124,7 +127,10 @@ export default function RootLayout({
             Skip to main content
           </a>
           <ConditionalNavigation />
-          {children}
+          <AnnouncementsHandler announcements={publishedAnnouncements} />
+          <div style={{ paddingTop: 'var(--notice-bar-h, 0px)' }}>
+            {children}
+          </div>
           <ToastContainer />
           <Analytics />
         </Providers>

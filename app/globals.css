@@ -3,6 +3,7 @@
 @tailwind utilities;
 
 :root {
+  --notice-bar-h: 0px;
   /* Light mode (default) */
   --color-background: #ffffff;
   --color-foreground: #1f2937;
