@@ -10,8 +10,18 @@ import { isFoodSpecialActiveOnDate } from '@/lib/food-specials';
 import { getRecurringEventOccurrences } from '@/lib/recurring-event-occurrences';
 import { startOfDay, endOfDay } from 'date-fns';
 import { FaCalendarAlt, FaUtensils, FaBeer } from 'react-icons/fa';
+import type { Metadata } from 'next';
 import FootballGameHeroTile from '@/components/football-game-hero-tile';
-import { findUpcomingFootballGame, houseMealFromEvent, isFootballGameEvent } from '@/lib/football-games';
+import SportsBarSection from '@/components/sports-bar-section';
+import { eventPublicDescription, findUpcomingFootballGame, houseMealFromEvent, isFootballGameEvent } from '@/lib/football-games';
+import { HOME_DESCRIPTION, HOME_KEYWORDS, HOME_TITLE, publicPageMetadata } from '@/lib/seo';
+
+export const metadata: Metadata = publicPageMetadata({
+  title: HOME_TITLE,
+  description: HOME_DESCRIPTION,
+  keywords: HOME_KEYWORDS,
+  path: '/',
+});
 
 // Force dynamic rendering to prevent caching - we need fresh data for today's specials
 export const dynamic = 'force-dynamic';
@@ -215,11 +225,18 @@ export default async function HomePage() {
     gallery = gallerySetting ? JSON.parse(gallerySetting.value) : {};
   } catch {}
 
+  const aboutTitle =
+    about.title && about.title !== "A Neighborhood Institution"
+      ? about.title
+      : "Since 1892";
+
   // Happy hour is hardcoded - always the same, shown every day
   const happyHour = {
     title: 'Buy One Get One',
-    description: 'BOGO on Wine, Well & Drafts',
+    description: 'BOGO on your first round — wine, well & drafts',
     times: '10am-12pm & 4pm-7pm',
+    boast: 'Cheapest beers in Denver',
+    domesticDrafts: 'Bud, Bud Light & Coors Light drafts $3',
   };
   const shouldShowHappyHour = true;
 
@@ -517,6 +534,13 @@ export default async function HomePage() {
                 Happy Hour
               </h2>
 
+              <p className="mt-4 text-xs sm:text-sm font-semibold uppercase tracking-[0.35em] text-amber-200 [text-shadow:0_0_8px_rgba(251,191,36,0.85)]">
+                {happyHour.boast}
+              </p>
+              <p className="mt-2 text-sm sm:text-base font-medium tracking-wide text-amber-100/80">
+                {happyHour.domesticDrafts}
+              </p>
+
               {/* offer */}
               <p className="mt-5 text-2xl sm:text-3xl font-black uppercase tracking-wide text-white [text-shadow:0_0_10px_rgba(255,255,255,0.4)]">
                 {happyHour.title}
@@ -544,11 +568,19 @@ export default async function HomePage() {
         </section>
       )}
 
+      <SportsBarSection
+        address={contact.address}
+        city={contact.city}
+        state={contact.state}
+        zip={contact.zip}
+        phone={contact.phone}
+      />
+
       {/* About Section */}
       <section id="about" aria-label="About section" className="py-20 md:py-32 px-4 bg-gradient-to-b from-gray-50 via-white to-gray-50 dark:from-black dark:via-gray-900 dark:to-black">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12">
-            <h2 className="text-5xl md:text-6xl font-bold mb-4 text-gray-900 dark:text-white">{about.title || "A Neighborhood Institution"}</h2>
+            <h2 className="text-5xl md:text-6xl font-bold mb-4 text-gray-900 dark:text-white">{aboutTitle}</h2>
             <div className="w-24 h-1 bg-[var(--color-accent)] mx-auto mb-8"></div>
           </div>
           
@@ -670,7 +702,9 @@ export default async function HomePage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {upcomingEvents.map((event, index) => (
+              {upcomingEvents.map((event, index) => {
+                const publicDescription = eventPublicDescription(event);
+                return (
                 <div
                   key={`${event.id}-${event.startDateTime}-${index}`}
                   className="bg-blue-50 dark:bg-blue-950/20 border-l-4 border-blue-500 dark:border-blue-400 rounded-lg p-6 shadow-md hover:shadow-lg transition-shadow duration-300 flex flex-col items-center justify-center text-center min-h-[200px]"
@@ -685,8 +719,8 @@ export default async function HomePage() {
                       <h3 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">{event.title}</h3>
                     </div>
                   </div>
-                  {event.description && (
-                    <p className="text-gray-700 dark:text-gray-300 mb-4 leading-relaxed text-sm">{event.description}</p>
+                  {publicDescription && (
+                    <p className="text-gray-700 dark:text-gray-300 mb-4 leading-relaxed text-sm">{publicDescription}</p>
                   )}
                   
                   <div className="space-y-2 pt-4 border-t border-blue-200 dark:border-blue-800 w-full">
@@ -734,7 +768,8 @@ export default async function HomePage() {
                     )}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
 

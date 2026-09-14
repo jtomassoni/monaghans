@@ -44,7 +44,7 @@ Create single events that don't repeat.
 
 Add Broncos watch-party games from Calendar → **New** → **Football Game**.
 
-Each game is a regular calendar event you can edit later. Enter the opponent, kickoff time, and the house meal for the pot luck buffet (tacos, lasagna, and so on). The next upcoming game appears on the homepage hero with those three highlights, plus a note that guests should bring a side or dessert.
+Each game is a regular calendar event you can edit later. Enter the opponent, kickoff time, and the house meal for the pot luck buffet (tacos, lasagna, and so on). The next upcoming game appears on the homepage hero highlighting the house meal, kickoff, and opponent, and inviting guests to bring a side or dessert to share.
 
 ## Event Details
 

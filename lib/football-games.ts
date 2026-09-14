@@ -1,6 +1,7 @@
 export const FOOTBALL_GAME_TAG = 'football-game';
 export const HOUSE_MEAL_TAG_PREFIX = 'house-meal:';
 
+export const POTLUCK_LABEL = 'Pot Luck Buffet';
 export const POTLUCK_BRING_LINE = 'Bring a side or dessert to share';
 
 const GAME_DURATION_MS = 3.5 * 60 * 60 * 1000;
@@ -63,7 +64,18 @@ export function houseMealFromEvent(event: { tags?: unknown; description?: string
 
 export function footballGameDescription(houseMeal: string): string {
   const meal = houseMeal.trim() || 'a house meal';
-  return `House ${meal} for the pot luck buffet — bring a side or dessert to share.`;
+  return `Pot luck buffet with ${meal}. ${POTLUCK_BRING_LINE}.`;
+}
+
+export function eventPublicDescription(event: {
+  tags?: unknown;
+  title?: string | null;
+  description?: string | null;
+}): string {
+  if (isFootballGameEvent(event)) {
+    return footballGameDescription(houseMealFromEvent(event));
+  }
+  return (event.description || '').trim();
 }
 
 export function withFootballGameTag(tags: unknown): string[] {

@@ -14,6 +14,7 @@ import { buildSlides } from './slide-builder';
 import { SlideContent } from './types';
 import { buildSignagePlaylistWithAds } from '@/lib/signage-playlist-builder';
 import { isDigitalSignageEnabled, isAdsEnabledByAdmin } from '@/lib/feature-flags-ads';
+import { eventPublicDescription } from '@/lib/football-games';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -810,7 +811,7 @@ export default async function SpecialsTvPage({ searchParams }: SpecialsTvPagePro
       return {
         title: event.title,
         note: formatEventDate(start),
-        detail: event.description || undefined,
+        detail: eventPublicDescription(event) || undefined,
         time: formatEventTimeRange(start, end),
       };
     }),

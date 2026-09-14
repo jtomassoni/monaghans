@@ -1,5 +1,13 @@
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
+import type { Metadata } from 'next';
+import { CONTACT_DESCRIPTION, CONTACT_TITLE, publicPageMetadata } from '@/lib/seo';
+
+export const metadata: Metadata = publicPageMetadata({
+  title: CONTACT_TITLE,
+  description: CONTACT_DESCRIPTION,
+  path: '/contact',
+});
 
 export default async function ContactPage() {
   const contactSetting = await prisma.setting.findUnique({

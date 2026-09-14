@@ -215,7 +215,7 @@ export default function FootballGameModalForm({
                   Broncos Game Day
                 </p>
                 <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300">
-                  Highlight the opponent, kickoff, and house meal on the homepage. Guests bring a side or dessert.
+                  Homepage highlights the house meal, kickoff, and who the Broncos are playing.
                 </p>
               </div>
               <StatusToggle
@@ -272,7 +272,7 @@ export default function FootballGameModalForm({
                 className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2 text-base sm:text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-all min-h-[44px]"
               />
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                What the house provides for the pot luck buffet. Guests still bring a side or dessert.
+                What the kitchen puts out for the pot luck. Guests are invited to bring a side or dessert to share.
               </p>
             </div>
           </div>

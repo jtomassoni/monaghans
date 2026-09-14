@@ -82,9 +82,10 @@ Upload and manage images:
 Typically includes:
 1. **Hero Section**: Large banner at top
 2. **Announcements**: Time-sensitive announcements
-3. **About Section**: Business information
-4. **Events/Specials**: Upcoming events and specials
-5. **Image Gallery**: Establishment photos (if enabled)
+3. **Sports Bar**: Game audio for Broncos, Avalanche, Rockies, and national broadcasts
+4. **About Section**: Business information
+5. **Events/Specials**: Upcoming events and specials
+6. **Image Gallery**: Establishment photos (if enabled)
 
 ## Content Display
 
@@ -93,7 +94,8 @@ Homepage automatically shows:
 - **Upcoming Events**: Scheduled for near future
 - **Current Specials**: Active food and drink specials
 - **Business Hours**: Current hours
-- **Broncos football games**: The next game added via Calendar → New → Football Game, highlighting opponent, kickoff, and the house meal for the pot luck buffet (bring a side or dessert)
+- **Broncos football games**: The next game added via Calendar → New → Football Game, highlighting the house meal, kickoff date/time, and the opponent, and inviting guests to bring a side or dessert to share.
+- **Sports bar**: A homepage section billed as game day headquarters, covering Broncos, Avalanche, and Rockies games. Body copy notes that other national games (Monday nights, Thursday nights) can go on if folks in the bar want them, and that streaming deals make that harder some weeks.
 
 ## Tips
 

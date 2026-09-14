@@ -1,7 +1,15 @@
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
+import type { Metadata } from 'next';
 import { FaUtensils, FaArrowLeft } from 'react-icons/fa';
 import FoodSpecialsGallery from '@/components/food-specials-gallery';
+import { FOOD_GALLERY_DESCRIPTION, FOOD_GALLERY_TITLE, publicPageMetadata } from '@/lib/seo';
+
+export const metadata: Metadata = publicPageMetadata({
+  title: FOOD_GALLERY_TITLE,
+  description: FOOD_GALLERY_DESCRIPTION,
+  path: '/food-specials-gallery',
+});
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -54,7 +62,7 @@ export default async function FoodSpecialsGalleryPage() {
             </h1>
           </div>
           <p className="text-gray-300 text-lg mt-2">
-            Explore our delicious food specials
+            Daily food specials, plus happy hour and drink specials every day.
           </p>
         </div>
 

@@ -79,7 +79,7 @@ export default function CombinedSettingsForm({
     image: initialHero?.image || '/pics/hero.png',
   };
   const initialAboutData = {
-    title: initialAbout?.title || "A Neighborhood Institution",
+    title: initialAbout?.title && initialAbout.title !== "A Neighborhood Institution" ? initialAbout.title : "Since 1892",
     paragraph1: initialAbout?.paragraph1 || "Since 1892, Monaghan's has been the heart of the Sheridan neighborhood—Denver's second-oldest bar and a true local landmark. For over 130 years, we've been where neighbors gather, stories are shared, and traditions are made.",
     paragraph2Title: initialAbout?.paragraph2Title || "A Woman-Owned Legacy",
     paragraph2: initialAbout?.paragraph2 || "After over a decade of dedicated service behind the bar, our owner purchased Monaghan's, continuing a legacy of community, hospitality, and genuine neighborhood spirit. We're proud to carry forward the traditions that make this place special.",
@@ -863,7 +863,7 @@ export default function CombinedSettingsForm({
                   value={about.title}
                   onChange={(e) => setAbout({ ...about, title: e.target.value })}
                   className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
-                  placeholder="A Neighborhood Institution"
+                  placeholder="Since 1892"
                 />
               </div>
               <div className="space-y-2">

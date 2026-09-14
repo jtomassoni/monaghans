@@ -1,8 +1,25 @@
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
+import type { Metadata } from 'next';
 import { getMountainTimeNow, getMountainTimeToday, getCompanyTimezoneDateString } from '@/lib/timezone';
 import { RRule } from 'rrule';
 import { format } from 'date-fns';
+import { eventPublicDescription } from '@/lib/football-games';
+import {
+  EVENTS_DESCRIPTION,
+  EVENTS_KEYWORDS,
+  EVENTS_TITLE,
+  eventsJsonLd,
+  publicPageMetadata,
+  type SeoContact,
+} from '@/lib/seo';
+
+export const metadata: Metadata = publicPageMetadata({
+  title: EVENTS_TITLE,
+  description: EVENTS_DESCRIPTION,
+  keywords: EVENTS_KEYWORDS,
+  path: '/events',
+});
 
 // Create formatters once to ensure consistent formatting between server and client
 // This prevents hydration mismatches
@@ -36,13 +53,20 @@ export default async function EventsPage() {
   const now = getMountainTimeNow();
   const today = getMountainTimeToday();
   
-  // Fetch all active events (including recurring ones)
-  const allEvents = await prisma.event.findMany({
-    where: {
-      isActive: true,
-    },
-    orderBy: { startDateTime: 'asc' },
-  });
+  const [allEvents, contactSetting] = await Promise.all([
+    prisma.event.findMany({
+      where: {
+        isActive: true,
+      },
+      orderBy: { startDateTime: 'asc' },
+    }),
+    prisma.setting.findUnique({ where: { key: 'contact' } }),
+  ]);
+
+  let contact: SeoContact = {};
+  try {
+    contact = contactSetting ? JSON.parse(contactSetting.value) : {};
+  } catch {}
 
   // Helper function to get recurring event occurrences for a date range
   const getRecurringEventOccurrences = (event: any, rangeStart: Date, rangeEnd: Date) => {
@@ -395,6 +419,10 @@ export default async function EventsPage() {
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black pt-24 pb-16 px-4">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(eventsJsonLd(allUpcomingEvents, contact)) }}
+      />
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">
@@ -402,7 +430,8 @@ export default async function EventsPage() {
           <p className="text-purple-300 text-sm mb-4 font-semibold tracking-wide uppercase">Next 5 events</p>
           <div className="w-24 h-1 bg-purple-500 mx-auto mb-8"></div>
           <p className="text-xl text-gray-400 max-w-2xl mx-auto mb-8">
-            Join us for live music, trivia nights, and special events. Check back regularly for updates.
+            Poker nights, pool tournaments, sports watch parties, and live entertainment.
+            Daily happy hour and drink specials every day.
           </p>
           
           {/* Private Events Prominent Link */}
@@ -477,6 +506,7 @@ export default async function EventsPage() {
                       });
                       const eventDay = dayFormatter.format(eventDate);
                       const eventWeekday = weekdayFormatter.format(eventDate);
+                      const publicDescription = eventPublicDescription(event);
                       
                       return (
                         <div
@@ -506,9 +536,9 @@ export default async function EventsPage() {
                           </div>
                           
                           {/* Description */}
-                          {event.description && (
-                            <p className="text-gray-400 mb-5 leading-relaxed text-sm line-clamp-2 italic font-light">
-                              {event.description}
+                          {publicDescription && (
+                            <p className="text-gray-400 mb-5 leading-relaxed text-sm line-clamp-4 italic font-light">
+                              {publicDescription}
                             </p>
                           )}
                           

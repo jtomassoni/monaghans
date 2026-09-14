@@ -1,9 +1,18 @@
 import Link from 'next/link';
+import type { Metadata } from 'next';
 import { prisma } from '@/lib/prisma';
 import MenuDisplay from '@/components/menu-display';
 import { orderingRedirectPath } from '@/lib/ordering-partners';
 import { getMountainTimeToday } from '@/lib/timezone';
 import { isFoodSpecialActiveOnDate } from '@/lib/food-specials';
+import { MENU_DESCRIPTION, MENU_TITLE, publicPageMetadata } from '@/lib/seo';
+
+export const metadata: Metadata = publicPageMetadata({
+  title: MENU_TITLE,
+  description: MENU_DESCRIPTION,
+  keywords: ['Denver bar menu', 'daily food specials Denver', 'daily happy hour Denver', 'Denver drink specials'],
+  path: '/menu',
+});
 
 export default async function MenuPage() {
   // Use Mountain Time for date calculations
@@ -76,6 +85,9 @@ export default async function MenuPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl md:text-4xl font-bold mb-2 text-white">Our Menu</h1>
+          <p className="text-base text-gray-300 mb-2">
+            Daily food specials, plus happy hour and drink specials every day.
+          </p>
           <p className="text-sm text-gray-400 mb-6">*Prices subject to change</p>
           <Link
             href={orderingRedirectPath('online-ordering')}

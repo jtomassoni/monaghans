@@ -65,6 +65,9 @@ export const helpKeywords: Record<FeatureKey, string[]> = {
     'opponent',
     'pot luck',
     'house meal',
+    'side',
+    'dessert',
+    'tickets',
   ],
 
   // Menu Management
@@ -150,6 +153,16 @@ export const helpKeywords: Record<FeatureKey, string[]> = {
     'game day',
     'pot luck',
     'house meal',
+    'side',
+    'dessert',
+    'tickets',
+    'sports bar',
+    'game audio',
+    'avalanche',
+    'avs',
+    'rockies',
+    'monday night football',
+    'thursday night football',
   ],
 
   // Digital Signage

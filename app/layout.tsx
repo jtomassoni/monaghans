@@ -8,6 +8,7 @@ import Analytics from '@/components/analytics';
 import Script from 'next/script';
 import { prisma } from '@/lib/prisma';
 import { getPublishedAnnouncements } from '@/lib/announcements';
+import { DEFAULT_DESCRIPTION } from '@/lib/seo';
 
 // Get base URL for absolute image URLs (needed for SMS previews)
 const baseUrl = process.env.NEXTAUTH_URL || 'https://monaghans.com';
@@ -27,7 +28,7 @@ export async function generateMetadata(): Promise<Metadata> {
     console.warn('Could not fetch site title from database during build:', error);
   }
   
-  const defaultDescription = 'Cold drinks, warm people. Your neighborhood dive bar.';
+  const defaultDescription = DEFAULT_DESCRIPTION;
 
   return {
     metadataBase: new URL(baseUrl),

@@ -161,6 +161,76 @@ function updateWeeklyBydayIfSingleDay(rrule: string | null, newStart: Date): str
   return rrule.replace(/BYDAY=[^;]+/i, `BYDAY=${newByday}`);
 }
 
+type PositionedCalendarItem = {
+  item: CalendarItem;
+  top: number;
+  height: number;
+};
+
+type LaidOutCalendarItem = PositionedCalendarItem & {
+  column: number;
+  columns: number;
+};
+
+/** Pack overlapping timed events into columns so they sit side by side instead of stacking. */
+function layoutOverlappingItems(items: PositionedCalendarItem[]): LaidOutCalendarItem[] {
+  if (items.length === 0) return [];
+
+  const sorted = [...items].sort((a, b) => {
+    if (a.top !== b.top) return a.top - b.top;
+    if (a.height !== b.height) return b.height - a.height;
+    return a.item.title.localeCompare(b.item.title);
+  });
+
+  const clusters: PositionedCalendarItem[][] = [];
+  let current: PositionedCalendarItem[] = [];
+  let clusterEnd = Number.NEGATIVE_INFINITY;
+
+  for (const item of sorted) {
+    if (current.length > 0 && item.top < clusterEnd - 1) {
+      current.push(item);
+      clusterEnd = Math.max(clusterEnd, item.top + item.height);
+    } else {
+      if (current.length > 0) clusters.push(current);
+      current = [item];
+      clusterEnd = item.top + item.height;
+    }
+  }
+  if (current.length > 0) clusters.push(current);
+
+  return clusters.flatMap((cluster) => {
+    const columnEnd: number[] = [];
+    const columnByIndex: number[] = [];
+
+    cluster.forEach((event) => {
+      let column = columnEnd.findIndex((end) => end <= event.top + 1);
+      if (column === -1) {
+        column = columnEnd.length;
+        columnEnd.push(event.top + event.height);
+      } else {
+        columnEnd[column] = event.top + event.height;
+      }
+      columnByIndex.push(column);
+    });
+
+    const columns = columnEnd.length;
+    return cluster.map((event, index) => ({
+      ...event,
+      column: columnByIndex[index],
+      columns,
+    }));
+  });
+}
+
+function overlappingEventPosition(column: number, columns: number) {
+  const inset = 4;
+  return {
+    left: `calc(${(column / columns) * 100}% + ${inset}px)`,
+    width: `calc(${100 / columns}% - ${inset * 2}px)`,
+    right: 'auto' as const,
+  };
+}
+
 export default function CalendarView({ events, specials, announcements = [], businessHours, calendarHours, onEventClick, onSpecialClick, onAnnouncementClick, onNewEvent, onNewAnnouncement, onEventUpdate, onEventAdded, onEventDeleted }: CalendarViewProps) {
   // Use company timezone for all date operations, not browser locale
   const companyTimezone = getCompanyTimezoneSync();
@@ -1668,7 +1738,7 @@ export default function CalendarView({ events, specials, announcements = [], bus
         return true;
       });
       
-      return timedItems.map((item) => {
+      const positioned = timedItems.map((item) => {
         // Only events should be in timedItems after filtering
         const event = item as CalendarEvent;
         const eventDate = new Date(event.startDateTime);
@@ -1696,7 +1766,9 @@ export default function CalendarView({ events, specials, announcements = [], bus
         }
         
         return { item, top, height };
-      }).filter((item): item is { item: CalendarItem; top: number; height: number } => item !== null).sort((a, b) => a.top - b.top);
+      }).filter((item): item is PositionedCalendarItem => item !== null);
+
+      return layoutOverlappingItems(positioned);
     };
 
     return (
@@ -1885,7 +1957,7 @@ export default function CalendarView({ events, specials, announcements = [], bus
                 return (
                   <div
                     key={format(day, 'yyyy-MM-dd')}
-                    className={`relative border-r border-gray-300 dark:border-gray-700 last:border-r-0 ${
+                    className={`relative isolate border-r border-gray-300 dark:border-gray-700 last:border-r-0 ${
                       isToday 
                         ? 'bg-blue-50/30 dark:bg-blue-900/20 border-x border-blue-400 dark:border-blue-500' 
                         : 'bg-white dark:bg-gray-800'
@@ -1993,12 +2065,13 @@ export default function CalendarView({ events, specials, announcements = [], bus
                   )}
                   
                   {/* Events positioned by time */}
-                  {itemsWithPosition.map(({ item, top, height }, itemIdx) => {
+                  {itemsWithPosition.map(({ item, top, height, column, columns }, itemIdx) => {
                     // Only timed events are in itemsWithPosition
                     const event = item as CalendarEvent;
                     const isBeingDragged = draggedEvent && event.id === draggedEvent.id;
                     const isNewEvent = newEventIds.has(event.id);
                     const isRecurring = !!event.recurrenceRule;
+                    const isOverlapping = columns > 1;
                     
                     // Build tooltip with event details
                     const tooltipParts: string[] = [item.title];
@@ -2024,14 +2097,16 @@ export default function CalendarView({ events, specials, announcements = [], bus
                         draggable={true}
                         onDragStart={(e) => handleDragStart(e, event)}
                         onDragEnd={handleDragEnd}
-                        className={`absolute left-1 sm:left-2 right-1 sm:right-2 px-2 sm:px-2.5 py-1.5 sm:py-1.5 rounded-md cursor-move transition-all duration-300 hover:scale-[1.02] hover:shadow-lg ${getItemColor(item)} text-white z-10 shadow-md border touch-manipulation ${
-                          isBeingDragged ? 'opacity-30 scale-95' : 'opacity-100'
-                        } ${isNewEvent ? 'animate-in fade-in slide-in-from-top-2 duration-500' : ''}`}
+                        className={`absolute overflow-hidden rounded-md cursor-move ${getItemColor(item)} text-white shadow-md border touch-manipulation hover:!z-40 hover:shadow-xl hover:brightness-110 ${
+                          isOverlapping ? 'px-1.5 py-1 ring-1 ring-black/25' : 'px-2 sm:px-2.5 py-1.5 hover:scale-[1.02]'
+                        } ${isBeingDragged ? 'opacity-30 scale-95' : 'opacity-100'} ${isNewEvent ? 'animate-in fade-in slide-in-from-top-2 duration-500' : ''}`}
                         style={{
                           top: `${top}px`,
                           height: `${height}px`,
                           minHeight: `${Math.max(hourHeight * 0.6, 36)}px`,
-                          transition: isBeingDragged ? 'all 0.2s ease-out' : isNewEvent ? 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)' : 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                          ...overlappingEventPosition(column, columns),
+                          zIndex: isBeingDragged ? 5 : 10 + column,
+                          transition: isBeingDragged ? 'all 0.2s ease-out' : isNewEvent ? 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)' : 'box-shadow 0.2s ease, filter 0.2s ease, transform 0.2s ease',
                           animation: isNewEvent ? 'slideInScale 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)' : undefined,
                         }}
                         title={tooltipParts.join('\n')}
@@ -2045,30 +2120,30 @@ export default function CalendarView({ events, specials, announcements = [], bus
                           }
                         }}
                       >
-                        <div className="flex flex-col gap-0.5 h-full justify-center">
-                          <div className="flex items-center gap-1 sm:gap-1.5">
+                        <div className="flex flex-col gap-0.5 h-full min-w-0 justify-center overflow-hidden">
+                          <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
                             <span className="text-[10px] sm:text-xs flex-shrink-0">{getItemIcon(item)}</span>
-                            <span className="text-[10px] sm:text-xs font-medium truncate flex-1 leading-tight">
+                            <span className={`text-[10px] sm:text-xs font-medium flex-1 leading-tight min-w-0 ${isOverlapping && height > hourHeight * 0.7 ? 'line-clamp-2' : 'truncate'}`}>
                               {item.title}
                               {isRecurring && <span className="ml-0.5 sm:ml-1 opacity-75">🔄</span>}
                             </span>
                           </div>
-                          <div className="flex items-center gap-0.5 sm:gap-1 text-[9px] sm:text-[10px] opacity-90">
-                            <span>{format(new Date(event.startDateTime), 'h:mm a')}</span>
-                            {event.endDateTime && (
+                          <div className="flex items-center gap-0.5 sm:gap-1 text-[9px] sm:text-[10px] opacity-90 min-w-0">
+                            <span className="truncate">{format(new Date(event.startDateTime), 'h:mm a')}</span>
+                            {event.endDateTime && columns < 3 && (
                               <>
                                 <span>-</span>
-                                <span>{format(new Date(event.endDateTime), 'h:mm a')}</span>
+                                <span className="truncate">{format(new Date(event.endDateTime), 'h:mm a')}</span>
                               </>
                             )}
-                            {event.venueArea && event.venueArea !== 'bar' && (
+                            {event.venueArea && event.venueArea !== 'bar' && !isOverlapping && (
                               <>
                                 <span>•</span>
                                 <span className="capitalize truncate">{event.venueArea}</span>
                               </>
                             )}
                           </div>
-                          {event.description && height > hourHeight * 0.8 && (
+                          {event.description && !isOverlapping && height > hourHeight * 0.8 && (
                             <div className="text-[9px] sm:text-[10px] opacity-80 line-clamp-1 truncate">
                               {event.description}
                             </div>
@@ -2127,7 +2202,7 @@ export default function CalendarView({ events, specials, announcements = [], bus
         return true;
       });
       
-      return timedItems.map((item) => {
+      const positioned = timedItems.map((item) => {
         // Only events should be in timedItems after filtering
         const event = item as CalendarEvent;
         const eventDate = new Date(event.startDateTime);
@@ -2155,7 +2230,9 @@ export default function CalendarView({ events, specials, announcements = [], bus
         }
         
         return { item, top, height };
-      }).filter((item): item is { item: CalendarItem; top: number; height: number } => item !== null).sort((a, b) => a.top - b.top);
+      }).filter((item): item is PositionedCalendarItem => item !== null);
+
+      return layoutOverlappingItems(positioned);
     };
 
     const allDayItems = getAllDayItems(day);
@@ -2319,7 +2396,7 @@ export default function CalendarView({ events, specials, announcements = [], bus
             </div>
             
             {/* Day column */}
-            <div className={`flex-1 relative ${
+            <div className={`flex-1 relative isolate ${
               isToday 
                 ? 'bg-blue-50/30 dark:bg-blue-900/20 border-x border-blue-400 dark:border-blue-500' 
                 : 'bg-white dark:bg-gray-800'
@@ -2427,12 +2504,13 @@ export default function CalendarView({ events, specials, announcements = [], bus
               )}
               
               {/* Events positioned by time */}
-              {itemsWithPosition.map(({ item, top, height }, itemIdx) => {
+              {itemsWithPosition.map(({ item, top, height, column, columns }, itemIdx) => {
                 // Only timed events are in itemsWithPosition
                 const event = item as CalendarEvent;
                 const isBeingDragged = draggedEvent && event.id === draggedEvent.id;
                 const isNewEvent = newEventIds.has(event.id);
                 const isRecurring = !!event.recurrenceRule;
+                const isOverlapping = columns > 1;
                 
                 // Build tooltip with event details
                 const tooltipParts: string[] = [item.title];
@@ -2458,14 +2536,16 @@ export default function CalendarView({ events, specials, announcements = [], bus
                     draggable={true}
                     onDragStart={(e) => handleDragStart(e, event)}
                     onDragEnd={handleDragEnd}
-                    className={`absolute left-2 right-2 px-2 sm:px-2.5 py-1.5 sm:py-1.5 rounded-md cursor-move transition-all duration-300 hover:scale-[1.02] hover:shadow-lg ${getItemColor(item)} text-white z-10 shadow-md border touch-manipulation ${
-                      isBeingDragged ? 'opacity-30 scale-95' : 'opacity-100'
-                    } ${isNewEvent ? 'animate-in fade-in slide-in-from-top-2 duration-500' : ''}`}
+                    className={`absolute overflow-hidden rounded-md cursor-move ${getItemColor(item)} text-white shadow-md border touch-manipulation hover:!z-40 hover:shadow-xl hover:brightness-110 ${
+                      isOverlapping ? 'px-1.5 sm:px-2 py-1 ring-1 ring-black/25' : 'px-2 sm:px-2.5 py-1.5 hover:scale-[1.02]'
+                    } ${isBeingDragged ? 'opacity-30 scale-95' : 'opacity-100'} ${isNewEvent ? 'animate-in fade-in slide-in-from-top-2 duration-500' : ''}`}
                     style={{
                       top: `${top}px`,
                       height: `${height}px`,
                       minHeight: `${Math.max(hourHeight * 0.6, 36)}px`,
-                      transition: isBeingDragged ? 'all 0.2s ease-out' : isNewEvent ? 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)' : 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                      ...overlappingEventPosition(column, columns),
+                      zIndex: isBeingDragged ? 5 : 10 + column,
+                      transition: isBeingDragged ? 'all 0.2s ease-out' : isNewEvent ? 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)' : 'box-shadow 0.2s ease, filter 0.2s ease, transform 0.2s ease',
                       animation: isNewEvent ? 'slideInScale 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)' : undefined,
                     }}
                     title={tooltipParts.join('\n')}
@@ -2479,30 +2559,30 @@ export default function CalendarView({ events, specials, announcements = [], bus
                       }
                     }}
                   >
-                    <div className="flex flex-col gap-0.5 h-full justify-center">
-                      <div className="flex items-center gap-1 sm:gap-1.5">
+                    <div className="flex flex-col gap-0.5 h-full min-w-0 justify-center overflow-hidden">
+                      <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
                         <span className="text-[10px] sm:text-xs flex-shrink-0">{getItemIcon(item)}</span>
-                        <span className="text-[10px] sm:text-xs font-medium truncate flex-1 leading-tight">
+                        <span className={`text-[10px] sm:text-xs font-medium flex-1 leading-tight min-w-0 ${isOverlapping && height > hourHeight * 0.7 ? 'line-clamp-2' : 'truncate'}`}>
                           {item.title}
                           {isRecurring && <span className="ml-0.5 sm:ml-1 opacity-75">🔄</span>}
                         </span>
                       </div>
-                      <div className="flex items-center gap-0.5 sm:gap-1 text-[9px] sm:text-[10px] opacity-90">
-                        <span>{format(new Date(event.startDateTime), 'h:mm a')}</span>
-                        {event.endDateTime && (
+                      <div className="flex items-center gap-0.5 sm:gap-1 text-[9px] sm:text-[10px] opacity-90 min-w-0">
+                        <span className="truncate">{format(new Date(event.startDateTime), 'h:mm a')}</span>
+                        {event.endDateTime && columns < 4 && (
                           <>
                             <span>-</span>
-                            <span>{format(new Date(event.endDateTime), 'h:mm a')}</span>
+                            <span className="truncate">{format(new Date(event.endDateTime), 'h:mm a')}</span>
                           </>
                         )}
-                        {event.venueArea && event.venueArea !== 'bar' && (
+                        {event.venueArea && event.venueArea !== 'bar' && !isOverlapping && (
                           <>
                             <span>•</span>
                             <span className="capitalize truncate">{event.venueArea}</span>
                           </>
                         )}
                       </div>
-                      {event.description && height > hourHeight * 0.8 && (
+                      {event.description && !isOverlapping && height > hourHeight * 0.8 && (
                         <div className="text-[9px] sm:text-[10px] opacity-80 line-clamp-1 truncate">
                           {event.description}
                         </div>
