@@ -23,7 +23,8 @@ const LOCAL_TEAMS = [
   {
     name: 'Rockies',
     fullName: 'Colorado Rockies',
-    logo: '/pics/teams/rockies-mark.png',
+    logo: '/pics/teams/rockies-cap.png',
+    framed: true,
   },
 ] as const;
 
@@ -73,13 +74,25 @@ export default function SportsBarSection({
           <ul className="lg:col-span-7 grid grid-cols-3 gap-4 sm:gap-8">
             {LOCAL_TEAMS.map((team) => (
               <li key={team.fullName} className="flex flex-col items-center text-center">
-                <Image
-                  src={team.logo}
-                  alt=""
-                  width={160}
-                  height={160}
-                  className="h-20 w-20 object-contain sm:h-28 sm:w-28"
-                />
+                {'framed' in team && team.framed ? (
+                  <div className="h-20 w-20 overflow-hidden rounded-2xl bg-black ring-1 ring-white/15 sm:h-28 sm:w-28">
+                    <Image
+                      src={team.logo}
+                      alt=""
+                      width={160}
+                      height={160}
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <Image
+                    src={team.logo}
+                    alt=""
+                    width={160}
+                    height={160}
+                    className="h-20 w-20 object-contain sm:h-28 sm:w-28"
+                  />
+                )}
                 <h3 className="mt-3 font-serif text-lg italic leading-tight text-white sm:text-2xl">
                   {team.name}
                   <span className="sr-only"> ({team.fullName})</span>
