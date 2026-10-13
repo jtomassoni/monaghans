@@ -88,12 +88,11 @@ export default function FootballGameHeroTile({
             }}
           />
         </div>
-        <div
-          className="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-black/30"
-          aria-hidden="true"
-        />
-
         <div className="relative flex">
+          <div
+            className="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-black/25"
+            aria-hidden="true"
+          />
           <div className="flex w-1/2 flex-col items-center px-3 pb-2 pt-4 sm:px-5 sm:pt-5">
             <Image
               src={BRONCOS_HELMET_SRC}
@@ -130,25 +129,25 @@ export default function FootballGameHeroTile({
           </div>
         </div>
 
-        <div className="relative border-t border-white/10 bg-[#16110e] px-4 py-3 text-center text-white sm:px-6 sm:py-4">
+        <div className="relative border-t border-black/10 bg-[#fff6ee] px-4 py-4 text-center sm:px-6 sm:py-5">
           {isLive && (
-            <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-orange-200 sm:text-xs">
+            <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.16em] text-[#b84312] sm:text-xs">
               Happening now
             </p>
           )}
           <time
             dateTime={start.toISOString()}
-            className="block text-xs font-semibold text-orange-100 sm:text-sm"
+            className="block text-sm font-semibold text-[#2c211c] sm:text-base"
           >
             {kickoffDate} at {kickoffTime}
           </time>
-          <p className="mt-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/80 sm:text-xs">
+          <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.16em] text-[#b84312] sm:text-xs">
             {POTLUCK_LABEL}
           </p>
-          <h3 className="mt-1 font-serif text-4xl italic leading-none break-words text-white sm:text-5xl">
+          <h3 className="mt-1 font-serif text-4xl italic leading-none break-words text-[#1a120e] sm:text-5xl">
             {mealLabel}
           </h3>
-          <p className="mt-2 text-sm leading-snug text-white/90">
+          <p className="mt-2 text-sm font-medium leading-snug text-[#3f342e] sm:text-base">
             {POTLUCK_BRING_LINE}
           </p>
         </div>
