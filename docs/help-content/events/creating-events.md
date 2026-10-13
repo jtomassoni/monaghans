@@ -24,18 +24,21 @@ Create single events that don't repeat.
 ## How to Create
 
 ### From Calendar
+
 1. Go to [Calendar](/admin)
 2. Click the date
 3. Select **"New Event"**
 4. Fill details and save
 
 ### From Events List
+
 1. Go to **Calendar**
 2. Switch to **List View**
 3. Click **"New Event"**
 4. Fill details and save
 
 ### Quick Actions
+
 1. Open **Quick Actions** menu (any admin page)
 2. Select **"New Event"**
 3. Fill details and save
@@ -44,16 +47,18 @@ Create single events that don't repeat.
 
 Add Broncos watch-party games from Calendar → **New** → **Football Game**.
 
-Each game is a regular calendar event you can edit later. Enter the opponent, kickoff time, and the house meal for the pot luck buffet (tacos, lasagna, and so on). The next upcoming game appears on the homepage hero highlighting the house meal, kickoff, and opponent, and inviting guests to bring a side or dessert to share.
+Each game is a regular calendar event you can edit later. Choose the opponent from the team list, then set the kickoff time and the house meal for the pot luck buffet (tacos, lasagna, and so on). The form and homepage hero pick up that team's colors. The next upcoming game highlights the house meal, kickoff, and opponent, and invites guests to bring a side or dessert to share.
 
 ## Event Details
 
 ### Required
+
 - **Title**: Event name (e.g., "Live Music Night")
 - **Start Date & Time**: When it begins
 - **End Date & Time**: When it ends (skip for all-day events)
 
 ### Optional
+
 - **Description**: Event details
 - **Venue Area**: Location (e.g., "Main Bar", "Patio")
 - **Tags**: Categories (e.g., "music", "sports")
@@ -78,4 +83,3 @@ Each game is a regular calendar event you can edit later. Enter the opponent, ki
 - [Edit events](./editing-events.md)
 - [Create recurring events](./recurring-events.md)
 - [Feature on homepage](./homepage-events.md)
-

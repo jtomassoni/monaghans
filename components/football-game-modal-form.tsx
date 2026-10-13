@@ -18,6 +18,8 @@ import {
   opponentFromFootballTitle,
   withFootballGameTags,
 } from '@/lib/football-games';
+import { findNflTeam, nflTeamsByDivision } from '@/lib/nfl-teams';
+import { MatchupSplit } from '@/components/matchup-brand';
 
 export type FootballGameFormEvent = {
   id?: string;
@@ -56,7 +58,13 @@ function getDefaultKickoff(): string {
   const day = parseInt(mtParts.find((p) => p.type === 'day')!.value);
   const weekday = mtParts.find((p) => p.type === 'weekday')!.value;
   const dayMap: Record<string, number> = {
-    Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6,
+    Sun: 0,
+    Mon: 1,
+    Tue: 2,
+    Wed: 3,
+    Thu: 4,
+    Fri: 5,
+    Sat: 6,
   };
   const currentDay = dayMap[weekday] ?? 0;
   const daysUntilSunday = (7 - currentDay) % 7;
@@ -69,7 +77,11 @@ function getDefaultKickoff(): string {
 
 function formatIncomingDateTime(value: string): string {
   if (!value) return getDefaultKickoff();
-  if (!value.includes('Z') && !value.includes('+') && !value.includes('-', 10)) {
+  if (
+    !value.includes('Z') &&
+    !value.includes('+') &&
+    !value.includes('-', 10)
+  ) {
     return value.slice(0, 16);
   }
   return formatDateAsDateTimeLocal(new Date(value), getCompanyTimezoneSync());
@@ -95,7 +107,8 @@ export default function FootballGameModalForm({
   useEffect(() => {
     if (!isOpen) return;
     if (event?.id) {
-      setOpponent(opponentFromFootballTitle(event.title || ''));
+      const parsed = opponentFromFootballTitle(event.title || '');
+      setOpponent(findNflTeam(parsed)?.name ?? parsed);
       setHouseMeal(houseMealFromEvent(event));
       setStartDateTime(formatIncomingDateTime(event.startDateTime));
       setIsActive(event.isActive ?? true);
@@ -111,13 +124,22 @@ export default function FootballGameModalForm({
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    const title = footballGameTitle(opponent);
-    if (!opponent.trim()) {
-      showToast('Opponent is required', 'error', 'Add who the Broncos are playing.');
+    const opponentName = findNflTeam(opponent)?.name ?? opponent.trim();
+    const title = footballGameTitle(opponentName);
+    if (!opponentName) {
+      showToast(
+        'Opponent is required',
+        'error',
+        'Choose who the Broncos are playing.'
+      );
       return;
     }
     if (!houseMeal.trim()) {
-      showToast('House meal is required', 'error', 'Add what the house is providing for the pot luck buffet.');
+      showToast(
+        'House meal is required',
+        'error',
+        'Add what the house is providing for the pot luck buffet.'
+      );
       return;
     }
     if (!startDateTime) {
@@ -129,7 +151,10 @@ export default function FootballGameModalForm({
     try {
       const url = event?.id ? `/api/events/${event.id}` : '/api/events';
       const method = event?.id ? 'PUT' : 'POST';
-      const start = parseDateTimeLocalAsCompanyTimezone(startDateTime, getCompanyTimezoneSync());
+      const start = parseDateTimeLocalAsCompanyTimezone(
+        startDateTime,
+        getCompanyTimezoneSync()
+      );
       const end = new Date(start.getTime() + 3.5 * 60 * 60 * 1000);
 
       const res = await fetch(url, {
@@ -151,7 +176,9 @@ export default function FootballGameModalForm({
       if (!res.ok) {
         const error = await res.json().catch(() => ({}));
         showToast(
-          event?.id ? 'Failed to update football game' : 'Failed to add football game',
+          event?.id
+            ? 'Failed to update football game'
+            : 'Failed to add football game',
           'error',
           error.error || error.details || 'Please try again.'
         );
@@ -159,7 +186,10 @@ export default function FootballGameModalForm({
       }
 
       const eventData = await res.json();
-      showToast(event?.id ? 'Football game updated' : 'Football game added', 'success');
+      showToast(
+        event?.id ? 'Football game updated' : 'Football game added',
+        'success'
+      );
       if (event?.id) {
         onEventUpdated?.(eventData);
       } else {
@@ -171,7 +201,9 @@ export default function FootballGameModalForm({
       showToast(
         'Request failed',
         'error',
-        error instanceof Error ? error.message : 'An error occurred while saving the game.'
+        error instanceof Error
+          ? error.message
+          : 'An error occurred while saving the game.'
       );
     } finally {
       setLoading(false);
@@ -190,13 +222,19 @@ export default function FootballGameModalForm({
         onClose();
       } else {
         const error = await res.json().catch(() => ({}));
-        showToast('Failed to delete football game', 'error', error.error || 'Please try again.');
+        showToast(
+          'Failed to delete football game',
+          'error',
+          error.error || 'Please try again.'
+        );
       }
     } catch (error) {
       showToast(
         'Request failed',
         'error',
-        error instanceof Error ? error.message : 'An error occurred while deleting the game.'
+        error instanceof Error
+          ? error.message
+          : 'An error occurred while deleting the game.'
       );
     } finally {
       setLoading(false);
@@ -204,81 +242,109 @@ export default function FootballGameModalForm({
     }
   }
 
+  const opponentTeam = findNflTeam(opponent);
+  const customOpponent =
+    opponent.trim() && !opponentTeam ? opponent.trim() : '';
+  const divisions = nflTeamsByDivision();
+
   const formContent = (
     <>
-      <form onSubmit={handleSubmit} className={embed ? 'flex flex-col min-h-0 flex-1' : 'space-y-3'}>
+      <form
+        onSubmit={handleSubmit}
+        className={embed ? 'flex flex-col min-h-0 flex-1' : 'space-y-3'}
+      >
         <div className={embed ? 'flex-1 min-h-0 overflow-y-auto' : ''}>
-          <div className="rounded-2xl border border-orange-200/80 dark:border-orange-900/50 bg-gradient-to-br from-orange-50/90 to-slate-50 dark:from-slate-900/60 dark:to-slate-950 shadow-sm p-3 sm:p-4 space-y-3">
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-orange-600 dark:text-orange-400">
-                  Broncos Game Day
-                </p>
-                <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300">
-                  Homepage highlights the house meal, kickoff, and who the Broncos are playing.
-                </p>
-              </div>
-              <StatusToggle
-                type="active"
-                value={isActive}
-                onChange={setIsActive}
-                className="shrink-0"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label htmlFor="football-opponent" className="text-sm font-medium text-gray-900 dark:text-white">
-                Opponent *
-              </label>
-              <div className="flex items-center gap-2">
-                <span className="hidden sm:inline text-sm font-semibold text-[#002244] dark:text-orange-200 whitespace-nowrap">
-                  Broncos vs.
-                </span>
-                <input
-                  id="football-opponent"
-                  type="text"
-                  value={opponent}
-                  onChange={(e) => setOpponent(e.target.value)}
-                  required
-                  maxLength={40}
-                  placeholder="Chiefs"
-                  className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2 text-base sm:text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-all min-h-[44px]"
+          <div className="rounded-2xl border border-orange-200/80 dark:border-orange-900/50 bg-gradient-to-br from-orange-50/90 to-slate-50 dark:from-slate-900/60 dark:to-slate-950 shadow-sm p-3 sm:p-4">
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-orange-600 dark:text-orange-400">
+                    Broncos Game Day
+                  </p>
+                  <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300">
+                    Homepage highlights the house meal, kickoff, and who the
+                    Broncos are playing.
+                  </p>
+                </div>
+                <StatusToggle
+                  type="active"
+                  value={isActive}
+                  onChange={setIsActive}
+                  className="shrink-0"
                 />
               </div>
-            </div>
 
-            <DateTimePicker
-              label="Kickoff *"
-              value={startDateTime}
-              onChange={setStartDateTime}
-              required
-            />
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Ends 3.5 hours after kickoff on the calendar. You can change that after saving.
-            </p>
+              <div className="space-y-2">
+                <label
+                  htmlFor="football-opponent"
+                  className="text-sm font-medium text-gray-900 dark:text-white"
+                >
+                  Opponent *
+                </label>
+                <select
+                  id="football-opponent"
+                  value={opponentTeam?.name ?? opponent}
+                  onChange={(e) => setOpponent(e.target.value)}
+                  required
+                  className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2 text-base sm:text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-all min-h-[44px]"
+                >
+                  <option value="">Select a team</option>
+                  {customOpponent && (
+                    <option value={customOpponent}>{customOpponent}</option>
+                  )}
+                  {divisions.map(({ division, teams }) => (
+                    <optgroup key={division} label={division}>
+                      {teams.map((team) => (
+                        <option key={team.name} value={team.name}>
+                          {team.city} {team.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+                {opponentTeam && <MatchupSplit team={opponentTeam} />}
+              </div>
 
-            <div className="space-y-1">
-              <label htmlFor="football-house-meal" className="text-sm font-medium text-gray-900 dark:text-white">
-                House meal *
-              </label>
-              <input
-                id="football-house-meal"
-                type="text"
-                value={houseMeal}
-                onChange={(e) => setHouseMeal(e.target.value)}
+              <DateTimePicker
+                label="Kickoff *"
+                value={startDateTime}
+                onChange={setStartDateTime}
                 required
-                maxLength={40}
-                placeholder="Tacos, lasagna, chili…"
-                className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2 text-base sm:text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-all min-h-[44px]"
               />
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                What the kitchen puts out for the pot luck. Guests are invited to bring a side or dessert to share.
+                Ends 3.5 hours after kickoff on the calendar. You can change
+                that after saving.
               </p>
+
+              <div className="space-y-1">
+                <label
+                  htmlFor="football-house-meal"
+                  className="text-sm font-medium text-gray-900 dark:text-white"
+                >
+                  House meal *
+                </label>
+                <input
+                  id="football-house-meal"
+                  type="text"
+                  value={houseMeal}
+                  onChange={(e) => setHouseMeal(e.target.value)}
+                  required
+                  maxLength={40}
+                  placeholder="Tacos, lasagna, chili…"
+                  className="w-full rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-900/40 px-3 py-2 text-base sm:text-sm text-gray-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-all min-h-[44px]"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  What the kitchen puts out for the pot luck. Guests are invited
+                  to bring a side or dessert to share.
+                </p>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className={`flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-end gap-2 shrink-0 pt-4 border-t border-gray-200 dark:border-gray-700 ${embed ? 'sticky bottom-0 bg-white dark:bg-gray-800 z-10 -mx-4 sm:-mx-5 px-4 sm:px-5 -mb-4 sm:-mb-5 pb-4 sm:pb-5' : ''}`}>
+        <div
+          className={`flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-end gap-2 shrink-0 pt-4 border-t border-gray-200 dark:border-gray-700 ${embed ? 'sticky bottom-0 bg-white dark:bg-gray-800 z-10 -mx-4 sm:-mx-5 px-4 sm:px-5 -mb-4 sm:-mb-5 pb-4 sm:pb-5' : ''}`}
+        >
           {event?.id && (
             <button
               type="button"
@@ -302,7 +368,11 @@ export default function FootballGameModalForm({
               disabled={loading}
               className="px-3 py-2 sm:px-2.5 sm:py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm sm:text-xs font-semibold disabled:opacity-50 min-h-[44px]"
             >
-              {loading ? 'Saving...' : event?.id ? 'Save Game' : 'Add Football Game'}
+              {loading
+                ? 'Saving...'
+                : event?.id
+                  ? 'Save Game'
+                  : 'Add Football Game'}
             </button>
           </div>
         </div>
@@ -313,7 +383,7 @@ export default function FootballGameModalForm({
         onClose={() => setShowDeleteConfirm(false)}
         onConfirm={handleDelete}
         title="Delete football game"
-        message={`Delete "${footballGameTitle(opponent)}"? It will be removed from the calendar and hero.`}
+        message={`Delete "${footballGameTitle(findNflTeam(opponent)?.name ?? opponent)}"? It will be removed from the calendar and hero.`}
         confirmText={loading ? 'Deleting...' : 'Delete'}
         cancelText="Cancel"
         variant="danger"
@@ -321,7 +391,8 @@ export default function FootballGameModalForm({
     </>
   );
 
-  if (embed) return <div className="min-w-0 overflow-y-auto">{formContent}</div>;
+  if (embed)
+    return <div className="min-w-0 overflow-y-auto">{formContent}</div>;
 
   return (
     <Modal
