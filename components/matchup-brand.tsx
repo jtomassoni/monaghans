@@ -1,39 +1,60 @@
 import type { NflTeam } from '@/lib/nfl-teams';
-import { broncosColorSide, opponentColorSide } from '@/lib/nfl-teams';
+import {
+  BRONCOS_HELMET_SRC,
+  broncosColorSide,
+  opponentColorSide,
+  opponentHelmetSrc,
+} from '@/lib/nfl-teams';
+import Image from 'next/image';
 
 export function MatchupSplit({ team }: { team: NflTeam }) {
   const home = broncosColorSide();
   const away = opponentColorSide(team);
+  const awayHelmet = opponentHelmetSrc(team);
 
   return (
     <div
-      className="flex h-[4.5rem] overflow-hidden rounded-xl shadow-sm"
+      className="flex h-28 overflow-hidden rounded-xl shadow-sm"
       role="group"
       aria-label={`Broncos versus ${team.city} ${team.name}`}
     >
       <div
-        className="flex w-1/2 flex-col"
+        className="flex w-1/2 items-center justify-center gap-2 px-2"
         style={{ backgroundColor: home.background }}
       >
-        <div
-          className="flex flex-1 items-center justify-center px-2 text-center text-sm font-extrabold uppercase tracking-[0.14em] sm:text-base"
+        <Image
+          src={BRONCOS_HELMET_SRC}
+          alt=""
+          width={351}
+          height={321}
+          className="h-20 w-auto shrink-0"
+        />
+        <span
+          className="text-sm font-extrabold uppercase tracking-[0.12em]"
           style={{ color: home.foreground }}
         >
           Broncos
-        </div>
-        <div className="h-1.5" style={{ backgroundColor: home.accent }} />
+        </span>
       </div>
       <div
-        className="flex w-1/2 flex-col"
+        className="flex w-1/2 items-center justify-center gap-2 px-2"
         style={{ backgroundColor: away.background }}
       >
-        <div
-          className="flex flex-1 items-center justify-center px-2 text-center text-sm font-extrabold uppercase leading-tight tracking-[0.08em] sm:text-base sm:tracking-[0.12em]"
+        <span
+          className="text-center text-sm font-extrabold uppercase leading-tight tracking-[0.08em]"
           style={{ color: away.accent }}
         >
           {team.name}
-        </div>
-        <div className="h-1.5" style={{ backgroundColor: away.accent }} />
+        </span>
+        {awayHelmet && (
+          <Image
+            src={awayHelmet}
+            alt=""
+            width={350}
+            height={320}
+            className="h-20 w-auto shrink-0"
+          />
+        )}
       </div>
     </div>
   );

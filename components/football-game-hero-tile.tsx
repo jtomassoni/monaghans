@@ -4,12 +4,15 @@ import {
   POTLUCK_LABEL,
 } from '@/lib/football-games';
 import {
+  BRONCOS_HELMET_SRC,
   BRONCOS_NAVY,
   broncosColorSide,
   findNflTeam,
   opponentColorSide,
+  opponentHelmetSrc,
   type ColorSide,
 } from '@/lib/nfl-teams';
+import Image from 'next/image';
 
 type FootballGameHeroTileProps = {
   title: string;
@@ -18,7 +21,13 @@ type FootballGameHeroTileProps = {
   houseMeal?: string;
 };
 
-const TEXT_SHADOW = '0 1px 2px rgba(0,0,0,0.75), 0 2px 12px rgba(0,0,0,0.45)';
+function deepen(hex: string): string {
+  const raw = hex.replace('#', '');
+  const value = parseInt(raw, 16);
+  const channel = (shift: number) =>
+    Math.round(((value >> shift) & 255) * 0.72);
+  return `rgb(${channel(16)}, ${channel(8)}, ${channel(0)})`;
+}
 
 export default function FootballGameHeroTile({
   title,
@@ -56,6 +65,7 @@ export default function FootballGameHeroTile({
         foreground: '#FFFFFF',
         accent: '#FFFFFF',
       };
+  const awayHelmet = opponentTeam ? opponentHelmetSrc(opponentTeam) : null;
 
   return (
     <div className="mx-auto mb-3 w-full max-w-xl sm:mb-6">
@@ -65,58 +75,54 @@ export default function FootballGameHeroTile({
         aria-label={`${POTLUCK_LABEL}, ${mealLabel}, ${POTLUCK_BRING_LINE}, ${kickoffDate} at ${kickoffTime}, ${matchup}`}
       >
         <div className="absolute inset-0 flex" aria-hidden="true">
-          <div className="w-1/2" style={{ backgroundColor: home.background }} />
-          <div className="w-1/2" style={{ backgroundColor: away.background }} />
+          <div
+            className="w-1/2"
+            style={{
+              background: `linear-gradient(165deg, ${home.background} 0%, ${deepen(home.background)} 100%)`,
+            }}
+          />
+          <div
+            className="w-1/2"
+            style={{
+              background: `linear-gradient(195deg, ${away.background} 0%, ${deepen(away.background)} 100%)`,
+            }}
+          />
         </div>
+        <div
+          className="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-black/30"
+          aria-hidden="true"
+        />
 
-        <div className="relative px-4 py-5 text-center sm:px-6 sm:py-6">
-          {isLive && (
+        <div className="relative flex">
+          <div className="flex w-1/2 flex-col items-center px-3 pb-2 pt-4 sm:px-5 sm:pt-5">
+            <Image
+              src={BRONCOS_HELMET_SRC}
+              alt=""
+              width={351}
+              height={321}
+              priority
+              className="h-28 w-auto drop-shadow-[0_10px_12px_rgba(0,0,0,0.35)] sm:h-36"
+            />
             <p
-              className="mb-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-white"
-              style={{ textShadow: TEXT_SHADOW }}
-            >
-              Happening now
-            </p>
-          )}
-
-          <time
-            dateTime={start.toISOString()}
-            className="block text-sm font-semibold text-white sm:text-base"
-            style={{ textShadow: TEXT_SHADOW }}
-          >
-            {kickoffDate} at {kickoffTime}
-          </time>
-
-          <p
-            className="mt-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-white sm:text-xs"
-            style={{ textShadow: TEXT_SHADOW }}
-          >
-            {POTLUCK_LABEL}
-          </p>
-
-          <h3
-            className="mt-1.5 font-serif text-4xl italic leading-tight text-white break-words sm:text-5xl"
-            style={{ textShadow: TEXT_SHADOW }}
-          >
-            {mealLabel}
-          </h3>
-
-          <p
-            className="mt-2.5 text-sm leading-snug text-white sm:text-base"
-            style={{ textShadow: TEXT_SHADOW }}
-          >
-            {POTLUCK_BRING_LINE}
-          </p>
-
-          <div className="mt-5 flex items-center">
-            <p
-              className="w-1/2 px-1 text-center text-sm font-extrabold uppercase leading-none tracking-[0.12em] sm:text-xl sm:tracking-[0.16em]"
+              className="mt-1 text-center text-xs font-extrabold uppercase leading-none tracking-[0.14em] sm:text-base"
               style={{ color: home.foreground }}
             >
               Broncos
             </p>
+          </div>
+          <div className="flex w-1/2 flex-col items-center px-3 pb-2 pt-4 sm:px-5 sm:pt-5">
+            {awayHelmet && (
+              <Image
+                src={awayHelmet}
+                alt=""
+                width={350}
+                height={320}
+                priority
+                className="h-28 w-auto drop-shadow-[0_10px_12px_rgba(0,0,0,0.35)] sm:h-36"
+              />
+            )}
             <p
-              className="w-1/2 px-1 text-center text-sm font-extrabold uppercase leading-none tracking-[0.08em] sm:text-xl sm:tracking-[0.14em]"
+              className="mt-1 px-1 text-center text-xs font-extrabold uppercase leading-none tracking-[0.08em] sm:text-base sm:tracking-[0.12em]"
               style={{ color: away.accent }}
             >
               {opponentLabel || 'Opponent'}
@@ -124,9 +130,27 @@ export default function FootballGameHeroTile({
           </div>
         </div>
 
-        <div className="relative flex h-2" aria-hidden="true">
-          <div className="w-1/2" style={{ backgroundColor: home.accent }} />
-          <div className="w-1/2" style={{ backgroundColor: away.accent }} />
+        <div className="relative border-t border-white/10 bg-[#16110e] px-4 py-3 text-center text-white sm:px-6 sm:py-4">
+          {isLive && (
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-orange-200 sm:text-xs">
+              Happening now
+            </p>
+          )}
+          <time
+            dateTime={start.toISOString()}
+            className="block text-xs font-semibold text-orange-100 sm:text-sm"
+          >
+            {kickoffDate} at {kickoffTime}
+          </time>
+          <p className="mt-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/80 sm:text-xs">
+            {POTLUCK_LABEL}
+          </p>
+          <h3 className="mt-1 font-serif text-4xl italic leading-none break-words text-white sm:text-5xl">
+            {mealLabel}
+          </h3>
+          <p className="mt-2 text-sm leading-snug text-white/90">
+            {POTLUCK_BRING_LINE}
+          </p>
         </div>
       </div>
     </div>

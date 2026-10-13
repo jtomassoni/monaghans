@@ -398,6 +398,47 @@ function readableInk(background: string): string {
   return contrastRatio('#FFFFFF', background) >= 3 ? '#FFFFFF' : '#101820';
 }
 
+const HELMET_ABBR: Record<string, string> = {
+  Chiefs: 'KC',
+  Raiders: 'LV',
+  Chargers: 'LAC',
+  Bills: 'BUF',
+  Dolphins: 'MIA',
+  Patriots: 'NE',
+  Jets: 'NYJ',
+  Ravens: 'BAL',
+  Bengals: 'CIN',
+  Browns: 'CLE',
+  Steelers: 'PIT',
+  Texans: 'HOU',
+  Colts: 'IND',
+  Jaguars: 'JAX',
+  Titans: 'TEN',
+  Cowboys: 'DAL',
+  Giants: 'NYG',
+  Eagles: 'PHI',
+  Commanders: 'WAS',
+  Bears: 'CHI',
+  Lions: 'DET',
+  Packers: 'GB',
+  Vikings: 'MIN',
+  Falcons: 'ATL',
+  Panthers: 'CAR',
+  Saints: 'NO',
+  Buccaneers: 'TB',
+  Cardinals: 'ARI',
+  Rams: 'LA',
+  '49ers': 'SF',
+  Seahawks: 'SEA',
+};
+
+export const BRONCOS_HELMET_SRC = '/pics/teams/helmets/DEN_L.png';
+
+export function opponentHelmetSrc(team: NflTeam): string | null {
+  const abbr = HELMET_ABBR[team.name];
+  return abbr ? `/pics/teams/helmets/${abbr}_R.png` : null;
+}
+
 export function broncosColorSide(): ColorSide {
   return {
     background: BRONCOS_ORANGE,
