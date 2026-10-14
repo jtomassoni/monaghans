@@ -14,6 +14,7 @@ import type { Metadata } from 'next';
 import FootballGameHeroTile from '@/components/football-game-hero-tile';
 import SportsBarSection from '@/components/sports-bar-section';
 import { eventPublicDescription, findUpcomingFootballGame, houseMealFromEvent, isFootballGameEvent } from '@/lib/football-games';
+import { isTvGameEvent } from '@/lib/tv-game-schedule';
 import { HOME_DESCRIPTION, HOME_KEYWORDS, HOME_TITLE, publicPageMetadata } from '@/lib/seo';
 
 export const metadata: Metadata = publicPageMetadata({
@@ -112,9 +113,17 @@ export default async function HomePage() {
       return occurrenceDate >= now;
     });
 
+  // Keep bar events (poker, etc.) in the homepage preview; TV-game season
+  // imports live on /events so they don't crowd out everything else.
   const upcomingEvents = [...upcomingOneTimeEvents, ...upcomingRecurringOccurrences]
+    .filter((event) => !isTvGameEvent(event))
     .sort((a, b) => new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime())
     .slice(0, 3);
+
+  const upcomingTvGames = [...upcomingOneTimeEvents]
+    .filter((event) => isTvGameEvent(event) && new Date(event.startDateTime) >= now)
+    .sort((a, b) => new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime())
+    .slice(0, 4);
 
   // Fetch today's specials using Mountain Time
   const todayName = getMountainTimeWeekday();
@@ -681,6 +690,63 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      {upcomingTvGames.length > 0 && (
+        <section
+          id="games-on"
+          aria-labelledby="games-on-heading"
+          className="py-12 md:py-16 px-3 sm:px-4 md:px-6 lg:px-8 bg-slate-950"
+        >
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-8">
+              <h2
+                id="games-on-heading"
+                className="text-3xl md:text-4xl font-bold mb-3 text-white"
+              >
+                Games We&apos;ll Have On
+              </h2>
+              <p className="text-slate-300 max-w-2xl mx-auto">
+                Avalanche and Nuggets games on the TVs at Monaghan&apos;s — next up on the calendar.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {upcomingTvGames.map((event, index) => (
+                <article
+                  key={`${event.id}-${event.startDateTime}-${index}`}
+                  className="rounded-xl border border-slate-700 bg-slate-900/80 p-5 text-center"
+                >
+                  <p className="text-xs font-semibold uppercase tracking-wider text-amber-400 mb-2">
+                    We&apos;ll have this game on
+                  </p>
+                  <h3 className="text-lg font-bold text-white mb-3">{event.title}</h3>
+                  <p className="text-sm text-slate-300">
+                    {new Date(event.startDateTime).toLocaleDateString('en-US', {
+                      weekday: 'short',
+                      month: 'short',
+                      day: 'numeric',
+                      timeZone: 'America/Denver',
+                    })}
+                    {' · '}
+                    {new Date(event.startDateTime).toLocaleTimeString('en-US', {
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      timeZone: 'America/Denver',
+                    })}
+                  </p>
+                </article>
+              ))}
+            </div>
+            <div className="text-center mt-8">
+              <Link
+                href="/events#games-on"
+                className="inline-flex items-center gap-2 text-amber-400 hover:text-amber-300 font-medium"
+              >
+                See all games on the events calendar
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Events Section */}
       <section id="events" aria-label="Events section" className="py-16 md:py-24 px-3 sm:px-4 md:px-6 lg:px-8 bg-white dark:bg-gray-900">

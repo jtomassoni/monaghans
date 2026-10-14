@@ -129,7 +129,7 @@ export default function AdSlideRenderer({
               <h2
                 className="font-extrabold leading-tight text-center"
                 style={{
-                  fontSize: 'clamp(118px, 23.52vw, 281px)',
+                  fontSize: 'clamp(39px, 7.8vw, 94px)',
                   color: 'rgba(255, 255, 255, 1)',
                   textShadow: '0 0 30px rgba(0, 0, 0, 0.8), 0 8px 24px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.4)',
                 }}
@@ -143,7 +143,7 @@ export default function AdSlideRenderer({
               <p
                 className="font-bold leading-tight text-center"
                 style={{
-                  fontSize: 'clamp(70px, 11.76vw, 140px)',
+                  fontSize: 'clamp(23px, 3.9vw, 47px)',
                   color: 'rgba(255, 255, 255, 0.95)',
                   textShadow: '0 0 20px rgba(0, 0, 0, 0.8), 0 4px 12px rgba(0, 0, 0, 0.6)',
                 }}
@@ -157,7 +157,7 @@ export default function AdSlideRenderer({
               <p
                 className="font-semibold leading-relaxed text-center whitespace-pre-line"
                 style={{
-                  fontSize: 'clamp(59px, 9.41vw, 118px)',
+                  fontSize: 'clamp(20px, 3.1vw, 39px)',
                   color: 'rgba(255, 255, 255, 0.9)',
                   textShadow: '0 0 20px rgba(0, 0, 0, 0.8), 0 4px 12px rgba(0, 0, 0, 0.6)',
                 }}
@@ -171,7 +171,7 @@ export default function AdSlideRenderer({
               <p
                 className="font-semibold leading-tight text-center"
                 style={{
-                  fontSize: 'clamp(70px, 11.76vw, 140px)',
+                  fontSize: 'clamp(23px, 3.9vw, 47px)',
                   color: getFooterColor(),
                   textShadow: '0 0 20px rgba(0, 0, 0, 0.8), 0 4px 12px rgba(0, 0, 0, 0.6)',
                 }}

@@ -23,12 +23,13 @@ import {
   isSameWeek,
   isWithinInterval
 } from 'date-fns';
-import { FaMicrophone, FaBrain, FaCalendarAlt, FaUtensils, FaBeer, FaTable, FaCalendarWeek, FaDice, FaBullhorn, FaClock, FaCalendarDay } from 'react-icons/fa';
+import { FaMicrophone, FaBrain, FaCalendarAlt, FaUtensils, FaBeer, FaTable, FaCalendarWeek, FaDice, FaBullhorn, FaClock, FaCalendarDay, FaTv } from 'react-icons/fa';
 import { FaFootball } from 'react-icons/fa6';
 import { HiChevronLeft, HiChevronRight } from 'react-icons/hi';
 import { parseMountainTimeDate, getMountainTimeDateString, getMountainTimeToday, getMountainTimeNow, getCompanyTimezoneSync, getCompanyTimezoneDateString, parseDateTimeLocalAsCompanyTimezone } from '@/lib/timezone';
 import { showToast } from '@/components/toast';
 import { isFootballGameEvent } from '@/lib/football-games';
+import { isTvGameEvent, tvGameTeamFromEvent } from '@/lib/tv-game-schedule';
 
 interface CalendarEvent {
   id: string;
@@ -1180,6 +1181,17 @@ export default function CalendarView({ events, specials, announcements = [], bus
     if (item.eventType === 'event' && isFootballGameEvent(item as CalendarEvent)) {
       return 'bg-[#002244]/90 dark:bg-[#002244]/90 border-[#FB4F14]';
     }
+    // Avalanche / Nuggets — games we'll have on
+    if (item.eventType === 'event' && isTvGameEvent(item as CalendarEvent)) {
+      const team = tvGameTeamFromEvent(item as CalendarEvent);
+      if (team === 'avalanche') {
+        return 'bg-[#6F263D]/90 dark:bg-[#6F263D]/90 border-[#236192]';
+      }
+      if (team === 'nuggets') {
+        return 'bg-[#0E2240]/90 dark:bg-[#0E2240]/90 border-[#FEC524]';
+      }
+      return 'bg-slate-700/90 dark:bg-slate-700/90 border-slate-400';
+    }
     const title = item.title.toLowerCase();
     const isRecurring = item.eventType === 'event' && (item as CalendarEvent).recurrenceRule !== null;
     
@@ -1222,6 +1234,9 @@ export default function CalendarView({ events, specials, announcements = [], bus
     }
     if (item.eventType === 'event' && isFootballGameEvent(item as CalendarEvent)) {
       return <FaFootball className="inline-block w-2.5 h-2.5" />;
+    }
+    if (item.eventType === 'event' && isTvGameEvent(item as CalendarEvent)) {
+      return <FaTv className="inline-block w-2.5 h-2.5" />;
     }
     const title = item.title.toLowerCase();
     if (title.includes('broncos')) return <FaFootball className="inline-block w-2.5 h-2.5" />;

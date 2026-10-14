@@ -12,7 +12,7 @@ export const HOME_TITLE =
   "Monaghan's | Daily Happy Hour, Drink Specials & Events | Denver Sports Bar";
 
 export const HOME_DESCRIPTION =
-  "Daily happy hour and drink specials at Monaghan's in Denver. Watch Broncos, Avalanche, and Rockies games. Poker, pool tournaments, and live events. Denver's second-oldest bar since 1892.";
+  "Daily happy hour and drink specials at Monaghan's in Denver. Watch Broncos, Avalanche, Nuggets, and Rockies games. Poker, pool tournaments, and live events. Denver's second-oldest bar since 1892.";
 
 export const HOME_KEYWORDS = [
   'Denver happy hour',
@@ -25,6 +25,10 @@ export const HOME_KEYWORDS = [
   'pool tournament Denver',
   'Broncos game audio',
   'Avalanche game audio',
+  'Avalanche games Denver bar',
+  'Nuggets games Denver bar',
+  'watch Avalanche game Denver',
+  'watch Nuggets game Denver',
   'Rockies games',
   'Monday Night Football',
   'Thursday Night Football',
@@ -32,16 +36,20 @@ export const HOME_KEYWORDS = [
 ];
 
 export const EVENTS_TITLE =
-  "Events | Poker, Pool Tournaments & Live Entertainment | Monaghan's Denver";
+  "Events | Poker, Pool, Avalanche & Nuggets Games On | Monaghan's Denver";
 
 export const EVENTS_DESCRIPTION =
-  "Upcoming events at Monaghan's in Sheridan, Denver — poker nights, pool tournaments, sports watch parties, and live entertainment. Daily happy hour and drink specials every day.";
+  "Upcoming events at Monaghan's in Sheridan, Denver — poker nights, pool tournaments, Avalanche and Nuggets games we'll have on, sports watch parties, and live entertainment. Daily happy hour and drink specials every day.";
 
 export const EVENTS_KEYWORDS = [
   'poker night Denver',
   'pool tournament Denver',
   'Denver bar events',
   'sports watch party Denver',
+  'Avalanche watch party Denver',
+  'Nuggets watch party Denver',
+  'Avalanche game on TV Denver',
+  'Nuggets game on TV Denver',
   'Sheridan bar events',
   'daily happy hour Denver',
   'Denver drink specials',
@@ -72,6 +80,7 @@ export const BAR_AMENITY_FEATURES = [
   'Live events',
   'Broncos games',
   'Avalanche games',
+  'Nuggets games',
   'Rockies games',
   'Monday Night Football',
   'Thursday Night Football',

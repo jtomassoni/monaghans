@@ -64,10 +64,11 @@ export default function SportsBarSection({
             </h2>
             <p className="mt-6 text-lg md:text-xl leading-relaxed text-blue-100/90">
               Monaghan&apos;s is a Sheridan neighborhood sports bar in Denver. We put
-              the game on, and we put the audio on. Enough HD TVs for a good view
-              from every seat, cold drinks, and a room that actually watches. Other
-              national games too, if folks in the bar want them — streaming deals
-              make that harder some weeks.
+              the Broncos, Avalanche, Nuggets, and Rockies on — and we put the audio
+              on. Enough HD TVs for a good view from every seat, cold drinks, and a
+              room that actually watches. Check upcoming events for Avalanche and
+              Nuggets games we&apos;ll have on. Other national games too, if folks in
+              the bar want them.
             </p>
           </div>
 

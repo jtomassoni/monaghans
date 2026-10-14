@@ -121,6 +121,7 @@ Signage automatically refreshes:
 - Clear browser cache on display device
 
 ### Display Looks Wrong
+- Keep the browser at **100% zoom** (Ctrl/Cmd + 0). Signage is sized for fullscreen TVs — zooming out is not needed.
 - Check screen resolution settings
 - Ensure browser in fullscreen mode
 - Verify content formatting in admin

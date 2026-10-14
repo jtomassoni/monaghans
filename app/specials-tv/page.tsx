@@ -13,8 +13,10 @@ import { RRule } from 'rrule';
 import { buildSlides } from './slide-builder';
 import { SlideContent } from './types';
 import { buildSignagePlaylistWithAds } from '@/lib/signage-playlist-builder';
+import { getSignageVersionTimestamp } from '@/lib/signage-version';
 import { isDigitalSignageEnabled, isAdsEnabledByAdmin } from '@/lib/feature-flags-ads';
 import { eventPublicDescription } from '@/lib/football-games';
+import { isTvGameEvent } from '@/lib/tv-game-schedule';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -606,37 +608,8 @@ export default async function SpecialsTvPage({ searchParams }: SpecialsTvPagePro
     prisma.setting.findUnique({ where: { key: 'signageConfig' } }),
   ]);
 
-  // Calculate initial version for auto-refresh
-  // Get the most recent update time from signage-related data
-  const timestamps: Date[] = [];
-  if (signageSetting?.updatedAt) {
-    timestamps.push(new Date(signageSetting.updatedAt));
-  }
-  // Find the most recently updated special
-  const latestSpecial = allSpecials.length > 0
-    ? allSpecials.reduce((latest, current) => {
-        const latestTime = latest.updatedAt ? new Date(latest.updatedAt).getTime() : 0;
-        const currentTime = current.updatedAt ? new Date(current.updatedAt).getTime() : 0;
-        return currentTime > latestTime ? current : latest;
-      })
-    : null;
-  if (latestSpecial?.updatedAt) {
-    timestamps.push(new Date(latestSpecial.updatedAt));
-  }
-  // Find the most recently updated event
-  const latestEvent = allEvents.length > 0
-    ? allEvents.reduce((latest, current) => {
-        const latestTime = latest.updatedAt ? new Date(latest.updatedAt).getTime() : 0;
-        const currentTime = current.updatedAt ? new Date(current.updatedAt).getTime() : 0;
-        return currentTime > latestTime ? current : latest;
-      })
-    : null;
-  if (latestEvent?.updatedAt) {
-    timestamps.push(new Date(latestEvent.updatedAt));
-  }
-  const initialVersion = timestamps.length > 0
-    ? Math.max(...timestamps.map(d => d.getTime()))
-    : Date.now();
+  // Same version source as /api/signage/version (avoids SSR/API skew reload loops)
+  const initialVersion = await getSignageVersionTimestamp();
 
   const signageConfig = sanitizeSignageConfig(signageSetting?.value);
 
@@ -711,7 +684,8 @@ export default async function SpecialsTvPage({ searchParams }: SpecialsTvPagePro
   const oneTimeEvents = signageConfig.includeEvents
     ? allEvents.filter((event) => {
         const start = new Date(event.startDateTime);
-        return start >= windowStart && !event.recurrenceRule;
+        // Season TV imports stay on the website calendar; keep the wall focused on bar events.
+        return start >= windowStart && !event.recurrenceRule && !isTvGameEvent(event);
       })
     : [];
 
@@ -842,10 +816,9 @@ export default async function SpecialsTvPage({ searchParams }: SpecialsTvPagePro
         adsEnabled={adsEnabled}
         embeddedAds={embeddedAds}
       />
-      <SignageAutoRefresh 
+      <SignageAutoRefresh
         initialVersion={initialVersion}
-        // pollIntervalMs={3600000} // Check every hour
-        pollIntervalMs={30000} // Check every 30 seconds
+        pollIntervalMs={3600000} // Check every hour
         enabled={autoRefreshEnabled}
       />
     </div>

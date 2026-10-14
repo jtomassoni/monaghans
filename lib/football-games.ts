@@ -75,6 +75,12 @@ export function eventPublicDescription(event: {
   if (isFootballGameEvent(event)) {
     return footballGameDescription(houseMealFromEvent(event));
   }
+  const tags = parseEventTags(event.tags);
+  if (tags.includes('tv-game')) {
+    const custom = (event.description || '').trim();
+    if (custom) return custom;
+    return "We'll have this game on at Monaghan's — Sheridan sports bar in Denver.";
+  }
   return (event.description || '').trim();
 }
 

@@ -9,7 +9,7 @@ import StatusToggle from '@/components/status-toggle';
 import DateTimePicker from '@/components/date-time-picker';
 import { useUnsavedChangesWarning } from '@/lib/use-unsaved-changes-warning';
 
-import { formatDateAsDateTimeLocal, parseDateTimeLocalAsCompanyTimezone, getCompanyTimezoneSync, getMountainTimeToday, parseMountainTimeDate } from '@/lib/timezone';
+import { formatDateAsDateTimeLocal, parseDateTimeLocalAsCompanyTimezone, getCompanyTimezoneSync, getMountainTimeToday } from '@/lib/timezone';
 
 // Helper function to convert UTC ISO string to datetime-local string (company timezone)
 // Used when loading dates from the database to display in the form
@@ -60,14 +60,29 @@ interface AnnouncementModalFormProps {
   defaultDate?: string;
 }
 
+function addDaysToDateString(dateStr: string, days: number): string {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const shifted = new Date(Date.UTC(year, month - 1, day + days));
+  const yyyy = shifted.getUTCFullYear();
+  const mm = String(shifted.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(shifted.getUTCDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 function newAnnouncementWindow(defaultDate?: string) {
-  const base = defaultDate ? parseMountainTimeDate(defaultDate) : getMountainTimeToday();
-  const noon = new Date(base.getTime() + 12 * 60 * 60 * 1000);
-  const expires = new Date(noon.getTime() + 24 * 60 * 60 * 1000);
-  return {
-    publishAt: formatDateAsDateTimeLocal(noon, getCompanyTimezoneSync()),
-    expiresAt: formatDateAsDateTimeLocal(expires, getCompanyTimezoneSync()),
-  };
+  if (defaultDate && /^\d{4}-\d{2}-\d{2}$/.test(defaultDate)) {
+    return {
+      publishAt: `${defaultDate}T12:00`,
+      expiresAt: `${addDaysToDateString(defaultDate, 1)}T12:00`,
+    };
+  }
+  const todayNoonMT = new Date(getMountainTimeToday().getTime() + 12 * 60 * 60 * 1000);
+  const publishAt = formatDateAsDateTimeLocal(todayNoonMT, getCompanyTimezoneSync());
+  const expiresAt = formatDateAsDateTimeLocal(
+    new Date(todayNoonMT.getTime() + 24 * 60 * 60 * 1000),
+    getCompanyTimezoneSync()
+  );
+  return { publishAt, expiresAt };
 }
 
 export default function AnnouncementModalForm({ isOpen, onClose, announcement, onSuccess, onDelete, onAnnouncementAdded, onAnnouncementUpdated, embed, defaultDate }: AnnouncementModalFormProps) {
@@ -78,15 +93,16 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
   const [showCTA, setShowCTA] = useState(false);
   const [facebookConnected, setFacebookConnected] = useState(false);
   
+  const blankSchedule = announcement ? null : newAnnouncementWindow(defaultDate);
   const [formData, setFormData] = useState({
     title: announcement?.title || '',
     body: announcement?.body || '',
     publishAt: announcement?.publishAt
       ? convertUTCToMountainTimeLocal(announcement.publishAt)
-      : '',
+      : blankSchedule?.publishAt || '',
     expiresAt: announcement?.expiresAt
       ? convertUTCToMountainTimeLocal(announcement.expiresAt)
-      : '',
+      : blankSchedule?.expiresAt || '',
     crossPostFacebook: announcement?.crossPostFacebook ?? false,
     crossPostInstagram: announcement?.crossPostInstagram ?? false,
     ctaText: announcement?.ctaText || '',

@@ -178,7 +178,7 @@ export default function ImageSlideRenderer({
                     <p
                       className="font-extrabold leading-[1.1] text-center"
                       style={{
-                        fontSize: 'clamp(100px, 18.75vw, 225px)',
+                        fontSize: 'clamp(33px, 6.3vw, 75px)',
                         color: 'rgba(255, 255, 255, 1)',
                         textShadow: '0 0 40px rgba(0, 0, 0, 0.9), 0 10px 30px rgba(0, 0, 0, 0.7), 0 5px 15px rgba(0, 0, 0, 0.5)',
                         letterSpacing: '0.02em',
@@ -193,7 +193,7 @@ export default function ImageSlideRenderer({
                       <h2
                         className="font-extrabold leading-[1.1] text-center"
                         style={{
-                          fontSize: 'clamp(175px, 35vw, 437.5px)',
+                          fontSize: 'clamp(58px, 11.7vw, 146px)',
                           color: 'rgba(255, 255, 255, 1)',
                           textShadow: '0 0 40px rgba(0, 0, 0, 0.9), 0 10px 30px rgba(0, 0, 0, 0.7), 0 5px 15px rgba(0, 0, 0, 0.5)',
                           letterSpacing: '-0.02em',
@@ -209,7 +209,7 @@ export default function ImageSlideRenderer({
                       <p
                         className="font-bold leading-tight text-center"
                         style={{
-                          fontSize: 'clamp(70px, 13.75vw, 150px)',
+                          fontSize: 'clamp(23px, 4.6vw, 50px)',
                           color: 'rgba(234, 179, 8, 1)',
                           textShadow: '0 0 30px rgba(234, 179, 8, 0.5), 0 0 15px rgba(0, 0, 0, 0.8), 0 4px 12px rgba(0, 0, 0, 0.6)',
                           letterSpacing: '0.1em',
@@ -228,7 +228,7 @@ export default function ImageSlideRenderer({
                             key={idx}
                             className="font-semibold leading-relaxed text-center"
                             style={{
-                              fontSize: idx === 0 ? 'clamp(80px, 15vw, 162.5px)' : 'clamp(60px, 11.25vw, 125px)',
+                              fontSize: idx === 0 ? 'clamp(27px, 5vw, 54px)' : 'clamp(20px, 3.8vw, 42px)',
                               color: 'rgba(255, 255, 255, 0.95)',
                               textShadow: '0 0 25px rgba(0, 0, 0, 0.8), 0 5px 15px rgba(0, 0, 0, 0.6)',
                               lineHeight: '1.4',
@@ -247,7 +247,7 @@ export default function ImageSlideRenderer({
                       <p
                         className="font-medium text-center uppercase tracking-wider"
                         style={{
-                          fontSize: 'clamp(40px, 6.25vw, 70px)',
+                          fontSize: 'clamp(13px, 2.1vw, 23px)',
                           color: 'rgba(255, 255, 255, 0.7)',
                           textShadow: '0 2px 8px rgba(0, 0, 0, 0.5)',
                           letterSpacing: '0.15em',
@@ -278,7 +278,7 @@ export default function ImageSlideRenderer({
                         <p
                           className="font-semibold leading-tight text-center"
                           style={{
-                            fontSize: 'clamp(70px, 12.5vw, 140px)',
+                            fontSize: 'clamp(23px, 4.2vw, 47px)',
                             color: footerColor,
                             textShadow: '0 0 30px rgba(234, 179, 8, 0.4), 0 0 15px rgba(0, 0, 0, 0.8), 0 4px 12px rgba(0, 0, 0, 0.6)',
                           }}

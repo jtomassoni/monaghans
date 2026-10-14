@@ -68,6 +68,14 @@ export const helpKeywords: Record<FeatureKey, string[]> = {
     'side',
     'dessert',
     'tickets',
+    'tv games',
+    'avalanche',
+    'nuggets',
+    'avs',
+    'import schedule',
+    'refresh schedule',
+    "games we'll have on",
+    'espn',
   ],
 
   // Menu Management
@@ -160,6 +168,7 @@ export const helpKeywords: Record<FeatureKey, string[]> = {
     'game audio',
     'avalanche',
     'avs',
+    'nuggets',
     'rockies',
     'monday night football',
     'thursday night football',

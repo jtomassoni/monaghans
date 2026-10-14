@@ -11,6 +11,12 @@ import DatePicker from '@/components/date-picker';
 import TimePicker from '@/components/time-picker';
 import { parseDateTimeLocalAsCompanyTimezone, formatDateAsDateTimeLocal, getCompanyTimezoneSync } from '@/lib/timezone';
 import { isFootballGameEvent, withFootballGameTag } from '@/lib/football-games';
+import {
+  espnGameIdFromEvent,
+  isTvGameEvent,
+  tvGameTeamFromEvent,
+  withTvGameTags,
+} from '@/lib/tv-game-schedule';
 
 interface Event {
   id?: string;
@@ -558,9 +564,18 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
-          tags: event && isFootballGameEvent({ tags: formData.tags, title: formData.title || event.title })
-            ? withFootballGameTag(formData.tags)
-            : formData.tags,
+          tags: (() => {
+            const candidate = { tags: formData.tags, title: formData.title || event?.title };
+            if (event && isFootballGameEvent(candidate)) {
+              return withFootballGameTag(formData.tags);
+            }
+            if (event && isTvGameEvent(candidate)) {
+              const team = tvGameTeamFromEvent(candidate) || tvGameTeamFromEvent(event);
+              const espnId = espnGameIdFromEvent(candidate) || espnGameIdFromEvent(event);
+              if (team && espnId) return withTvGameTags(formData.tags, team, espnId);
+            }
+            return formData.tags;
+          })(),
           venueArea: 'bar', // Default value for API compatibility
           recurrenceRule,
           // Convert datetime-local strings to UTC, treating them as Mountain Time

@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { requireAuth, handleError, getCurrentUser, logActivity } from '@/lib/api-helpers';
 import { extractEventPattern } from '@/lib/event-pattern-helpers';
 import { parseDateTimeLocalAsCompanyTimezone, getCompanyTimezone } from '@/lib/timezone';
+import { mergePatternMetadata } from '@/lib/tv-game-schedule';
 
 export async function GET(
   req: NextRequest,
@@ -75,8 +76,12 @@ export async function PUT(
       }
     }
     
-    // Extract pattern information
+    // Extract pattern information; merge so ESPN TV-game sync fingerprints survive edits/drags
     const pattern = extractEventPattern(startDateTime, body.recurrenceRule);
+    const mergedPatternMetadata = mergePatternMetadata(
+      currentEvent.patternMetadata,
+      pattern?.patternMetadata as Record<string, unknown> | null | undefined
+    );
 
     const event = await prisma.event.update({
       where: { id },
@@ -95,7 +100,7 @@ export async function PUT(
         dayOfWeek: pattern?.dayOfWeek ?? null,
         weekOfMonth: pattern?.weekOfMonth ?? null,
         monthDay: pattern?.monthDay ?? null,
-        patternMetadata: pattern?.patternMetadata ? JSON.stringify(pattern.patternMetadata) : null,
+        patternMetadata: mergedPatternMetadata ? JSON.stringify(mergedPatternMetadata) : null,
       } as any,
     });
 

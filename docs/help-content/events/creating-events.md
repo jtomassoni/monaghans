@@ -49,6 +49,10 @@ Add Broncos watch-party games from Calendar → **New** → **Football Game**.
 
 Each game is a regular calendar event you can edit later. Choose the opponent from the team list, then set the kickoff time and the house meal for the pot luck buffet (tacos, lasagna, and so on). The form and homepage hero pick up that team's colors. The next upcoming game highlights the house meal, kickoff, and opponent, and invites guests to bring a side or dessert to share.
 
+## Avalanche & Nuggets (TV Games)
+
+For a full season of games we'll have on — without pot luck setup — use Calendar → **TV Games**. Import or refresh Avalanche and Nuggets schedules from ESPN. After import, edit any game like a normal event; refresh leaves hand-edited games alone. See [Import Avalanche & Nuggets Schedules](/admin?view=list) help for details.
+
 ## Event Details
 
 ### Required

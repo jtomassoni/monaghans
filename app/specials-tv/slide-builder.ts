@@ -225,7 +225,7 @@ export function buildSlides(input: SlideBuilderInput): SlideContent[] {
         label: 'Upcoming Events',
         title: '', // no hero title to reduce wasted space
         subtitle: undefined, // removed - count is now in the label
-        accent: 'green', // Use green for Irish pub theme - welcoming and festive
+        accent: 'accent', // Brand red — on-identity and readable at TV distance
         footer: undefined,
         source: 'events',
       };

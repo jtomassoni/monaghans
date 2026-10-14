@@ -28,6 +28,7 @@ export default function SignageAutoRefresh({
   enabled = true,
 }: SignageAutoRefreshProps) {
   const currentVersionRef = useRef(initialVersion);
+  const hasSyncedBaselineRef = useRef(false);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isCheckingRef = useRef(false);
 
@@ -49,22 +50,33 @@ export default function SignageAutoRefresh({
 
         if (!response.ok) {
           console.warn('[SignageAutoRefresh] Failed to check version:', response.statusText);
-          isCheckingRef.current = false;
           return;
         }
 
         const data = await response.json();
         const newVersion = data.timestamp;
 
-        // If version changed, reload the page
-        if (newVersion && newVersion > currentVersionRef.current) {
+        if (!newVersion || typeof newVersion !== 'number') {
+          return;
+        }
+
+        // First successful poll only establishes the server baseline.
+        // SSR and /api/signage/version can disagree slightly (different queries /
+        // included tables), which previously caused an infinite reload loop that
+        // always snapped the TV back to slide 1.
+        if (!hasSyncedBaselineRef.current) {
+          currentVersionRef.current = newVersion;
+          hasSyncedBaselineRef.current = true;
+          return;
+        }
+
+        // If version changed after baseline sync, reload the page
+        if (newVersion > currentVersionRef.current) {
           console.log('[SignageAutoRefresh] Update detected, reloading page...');
-          // Use window.location.reload() for a full page refresh
           window.location.reload();
           return;
         }
 
-        // Update current version
         currentVersionRef.current = newVersion;
       } catch (error) {
         // Silently handle errors (network issues, etc.) - don't spam console
@@ -91,4 +103,3 @@ export default function SignageAutoRefresh({
   // This component doesn't render anything
   return null;
 }
-

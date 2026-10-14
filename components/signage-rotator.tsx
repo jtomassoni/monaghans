@@ -218,10 +218,10 @@ export default function SignageRotator({
         surfaceStrong: 'rgba(59, 130, 246, 0.18)',
       },
       green: {
-        var: '#228B22', // Traditional Irish bar green (forest green)
-        glow: 'rgba(34, 139, 34, 0.55)',
-        surface: 'rgba(34, 139, 34, 0.1)',
-        surfaceStrong: 'rgba(34, 139, 34, 0.18)',
+        var: '#3D6B4F', // Muted Irish emerald — readable, not neon
+        glow: 'rgba(61, 107, 79, 0.45)',
+        surface: 'rgba(61, 107, 79, 0.1)',
+        surfaceStrong: 'rgba(61, 107, 79, 0.16)',
       },
       purple: {
         var: '#8b5cf6',
@@ -271,10 +271,13 @@ export default function SignageRotator({
     const showLabel = slideToRender.label && slideToRender.source !== 'custom' && slideToRender.source !== 'welcome';
     const gridColumns = isEventSlide ? 'event' : 'default';
     const itemCount = slideToRender.items?.length || 0;
+    // Cap events at 2 columns — 3-up is too cramped to read from across a bar
     const isDenseEvents = isEventSlide && itemCount >= 5;
-    const eventColumnCount = isEventSlide ? (isDenseEvents ? 3 : Math.max(1, Math.min(2, itemCount || 1))) : undefined;
+    const eventColumnCount = isEventSlide
+      ? Math.max(1, Math.min(2, itemCount || 1))
+      : undefined;
     const eventRowCount = isEventSlide && eventColumnCount ? Math.ceil(itemCount / eventColumnCount) : undefined;
-    const eventRowMin = isEventSlide ? (isDenseEvents ? 240 : itemCount >= 3 ? 280 : 320) : undefined;
+    const eventRowMin = isEventSlide ? (isDenseEvents ? 200 : itemCount >= 3 ? 240 : 300) : undefined;
     const backgroundImageUrl =
       (slideToRender.source === 'happyHour' || slideToRender.source === 'drink')
         ? '/pics/happy-hour-cheers.png'

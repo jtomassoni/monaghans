@@ -5,6 +5,7 @@ import { getMountainTimeNow, getMountainTimeToday, getCompanyTimezoneDateString 
 import { RRule } from 'rrule';
 import { format } from 'date-fns';
 import { eventPublicDescription } from '@/lib/football-games';
+import { isTvGameEvent } from '@/lib/tv-game-schedule';
 import {
   EVENTS_DESCRIPTION,
   EVENTS_KEYWORDS,
@@ -379,10 +380,20 @@ export default async function EventsPage() {
       return occurrenceDate >= today;
     });
 
-  // Combine all upcoming events, sort by start time, and take only the next 5
-  const allUpcomingEvents = [...upcomingOneTimeEvents, ...upcomingRecurringOccurrences]
+  const upcomingTvGames = upcomingOneTimeEvents
+    .filter((event) => isTvGameEvent(event))
     .sort((a, b) => new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime())
-    .slice(0, 5); // Limit to next 5 events
+    .slice(0, 12);
+
+  // Combine bar/live events (exclude season TV imports so they don't bury poker, etc.)
+  const allUpcomingEvents = [...upcomingOneTimeEvents, ...upcomingRecurringOccurrences]
+    .filter((event) => !isTvGameEvent(event))
+    .sort((a, b) => new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime())
+    .slice(0, 5);
+
+  const jsonLdEvents = [...allUpcomingEvents, ...upcomingTvGames]
+    .sort((a, b) => new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime())
+    .slice(0, 20);
 
   // Group events by month
   const eventsByMonth = new Map<string, typeof allUpcomingEvents>();
@@ -421,7 +432,7 @@ export default async function EventsPage() {
     <main className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black pt-24 pb-16 px-4">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(eventsJsonLd(allUpcomingEvents, contact)) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(eventsJsonLd(jsonLdEvents, contact)) }}
       />
       <div className="max-w-6xl mx-auto">
         {/* Header */}
@@ -430,8 +441,8 @@ export default async function EventsPage() {
           <p className="text-purple-300 text-sm mb-4 font-semibold tracking-wide uppercase">Next 5 events</p>
           <div className="w-24 h-1 bg-purple-500 mx-auto mb-8"></div>
           <p className="text-xl text-gray-400 max-w-2xl mx-auto mb-8">
-            Poker nights, pool tournaments, sports watch parties, and live entertainment.
-            Daily happy hour and drink specials every day.
+            Poker nights, pool tournaments, Avalanche and Nuggets games we&apos;ll have on,
+            sports watch parties, and live entertainment. Daily happy hour and drink specials every day.
           </p>
           
           {/* Private Events Prominent Link */}
@@ -450,6 +461,51 @@ export default async function EventsPage() {
             </Link>
           </div>
         </div>
+
+        {upcomingTvGames.length > 0 && (
+          <section id="games-on" className="mb-16" aria-labelledby="games-on-heading">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-amber-500/50 to-transparent"></div>
+              <h2 id="games-on-heading" className="text-2xl md:text-3xl font-bold text-amber-300 whitespace-nowrap">
+                Games We&apos;ll Have On
+              </h2>
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-amber-500/50 to-transparent"></div>
+            </div>
+            <p className="text-center text-gray-400 mb-8 max-w-2xl mx-auto">
+              Avalanche and Nuggets games on the TVs at Monaghan&apos;s in Sheridan, Denver.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {upcomingTvGames.map((event) => {
+                const eventDate = new Date(event.startDateTime);
+                const publicDescription = eventPublicDescription(event);
+                return (
+                  <article
+                    key={`${event.id}-${event.startDateTime}`}
+                    className="rounded-2xl border border-amber-500/30 bg-gradient-to-br from-slate-900/90 to-slate-950 p-5"
+                  >
+                    <p className="text-xs font-semibold uppercase tracking-wider text-amber-400 mb-2">
+                      We&apos;ll have this game on
+                    </p>
+                    <h3 className="text-xl font-bold text-white mb-2">{event.title}</h3>
+                    {publicDescription && (
+                      <p className="text-sm text-gray-400 mb-4 line-clamp-3">{publicDescription}</p>
+                    )}
+                    <div className="flex flex-wrap gap-3 text-sm text-amber-100/90">
+                      <span>
+                        {formatDateInMountainTime(eventDate)}
+                      </span>
+                      <span>
+                        {formatTimeInMountainTime(eventDate)}
+                        {event.endDateTime &&
+                          ` – ${formatTimeInMountainTime(new Date(event.endDateTime))}`}
+                      </span>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
         {/* Events List */}
         {sortedMonths.length === 0 ? (

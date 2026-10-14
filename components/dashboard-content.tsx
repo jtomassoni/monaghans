@@ -11,7 +11,8 @@ import EventsList from '@/app/admin/specials-events-list';
 import HelpModal from '@/components/help-modal';
 import NewItemFormModal from '@/components/new-item-form-modal';
 import FootballGameModalForm, { FootballGameFormEvent } from '@/components/football-game-modal-form';
-import { FaCalendarAlt, FaList, FaPlus, FaQuestionCircle } from 'react-icons/fa';
+import TvGamesImportModal from '@/components/tv-games-import-modal';
+import { FaCalendarAlt, FaList, FaPlus, FaQuestionCircle, FaTv } from 'react-icons/fa';
 import { useAdminMobileHeader } from '@/components/admin-mobile-header-context';
 import { isFootballGameEvent } from '@/lib/football-games';
 import { getMountainTimeDateString } from '@/lib/timezone';
@@ -159,6 +160,7 @@ export default function DashboardContent({ events: initialEvents, specials: init
   const [unifiedFormItemType, setUnifiedFormItemType] = useState<'event' | 'food' | 'drink' | 'announcement' | undefined>(undefined);
   const [footballModalOpen, setFootballModalOpen] = useState(false);
   const [editingFootballEvent, setEditingFootballEvent] = useState<FootballGameFormEvent | null>(null);
+  const [tvGamesImportOpen, setTvGamesImportOpen] = useState(false);
   
   // Track the last initialEvents IDs to prevent unnecessary updates
   const lastInitialEventsIdsRef = useRef<string>(JSON.stringify(initialEvents.map(e => e.id).sort()));
@@ -349,23 +351,48 @@ export default function DashboardContent({ events: initialEvents, specials: init
     setSpecialModalOpen(true);
   };
 
+  const toCalendarEvent = (newEvent: any): CalendarEvent => ({
+    id: newEvent.id,
+    title: newEvent.title,
+    description: newEvent.description,
+    startDateTime:
+      typeof newEvent.startDateTime === 'string'
+        ? newEvent.startDateTime
+        : new Date(newEvent.startDateTime).toISOString(),
+    endDateTime: newEvent.endDateTime
+      ? typeof newEvent.endDateTime === 'string'
+        ? newEvent.endDateTime
+        : new Date(newEvent.endDateTime).toISOString()
+      : null,
+    venueArea: newEvent.venueArea || 'bar',
+    recurrenceRule: newEvent.recurrenceRule,
+    exceptions: newEvent.exceptions || null,
+    isAllDay: newEvent.isAllDay,
+    tags: newEvent.tags
+      ? typeof newEvent.tags === 'string'
+        ? JSON.parse(newEvent.tags)
+        : newEvent.tags
+      : null,
+    image: newEvent.image || null,
+    isActive: newEvent.isActive,
+    eventType: 'event' as const,
+  });
+
   const handleEventAdded = (newEvent: any) => {
-    // Add new event to local state
-    setEvents(prev => [...prev, {
-      id: newEvent.id,
-      title: newEvent.title,
-      description: newEvent.description,
-      startDateTime: newEvent.startDateTime,
-      endDateTime: newEvent.endDateTime,
-      venueArea: newEvent.venueArea || 'bar',
-      recurrenceRule: newEvent.recurrenceRule,
-      exceptions: newEvent.exceptions || null,
-      isAllDay: newEvent.isAllDay,
-      tags: newEvent.tags ? (typeof newEvent.tags === 'string' ? JSON.parse(newEvent.tags) : newEvent.tags) : null,
-      image: newEvent.image || null,
-      isActive: newEvent.isActive,
-      eventType: 'event' as const,
-    } as CalendarEvent]);
+    setEvents((prev) => [...prev, toCalendarEvent(newEvent)]);
+  };
+
+  const handleTvGamesImported = (importedEvents: any[]) => {
+    if (!importedEvents?.length) return;
+    setEvents((prev) => {
+      const byId = new Map(prev.map((event) => [event.id, event]));
+      for (const raw of importedEvents) {
+        byId.set(raw.id, toCalendarEvent(raw));
+      }
+      return [...byId.values()].sort(
+        (a, b) => new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime()
+      );
+    });
   };
 
   const handleEventUpdated = (updatedEvent: any) => {
@@ -577,6 +604,15 @@ export default function DashboardContent({ events: initialEvents, specials: init
                   </button>
                 }
               />
+              <button
+                type="button"
+                onClick={() => setTvGamesImportOpen(true)}
+                className="flex px-2.5 sm:px-3 py-2 bg-slate-700 dark:bg-slate-600 hover:bg-slate-800 dark:hover:bg-slate-500 rounded-lg text-white font-medium text-xs sm:text-sm transition-colors duration-200 items-center justify-center gap-1.5 sm:gap-2 shadow-sm hover:shadow-md active:scale-[0.98]"
+                title="Import Avalanche & Nuggets schedules"
+              >
+                <FaTv className="w-3.5 h-3.5" />
+                <span className="hidden xs:inline sm:inline">TV Games</span>
+              </button>
               {/* New Button - Hidden on mobile, shown on desktop (mobile header has its own New button) */}
               <button
                 onClick={() => openCreateForm()}
@@ -716,6 +752,13 @@ export default function DashboardContent({ events: initialEvents, specials: init
         onEventAdded={handleEventAdded}
         onEventUpdated={handleEventUpdated}
         onDelete={handleEventDeleted}
+      />
+
+      <TvGamesImportModal
+        isOpen={tvGamesImportOpen}
+        onClose={() => setTvGamesImportOpen(false)}
+        existingEvents={events}
+        onImported={handleTvGamesImported}
       />
 
       {specialType === 'drink' ? (
