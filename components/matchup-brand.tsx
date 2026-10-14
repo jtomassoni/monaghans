@@ -14,12 +14,16 @@ export function MatchupSplit({ team }: { team: NflTeam }) {
 
   return (
     <div
-      className="flex h-28 overflow-hidden rounded-xl shadow-sm"
+      className="relative flex overflow-hidden rounded-xl shadow-sm"
       role="group"
       aria-label={`Broncos versus ${team.city} ${team.name}`}
     >
       <div
-        className="flex w-1/2 items-center justify-center gap-2 px-2"
+        className="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-black/25"
+        aria-hidden="true"
+      />
+      <div
+        className="flex w-1/2 flex-col items-center px-2 pb-2.5 pt-2"
         style={{ backgroundColor: home.background }}
       >
         <Image
@@ -27,34 +31,34 @@ export function MatchupSplit({ team }: { team: NflTeam }) {
           alt=""
           width={351}
           height={321}
-          className="h-20 w-auto shrink-0"
+          className="h-[4.5rem] w-auto"
         />
         <span
-          className="text-sm font-extrabold uppercase tracking-[0.12em]"
+          className="mt-0.5 text-center text-[11px] font-extrabold uppercase leading-none tracking-[0.12em] sm:text-xs"
           style={{ color: home.foreground }}
         >
           Broncos
         </span>
       </div>
       <div
-        className="flex w-1/2 items-center justify-center gap-2 px-2"
+        className="flex w-1/2 flex-col items-center px-2 pb-2.5 pt-2"
         style={{ backgroundColor: away.background }}
       >
-        <span
-          className="text-center text-sm font-extrabold uppercase leading-tight tracking-[0.08em]"
-          style={{ color: away.accent }}
-        >
-          {team.name}
-        </span>
         {awayHelmet && (
           <Image
             src={awayHelmet}
             alt=""
             width={350}
             height={320}
-            className="h-20 w-auto shrink-0"
+            className="h-[4.5rem] w-auto"
           />
         )}
+        <span
+          className="mt-0.5 px-1 text-center text-[11px] font-extrabold uppercase leading-tight tracking-[0.06em] sm:text-xs"
+          style={{ color: away.accent }}
+        >
+          {team.name}
+        </span>
       </div>
     </div>
   );

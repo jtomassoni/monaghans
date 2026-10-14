@@ -9,7 +9,7 @@ import StatusToggle from '@/components/status-toggle';
 import DateTimePicker from '@/components/date-time-picker';
 import { useUnsavedChangesWarning } from '@/lib/use-unsaved-changes-warning';
 
-import { formatDateAsDateTimeLocal, parseDateTimeLocalAsCompanyTimezone, getCompanyTimezoneSync, getMountainTimeToday } from '@/lib/timezone';
+import { formatDateAsDateTimeLocal, parseDateTimeLocalAsCompanyTimezone, getCompanyTimezoneSync, getMountainTimeToday, parseMountainTimeDate } from '@/lib/timezone';
 
 // Helper function to convert UTC ISO string to datetime-local string (company timezone)
 // Used when loading dates from the database to display in the form
@@ -56,9 +56,21 @@ interface AnnouncementModalFormProps {
   onAnnouncementUpdated?: (announcement: any) => void; // Callback when announcement is updated
   /** When true, render form content only (no Modal wrapper). Used when embedding in another modal. */
   embed?: boolean;
+  /** YYYY-MM-DD used when creating from a calendar day. */
+  defaultDate?: string;
 }
 
-export default function AnnouncementModalForm({ isOpen, onClose, announcement, onSuccess, onDelete, onAnnouncementAdded, onAnnouncementUpdated, embed }: AnnouncementModalFormProps) {
+function newAnnouncementWindow(defaultDate?: string) {
+  const base = defaultDate ? parseMountainTimeDate(defaultDate) : getMountainTimeToday();
+  const noon = new Date(base.getTime() + 12 * 60 * 60 * 1000);
+  const expires = new Date(noon.getTime() + 24 * 60 * 60 * 1000);
+  return {
+    publishAt: formatDateAsDateTimeLocal(noon, getCompanyTimezoneSync()),
+    expiresAt: formatDateAsDateTimeLocal(expires, getCompanyTimezoneSync()),
+  };
+}
+
+export default function AnnouncementModalForm({ isOpen, onClose, announcement, onSuccess, onDelete, onAnnouncementAdded, onAnnouncementUpdated, embed, defaultDate }: AnnouncementModalFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -107,17 +119,13 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
       };
     } else {
       setShowCTA(false);
-      // Default: publish today at 12:00 PM (noon) Mountain Time; expire 24 hours later
-      const todayNoonMT = new Date(getMountainTimeToday().getTime() + 12 * 60 * 60 * 1000);
-      const publishAtStr = formatDateAsDateTimeLocal(todayNoonMT, getCompanyTimezoneSync());
-      const expiresAtDate = new Date(todayNoonMT.getTime() + 24 * 60 * 60 * 1000);
-      const expiresAtStr = formatDateAsDateTimeLocal(expiresAtDate, getCompanyTimezoneSync());
+      const schedule = newAnnouncementWindow(defaultDate);
 
       newFormData = {
         title: '',
         body: '',
-        publishAt: publishAtStr,
-        expiresAt: expiresAtStr,
+        publishAt: schedule.publishAt,
+        expiresAt: schedule.expiresAt,
         crossPostFacebook: false,
         crossPostInstagram: false,
         ctaText: '',
@@ -150,7 +158,7 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
           }
         });
     }
-  }, [announcement, isOpen]);
+  }, [announcement, isOpen, defaultDate]);
 
   // Check if form is dirty
   const isDirty = JSON.stringify(formData) !== JSON.stringify(initialFormData) ||
@@ -185,17 +193,13 @@ export default function AnnouncementModalForm({ isOpen, onClose, announcement, o
         setInitialFormData(newFormData);
       } else {
         setShowCTA(false);
-        const now = new Date();
-        const publishAt = new Date(now);
-        publishAt.setMinutes(0, 0, 0); // Round to top of current hour
-        const expiresAt = new Date(publishAt);
-        expiresAt.setHours(expiresAt.getHours() + 24);
-        
+        const schedule = newAnnouncementWindow(defaultDate);
+
         const newFormData = {
           title: '',
           body: '',
-          publishAt: publishAt.toISOString().slice(0, 16),
-          expiresAt: expiresAt.toISOString().slice(0, 16),
+          publishAt: schedule.publishAt,
+          expiresAt: schedule.expiresAt,
           crossPostFacebook: false,
           crossPostInstagram: false,
           ctaText: '',

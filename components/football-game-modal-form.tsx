@@ -5,7 +5,7 @@ import Modal from '@/components/modal';
 import { showToast } from '@/components/toast';
 import StatusToggle from '@/components/status-toggle';
 import ConfirmationDialog from '@/components/confirmation-dialog';
-import DateTimePicker from '@/components/date-time-picker';
+import DateTimePicker, { type DateTimeOption } from '@/components/date-time-picker';
 import {
   parseDateTimeLocalAsCompanyTimezone,
   formatDateAsDateTimeLocal,
@@ -18,7 +18,7 @@ import {
   opponentFromFootballTitle,
   withFootballGameTags,
 } from '@/lib/football-games';
-import { findNflTeam, nflTeamsByDivision } from '@/lib/nfl-teams';
+import { findNflTeam, NFL_TEAMS } from '@/lib/nfl-teams';
 import { MatchupSplit } from '@/components/matchup-brand';
 
 export type FootballGameFormEvent = {
@@ -40,6 +40,23 @@ interface FootballGameModalFormProps {
   onEventAdded?: (event: any) => void;
   onEventUpdated?: (event: any) => void;
   embed?: boolean;
+  /** YYYY-MM-DD used when creating from a calendar day. Kickoff stays 2:00 PM. */
+  defaultDate?: string;
+}
+
+const FOOTBALL_KICKOFF_TIMES: DateTimeOption[] = [
+  { hours: 11, minutes: 0, label: '11:00 AM' },
+  { hours: 14, minutes: 0, label: '2:00 PM' },
+  { hours: 18, minutes: 0, label: '6:00 PM' },
+];
+
+function isFootballKickoffTime(value: string): boolean {
+  const time = value.slice(11, 16);
+  return FOOTBALL_KICKOFF_TIMES.some(
+    (option) =>
+      `${String(option.hours).padStart(2, '0')}:${String(option.minutes).padStart(2, '0')}` ===
+      time
+  );
 }
 
 function getDefaultKickoff(): string {
@@ -96,12 +113,15 @@ export default function FootballGameModalForm({
   onEventAdded,
   onEventUpdated,
   embed,
+  defaultDate,
 }: FootballGameModalFormProps) {
   const [loading, setLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [opponent, setOpponent] = useState('');
   const [houseMeal, setHouseMeal] = useState('TBD');
-  const [startDateTime, setStartDateTime] = useState(getDefaultKickoff);
+  const [startDateTime, setStartDateTime] = useState(() =>
+    defaultDate ? `${defaultDate}T14:00` : getDefaultKickoff()
+  );
   const [isActive, setIsActive] = useState(true);
 
   useEffect(() => {
@@ -113,14 +133,14 @@ export default function FootballGameModalForm({
       setStartDateTime(formatIncomingDateTime(event.startDateTime));
       setIsActive(event.isActive ?? true);
     } else {
-      const kickoff = getDefaultKickoff();
+      const kickoff = defaultDate ? `${defaultDate}T14:00` : getDefaultKickoff();
       setOpponent('');
       setHouseMeal('TBD');
       setStartDateTime(kickoff);
       setIsActive(true);
     }
     setShowDeleteConfirm(false);
-  }, [event, isOpen]);
+  }, [event, isOpen, defaultDate]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -142,8 +162,12 @@ export default function FootballGameModalForm({
       );
       return;
     }
-    if (!startDateTime) {
-      showToast('Kickoff time is required', 'error');
+    if (!startDateTime || !isFootballKickoffTime(startDateTime)) {
+      showToast(
+        'Choose a kickoff time',
+        'error',
+        'Kickoff is 11:00 AM, 2:00 PM, or 6:00 PM.'
+      );
       return;
     }
 
@@ -245,7 +269,9 @@ export default function FootballGameModalForm({
   const opponentTeam = findNflTeam(opponent);
   const customOpponent =
     opponent.trim() && !opponentTeam ? opponent.trim() : '';
-  const divisions = nflTeamsByDivision();
+  const teams = [...NFL_TEAMS].sort((a, b) =>
+    `${a.city} ${a.name}`.localeCompare(`${b.city} ${b.name}`)
+  );
 
   const formContent = (
     <>
@@ -292,28 +318,25 @@ export default function FootballGameModalForm({
                   {customOpponent && (
                     <option value={customOpponent}>{customOpponent}</option>
                   )}
-                  {divisions.map(({ division, teams }) => (
-                    <optgroup key={division} label={division}>
-                      {teams.map((team) => (
-                        <option key={team.name} value={team.name}>
-                          {team.city} {team.name}
-                        </option>
-                      ))}
-                    </optgroup>
+                  {teams.map((team) => (
+                    <option key={team.name} value={team.name}>
+                      {team.city} {team.name}
+                    </option>
                   ))}
                 </select>
                 {opponentTeam && <MatchupSplit team={opponentTeam} />}
               </div>
 
               <DateTimePicker
-                label="Kickoff *"
+                label="Kickoff"
                 value={startDateTime}
                 onChange={setStartDateTime}
+                timeOptions={FOOTBALL_KICKOFF_TIMES}
                 required
               />
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Ends 3.5 hours after kickoff on the calendar. You can change
-                that after saving.
+                Kickoff is 11:00 AM, 2:00 PM, or 6:00 PM. Ends 3.5 hours later
+                on the calendar. You can change the end time after saving.
               </p>
 
               <div className="space-y-1">

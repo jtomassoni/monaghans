@@ -34,9 +34,11 @@ interface DrinkSpecialModalFormProps {
   onDelete?: (specialId: string) => void;
   /** When true, render form content only (no Modal wrapper). Used when embedding in another modal. */
   embed?: boolean;
+  /** YYYY-MM-DD used when creating from a calendar day. */
+  defaultDate?: string;
 }
 
-export default function DrinkSpecialModalForm({ isOpen, onClose, special, onSuccess, onDelete, embed }: DrinkSpecialModalFormProps) {
+export default function DrinkSpecialModalForm({ isOpen, onClose, special, onSuccess, onDelete, embed, defaultDate }: DrinkSpecialModalFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -44,8 +46,8 @@ export default function DrinkSpecialModalForm({ isOpen, onClose, special, onSucc
     title: special?.title || '',
     description: special?.description || '',
     appliesOn: special?.appliesOn || [],
-    startDate: special?.startDate || '',
-    endDate: special?.endDate || '',
+    startDate: special?.startDate || defaultDate || '',
+    endDate: special?.endDate || defaultDate || '',
     isActive: special?.isActive ?? true,
   });
 
@@ -64,7 +66,7 @@ export default function DrinkSpecialModalForm({ isOpen, onClose, special, onSucc
       setFormData(newFormData);
       setInitialFormData(newFormData);
     } else {
-      const todayStr = getMountainTimeDateString(getMountainTimeToday());
+      const todayStr = defaultDate || getMountainTimeDateString(getMountainTimeToday());
       const newFormData = {
         title: '',
         description: '',
@@ -76,7 +78,7 @@ export default function DrinkSpecialModalForm({ isOpen, onClose, special, onSucc
       setFormData(newFormData);
       setInitialFormData(newFormData);
     }
-  }, [special, isOpen]);
+  }, [special, isOpen, defaultDate]);
 
   // Check if form is dirty
   const isDirty = JSON.stringify(formData) !== JSON.stringify(initialFormData);
@@ -99,7 +101,7 @@ export default function DrinkSpecialModalForm({ isOpen, onClose, special, onSucc
         setFormData(newFormData);
         setInitialFormData(newFormData);
       } else {
-        const todayStr = getMountainTimeDateString(getMountainTimeToday());
+        const todayStr = defaultDate || getMountainTimeDateString(getMountainTimeToday());
         const newFormData = {
           title: '',
           description: '',

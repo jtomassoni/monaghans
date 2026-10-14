@@ -36,6 +36,8 @@ interface EventModalFormProps {
   onExceptionAdded?: (eventId: string, updatedEvent: any) => void; // Callback when exception is added to recurring event
   /** When true, render form content only (no Modal wrapper). Used when embedding in another modal. */
   embed?: boolean;
+  /** YYYY-MM-DD used when creating from a calendar day. */
+  defaultDate?: string;
 }
 
 // Helper function to parse RRULE and extract recurrence info
@@ -140,7 +142,7 @@ function buildRRULE(frequency: string, days: string[], monthDay?: number, until?
 
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-export default function EventModalForm({ isOpen, onClose, event, occurrenceDate, onSuccess, onDelete, onEventAdded, onEventUpdated, onExceptionAdded, embed }: EventModalFormProps) {
+export default function EventModalForm({ isOpen, onClose, event, occurrenceDate, onSuccess, onDelete, onEventAdded, onEventUpdated, onExceptionAdded, embed, defaultDate }: EventModalFormProps) {
   const [loading, setLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showDeleteRecurringConfirm, setShowDeleteRecurringConfirm] = useState(false);
@@ -247,7 +249,7 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
   const [recurrenceEndDate, setRecurrenceEndDate] = useState<string>('');
   
   const [formData, setFormData] = useState(() => {
-    const todayDate = getTodayDateTime().split('T')[0];
+    const todayDate = defaultDate || getTodayDateTime().split('T')[0];
     return {
       title: event?.title || '',
       description: event?.description || '',
@@ -421,10 +423,10 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
       }
     } else {
       const todayDateTime = getTodayDateTime();
-      const todayDate = todayDateTime.split('T')[0];
+      const todayDate = defaultDate || todayDateTime.split('T')[0];
       setRecurrenceType('none');
       setRecurrenceDays([]);
-      setMonthDay(new Date().getDate());
+      setMonthDay(defaultDate ? Number(defaultDate.slice(8, 10)) : new Date().getDate());
       setRecurrenceStartDate('');
       setRecurrenceEndDate('');
       setFormData({
@@ -438,7 +440,7 @@ export default function EventModalForm({ isOpen, onClose, event, occurrenceDate,
       });
       setDateError(null);
     }
-  }, [event, isOpen]);
+  }, [event, isOpen, defaultDate]);
 
   useEffect(() => {
     if (!isOpen) {

@@ -43,6 +43,8 @@ interface SpecialModalFormProps {
   onDuplicate?: (copy: Partial<Special>) => void;
   /** When true, render form content only (no Modal wrapper). Used when embedding in another modal. */
   embed?: boolean;
+  /** YYYY-MM-DD used when creating from a calendar day. */
+  defaultDate?: string;
 }
 
 interface GalleryImage {
@@ -51,7 +53,7 @@ interface GalleryImage {
   inUse?: boolean;
 }
 
-export default function SpecialModalForm({ isOpen, onClose, special, defaultType, onSuccess, onDelete, onSpecialAdded, onSpecialUpdated, onDuplicate, embed }: SpecialModalFormProps) {
+export default function SpecialModalForm({ isOpen, onClose, special, defaultType, onSuccess, onDelete, onSpecialAdded, onSpecialUpdated, onDuplicate, embed, defaultDate }: SpecialModalFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -112,7 +114,7 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
     return getMountainTimeDateString(dateObj);
   };
 
-  const todayStrDefault = getMountainTimeDateString(getMountainTimeToday());
+  const todayStrDefault = defaultDate || getMountainTimeDateString(getMountainTimeToday());
   const [formData, setFormData] = useState({
     title: special?.title || '',
     description: special?.description || '',
@@ -165,7 +167,7 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
       setInitialFormData(newFormData);
     } else {
       const nextType = resolveType();
-      const todayStr = getMountainTimeDateString(getMountainTimeToday());
+      const todayStr = defaultDate || getMountainTimeDateString(getMountainTimeToday());
       const newFormData = {
         title: '',
         description: '',
@@ -182,7 +184,7 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
       setFormData(newFormData);
       setInitialFormData(newFormData);
     }
-  }, [special, defaultType, isOpen]);
+  }, [special, defaultType, isOpen, defaultDate]);
 
   const fetchGalleryImages = () => {
     setGalleryLoading(true);
@@ -231,7 +233,7 @@ export default function SpecialModalForm({ isOpen, onClose, special, defaultType
         setInitialFormData(newFormData);
       } else {
         const nextType = resolveType();
-        const todayStr = getMountainTimeDateString(getMountainTimeToday());
+        const todayStr = defaultDate || getMountainTimeDateString(getMountainTimeToday());
         const newFormData = {
           title: '',
           description: '',

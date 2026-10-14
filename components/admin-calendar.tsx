@@ -88,6 +88,8 @@ interface CalendarViewProps {
   onSpecialClick?: (specialId: string) => void;
   onAnnouncementClick?: (announcementId: string) => void;
   onNewEvent?: (date: Date, isAllDay?: boolean) => void;
+  /** Month-cell add button. Opens the same create form as the page header, with the clicked day. */
+  onCreateNew?: (date: Date) => void;
   onNewAnnouncement?: (date: Date) => void;
   onEventUpdate?: () => void;
   onEventAdded?: (event: CalendarEvent) => void;
@@ -231,7 +233,7 @@ function overlappingEventPosition(column: number, columns: number) {
   };
 }
 
-export default function CalendarView({ events, specials, announcements = [], businessHours, calendarHours, onEventClick, onSpecialClick, onAnnouncementClick, onNewEvent, onNewAnnouncement, onEventUpdate, onEventAdded, onEventDeleted }: CalendarViewProps) {
+export default function CalendarView({ events, specials, announcements = [], businessHours, calendarHours, onEventClick, onSpecialClick, onAnnouncementClick, onNewEvent, onCreateNew, onNewAnnouncement, onEventUpdate, onEventAdded, onEventDeleted }: CalendarViewProps) {
   // Use company timezone for all date operations, not browser locale
   const companyTimezone = getCompanyTimezoneSync();
   const [currentDate, setCurrentDate] = useState(getMountainTimeToday());
@@ -1485,11 +1487,15 @@ export default function CalendarView({ events, specials, announcements = [], bus
                   >
                     {format(day, 'd')}
                   </div>
-                  {isCurrentMonth && onNewEvent && hasAnyItems && (
+                  {isCurrentMonth && (onCreateNew || onNewEvent) && hasAnyItems && (
                     <button
-                      onClick={() => onNewEvent(day)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onCreateNew) onCreateNew(day);
+                        else onNewEvent?.(day);
+                      }}
                       className={`w-4 h-4 flex items-center justify-center bg-blue-600 hover:bg-blue-500 rounded-full text-white text-[10px] font-bold transition-all duration-200 hover:scale-110 shadow-lg ${isHovered ? 'opacity-100' : 'opacity-0'}`}
-                      title="Add new event"
+                      title="Create new"
                     >
                       +
                     </button>
@@ -1580,12 +1586,16 @@ export default function CalendarView({ events, specials, announcements = [], bus
                   })}
                 </div>
 
-                {isCurrentMonth && onNewEvent && !hasAnyItems && (
+                {isCurrentMonth && (onCreateNew || onNewEvent) && !hasAnyItems && (
                   <div className={`absolute inset-0 flex items-center justify-center pointer-events-none transition-opacity duration-200 ${isHovered ? 'opacity-100' : 'opacity-0'}`}>
                     <button
-                      onClick={() => onNewEvent(day)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onCreateNew) onCreateNew(day);
+                        else onNewEvent?.(day);
+                      }}
                       className="w-8 h-8 flex items-center justify-center bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-full text-white text-lg font-bold transition-all duration-300 hover:scale-110 border border-blue-400 dark:border-blue-500 pointer-events-auto"
-                      title="Add new event"
+                      title="Create new"
                     >
                       +
                     </button>
@@ -2602,17 +2612,17 @@ export default function CalendarView({ events, specials, announcements = [], bus
     <div className="flex flex-col h-full min-h-0" ref={calendarRef}>
         {/* Calendar Header */}
       <div className="mb-2 sm:mb-3 flex-shrink-0 px-1 sm:px-2">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-3 w-full">
-          {/* Navigation Controls - Simplified for Mobile */}
-          <div className="flex items-center gap-1.5 sm:gap-2 justify-center flex-1 min-w-0 w-full sm:w-auto">
+        <div className="flex w-full flex-col gap-2 xl:flex-row xl:items-center xl:justify-between xl:gap-3">
+          {/* Navigation stays on its own row until the toolbar is wide enough for one line */}
+          <div className="flex w-full min-w-0 items-center gap-1.5 xl:w-auto xl:flex-1 xl:gap-2">
             <button
               onClick={() => navigateDate('prev')}
-              className="w-9 h-9 sm:w-9 sm:h-9 min-h-[40px] sm:min-h-0 flex items-center justify-center bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 transition-all duration-200 hover:shadow-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white flex-shrink-0 cursor-pointer active:scale-95 z-10 relative touch-manipulation"
+              className="relative z-10 flex h-9 w-9 min-h-[40px] flex-shrink-0 cursor-pointer touch-manipulation items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 transition-all duration-200 hover:border-gray-400 hover:bg-gray-50 hover:text-gray-900 hover:shadow-sm active:scale-95 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-gray-500 dark:hover:bg-gray-700 dark:hover:text-white xl:min-h-0"
               aria-label="Previous"
             >
               <HiChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 pointer-events-none" />
             </button>
-            <div className="relative px-2 sm:px-4 min-w-[140px] sm:min-w-[240px] flex items-center justify-center flex-shrink-0">
+            <div className="relative flex min-w-0 flex-1 items-center justify-center px-1 xl:min-w-[220px] xl:flex-none xl:px-4">
               {viewMode === 'month' ? (
                 <div className="flex items-center gap-1 sm:gap-2">
                   <button
@@ -2637,13 +2647,27 @@ export default function CalendarView({ events, specials, announcements = [], bus
                   </button>
                 </div>
               ) : viewMode === 'week' ? (
-                <h2 className="text-sm sm:text-xl font-bold text-gray-900 dark:text-white text-center sm:whitespace-nowrap px-1 sm:px-2">
-                  {`${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d, yyyy')}`}
+                <h2 className="w-full truncate text-center text-sm font-bold text-gray-900 dark:text-white sm:text-base xl:w-auto xl:text-xl xl:whitespace-nowrap">
+                  <span className="xl:hidden">
+                    {format(weekStart, 'MMM d')}–{format(
+                      weekEnd,
+                      weekStart.getMonth() === weekEnd.getMonth() &&
+                        weekStart.getFullYear() === weekEnd.getFullYear()
+                        ? 'd'
+                        : 'MMM d'
+                    )}
+                    {weekEnd.getFullYear() !== todayMT.getFullYear()
+                      ? `, ${format(weekEnd, 'yyyy')}`
+                      : ''}
+                  </span>
+                  <span className="hidden xl:inline">
+                    {`${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d, yyyy')}`}
+                  </span>
                 </h2>
               ) : viewMode === 'day' ? (
-                <h2 className="text-xs sm:text-xl font-bold text-gray-900 dark:text-white text-center sm:whitespace-nowrap px-1 sm:px-2">
-                  <span className="hidden sm:inline">{format(currentDate, 'EEEE, MMMM d, yyyy')}</span>
-                  <span className="sm:hidden">{format(currentDate, 'EEE, MMM d')}</span>
+                <h2 className="w-full truncate text-center text-sm font-bold text-gray-900 dark:text-white sm:text-base xl:w-auto xl:text-xl xl:whitespace-nowrap">
+                  <span className="hidden xl:inline">{format(currentDate, 'EEEE, MMMM d, yyyy')}</span>
+                  <span className="xl:hidden">{format(currentDate, 'EEE, MMM d')}</span>
                 </h2>
               ) : (
                 <button
@@ -2708,7 +2732,7 @@ export default function CalendarView({ events, specials, announcements = [], bus
             </div>
             <button
               onClick={() => navigateDate('next')}
-              className="w-9 h-9 sm:w-9 sm:h-9 min-h-[40px] sm:min-h-0 flex items-center justify-center bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 transition-all duration-200 hover:shadow-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white flex-shrink-0 cursor-pointer active:scale-95 z-10 relative touch-manipulation"
+              className="relative z-10 flex h-9 w-9 min-h-[40px] flex-shrink-0 cursor-pointer touch-manipulation items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 transition-all duration-200 hover:border-gray-400 hover:bg-gray-50 hover:text-gray-900 hover:shadow-sm active:scale-95 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-gray-500 dark:hover:bg-gray-700 dark:hover:text-white xl:min-h-0"
               aria-label="Next"
             >
               <HiChevronRight className="w-4 h-4 sm:w-5 sm:h-5 pointer-events-none" />
@@ -2716,37 +2740,38 @@ export default function CalendarView({ events, specials, announcements = [], bus
             <button
               onClick={() => setCurrentDate(todayMT)}
               disabled={isViewingCurrentPeriod}
-              className={`px-2.5 sm:px-4 py-2 sm:py-1.5 min-h-[40px] sm:min-h-0 text-xs rounded-lg transition-all duration-200 font-semibold flex-shrink-0 z-10 relative border touch-manipulation ${
+              className={`relative z-10 min-h-[40px] flex-shrink-0 touch-manipulation rounded-lg border px-2.5 py-2 text-xs font-semibold transition-all duration-200 xl:min-h-0 xl:px-4 xl:py-1.5 ${
                 isViewingCurrentPeriod
                   ? 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-500 border-gray-400 dark:border-gray-600 cursor-not-allowed opacity-60'
                   : 'bg-blue-500/90 dark:bg-blue-600/90 hover:bg-blue-600 dark:hover:bg-blue-700 hover:scale-105 text-white border-blue-400 dark:border-blue-500 cursor-pointer active:scale-95'
               }`}
             >
-              <span className="hidden sm:inline">{getTodayButtonText()}</span>
-              <span className="sm:hidden">{viewMode === 'day' ? 'Now' : viewMode === 'week' ? 'Week' : 'Month'}</span>
+              <span className="hidden xl:inline">{getTodayButtonText()}</span>
+              <span className="xl:hidden">Today</span>
             </button>
           </div>
 
-          {/* View Mode Switcher and Hours Config */}
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-            {/* Hours Config Button - Hidden on mobile, only show on desktop */}
+          {/* View switcher sits on a second row until the toolbar can hold everything */}
+          <div className="flex w-full items-center gap-1.5 xl:w-auto xl:flex-shrink-0 xl:gap-2">
             {viewMode === 'week' && (
-              <div className="relative hidden sm:block">
+              <div className="relative shrink-0">
                 <button
                   data-hours-trigger
                   onClick={() => setShowHoursConfig(!showHoursConfig)}
-                  className="px-3 py-2 rounded-md transition-all duration-200 flex items-center justify-center gap-1.5 text-xs font-medium cursor-pointer active:scale-95 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white touch-manipulation"
+                  className="flex min-h-[40px] items-center justify-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-2 text-xs font-medium text-gray-700 transition-all duration-200 hover:bg-gray-50 hover:text-gray-900 active:scale-95 touch-manipulation dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 dark:hover:text-white xl:px-3"
                   title="Configure visible hours"
+                  aria-label="Visible hours"
                 >
-                  <FaClock className="w-3.5 h-3.5 pointer-events-none" />
-                  <span className="pointer-events-none">Visible Hours</span>
+                  <FaClock className="pointer-events-none h-3.5 w-3.5" />
+                  <span className="pointer-events-none hidden sm:inline xl:hidden">Hours</span>
+                  <span className="pointer-events-none hidden xl:inline">Visible Hours</span>
                 </button>
 
                 {/* Hours Config Dropdown */}
                 {showHoursConfig && (
                   <div
                     ref={hoursConfigRef}
-                    className="absolute top-full right-0 mt-2 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl p-4 min-w-[280px]"
+                    className="absolute top-full left-0 z-50 mt-2 min-w-[280px] max-w-[calc(100vw-2rem)] rounded-lg border border-gray-200 bg-white p-4 shadow-xl dark:border-gray-700 dark:bg-gray-800 xl:left-auto xl:right-0"
                   >
                     <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
                       Calendar Hours
@@ -2852,12 +2877,11 @@ export default function CalendarView({ events, specials, announcements = [], bus
               </div>
             )}
 
-            {/* View Mode Switcher - Day, Week, Month (Month hidden on mobile) */}
-            <div className="flex gap-0.5 bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5 sm:p-1 border border-gray-200 dark:border-gray-700 flex-shrink-0">
+            <div className="flex min-w-0 flex-1 gap-0.5 rounded-lg border border-gray-200 bg-gray-100 p-0.5 dark:border-gray-700 dark:bg-gray-800 sm:p-1 xl:flex-none">
               {/* Day view - Available on all devices */}
               <button
                 onClick={() => setViewMode('day')}
-                className={`px-2.5 sm:px-4 py-2 sm:py-2 min-h-[40px] sm:min-h-0 rounded-md transition-all duration-200 flex items-center justify-center gap-1 sm:gap-1.5 text-xs font-semibold cursor-pointer active:scale-95 z-10 relative touch-manipulation ${
+                className={`relative z-10 flex min-h-[40px] flex-1 cursor-pointer touch-manipulation items-center justify-center gap-1 rounded-md px-2 py-2 text-xs font-semibold transition-all duration-200 active:scale-95 xl:flex-none xl:gap-1.5 xl:px-4 ${
                   viewMode === 'day'
                     ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-gray-700/50'
@@ -2869,7 +2893,7 @@ export default function CalendarView({ events, specials, announcements = [], bus
               {/* Week view - Available on all devices */}
               <button
                 onClick={() => setViewMode('week')}
-                className={`px-2.5 sm:px-4 py-2 sm:py-2 min-h-[40px] sm:min-h-0 rounded-md transition-all duration-200 flex items-center justify-center gap-1 sm:gap-1.5 text-xs font-semibold cursor-pointer active:scale-95 z-10 relative touch-manipulation ${
+                className={`relative z-10 flex min-h-[40px] flex-1 cursor-pointer touch-manipulation items-center justify-center gap-1 rounded-md px-2 py-2 text-xs font-semibold transition-all duration-200 active:scale-95 xl:flex-none xl:gap-1.5 xl:px-4 ${
                   viewMode === 'week'
                     ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-gray-700/50'
@@ -2878,10 +2902,9 @@ export default function CalendarView({ events, specials, announcements = [], bus
                 <FaCalendarWeek className="w-3 h-3 sm:w-3.5 sm:h-3.5 pointer-events-none" />
                 <span className="pointer-events-none">Week</span>
               </button>
-              {/* Month view - Desktop only */}
               <button
                 onClick={() => setViewMode('month')}
-                className={`hidden sm:flex px-4 py-2 rounded-md transition-all duration-200 items-center justify-center gap-1.5 text-xs font-medium cursor-pointer active:scale-95 z-10 relative touch-manipulation ${
+                className={`relative z-10 flex min-h-[40px] flex-1 cursor-pointer touch-manipulation items-center justify-center gap-1 rounded-md px-2 py-2 text-xs font-semibold transition-all duration-200 active:scale-95 xl:flex-none xl:gap-1.5 xl:px-4 ${
                   viewMode === 'month'
                     ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-gray-700/50'

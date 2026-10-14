@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import CalendarView from '@/components/admin-calendar';
 import EventModalForm from '@/components/event-modal-form';
@@ -14,6 +14,7 @@ import FootballGameModalForm, { FootballGameFormEvent } from '@/components/footb
 import { FaCalendarAlt, FaList, FaPlus, FaQuestionCircle } from 'react-icons/fa';
 import { useAdminMobileHeader } from '@/components/admin-mobile-header-context';
 import { isFootballGameEvent } from '@/lib/football-games';
+import { getMountainTimeDateString } from '@/lib/timezone';
 
 interface CalendarEvent {
   id: string;
@@ -153,6 +154,7 @@ export default function DashboardContent({ events: initialEvents, specials: init
   const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
   const [localAnnouncements, setLocalAnnouncements] = useState<CalendarAnnouncement[]>(announcements);
   const [unifiedFormOpen, setUnifiedFormOpen] = useState(false);
+  const [createDefaultDate, setCreateDefaultDate] = useState<string | undefined>(undefined);
   const [unifiedFormItem, setUnifiedFormItem] = useState<Event | Special | Announcement | null>(null);
   const [unifiedFormItemType, setUnifiedFormItemType] = useState<'event' | 'food' | 'drink' | 'announcement' | undefined>(undefined);
   const [footballModalOpen, setFootballModalOpen] = useState(false);
@@ -519,15 +521,18 @@ export default function DashboardContent({ events: initialEvents, specials: init
     setLocalAnnouncements(prev => prev.filter(a => a.id !== announcementId));
   };
 
+  const openCreateForm = useCallback((date?: Date) => {
+    setUnifiedFormItem(null);
+    setUnifiedFormItemType(undefined);
+    setCreateDefaultDate(date ? getMountainTimeDateString(date) : undefined);
+    setUnifiedFormOpen(true);
+  }, []);
+
   // Set mobile header action button
   useEffect(() => {
     const mobileButton = (
       <button
-        onClick={() => {
-          setUnifiedFormItem(null);
-          setUnifiedFormItemType(undefined);
-          setUnifiedFormOpen(true);
-        }}
+        onClick={() => openCreateForm()}
         className="h-9 px-2.5 bg-blue-500 dark:bg-blue-600 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-medium text-xs transition-all duration-200 active:scale-95 flex items-center justify-center gap-1.5 border border-blue-400 dark:border-blue-500 touch-manipulation shadow-sm"
       >
         <span className="text-xs">➕</span>
@@ -539,7 +544,7 @@ export default function DashboardContent({ events: initialEvents, specials: init
     return () => {
       setRightAction(null);
     };
-  }, [setRightAction]);
+  }, [setRightAction, openCreateForm]);
 
   return (
     <>
@@ -574,11 +579,7 @@ export default function DashboardContent({ events: initialEvents, specials: init
               />
               {/* New Button - Hidden on mobile, shown on desktop (mobile header has its own New button) */}
               <button
-                onClick={() => {
-                  setUnifiedFormItem(null);
-                  setUnifiedFormItemType(undefined);
-                  setUnifiedFormOpen(true);
-                }}
+                onClick={() => openCreateForm()}
                 className="hidden sm:flex px-4 py-2 bg-blue-500 dark:bg-blue-600 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-lg text-white font-medium text-sm transition-colors duration-200 items-center justify-center gap-2 shadow-sm hover:shadow-md active:scale-[0.98]"
               >
                 <FaPlus className="w-3.5 h-3.5" />
@@ -629,6 +630,7 @@ export default function DashboardContent({ events: initialEvents, specials: init
                 onSpecialClick={handleSpecialClick}
                 onAnnouncementClick={handleAnnouncementClick}
                 onNewEvent={handleNewEvent}
+                onCreateNew={openCreateForm}
                 onNewAnnouncement={handleNewAnnouncement}
                 onEventUpdate={handleModalSuccess}
                 onEventAdded={handleEventAdded}
@@ -794,7 +796,11 @@ export default function DashboardContent({ events: initialEvents, specials: init
       {/* Create New - single form with type dropdown */}
       <NewItemFormModal
         isOpen={unifiedFormOpen}
-        onClose={() => setUnifiedFormOpen(false)}
+        defaultDate={createDefaultDate}
+        onClose={() => {
+          setUnifiedFormOpen(false);
+          setCreateDefaultDate(undefined);
+        }}
         onSuccess={handleModalSuccess}
         onEventAdded={handleEventAdded}
         onEventUpdated={handleEventUpdated}

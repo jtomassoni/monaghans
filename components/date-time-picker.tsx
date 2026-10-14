@@ -6,6 +6,12 @@ import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, en
 import { HiChevronLeft, HiChevronRight } from 'react-icons/hi';
 import { parseDateTimeLocalAsCompanyTimezone, formatDateAsDateTimeLocal, getCompanyTimezoneSync } from '@/lib/timezone';
 
+export type DateTimeOption = {
+  hours: number;
+  minutes: number;
+  label: string;
+};
+
 interface DateTimePickerProps {
   value: string; // datetime-local format: "YYYY-MM-DDTHH:mm" (interpreted as company timezone)
   onChange: (value: string) => void;
@@ -13,6 +19,8 @@ interface DateTimePickerProps {
   max?: string;
   label?: string;
   required?: boolean;
+  /** When set, the time column offers only these times. */
+  timeOptions?: DateTimeOption[];
 }
 
 // Helper function to parse datetime-local format string (YYYY-MM-DDTHH:mm)
@@ -37,13 +45,43 @@ function parseDateTimeLocal(dateTimeLocal: string): Date {
   }
 }
 
-export default function DateTimePicker({ value, onChange, min, max, label, required }: DateTimePickerProps) {
+function wallClockFromValue(value: string): { hours: number; minutes: number } | null {
+  const direct = value.match(/T(\d{2}):(\d{2})/);
+  if (direct) {
+    return { hours: Number(direct[1]), minutes: Number(direct[2]) };
+  }
+  return null;
+}
+
+function resolveTimeOption(
+  hours: number,
+  minutes: number,
+  options: DateTimeOption[]
+): DateTimeOption {
+  const exact = options.find(
+    (option) => option.hours === hours && option.minutes === minutes
+  );
+  if (exact) return exact;
+
+  const current = hours * 60 + minutes;
+  return options.reduce((best, option) => {
+    const bestDelta = Math.abs(best.hours * 60 + best.minutes - current);
+    const optionDelta = Math.abs(option.hours * 60 + option.minutes - current);
+    return optionDelta < bestDelta ? option : best;
+  });
+}
+
+export default function DateTimePicker({ value, onChange, min, max, label, required, timeOptions }: DateTimePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(() => {
     return value ? parseDateTimeLocal(value) : new Date();
   });
   const [selectedTime, setSelectedTime] = useState(() => {
+    if (value && timeOptions?.length) {
+      const wallClock = wallClockFromValue(value);
+      if (wallClock) return wallClock;
+    }
     if (value) {
       const date = parseDateTimeLocal(value);
       return {
@@ -87,12 +125,15 @@ export default function DateTimePicker({ value, onChange, min, max, label, requi
     if (value) {
       const date = parseDateTimeLocal(value);
       setCurrentMonth(date);
-      setSelectedTime({
-        hours: date.getHours(),
-        minutes: date.getMinutes(),
-      });
+      const wallClock = timeOptions?.length ? wallClockFromValue(value) : null;
+      setSelectedTime(
+        wallClock ?? {
+          hours: date.getHours(),
+          minutes: date.getMinutes(),
+        }
+      );
     }
-  }, [value]);
+  }, [value, timeOptions]);
 
   // Close picker when clicking outside
   useEffect(() => {
@@ -236,8 +277,12 @@ export default function DateTimePicker({ value, onChange, min, max, label, requi
     const [datePart, timePart] = dateStr.split('T');
     const [year, month, dayNum] = datePart.split('-').map(Number);
     
+    const time = timeOptions?.length
+      ? resolveTimeOption(selectedTime.hours, selectedTime.minutes, timeOptions)
+      : selectedTime;
+
     // Create datetime-local string with selected time
-    const formatted = `${year}-${String(month).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}T${String(selectedTime.hours).padStart(2, '0')}:${String(selectedTime.minutes).padStart(2, '0')}`;
+    const formatted = `${year}-${String(month).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}T${String(time.hours).padStart(2, '0')}:${String(time.minutes).padStart(2, '0')}`;
     onChange(formatted);
   };
 
@@ -319,8 +364,8 @@ export default function DateTimePicker({ value, onChange, min, max, label, requi
     return `${displayHours}:${String(minutes).padStart(2, '0')} ${period}`;
   };
 
-  // On mobile, use native datetime-local input
-  if (isMobile) {
+  // On mobile, use native datetime-local input unless times are restricted.
+  if (isMobile && !timeOptions?.length) {
     // Convert value to datetime-local format (YYYY-MM-DDTHH:mm) in company timezone
     const getDateTimeLocalValue = () => {
       if (!value) return '';
@@ -472,26 +517,57 @@ export default function DateTimePicker({ value, onChange, min, max, label, requi
                   })}
                 </div>
 
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleQuickSelect('topOfHour')}
-                    className="flex-1 px-3 py-2 text-xs font-medium text-white bg-blue-600 dark:bg-blue-600 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-500 transition-colors duration-200 cursor-pointer"
-                  >
-                    Top of Hour
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleQuickSelect('now')}
-                    className="flex-1 px-3 py-2 text-xs font-medium text-white bg-blue-600 dark:bg-blue-600 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-500 transition-colors duration-200 cursor-pointer"
-                  >
-                    Now
-                  </button>
-                </div>
+                {!timeOptions?.length && (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleQuickSelect('topOfHour')}
+                      className="flex-1 px-3 py-2 text-xs font-medium text-white bg-blue-600 dark:bg-blue-600 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-500 transition-colors duration-200 cursor-pointer"
+                    >
+                      Top of Hour
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleQuickSelect('now')}
+                      className="flex-1 px-3 py-2 text-xs font-medium text-white bg-blue-600 dark:bg-blue-600 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-500 transition-colors duration-200 cursor-pointer"
+                    >
+                      Now
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Time Picker */}
               <div className="flex-1 sm:border-l sm:border-t border-gray-200 dark:border-gray-700 sm:pl-4 sm:pt-0 pt-4 min-w-0 sm:min-w-[220px]">
+                {timeOptions?.length ? (
+                  <div>
+                    <label className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 mb-1.5 block uppercase tracking-wider text-center">TIME</label>
+                    <div className="flex flex-col gap-2">
+                      {timeOptions.map((option) => {
+                        const isSelected =
+                          selectedTime.hours === option.hours &&
+                          selectedTime.minutes === option.minutes;
+                        return (
+                          <button
+                            key={option.label}
+                            type="button"
+                            aria-pressed={isSelected}
+                            onClick={() => handleTimeChange(option.hours, option.minutes)}
+                            className={`
+                              w-full px-3 py-2.5 text-sm rounded-lg transition-all duration-150 cursor-pointer text-center font-semibold min-h-[44px]
+                              ${isSelected
+                                ? 'bg-blue-600 text-white'
+                                : 'text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700/60'
+                              }
+                            `}
+                          >
+                            {option.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
                 <div className="flex gap-2.5">
                   {/* Hours - Scrollable list */}
                   <div className="flex-1 min-w-0">
@@ -549,6 +625,7 @@ export default function DateTimePicker({ value, onChange, min, max, label, requi
                     </div>
                   </div>
                 </div>
+                )}
               </div>
             </div>
 

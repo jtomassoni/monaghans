@@ -21,6 +21,8 @@ const TYPE_OPTIONS: { value: NewItemType; label: string }[] = [
 interface NewItemFormModalProps {
   isOpen: boolean;
   onClose: () => void;
+  /** YYYY-MM-DD in company timezone. Set when opening from a calendar day. */
+  defaultDate?: string;
   onSuccess?: () => void;
   onEventAdded?: (event: any) => void;
   onEventUpdated?: (event: any) => void;
@@ -37,6 +39,7 @@ interface NewItemFormModalProps {
 export default function NewItemFormModal({
   isOpen,
   onClose,
+  defaultDate,
   onSuccess,
   onEventAdded,
   onEventUpdated,
@@ -80,9 +83,11 @@ export default function NewItemFormModal({
         <div className="flex flex-col min-h-0 flex-1 min-w-0 overflow-hidden">
           {itemType === 'event' && (
             <EventModalForm
+              key={defaultDate ?? 'today'}
               isOpen={true}
               onClose={onClose}
               event={undefined}
+              defaultDate={defaultDate}
               onSuccess={handleSuccess}
               onEventAdded={onEventAdded}
               onEventUpdated={onEventUpdated}
@@ -93,9 +98,11 @@ export default function NewItemFormModal({
           )}
           {itemType === 'football-game' && (
             <FootballGameModalForm
+              key={defaultDate ?? 'today'}
               isOpen={true}
               onClose={onClose}
               event={undefined}
+              defaultDate={defaultDate}
               onSuccess={handleSuccess}
               onEventAdded={onEventAdded}
               onEventUpdated={onEventUpdated}
@@ -105,10 +112,12 @@ export default function NewItemFormModal({
           )}
           {itemType === 'food' && (
             <SpecialModalForm
+              key={defaultDate ?? 'today'}
               isOpen={true}
               onClose={onClose}
               special={undefined}
               defaultType="food"
+              defaultDate={defaultDate}
               onSuccess={handleSuccess}
               onSpecialAdded={onSpecialAdded}
               onSpecialUpdated={onSpecialUpdated}
@@ -118,9 +127,11 @@ export default function NewItemFormModal({
           )}
           {itemType === 'drink' && (
             <DrinkSpecialModalForm
+              key={defaultDate ?? 'today'}
               isOpen={true}
               onClose={onClose}
               special={undefined}
+              defaultDate={defaultDate}
               onSuccess={handleSuccess}
               onDelete={onSpecialDeleted}
               embed
@@ -128,9 +139,11 @@ export default function NewItemFormModal({
           )}
           {itemType === 'announcement' && (
             <AnnouncementModalForm
+              key={defaultDate ?? 'today'}
               isOpen={true}
               onClose={onClose}
               announcement={undefined}
+              defaultDate={defaultDate}
               onSuccess={handleSuccess}
               onDelete={onAnnouncementDeleted}
               onAnnouncementAdded={onAnnouncementAdded}

@@ -21,17 +21,6 @@ export type NflTeam = {
   aliases?: string[];
 };
 
-export const NFL_DIVISIONS: NflDivision[] = [
-  'AFC West',
-  'AFC East',
-  'AFC North',
-  'AFC South',
-  'NFC East',
-  'NFC North',
-  'NFC South',
-  'NFC West',
-];
-
 export const NFL_TEAMS: NflTeam[] = [
   {
     name: 'Chiefs',
@@ -333,16 +322,6 @@ export function findNflTeam(name: string): NflTeam | undefined {
   return TEAM_LOOKUP.get(key);
 }
 
-export function nflTeamsByDivision(): {
-  division: NflDivision;
-  teams: NflTeam[];
-}[] {
-  return NFL_DIVISIONS.map((division) => ({
-    division,
-    teams: NFL_TEAMS.filter((team) => team.division === division),
-  }));
-}
-
 export type ColorSide = {
   background: string;
   foreground: string;
@@ -465,7 +444,7 @@ export function opponentColorSide(team: NflTeam): ColorSide {
     accent = team.primary;
   }
 
-  if (contrastRatio(accent, background) < 1.75) {
+  if (contrastRatio(accent, background) < 3) {
     accent = readableInk(background);
   }
 
