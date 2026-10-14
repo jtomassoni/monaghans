@@ -24,20 +24,26 @@ interface UploadResult {
   assets: Asset[];
 }
 
+type UploadPurpose = 'full_slide' | 'embedded' | 'content';
+
 interface SignageUploadModalProps {
   isOpen: boolean;
   onClose: () => void;
   onUploadComplete: (result: UploadResult) => void;
+  /** Controls validation floors — ads default to full_slide (16:9 TV). */
+  purpose?: UploadPurpose;
 }
 
 export default function SignageUploadModal({
   isOpen,
   onClose,
   onUploadComplete,
+  purpose = 'full_slide',
 }: SignageUploadModalProps) {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [dragActive, setDragActive] = useState(false);
+  const [lastError, setLastError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
@@ -48,10 +54,12 @@ export default function SignageUploadModal({
     const file = files[0];
     setUploading(true);
     setProgress(0);
+    setLastError(null);
 
     try {
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('purpose', purpose);
 
       const response = await fetch('/api/signage/uploads', {
         method: 'POST',
@@ -71,10 +79,9 @@ export default function SignageUploadModal({
       // after it processes the upload result
     } catch (error) {
       console.error('Upload error:', error);
-      showToast(
-        error instanceof Error ? error.message : 'Upload failed',
-        'error'
-      );
+      const message = error instanceof Error ? error.message : 'Upload failed';
+      setLastError(message);
+      showToast(message, 'error');
     } finally {
       setUploading(false);
       setProgress(0);
@@ -164,13 +171,24 @@ export default function SignageUploadModal({
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
                     Supports: PNG, JPG, JPEG, WEBP, GIF, PDF
                   </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 font-medium">
+                    {purpose === 'embedded'
+                      ? 'Embedded: 800 × 450 px (16:9). Minimum accepted: 640 × 360.'
+                      : 'Full slide / TV: 1920 × 1080 px (16:9). Minimum accepted: 1280 × 720.'}
+                  </p>
                   <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                    Max size: 10MB (images) or 20MB (PDFs)
+                    Landscape 16:9 only. No animated GIFs. Title/copy must be in the image. Max 10MB (images) / 20MB (PDFs).
                   </p>
                 </div>
               </div>
             )}
           </div>
+
+          {lastError && !uploading && (
+            <div className="mt-4 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-3 py-2 text-sm text-red-700 dark:text-red-300">
+              {lastError}
+            </div>
+          )}
 
           {uploading && (
             <div className="mt-4 text-sm text-gray-600 dark:text-gray-400 text-center">

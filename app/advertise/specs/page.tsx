@@ -1,5 +1,6 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
+import { EMBEDDED_AD_SPECS, FULL_SLIDE_AD_SPECS } from '@/lib/ad-creative-specs';
 
 export const metadata: Metadata = {
   title: 'Advertising Specifications | Monaghan\'s Dive Bar',
@@ -10,136 +11,108 @@ export default function AdvertiseSpecsPage() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black pt-16 pb-16 px-4">
       <div className="max-w-4xl mx-auto">
-        {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-bold mb-4 text-white">
             Advertising Specifications
           </h1>
           <p className="text-xl text-gray-300">
-            Technical requirements and design guidelines for your ad creative
+            Ads are image-based. Your artwork is the entire slide — including your title and offer.
           </p>
         </div>
 
-        {/* Image Specifications */}
+        {/* Pixel requirements front and center */}
+        <div className="bg-[var(--color-accent)]/15 border border-[var(--color-accent)]/50 rounded-lg p-8 mb-8">
+          <h2 className="text-2xl font-bold text-white mb-2">Required pixel sizes</h2>
+          <p className="text-gray-300 mb-6">
+            Design the full ad as a single image. We do not overlay a separate title on image ads —
+            put your brand name, prices, and CTA in the file.
+          </p>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div className="rounded-lg bg-black/40 border border-white/10 p-5">
+              <p className="text-sm uppercase tracking-wider text-gray-400 mb-1">
+                {FULL_SLIDE_AD_SPECS.label}
+              </p>
+              <p className="text-3xl font-bold text-white tabular-nums">
+                {FULL_SLIDE_AD_SPECS.width} × {FULL_SLIDE_AD_SPECS.height}
+              </p>
+              <p className="text-gray-400 mt-1">
+                pixels · {FULL_SLIDE_AD_SPECS.aspectLabel} landscape · fills the TV
+              </p>
+            </div>
+            <div className="rounded-lg bg-black/40 border border-white/10 p-5">
+              <p className="text-sm uppercase tracking-wider text-gray-400 mb-1">
+                {EMBEDDED_AD_SPECS.label}
+              </p>
+              <p className="text-3xl font-bold text-white tabular-nums">
+                {EMBEDDED_AD_SPECS.width} × {EMBEDDED_AD_SPECS.height}
+              </p>
+              <p className="text-gray-400 mt-1">
+                pixels · {EMBEDDED_AD_SPECS.aspectLabel} · corner / zone placement
+              </p>
+            </div>
+          </div>
+        </div>
+
         <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-8 mb-8">
-          <h2 className="text-2xl font-bold text-white mb-6">Image Specifications</h2>
+          <h2 className="text-2xl font-bold text-white mb-6">File requirements</h2>
           <div className="space-y-4 text-gray-300">
             <div>
-              <h3 className="text-lg font-semibold text-white mb-2">Supported Formats</h3>
+              <h3 className="text-lg font-semibold text-white mb-2">Formats</h3>
               <ul className="list-disc list-inside space-y-1 ml-4">
-                <li>PNG (recommended for transparency)</li>
+                <li>PNG (recommended)</li>
                 <li>JPG / JPEG</li>
                 <li>WebP</li>
-                <li>GIF (static images only)</li>
+                <li>GIF (static only)</li>
+                <li>PDF (converted to images, one slide per page)</li>
               </ul>
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-white mb-2">File Size Limits</h3>
+              <h3 className="text-lg font-semibold text-white mb-2">File size</h3>
               <ul className="list-disc list-inside space-y-1 ml-4">
-                <li>Images: Maximum 10MB</li>
-                <li>PDFs: Maximum 20MB (will be converted to images)</li>
+                <li>Images: max 10MB</li>
+                <li>PDFs: max 20MB</li>
               </ul>
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-white mb-2">Recommended Dimensions</h3>
-              <ul className="list-disc list-inside space-y-1 ml-4">
-                <li><strong>Full Slide:</strong> 1920 × 1080 pixels (16:9 aspect ratio)</li>
-                <li><strong>Embedded:</strong> 800 × 450 pixels (16:9 aspect ratio) or similar</li>
-                <li>We support any aspect ratio, but 16:9 is recommended for best results</li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-white mb-2">Image Quality</h3>
-              <ul className="list-disc list-inside space-y-1 ml-4">
-                <li>High resolution recommended (at least 72 DPI)</li>
-                <li>RGB color mode</li>
-                <li>Optimized file size for fast loading</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        {/* PDF Specifications */}
-        <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-8 mb-8">
-          <h2 className="text-2xl font-bold text-white mb-6">PDF Specifications</h2>
-          <div className="space-y-4 text-gray-300">
-            <p>
-              PDF files are automatically converted to images (one slide per page). Each page becomes a separate slide.
-            </p>
-            <div>
-              <h3 className="text-lg font-semibold text-white mb-2">Requirements</h3>
-              <ul className="list-disc list-inside space-y-1 ml-4">
-                <li>Maximum file size: 20MB</li>
-                <li>Each page should be designed as a standalone slide</li>
-                <li>Recommended page size: 1920 × 1080 pixels (16:9)</li>
-                <li>PDFs are converted to WebP format for optimal performance</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        {/* Design Guidelines */}
-        <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-8 mb-8">
-          <h2 className="text-2xl font-bold text-white mb-6">Design Guidelines</h2>
-          <div className="space-y-4 text-gray-300">
-            <div>
-              <h3 className="text-lg font-semibold text-white mb-2">Best Practices</h3>
-              <ul className="list-disc list-inside space-y-1 ml-4">
-                <li>Use high contrast text for readability</li>
-                <li>Keep text concise and impactful</li>
-                <li>Include your logo prominently</li>
-                <li>Use clear call-to-action (CTA)</li>
-                <li>Test readability at various distances</li>
-                <li>Avoid small text or fine details</li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-white mb-2">Color Considerations</h3>
-              <ul className="list-disc list-inside space-y-1 ml-4">
-                <li>Our displays use dark backgrounds, so light text works best</li>
-                <li>High contrast combinations are recommended</li>
-                <li>Avoid very light colors on light backgrounds</li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-white mb-2">Content Tips</h3>
-              <ul className="list-disc list-inside space-y-1 ml-4">
-                <li>Include your business name and contact information</li>
-                <li>Highlight key offers or promotions</li>
-                <li>Use compelling visuals that grab attention</li>
-                <li>Keep messaging simple and memorable</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        {/* Optional Features */}
-        <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-8 mb-8">
-          <h2 className="text-2xl font-bold text-white mb-6">Optional Features</h2>
-          <div className="space-y-4 text-gray-300">
-            <div>
-              <h3 className="text-lg font-semibold text-white mb-2">Click-Through URL</h3>
+              <h3 className="text-lg font-semibold text-white mb-2">Why exact pixels matter</h3>
               <p className="ml-4">
-                Full slide ads can include a clickable link that directs viewers to your website or landing page.
+                TVs are {FULL_SLIDE_AD_SPECS.aspectLabel}. Artwork that is not{' '}
+                {FULL_SLIDE_AD_SPECS.summary} will letterbox (black bars) or look soft when scaled.
+                Export at exactly {FULL_SLIDE_AD_SPECS.width}×{FULL_SLIDE_AD_SPECS.height} for full-slide ads.
               </p>
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-white mb-2">QR Code</h3>
-              <p className="ml-4">
-                We can automatically generate a QR code linking to your destination URL, making it easy for customers to visit your website on their mobile devices.
-              </p>
+              <h3 className="text-lg font-semibold text-white mb-2">Uploads we reject</h3>
+              <ul className="list-disc list-inside space-y-1 ml-4">
+                <li>
+                  Smaller than {FULL_SLIDE_AD_SPECS.minWidth}×{FULL_SLIDE_AD_SPECS.minHeight} (full slide)
+                  or {EMBEDDED_AD_SPECS.minWidth}×{EMBEDDED_AD_SPECS.minHeight} (embedded)
+                </li>
+                <li>Not landscape 16:9 (portrait, square, or ultrawide)</li>
+                <li>Animated GIFs / multi-frame images</li>
+                <li>Heavily over-compressed files that look mushy on a big screen</li>
+              </ul>
             </div>
           </div>
         </div>
 
-        {/* Examples Note */}
+        <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-8 mb-8">
+          <h2 className="text-2xl font-bold text-white mb-6">Design tips</h2>
+          <ul className="list-disc list-inside space-y-2 text-gray-300 ml-4">
+            <li>Bake logo, headline, offer, and contact into the image</li>
+            <li>High contrast — readable from across a bar</li>
+            <li>Avoid tiny type and fine detail</li>
+            <li>RGB color; keep important content away from the outer ~5% edge</li>
+            <li>Optional: we can add a QR code linking to your URL</li>
+          </ul>
+        </div>
+
         <div className="bg-[var(--color-accent)]/20 border border-[var(--color-accent)]/50 rounded-lg p-6 mb-8">
           <p className="text-white text-center">
-            <strong>Need help with design?</strong> We're happy to provide guidance or connect you with local designers who specialize in digital signage.
+            <strong>Need help with design?</strong> We can guide you or connect you with designers who know digital signage.
           </p>
         </div>
 
-        {/* Navigation */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Link
             href="/advertise"
@@ -161,4 +134,3 @@ export default function AdvertiseSpecsPage() {
     </main>
   );
 }
-

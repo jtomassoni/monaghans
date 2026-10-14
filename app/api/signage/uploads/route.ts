@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, mkdir, unlink } from 'fs/promises';
+import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { requireAuth, handleError, getCurrentUser } from '@/lib/api-helpers';
 import { prisma } from '@/lib/prisma';
 import { convertPdfToImages } from '@/lib/pdf-processor';
 import { createAssetFromUpload } from '@/lib/asset-processor';
+import {
+  parseSignageUploadPurpose,
+  SignageImageValidationError,
+  validateSignageImageFile,
+} from '@/lib/signage-image-validation';
 
 /**
  * POST /api/signage/uploads
@@ -24,6 +29,7 @@ export async function POST(req: NextRequest) {
 
     const formData = await req.formData();
     const file = formData.get('file') as File;
+    const purpose = parseSignageUploadPurpose(formData.get('purpose'));
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
@@ -62,7 +68,6 @@ export async function POST(req: NextRequest) {
     await mkdir(uploadDir, { recursive: true });
 
     // Save original file
-    const originalExtension = file.name.split('.').pop() || (isValidPdf ? 'pdf' : 'jpg');
     const originalFilename = file.name;
     const originalFilePath = join(uploadDir, originalFilename);
     const bytes = await file.arrayBuffer();
@@ -82,13 +87,36 @@ export async function POST(req: NextRequest) {
 
     const assets: Array<{ id: string; width: number; height: number; storageKey: string; kind: string }> = [];
 
+    const cleanupFailedUpload = async () => {
+      try {
+        await prisma.upload.delete({ where: { id: upload.id } });
+        const fs = await import('fs');
+        await fs.promises.rm(uploadDir, { recursive: true, force: true });
+      } catch (cleanupError) {
+        console.error('Error during cleanup:', cleanupError);
+      }
+    };
+
     try {
       if (isValidPdf) {
         // Convert PDF to images
         const pageImages = await convertPdfToImages(originalFilePath, uploadId);
 
-        // Create Asset for each page
+        if (pageImages.length === 0) {
+          throw new SignageImageValidationError(
+            'PDF produced no pages. Export a 16:9 page at the recommended pixel size.'
+          );
+        }
+
+        // Each page must meet the same TV fitness rules as a still image
         for (const pageImage of pageImages) {
+          const relativeKey = pageImage.storageKey.replace(/^\//, '');
+          const pagePath = join(process.cwd(), 'public', relativeKey);
+          await validateSignageImageFile(pagePath, {
+            purpose,
+            mimeType: 'image/webp',
+          });
+
           const asset = await createAssetFromUpload(
             upload.id,
             pageImage.storageKey,
@@ -98,9 +126,14 @@ export async function POST(req: NextRequest) {
           assets.push({ ...asset, kind: 'PDF_PAGE_IMAGE' });
         }
       } else {
-        // Create single Asset for image
+        const dimensions = await validateSignageImageFile(originalFilePath, {
+          purpose,
+          fileSizeBytes: file.size,
+          mimeType: file.type,
+        });
+
         const storageKey = `/uploads/${uploadId}/${originalFilename}`;
-        const asset = await createAssetFromUpload(upload.id, storageKey, 'IMAGE');
+        const asset = await createAssetFromUpload(upload.id, storageKey, 'IMAGE', dimensions);
         assets.push({ ...asset, kind: 'IMAGE' });
       }
 
@@ -119,14 +152,10 @@ export async function POST(req: NextRequest) {
         { status: 201 }
       );
     } catch (error) {
-      // Cleanup on error: delete upload record and files
-      try {
-        await prisma.upload.delete({ where: { id: upload.id } });
-        // Delete directory (simplified - in production you might want to delete files individually)
-        const fs = await import('fs');
-        await fs.promises.rm(uploadDir, { recursive: true, force: true });
-      } catch (cleanupError) {
-        console.error('Error during cleanup:', cleanupError);
+      await cleanupFailedUpload();
+
+      if (error instanceof SignageImageValidationError) {
+        return NextResponse.json({ error: error.message }, { status: 400 });
       }
 
       throw error;

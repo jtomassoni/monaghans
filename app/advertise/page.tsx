@@ -91,13 +91,20 @@ export default function AdvertisePage() {
           </div>
         </div>
 
-        {/* Technical Specs Link */}
-        <div className="text-center mb-8">
+        {/* Pixel requirements — image ads are the full creative */}
+        <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-6 mb-8 text-center">
+          <p className="text-sm uppercase tracking-wider text-gray-400 mb-2">Artwork requirements</p>
+          <p className="text-white text-lg mb-1">
+            Ads are full images — your title and offer go in the file.
+          </p>
+          <p className="text-2xl font-bold text-white tabular-nums mb-3">
+            Full slide: 1920 × 1080 px · Embedded: 800 × 450 px
+          </p>
           <Link
             href="/advertise/specs"
-            className="inline-flex items-center gap-2 text-[var(--color-accent)] hover:text-[var(--color-accent-dark)] transition-colors"
+            className="inline-flex items-center gap-2 text-[var(--color-accent)] hover:text-[var(--color-accent-dark)] transition-colors font-medium"
           >
-            View Technical Specifications
+            Full creative specs
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>

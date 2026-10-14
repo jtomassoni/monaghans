@@ -2,6 +2,8 @@
 
 import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { formatAdPixelRequirements } from '@/lib/ad-creative-specs';
 
 type AdType = 'FULL_SLIDE' | 'EMBEDDED' | null;
 
@@ -125,6 +127,15 @@ export default function AdvertiseLeadForm() {
           <option value="FULL_SLIDE">Full Slide Sponsor</option>
           <option value="EMBEDDED">Embedded Sponsor</option>
         </select>
+        {formData.adType && (
+          <p className="mt-2 text-sm text-gray-400">
+            Artwork: {formatAdPixelRequirements(formData.adType)}. Image ads are full-bleed —
+            include your title and offer in the file.{' '}
+            <Link href="/advertise/specs" className="text-[var(--color-accent)] hover:underline">
+              Specs
+            </Link>
+          </p>
+        )}
       </div>
 
       <div>

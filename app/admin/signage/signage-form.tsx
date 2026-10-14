@@ -886,7 +886,7 @@ export default function SignageForm({ initialConfig }: Props) {
                     </label>
                   </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400 pt-2 border-t border-gray-100 dark:border-gray-800">
-                    The image will be displayed full screen on the TV. The title is only used for organization in this admin panel.
+                    Full-screen on the TV — bake any title/copy into the image. Best at 1920 × 1080 px (16:9). The title field above is admin-only (not shown on TV).
                   </p>
                 </div>
               </div>
@@ -1328,7 +1328,7 @@ export default function SignageForm({ initialConfig }: Props) {
                           </>
                         </div>
                         <p className="text-xs text-gray-500 dark:text-gray-400 pt-2 border-t border-gray-100 dark:border-gray-800">
-                          The image will be displayed full screen on the TV. The title is only used for organization in this admin panel.
+                          Full-screen on the TV — bake any title/copy into the image. Best at 1920 × 1080 px (16:9). The title field is admin-only (not shown on TV).
                         </p>
                       </div>
                     </div>

@@ -5,6 +5,7 @@ import Modal from '@/components/modal';
 import { showToast } from '@/components/toast';
 import StatusToggle from '@/components/status-toggle';
 import SignageUploadModal from '@/components/signage-upload-modal';
+import { formatAdPixelRequirements } from '@/lib/ad-creative-specs';
 
 interface Asset {
   id: string;
@@ -204,6 +205,14 @@ export default function CreativeFormModal({
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Asset (Image) *
             </label>
+            <p className="mb-2 text-xs text-gray-500 dark:text-gray-400">
+              Image ads are full-bleed — bake title and offer into the artwork.
+              Target{' '}
+              {formatAdPixelRequirements(
+                selectedCampaign?.tier === 'EMBEDDED' ? 'EMBEDDED' : 'FULL_SLIDE'
+              )}
+              .
+            </p>
             {selectedAsset ? (
               <div className="space-y-2">
                 <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
@@ -354,6 +363,7 @@ export default function CreativeFormModal({
         isOpen={uploadModalOpen}
         onClose={() => setUploadModalOpen(false)}
         onUploadComplete={handleUploadComplete}
+        purpose={selectedCampaign?.tier === 'EMBEDDED' ? 'embedded' : 'full_slide'}
       />
     </>
   );
