@@ -436,7 +436,10 @@ export const BRONCOS_HELMET_SRC = '/pics/teams/helmets/DEN_L.png';
 
 export function opponentHelmetSrc(team: NflTeam): string | null {
   const abbr = HELMET_ABBR[team.name];
-  return abbr ? `/pics/teams/helmets/${abbr}_R.png` : null;
+  if (!abbr) return null;
+  // The Steelers mark is only on one side, so the right-side file is a blank shell.
+  const facing = team.name === 'Steelers' ? 'L' : 'R';
+  return `/pics/teams/helmets/${abbr}_${facing}.png`;
 }
 
 export function broncosColorSide(): ColorSide {

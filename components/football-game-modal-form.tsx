@@ -100,7 +100,7 @@ export default function FootballGameModalForm({
   const [loading, setLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [opponent, setOpponent] = useState('');
-  const [houseMeal, setHouseMeal] = useState('');
+  const [houseMeal, setHouseMeal] = useState('TBD');
   const [startDateTime, setStartDateTime] = useState(getDefaultKickoff);
   const [isActive, setIsActive] = useState(true);
 
@@ -115,7 +115,7 @@ export default function FootballGameModalForm({
     } else {
       const kickoff = getDefaultKickoff();
       setOpponent('');
-      setHouseMeal('');
+      setHouseMeal('TBD');
       setStartDateTime(kickoff);
       setIsActive(true);
     }
