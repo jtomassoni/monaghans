@@ -5,6 +5,7 @@ import { SlideContent } from '@/app/specials-tv/types';
 import AdSlideRenderer from './ad-slide-renderer';
 import ImageSlideRenderer from './image-slide-renderer';
 import TextSlideRenderer from './text-slide-renderer';
+import SindustryOsAdSlide from './sindustry-os-ad-slide';
 
 type SlideContentRendererProps = {
   slide: SlideContent;
@@ -45,6 +46,7 @@ export default function SlideContentRenderer({
   onDebugInfo,
 }: SlideContentRendererProps) {
   const isAdSlide = slide?.isAd === true;
+  const isSindustryAd = slide?.isSindustryAd === true || slide?.source === 'sindustry';
   const isWelcomeSlide = slide?.source === 'welcome';
   const isImageBasedSlide = (slide?.source === 'custom' || isWelcomeSlide) &&
     (slide?.slideType === 'image' || (slide?.items && slide.items.some(item => item.image)));
@@ -126,6 +128,14 @@ export default function SlideContentRenderer({
       slideSource: slide?.source,
       renderer: shouldRenderImage ? 'AdSlideRenderer' : 'TextSlideRenderer',
     });
+  }
+
+  if (isSindustryAd) {
+    return (
+      <div className="relative w-full h-full flex items-center justify-center">
+        <SindustryOsAdSlide />
+      </div>
+    );
   }
 
   return (

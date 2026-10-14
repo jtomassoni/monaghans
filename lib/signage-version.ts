@@ -6,10 +6,21 @@ import { prisma } from '@/lib/prisma';
  * so they never disagree and trigger a reload loop.
  */
 export async function getSignageVersionTimestamp(): Promise<number> {
-  const [signageConfig, latestSpecial, latestEvent, latestSlide, latestCampaign, latestCreative] =
-    await Promise.all([
+  const [
+    signageConfig,
+    featuresSetting,
+    latestSpecial,
+    latestEvent,
+    latestSlide,
+    latestCampaign,
+    latestCreative,
+  ] = await Promise.all([
       prisma.setting.findUnique({
         where: { key: 'signageConfig' },
+        select: { updatedAt: true },
+      }),
+      prisma.setting.findUnique({
+        where: { key: 'features' },
         select: { updatedAt: true },
       }),
       prisma.special.findFirst({
@@ -37,6 +48,7 @@ export async function getSignageVersionTimestamp(): Promise<number> {
 
   const timestamps = [
     signageConfig?.updatedAt,
+    featuresSetting?.updatedAt,
     latestSpecial?.updatedAt,
     latestEvent?.updatedAt,
     latestSlide?.updatedAt,

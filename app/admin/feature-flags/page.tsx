@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import FeatureFlagsClient from './feature-flags-client';
+import DigitalSignageSettings from '@/components/digital-signage-settings';
 
 export default async function FeatureFlagsPage() {
   const session = await getServerSession(authOptions);
@@ -40,10 +41,15 @@ export default async function FeatureFlagsPage() {
         </div>
       </div>
 
-      {/* Main Content - Scrollable */}
-      <div className="flex-1 overflow-hidden p-0 relative z-10">
-        <div className="h-full">
-          <FeatureFlagsClient />
+      {/* Main Content */}
+      <div className="flex-1 overflow-hidden p-4 relative z-10">
+        <div className="h-full max-w-5xl mx-auto flex flex-col gap-4 min-h-0">
+          <div className="flex-shrink-0">
+            <DigitalSignageSettings userRole={userRole} />
+          </div>
+          <div className="flex-1 min-h-0">
+            <FeatureFlagsClient />
+          </div>
         </div>
       </div>
     </div>

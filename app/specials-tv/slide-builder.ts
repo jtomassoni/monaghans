@@ -155,7 +155,6 @@ export function buildSlides(input: SlideBuilderInput): SlideContent[] {
         title: cleanText(input.happyHour?.title || 'Happy Hour', TEXT_LIMITS.title) || 'Happy Hour',
         subtitle: cleanText(input.happyHour?.times, TEXT_LIMITS.subtitle),
         body: cleanText(input.happyHour?.description, TEXT_LIMITS.body),
-        footer: `Ask about our food specials`,
         accent: 'gold',
         source: 'happyHour',
       };
@@ -170,7 +169,6 @@ export function buildSlides(input: SlideBuilderInput): SlideContent[] {
         title: cleanText(input.happyHour?.title || 'Happy Hour', TEXT_LIMITS.title) || 'Happy Hour',
         subtitle: cleanText(input.happyHour?.times, TEXT_LIMITS.subtitle),
         body: cleanText(input.happyHour?.description, TEXT_LIMITS.body),
-        footer: `Ask about our food specials`,
         accent: 'gold',
         source: 'happyHour',
       });
@@ -188,7 +186,6 @@ export function buildSlides(input: SlideBuilderInput): SlideContent[] {
         title: `Today's Drinks`,
         subtitle: cleanText(input.todayLabel, TEXT_LIMITS.subtitle),
         accent: 'gold',
-        footer: 'Ask about our food specials',
         source: 'drink',
       };
       const chunked = chunkIntoSlides(cleanedDrinks, baseSlide, sequence);

@@ -1,6 +1,6 @@
 // Slide model for the TV-only signage experience.
 // This is intentionally isolated from admin UI components to keep concerns separate.
-export type SlideSource = 'welcome' | 'happyHour' | 'food' | 'drink' | 'events' | 'custom' | 'fallback';
+export type SlideSource = 'welcome' | 'happyHour' | 'food' | 'drink' | 'events' | 'custom' | 'fallback' | 'sindustry';
 
 export type SlideItem = {
   title: string;
@@ -43,6 +43,7 @@ export type SlideContent = {
     };
   };
   isAd?: boolean; // Flag to indicate this is an ad slide
+  isSindustryAd?: boolean; // Built-in Sindustry OS platform ad (admin billing toggle)
   isContentSlide?: boolean; // Flag to indicate this is a CONTENT slide (image-based)
   slideType?: 'text' | 'image'; // 'text' for text-based slides, 'image' for image-based slides
   showBorder?: boolean; // For image slides: show border with accent color (default: true for backward compatibility)

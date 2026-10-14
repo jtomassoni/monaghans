@@ -1,6 +1,7 @@
 import { SlideContent } from '@/app/specials-tv/types';
 import { buildSlides, SlideBuilderInput } from '@/app/specials-tv/slide-builder';
 import { prisma } from './prisma';
+import { createSindustryOsAdSlide } from './sindustry-os-ad';
 
 export type AdCreativeWithAsset = {
   id: string;
@@ -114,17 +115,35 @@ export async function buildSignagePlaylistWithAds(
   // Combine base slides with content slides
   let allContentSlides = [...baseSlides, ...contentSlideContents];
 
-  // If ads are enabled, fetch and insert FULL_SLIDE ads
+  // If ads are enabled, insert platform + local FULL_SLIDE ads
   let finalSlides: SlideContent[] = allContentSlides;
   if (options.includeAds) {
-    // Fetch active FULL_SLIDE ad campaigns and creatives
+    const adsPerContent = options.adsPerContentSlide ?? 4;
+
+    // Platform inventory: Sindustry OS promo (admin billing toggle)
+    const adSlides: SlideContent[] = [createSindustryOsAdSlide()];
+
+    // Local sponsorship FULL_SLIDE campaigns (if any)
     const fullSlideAds = await fetchActiveFullSlideAds(now);
-    
-    if (fullSlideAds.length > 0) {
-      // Insert ads every N content slides (default 4)
-      const adsPerContent = options.adsPerContentSlide ?? 4;
-      finalSlides = insertFullSlideAds(allContentSlides, fullSlideAds, adsPerContent);
+    for (const ad of fullSlideAds) {
+      adSlides.push({
+        id: ad.id,
+        label: 'Advertisement',
+        title: '',
+        subtitle: undefined,
+        body: undefined,
+        items: undefined,
+        accent: 'accent',
+        footer: undefined,
+        source: 'custom',
+        sequence: 0,
+        asset: ad.asset,
+        adCreative: ad.creative,
+        isAd: true,
+      });
     }
+
+    finalSlides = insertAdSlides(allContentSlides, adSlides, adsPerContent);
 
     // Fetch embedded ads for AdZone component
     const embeddedAdCreatives = await fetchActiveEmbeddedAds(now);
@@ -277,24 +296,15 @@ async function fetchActiveEmbeddedAds(now: Date): Promise<AdCreativeWithAsset[]>
 }
 
 /**
- * Insert FULL_SLIDE ads into content slides
- * Uses weight-based selection for ad variety
+ * Insert ad slides into content slides every N content slides.
+ * Rotates through the ad pool (platform + local sponsorship).
  */
-function insertFullSlideAds(
+function insertAdSlides(
   contentSlides: SlideContent[],
-  ads: FullSlideAd[],
+  ads: SlideContent[],
   adsPerContent: number
 ): SlideContent[] {
   if (ads.length === 0) return contentSlides;
-
-  // Build weighted ad pool
-  const weightedAds: FullSlideAd[] = [];
-  // For now, we'll use equal weight (can be enhanced with campaign weights later)
-  for (const ad of ads) {
-    weightedAds.push(ad);
-  }
-
-  if (weightedAds.length === 0) return contentSlides;
 
   const result: SlideContent[] = [];
   let adIndex = 0;
@@ -304,29 +314,23 @@ function insertFullSlideAds(
 
     // Insert ad every N content slides (but not at the very start or end)
     if ((i + 1) % adsPerContent === 0 && i < contentSlides.length - 1) {
-      const ad = weightedAds[adIndex % weightedAds.length];
+      const ad = ads[adIndex % ads.length];
       adIndex++;
-
-      // Convert ad to SlideContent format
-      const adSlide: SlideContent = {
-        id: ad.id,
-        label: 'Advertisement',
-        title: '',
-        subtitle: undefined,
-        body: undefined,
-        items: undefined,
-        accent: 'accent',
-        footer: undefined,
-        source: 'custom', // Use 'custom' source for ads
+      result.push({
+        ...ad,
+        id: `${ad.id}-${adIndex}`,
         sequence: result.length + 1,
-        // Add asset and creative info for rendering
-        asset: ad.asset,
-        adCreative: ad.creative,
-        isAd: true,
-      };
-
-      result.push(adSlide);
+      });
     }
+  }
+
+  // If the playlist is short, still show at least one platform/local ad
+  if (result.length === contentSlides.length && contentSlides.length > 0) {
+    result.push({
+      ...ads[0],
+      id: `${ads[0].id}-tail`,
+      sequence: result.length + 1,
+    });
   }
 
   return result;

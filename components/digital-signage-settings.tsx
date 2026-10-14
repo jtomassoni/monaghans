@@ -167,35 +167,42 @@ export default function DigitalSignageSettings({ userRole }: DigitalSignageSetti
           />
         </div>
 
-        {/* Ads Enabled Toggle (Admin Only) */}
+        {/* Sindustry OS Ads (Admin Only — billing / ad-free package) */}
         <div className={`flex items-center justify-between py-4 ${!digitalSignageEnabled ? 'opacity-75' : ''}`}>
           <div className="flex-1">
             <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-1">
-              Ads Enabled (Billing)
+              Sindustry OS Ads
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-              Enable advertising features for billing purposes. When enabled, ads will appear in the signage rotation.
+              When on, a Sindustry OS promo slides into the TV rotation (base digital signage package — other bar owners may see it). Turn off for venues on the ad-free package (~$100/mo).
             </p>
-            {/* Show dependency requirement */}
             <div className={`flex items-start gap-2 px-3 py-2 rounded-md border ${
               !digitalSignageEnabled
                 ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
-                : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
+                : adsEnabled
+                  ? 'bg-cyan-50 dark:bg-cyan-900/20 border-cyan-200 dark:border-cyan-800'
+                  : 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800'
             }`}>
               <FaInfoCircle className={`w-4 h-4 mt-0.5 flex-shrink-0 ${
                 !digitalSignageEnabled
                   ? 'text-amber-600 dark:text-amber-400'
-                  : 'text-blue-600 dark:text-blue-400'
+                  : adsEnabled
+                    ? 'text-cyan-600 dark:text-cyan-400'
+                    : 'text-emerald-600 dark:text-emerald-400'
               }`} />
               <div className="flex-1 min-w-0">
                 <span className={`text-xs font-medium ${
                   !digitalSignageEnabled
                     ? 'text-amber-700 dark:text-amber-300'
-                    : 'text-blue-700 dark:text-blue-300'
+                    : adsEnabled
+                      ? 'text-cyan-700 dark:text-cyan-300'
+                      : 'text-emerald-700 dark:text-emerald-300'
                 }`}>
-                  {!digitalSignageEnabled 
-                    ? '⚠️ Requires: Signage Display Active must be enabled first'
-                    : 'Requires: Signage Display Active'}
+                  {!digitalSignageEnabled
+                    ? 'Requires: Signage Display Active must be enabled first'
+                    : adsEnabled
+                      ? 'Package: Digital signage with Sindustry ads'
+                      : 'Package: Ad-free (ads disabled for this venue)'}
                 </span>
               </div>
             </div>
