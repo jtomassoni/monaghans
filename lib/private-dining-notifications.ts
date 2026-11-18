@@ -1,5 +1,6 @@
 import type { Attachment } from 'resend';
 import { Resend } from 'resend';
+import { emailLoginUrl } from '@/lib/email-login-link';
 import { IntegrationConfigError } from '@/lib/integration-config-error';
 import { prisma } from '@/lib/prisma';
 
@@ -248,6 +249,15 @@ export type StaffRecipientRow = {
   active: boolean;
   /** ISO string or null — from Resend open tracking webhook (pending only meaningful before verify). */
   verificationEmailOpenedAt: string | null;
+  loginUserId: string | null;
+  loginUserLabel: string | null;
+};
+
+export type LoginUserOption = {
+  id: string;
+  name: string | null;
+  email: string;
+  role: string;
 };
 
 /**
@@ -284,6 +294,7 @@ export async function listStaffRecipientsForAdmin(): Promise<StaffRecipientRow[]
   await migrateLegacyNotificationRecipientsIfNeeded();
   const rows = await prisma.privateDiningNotificationRecipient.findMany({
     orderBy: { email: 'asc' },
+    include: { user: { select: { id: true, name: true, email: true, role: true, isActive: true } } },
   });
   return rows.map((r) => ({
     email: r.email,
@@ -292,7 +303,22 @@ export async function listStaffRecipientsForAdmin(): Promise<StaffRecipientRow[]
     verificationEmailOpenedAt: r.verificationEmailOpenedAt
       ? r.verificationEmailOpenedAt.toISOString()
       : null,
+    loginUserId: r.user?.isActive ? r.user.id : null,
+    loginUserLabel: r.user?.isActive ? loginUserLabel(r.user) : null,
   }));
+}
+
+export async function listLoginUsers(): Promise<LoginUserOption[]> {
+  return prisma.user.findMany({
+    where: { isActive: true, role: { in: ['admin', 'owner'] } },
+    select: { id: true, name: true, email: true, role: true },
+    orderBy: [{ role: 'asc' }, { name: 'asc' }],
+  });
+}
+
+function loginUserLabel(user: { name: string | null; email: string; role: string }): string {
+  const name = user.name?.trim() || user.email;
+  return `${name} (${user.role})`;
 }
 
 /** Tags let Resend webhooks (e.g. email.opened) match this row — name must be ASCII [a-zA-Z0-9_-]. */
@@ -414,7 +440,9 @@ async function sendStaffVerificationEmail(email: string, recipientRowId: string)
 /** After verification — no customer PII; drives staff to the admin app. */
 async function sendStaffWelcomeEmail(email: string): Promise<void> {
   const siteBase = getSiteBase();
-  const leadsSectionUrl = siteBase ? `${siteBase}/admin/private-dining-leads` : '';
+  const plainLeadsUrl = siteBase ? `${siteBase}/admin/private-dining-leads` : '';
+  const mappedUserId = await loginUserIdForEmail(email);
+  const leadsSectionUrl = (mappedUserId && emailLoginUrl(mappedUserId, '/admin/private-dining-leads')) || plainLeadsUrl;
 
   const textLines = [
     "You're verified to receive private dining lead notifications at Monaghan's.",
@@ -437,7 +465,8 @@ async function sendStaffWelcomeEmail(email: string): Promise<void> {
             </a>
           </td></tr></table>
           <p style="margin:0;font-size:13px;color:#6b7280;">
-            Sign in to the dashboard if prompted. Customer contact information is not included in email alerts.
+            ${mappedUserId ? 'This button signs you in.' : 'Sign in to the dashboard if prompted.'}
+            Customer contact information is not included in email alerts.
           </p>`
         : '<p style="margin:0;color:#b45309;">Ask an admin to set NEXTAUTH_URL so links work.</p>'
     }
@@ -518,6 +547,39 @@ export async function syncStaffRecipientsFromDesiredList(desiredEmails: string[]
   return listStaffRecipientsForAdmin();
 }
 
+export async function updateStaffRecipientUser(
+  rawEmail: string,
+  userId: string | null
+): Promise<StaffRecipientRow[] | 'invalid-user' | null> {
+  await migrateLegacyNotificationRecipientsIfNeeded();
+  const email = normalizeEmailList([rawEmail])[0];
+  if (!email) return null;
+  const existing = await prisma.privateDiningNotificationRecipient.findUnique({ where: { email } });
+  if (!existing) return null;
+  if (userId) {
+    const user = await prisma.user.findFirst({
+      where: { id: userId, isActive: true, role: { in: ['admin', 'owner'] } },
+      select: { id: true },
+    });
+    if (!user) return 'invalid-user';
+  }
+  await prisma.privateDiningNotificationRecipient.update({
+    where: { email },
+    data: { userId },
+  });
+  return listStaffRecipientsForAdmin();
+}
+
+async function loginUserIdForEmail(email: string): Promise<string | null> {
+  const row = await prisma.privateDiningNotificationRecipient.findUnique({
+    where: { email },
+    select: { user: { select: { id: true, isActive: true, role: true } } },
+  });
+  const user = row?.user;
+  if (!user?.isActive || (user.role !== 'admin' && user.role !== 'owner')) return null;
+  return user.id;
+}
+
 export async function getVerifiedStaffNotificationEmails(): Promise<string[]> {
   await migrateLegacyNotificationRecipientsIfNeeded();
   const rows = await prisma.privateDiningNotificationRecipient.findMany({
@@ -576,7 +638,7 @@ export type PrivateDiningLeadEmailPayload = {
  * Subject, plain-text body, and inner HTML fragment (before Monaghan's branded wrapper).
  * Single source of truth for staff lead notification emails.
  */
-export function composeStaffLeadNotificationEmail(lead: PrivateDiningLeadEmailPayload): {
+export function composeStaffLeadNotificationEmail(lead: PrivateDiningLeadEmailPayload, openUrl?: string | null): {
   subject: string;
   textBody: string;
   innerHtmlFragment: string;
@@ -589,7 +651,7 @@ export function composeStaffLeadNotificationEmail(lead: PrivateDiningLeadEmailPa
   });
 
   const siteBase = getSiteBase();
-  const adminLeadUrl = siteBase ? `${siteBase}/admin/private-dining-leads/${lead.id}` : '';
+  const adminLeadUrl = openUrl || (siteBase ? `${siteBase}/admin/private-dining-leads/${lead.id}` : '');
   const messageText = lead.message?.trim() || '(No message provided)';
   const dateForSubject = lead.preferredDate.toLocaleDateString('en-US', {
     month: 'short',
@@ -636,7 +698,10 @@ export function composeStaffLeadNotificationEmail(lead: PrivateDiningLeadEmailPa
               Open in admin
             </a>
           </td></tr></table>
-          <p style="margin:0;font-size:12px;color:#6b7280;word-break:break-all;line-height:1.45;">${escapeHtml(adminLeadUrl)}</p>`
+          ${openUrl ? '' : `<p style="margin:0;font-size:12px;color:#6b7280;word-break:break-all;line-height:1.45;">${escapeHtml(adminLeadUrl)}</p>`}
+          <p style="margin:8px 0 0;font-size:13px;color:#6b7280;">
+            ${openUrl ? 'This button signs you in as the person mapped to this email address.' : 'Sign in to the dashboard if prompted.'}
+          </p>`
         : '<p style="margin:0;color:#b45309;">Configure NEXTAUTH_URL so the admin link works.</p>'
     }
     <p style="margin:20px 0 0;font-size:13px;color:#6b7280;">
@@ -696,26 +761,28 @@ export async function sendPrivateDiningLeadNotification(lead: PrivateDiningLeadE
     return;
   }
 
-  const { subject, textBody, innerHtmlFragment } = composeStaffLeadNotificationEmail(lead);
-  const { html, attachments } = buildBrandedPrivateDiningEmail(innerHtmlFragment);
-
   const replyTo = getResendReplyTo();
-  try {
-    const { error } = await cfg.resend.emails.send({
-      from: cfg.from,
-      to: recipients,
-      subject,
-      text: textBody,
-      html,
-      ...(replyTo ? { replyTo } : {}),
-      ...(attachments.length > 0 ? { attachments } : {}),
-    });
-
-    if (error) {
-      console.error('[private-dining] Resend error:', error);
+  for (const email of recipients) {
+    const mappedUserId = await loginUserIdForEmail(email);
+    const loginUrl = mappedUserId
+      ? emailLoginUrl(mappedUserId, `/admin/private-dining-leads/${lead.id}`)
+      : null;
+    const { subject, textBody, innerHtmlFragment } = composeStaffLeadNotificationEmail(lead, loginUrl);
+    const { html, attachments } = buildBrandedPrivateDiningEmail(innerHtmlFragment);
+    try {
+      const { error } = await cfg.resend.emails.send({
+        from: cfg.from,
+        to: [email],
+        subject,
+        text: textBody,
+        html,
+        ...(replyTo ? { replyTo } : {}),
+        ...(attachments.length > 0 ? { attachments } : {}),
+      });
+      if (error) console.error('[private-dining] Resend error:', error);
+    } catch (err) {
+      console.error('[private-dining] Failed to send notification email:', err);
     }
-  } catch (err) {
-    console.error('[private-dining] Failed to send notification email:', err);
   }
 }
 

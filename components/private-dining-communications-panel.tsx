@@ -27,11 +27,21 @@ type Recipient = {
   status: 'verified' | 'pending';
   active: boolean;
   verificationEmailOpenedAt: string | null;
+  loginUserId: string | null;
+  loginUserLabel: string | null;
+};
+
+type LoginUser = {
+  id: string;
+  name: string | null;
+  email: string;
+  role: string;
 };
 
 type LoadState = {
   emails: string[];
   recipients: Recipient[];
+  users?: LoginUser[];
   resendConfigured: boolean;
   verificationEmailSubject?: string;
 };
@@ -40,6 +50,8 @@ export default function PrivateDiningCommunicationsPanel() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [recipients, setRecipients] = useState<Recipient[]>([]);
+  const [users, setUsers] = useState<LoginUser[]>([]);
+  const [mappingEmail, setMappingEmail] = useState<string | null>(null);
   const [resendConfigured, setResendConfigured] = useState(false);
   const [togglingEmail, setTogglingEmail] = useState<string | null>(null);
   const [removingEmail, setRemovingEmail] = useState<string | null>(null);
@@ -58,6 +70,7 @@ export default function PrivateDiningCommunicationsPanel() {
         throw new Error(apiErrorMessage(data, 'Failed to load', res.status));
       }
       setRecipients(data.recipients);
+      setUsers(data.users || []);
       setResendConfigured(data.resendConfigured);
       if (data.verificationEmailSubject) {
         setVerificationEmailSubject(data.verificationEmailSubject);
@@ -75,6 +88,7 @@ export default function PrivateDiningCommunicationsPanel() {
 
   const applyLoadState = (data: LoadState) => {
     setRecipients(data.recipients);
+    setUsers(data.users || []);
     setResendConfigured(data.resendConfigured);
     if (data.verificationEmailSubject) {
       setVerificationEmailSubject(data.verificationEmailSubject);
@@ -175,6 +189,27 @@ export default function PrivateDiningCommunicationsPanel() {
     }
   };
 
+  const mapUser = async (email: string, userId: string) => {
+    setMappingEmail(email);
+    try {
+      const res = await fetch('/api/admin/private-dining-notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, userId: userId || null }),
+      });
+      const data = (await res.json()) as LoadState & { error?: string; details?: string };
+      if (!res.ok) {
+        throw new Error(apiErrorMessage(data, 'Failed to map the user', res.status));
+      }
+      applyLoadState(data);
+      showToast(userId ? 'Email mapped to a user' : 'Email left unmapped', 'success');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Failed to map the user', 'error');
+    } finally {
+      setMappingEmail(null);
+    }
+  };
+
   return (
     <div className="rounded-xl border border-amber-200/80 bg-white/90 p-4 shadow-sm dark:border-amber-900/40 dark:bg-gray-800/90">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -257,6 +292,7 @@ export default function PrivateDiningCommunicationsPanel() {
         <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
           New recipients get a one-time notice email. Subject line:{' '}
           <span className="font-medium text-gray-600 dark:text-gray-300">{verificationEmailSubject}</span>
+          {' '}Map an address to a user when that person should be signed in from the inquiry email. Unmapped addresses still get the email and sign in with a password.
         </p>
       </div>
 
@@ -324,6 +360,23 @@ export default function PrivateDiningCommunicationsPanel() {
                         </span>
                       )}
                     </div>
+                    <label className="mt-2 block text-xs text-gray-500 dark:text-gray-400">
+                      Signs in as
+                      <select
+                        aria-label={`User for ${r.email}`}
+                        value={r.loginUserId || ''}
+                        disabled={mappingEmail === r.email || removingEmail === r.email}
+                        onChange={(event) => void mapUser(r.email, event.target.value)}
+                        className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-950 dark:text-white"
+                      >
+                        <option value="">Unmapped</option>
+                        {users.map((user) => (
+                          <option key={user.id} value={user.id}>
+                            {(user.name || user.email)} ({user.role})
+                          </option>
+                        ))}
+                      </select>
+                    </label>
                   </td>
                   <td className="px-3 py-2.5 align-middle">
                     <label className="inline-flex w-full cursor-pointer items-center justify-center gap-2">

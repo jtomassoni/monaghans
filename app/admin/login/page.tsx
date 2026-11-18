@@ -1,11 +1,20 @@
 'use client';
 
 import { signIn } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
-import { useState, FormEvent } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, FormEvent, Suspense } from 'react';
 
 export default function AdminLogin() {
+  return (
+    <Suspense>
+      <AdminLoginForm />
+    </Suspense>
+  );
+}
+
+function AdminLoginForm() {
   const router = useRouter();
+  const linkExpired = useSearchParams().get('error') === 'link';
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -69,7 +78,10 @@ export default function AdminLogin() {
               className="w-full px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-gray-900 dark:text-white"
             />
           </div>
-          {error && <p className="text-red-500">{error}</p>}
+          {linkExpired && (
+          <p className="text-amber-700 dark:text-amber-300">This email link is invalid or expired. Sign in with your password.</p>
+        )}
+        {error && <p className="text-red-500">{error}</p>}
           <button
             type="submit"
             disabled={loading}

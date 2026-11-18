@@ -6,12 +6,14 @@ import { prisma } from '@/lib/prisma';
 import { handleError, getCurrentUser, logActivity } from '@/lib/api-helpers';
 import {
   assertResendFromEnvIfConfigured,
+  listLoginUsers,
   listStaffRecipientsForAdmin,
   migrateLegacyNotificationRecipientsIfNeeded,
   normalizeEmailList,
   STAFF_VERIFICATION_EMAIL_SUBJECT,
   syncStaffRecipientsFromDesiredList,
   updateStaffRecipientActive,
+  updateStaffRecipientUser,
 } from '@/lib/private-dining-notifications';
 
 async function requireAdminAccess(_req: NextRequest) {
@@ -26,14 +28,16 @@ async function requireAdminAccess(_req: NextRequest) {
   return { session, permissions };
 }
 
-function jsonResponse(recipients: Awaited<ReturnType<typeof listStaffRecipientsForAdmin>>) {
+async function jsonResponse(recipients: Awaited<ReturnType<typeof listStaffRecipientsForAdmin>>) {
   const resendConfigured = Boolean(
     process.env.RESEND_API_KEY?.trim() && process.env.RESEND_FROM?.trim()
   );
   const emails = recipients.map((r) => r.email);
+  const users = await listLoginUsers();
   return NextResponse.json({
     recipients,
     emails,
+    users,
     resendConfigured,
     verificationEmailSubject: STAFF_VERIFICATION_EMAIL_SUBJECT,
   });
@@ -50,7 +54,7 @@ export async function GET(_req: NextRequest) {
     assertResendFromEnvIfConfigured();
     await migrateLegacyNotificationRecipientsIfNeeded();
     const recipients = await listStaffRecipientsForAdmin();
-    return jsonResponse(recipients);
+    return await jsonResponse(recipients);
   } catch (error) {
     return handleError(error, 'Failed to load notification settings');
   }
@@ -97,7 +101,7 @@ export async function PUT(req: NextRequest) {
       'Updated private dining notification recipients'
     );
 
-    return jsonResponse(recipients);
+    return await jsonResponse(recipients);
   } catch (error) {
     return handleError(error, 'Failed to save notification settings');
   }
@@ -120,6 +124,30 @@ export async function PATCH(req: NextRequest) {
 
     const body = await req.json();
     const email = typeof body.email === 'string' ? body.email : '';
+
+    if ('userId' in body) {
+      const userId = body.userId === null || body.userId === '' ? null : String(body.userId);
+      const updated = await updateStaffRecipientUser(email, userId);
+      if (updated === 'invalid-user') {
+        return NextResponse.json({ error: 'Choose an active admin or owner.' }, { status: 400 });
+      }
+      if (!updated) {
+        return NextResponse.json({ error: 'Recipient not found' }, { status: 404 });
+      }
+      await logActivity(
+        user.id,
+        'update',
+        'setting',
+        'private-dining-notifications',
+        'Private dining notification recipients',
+        undefined,
+        userId
+          ? `Mapped ${email.trim()} to a user for email sign-in`
+          : `Cleared the email sign-in user for ${email.trim()}`
+      );
+      return await jsonResponse(updated);
+    }
+
     const active = Boolean(body.active);
 
     const updated = await updateStaffRecipientActive(email, active);
@@ -142,7 +170,7 @@ export async function PATCH(req: NextRequest) {
       `Set private dining email alerts ${active ? 'on' : 'off'} for ${email.trim()}`
     );
 
-    return jsonResponse(updated);
+    return await jsonResponse(updated);
   } catch (error) {
     return handleError(error, 'Failed to update recipient');
   }
@@ -193,7 +221,7 @@ export async function DELETE(req: NextRequest) {
 
     await migrateLegacyNotificationRecipientsIfNeeded();
     const recipients = await listStaffRecipientsForAdmin();
-    return jsonResponse(recipients);
+    return await jsonResponse(recipients);
   } catch (error) {
     return handleError(error, 'Failed to remove recipient');
   }

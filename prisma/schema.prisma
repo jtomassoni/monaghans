@@ -161,6 +161,7 @@ model User {
   activities                  ActivityLog[]
   uploads                     Upload[] // Digital signage uploads
   privateDiningLeadAcknowledgments PrivateDiningLeadAcknowledgment[]
+  privateDiningNotificationRecipients PrivateDiningNotificationRecipient[]
 }
 
 model ActivityLog {
@@ -725,11 +726,14 @@ model PrivateDiningNotificationRecipient {
   verificationEmailOpenedAt  DateTime?
   verificationToken          String?   @unique
   verificationExpiresAt      DateTime?
+  userId                     String?
+  user                       User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
   createdAt                  DateTime  @default(now())
   updatedAt                  DateTime  @updatedAt
 
   @@index([verifiedAt])
   @@index([active])
+  @@index([userId])
 }
 
 // Digital Signage Ads Models
