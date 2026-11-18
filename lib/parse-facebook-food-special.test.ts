@@ -46,8 +46,16 @@ describe('parseFacebookFoodSpecial', () => {
     );
     assert.ok(parsed);
     assert.equal(parsed.title, 'Smothered carnitas chimichanga');
-    assert.equal(parsed.priceNotes, null);
+    assert.equal(parsed.priceNotes, '$14');
     assert.match(parsed.description || '', /Susan behind the bar/);
+  });
+
+  it('keeps a stated Taco Tuesday price and does not use the usual $14', () => {
+    const priced = parseFacebookFoodSpecial('Taco Tuesday! $2 tacos all day.');
+    assert.equal(priced?.priceNotes, '$2');
+    const unpriced = parseFacebookFoodSpecial('Taco Tuesday. Come in for tacos.');
+    assert.ok(unpriced);
+    assert.equal(unpriced.priceNotes, null);
   });
 
   it('ignores a food mention that is not offered as a special', () => {

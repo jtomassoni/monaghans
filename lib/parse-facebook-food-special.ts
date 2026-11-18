@@ -23,6 +23,8 @@ const SKIP_POST =
   /\b(now hiring|we(?:'re| are) hiring|help wanted|we(?:'re| are) closed|closed today|trivia|karaoke|live music|band tonight|happy birthday)\b/i;
 
 const PRICE = /\$\s?\d+(?:\.\d{1,2})?/;
+const TACO_TUESDAY = /\btaco tuesday\b/i;
+const USUAL_PRICE = '$14';
 
 const GENERIC_TITLE =
   /^(today|tonight|tomorrow|special|specials|lunch|dinner|food|daily|all day|available|now|here|this)[.!]*$/i;
@@ -35,14 +37,16 @@ export function parseFacebookFoodSpecial(message: string | null | undefined): Pa
   const hasSpecial = SPECIAL_LABEL.test(text);
   const hasFood = FOOD_WORD.test(text);
   const hasPrice = PRICE.test(text);
-  const drinkOnly = DRINK_WORD.test(text) && !hasFood;
+  const tacoTuesday = TACO_TUESDAY.test(text);
+  const drinkOnly = DRINK_WORD.test(text) && !hasFood && !tacoTuesday;
 
   if (SKIP_POST.test(text) && !hasSpecial) return null;
   if (drinkOnly) return null;
-  if (!hasSpecial && !(hasFood && hasPrice)) return null;
+  if (!hasSpecial && !tacoTuesday && !(hasFood && hasPrice)) return null;
 
   const priceMatch = text.match(PRICE);
-  const priceNotes = priceMatch ? priceMatch[0].replace(/\s+/g, '') : null;
+  const statedPrice = priceMatch ? priceMatch[0].replace(/\s+/g, '') : null;
+  const priceNotes = statedPrice || (tacoTuesday ? null : USUAL_PRICE);
 
   const labelMatch = text.match(SPECIAL_LABEL);
   let body = labelMatch ? text.slice(labelMatch.index! + labelMatch[0].length).trim() : text;
