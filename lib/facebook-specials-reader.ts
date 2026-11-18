@@ -1,7 +1,9 @@
 import { prisma } from '@/lib/prisma';
-import { facebookPageTarget, type PublicFacebookPost } from '@/lib/facebook-public-page';
+import { facebookPageTarget, normalizeVisitorCookie, type PublicFacebookPost } from '@/lib/facebook-public-page';
+import { fetchVisitorFacebookPosts } from '@/lib/facebook-visitor';
 
 const READER_KEY = 'facebook_specials_reader';
+const VISITOR_KEY = 'facebook_visitor_session';
 const GRAPH = 'https://graph.facebook.com/v18.0';
 
 export interface SpecialsReader {
@@ -75,7 +77,41 @@ export async function loadSpecialsReader(): Promise<SpecialsReader | null> {
 }
 
 export async function clearSpecialsReader(): Promise<void> {
-  await prisma.setting.deleteMany({ where: { key: READER_KEY } });
+  await prisma.setting.deleteMany({ where: { key: { in: [READER_KEY, VISITOR_KEY] } } });
+}
+
+export async function loadVisitorLogin(): Promise<{ savedAt: string } | null> {
+  const saved = await readVisitorSession();
+  return saved ? { savedAt: saved.savedAt } : null;
+}
+
+export async function saveVisitorLogin(rawCookie: string): Promise<boolean> {
+  const cookie = normalizeVisitorCookie(rawCookie);
+  if (!cookie) return false;
+  const value = JSON.stringify({ cookie, savedAt: new Date().toISOString() });
+  await prisma.setting.upsert({
+    where: { key: VISITOR_KEY },
+    update: { value, description: 'Normal Facebook login used to read the specials page' },
+    create: {
+      key: VISITOR_KEY,
+      value,
+      description: 'Normal Facebook login used to read the specials page',
+    },
+  });
+  return true;
+}
+
+async function readVisitorSession(): Promise<{ cookie: string; savedAt: string } | null> {
+  const setting = await prisma.setting.findUnique({ where: { key: VISITOR_KEY } });
+  if (!setting?.value) return null;
+  try {
+    const parsed = JSON.parse(setting.value) as { cookie?: unknown; savedAt?: unknown };
+    if (typeof parsed.cookie !== 'string' || typeof parsed.savedAt !== 'string') return null;
+    if (!normalizeVisitorCookie(parsed.cookie)) return null;
+    return { cookie: parsed.cookie, savedAt: parsed.savedAt };
+  } catch {
+    return null;
+  }
 }
 
 export async function finishSpecialsFacebookLogin(input: {
@@ -171,44 +207,18 @@ export async function readSpecialsPage(pageUrl: string, limits?: { posts?: numbe
   | { ok: true; posts: PublicFacebookPost[]; storiesNote: string | null }
   | { ok: false; reason: string }
 > {
-  const reader = await loadSpecialsReader();
-  if (!reader) {
-    return { ok: false, reason: 'Connect a Facebook account on the Facebook specials page.' };
-  }
-  if (reader.expiresAt && Date.parse(reader.expiresAt) < Date.now()) {
-    return { ok: false, reason: 'The Facebook login expired. Connect the account again.' };
-  }
-
-  const accounts = await graphGet('me/accounts', reader.userAccessToken, {
-    fields: 'id,name,access_token,username',
-    limit: '50',
-  });
-  if (accounts.error) {
-    return { ok: false, reason: graphMessage(accounts, 'Facebook did not list the pages this account manages.') };
+  const visitor = await readVisitorSession();
+  if (!visitor) {
+    return {
+      ok: false,
+      reason: 'Save a normal Facebook login on the Facebook specials page. Paste the cookie from a facebook.com request while you are logged in.',
+    };
   }
 
-  const choice = chooseManagedPage(managedPagesFrom(accounts), pageUrl);
-  if (!choice.ok) return choice;
-
-  if (reader.pageId !== choice.page.id || reader.pageAccessToken !== choice.page.accessToken) {
-    await saveReader({
-      ...reader,
-      pageId: choice.page.id,
-      pageAccessToken: choice.page.accessToken,
-    });
-  }
-
+  const read = await fetchVisitorFacebookPosts(pageUrl, visitor.cookie);
+  if (!read.ok) return read;
   const postLimit = limits?.posts ?? 10;
-  const storyLimit = limits?.stories ?? 5;
-  const posts = await graphPosts(choice.page.id, choice.page.accessToken, postLimit);
-  if (!posts.ok) return posts;
-
-  const stories = await graphStories(choice.page.id, choice.page.accessToken, storyLimit);
-  return {
-    ok: true,
-    posts: [...posts.posts, ...stories.posts],
-    storiesNote: stories.note,
-  };
+  return { ok: true, posts: read.posts.slice(0, postLimit), storiesNote: null };
 }
 
 async function saveReader(reader: SpecialsReader): Promise<void> {
@@ -222,23 +232,6 @@ async function saveReader(reader: SpecialsReader): Promise<void> {
       description: 'Facebook account that reads the page for specials',
     },
   });
-}
-
-function managedPagesFrom(data: Record<string, unknown>): ManagedPage[] {
-  const rows = Array.isArray(data.data) ? data.data : [];
-  const pages: ManagedPage[] = [];
-  for (const row of rows) {
-    const id = stringField(row, 'id');
-    const accessToken = stringField(row, 'access_token');
-    if (!id || !accessToken) continue;
-    pages.push({
-      id,
-      name: stringField(row, 'name') || 'Facebook page',
-      accessToken,
-      username: stringField(row, 'username'),
-    });
-  }
-  return pages;
 }
 
 function pageNameHint(pageUrl: string): string | null {
@@ -284,66 +277,6 @@ function pageList(pages: ManagedPage[]): string {
   const names = pages.slice(0, 5).map((page) => page.name);
   const extra = pages.length > 5 ? `, and ${pages.length - 5} more` : '';
   return `${names.join(', ')}${extra}`;
-}
-
-async function graphPosts(pageId: string, token: string, limit: number): Promise<
-  | { ok: true; posts: PublicFacebookPost[] }
-  | { ok: false; reason: string }
-> {
-  const data = await graphGet(`${pageId}/posts`, token, {
-    fields: 'id,message,created_time,permalink_url,full_picture',
-    limit: String(limit),
-  });
-  if (data.error) return { ok: false, reason: graphMessage(data, 'Facebook refused the page.') };
-  const rows = Array.isArray(data.data) ? data.data : [];
-  return { ok: true, posts: rows.flatMap((row) => toPost(row, 'Text read from the photo')) };
-}
-
-async function graphStories(pageId: string, token: string, limit: number): Promise<{ posts: PublicFacebookPost[]; note: string | null }> {
-  const data = await graphGet(`${pageId}/stories`, token, {
-    fields: 'id,creation_time,media_type,url,status',
-    limit: String(limit),
-  });
-  if (data.error) {
-    return { posts: [], note: `Stories were not included: ${graphMessage(data, 'Facebook did not return stories.')}` };
-  }
-  const rows = Array.isArray(data.data) ? data.data : [];
-  let videos = 0;
-  const posts: PublicFacebookPost[] = [];
-  for (const row of rows) {
-    if (!row || typeof row !== 'object') continue;
-    const mediaType = stringField(row, 'media_type');
-    const image = directImage(stringField(row, 'url'));
-    if (mediaType === 'VIDEO' && !image) {
-      videos += 1;
-      continue;
-    }
-    const post = toPost(row, 'Text read from the story')[0];
-    if (post) posts.push(post);
-  }
-  const note = videos > 0
-    ? `${videos} video ${videos === 1 ? 'story had' : 'stories had'} no still image.`
-    : null;
-  return { posts, note };
-}
-
-function toPost(row: unknown, imageLabel: string): PublicFacebookPost[] {
-  if (!row || typeof row !== 'object') return [];
-  const id = stringField(row, 'id');
-  if (!id) return [];
-  return [{
-    id,
-    message: stringField(row, 'message') || '',
-    permalink: stringField(row, 'permalink_url') || stringField(row, 'url'),
-    imageUrl: directImage(stringField(row, 'full_picture') || stringField(row, 'url')),
-    createdTime: stringField(row, 'created_time') || stringField(row, 'creation_time'),
-    imageLabel,
-  }];
-}
-
-function directImage(url: string | null): string | null {
-  if (!url) return null;
-  return /fbcdn\.net|scontent/i.test(url) ? url : null;
 }
 
 async function exchangeFacebookCode(

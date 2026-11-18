@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { facebookPageTarget, normalizeFacebookPageUrl, pageRequiresLogin, parsePublicFacebookHtml } from './facebook-public-page';
+import {
+  facebookPageTarget,
+  looseFacebookTime,
+  normalizeFacebookPageUrl,
+  normalizeVisitorCookie,
+  pageRequiresLogin,
+  parsePublicFacebookHtml,
+} from './facebook-public-page';
 
 describe('normalizeFacebookPageUrl', () => {
   it('accepts a public Facebook page URL', () => {
@@ -21,6 +28,19 @@ describe('normalizeFacebookPageUrl', () => {
       { id: '100063611261508', slug: null }
     );
     assert.deepEqual(facebookPageTarget('https://www.facebook.com/monaghans'), { id: null, slug: 'monaghans' });
+  });
+});
+
+describe('visitor login', () => {
+  it('keeps the session cookies and drops the rest', () => {
+    const cookie = normalizeVisitorCookie('cookie: c_user=12345; xs=abc%3Adef; datr=zzz; extra=no');
+    assert.equal(cookie, 'c_user=12345; xs=abc%3Adef; datr=zzz');
+    assert.equal(normalizeVisitorCookie('xs=only'), null);
+  });
+
+  it('reads a relative Facebook time', () => {
+    const now = new Date('2026-11-18T18:00:00.000Z');
+    assert.equal(looseFacebookTime('posted 3 hrs ago', now), '2026-11-18T15:00:00.000Z');
   });
 });
 
@@ -59,6 +79,19 @@ describe('parsePublicFacebookHtml', () => {
   it('ignores Facebook’s error page', () => {
     const html = '<!DOCTYPE html><html><head><title>Error</title></head><body>Sorry</body></html>';
     assert.deepEqual(parsePublicFacebookHtml(html), []);
+  });
+
+  it('reads a normal logged-in timeline post', () => {
+    const html = `
+      <div>
+        <a href="/story.php?story_fbid=pfbid123&id=100063611261508">3 hrs</a>
+        <div>Today's special: pot roast. $15</div>
+      </div>
+    `;
+    const posts = parsePublicFacebookHtml(html);
+    assert.equal(posts.length, 1);
+    assert.equal(posts[0].id, 'pfbid123');
+    assert.match(posts[0].message, /pot roast/);
   });
 
   it('recognizes the logged-out page shell', () => {

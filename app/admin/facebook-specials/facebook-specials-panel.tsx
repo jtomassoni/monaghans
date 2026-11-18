@@ -30,21 +30,22 @@ const OUTCOMES: Record<string, string> = {
 
 export default function FacebookSpecialsPanel({
   initialUrl,
-  account,
+  loginSavedAt,
   days,
   timeZone,
   notice,
 }: {
   initialUrl: string;
-  account: { name: string; expiresAt: string | null } | null;
+  loginSavedAt: string | null;
   days: { date: string; label: string; polls: PollView[] }[];
   timeZone: string;
   notice: string | null;
 }) {
   const router = useRouter();
   const [url, setUrl] = useState(initialUrl);
+  const [cookie, setCookie] = useState('');
   const [saving, setSaving] = useState(false);
-  const [connecting, setConnecting] = useState(false);
+  const [savingLogin, setSavingLogin] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [openDays, setOpenDays] = useState<string[]>(() => (days[0] ? [days[0].date] : []));
@@ -83,28 +84,35 @@ export default function FacebookSpecialsPanel({
     }
   }
 
-  async function connect() {
-    setConnecting(true);
+  async function saveLogin(event: FormEvent) {
+    event.preventDefault();
+    setSavingLogin(true);
     try {
-      const response = await fetch('/api/facebook-specials/connect', { method: 'POST' });
+      const response = await fetch('/api/facebook-specials/visitor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cookie }),
+      });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok || !data.authUrl) {
-        showToast('Could not start Facebook login', 'error', data.error || 'Try again.');
-        setConnecting(false);
+      if (!response.ok) {
+        showToast('Could not save the Facebook login', 'error', data.error || 'Try again.');
         return;
       }
-      window.location.href = data.authUrl;
+      setCookie('');
+      showToast('Facebook login saved', 'success');
+      router.refresh();
     } catch {
-      showToast('Could not start Facebook login', 'error', 'Try again.');
-      setConnecting(false);
+      showToast('Could not save the Facebook login', 'error', 'Try again.');
+    } finally {
+      setSavingLogin(false);
     }
   }
 
   async function disconnect() {
-    if (!window.confirm('Disconnect this Facebook account?')) return;
+    if (!window.confirm('Remove this Facebook login?')) return;
     setDisconnecting(true);
     try {
-      const response = await fetch('/api/facebook-specials/disconnect', { method: 'DELETE' });
+      const response = await fetch('/api/facebook-specials/visitor', { method: 'DELETE' });
       if (!response.ok) {
         showToast('Could not disconnect Facebook', 'error', 'Try again.');
         return;
@@ -138,16 +146,18 @@ export default function FacebookSpecialsPanel({
 
   return (
     <div className="max-w-3xl space-y-6">
-      <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-        <h2 className="text-sm font-medium text-gray-700 dark:text-gray-200">Facebook account</h2>
+      <form onSubmit={saveLogin} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+        <h2 className="text-sm font-medium text-gray-700 dark:text-gray-200">Facebook login</h2>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Sign in with a normal Facebook account. The hourly check uses that login to read this page.
+          The hourly check opens the page the same way your browser does. Paste the cookie from a facebook.com request while you are logged in. It stays on the server and is only used to read this page.
         </p>
-        {account ? (
+        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+          In Chrome, open Facebook, then View, Developer, Developer Tools, Network. Reload, click the first facebook.com request, and copy the request header named cookie.
+        </p>
+        {loginSavedAt ? (
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <p className="text-sm text-gray-900 dark:text-white">
-              Connected as {account.name}.
-              {account.expiresAt ? ` Login lasts until ${dayStamp.format(new Date(account.expiresAt))}.` : ''}
+              Login saved {dayStamp.format(new Date(loginSavedAt))}.
             </p>
             <button
               type="button"
@@ -155,20 +165,27 @@ export default function FacebookSpecialsPanel({
               disabled={disconnecting}
               className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 disabled:opacity-60 dark:border-gray-600 dark:text-gray-200"
             >
-              {disconnecting ? 'Disconnecting…' : 'Disconnect'}
+              {disconnecting ? 'Removing…' : 'Remove login'}
             </button>
           </div>
-        ) : (
-          <button
-            type="button"
-            onClick={connect}
-            disabled={connecting}
-            className="mt-4 rounded-xl bg-red-600 px-4 py-2 font-semibold text-white disabled:opacity-60"
-          >
-            {connecting ? 'Opening Facebook…' : 'Connect Facebook'}
-          </button>
-        )}
-      </section>
+        ) : null}
+        <textarea
+          value={cookie}
+          onChange={(event) => setCookie(event.target.value)}
+          autoComplete="off"
+          spellCheck={false}
+          rows={4}
+          placeholder="c_user=...; xs=..."
+          className="mt-4 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 font-mono text-xs text-gray-900 dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+        />
+        <button
+          type="submit"
+          disabled={savingLogin || cookie.trim().length === 0}
+          className="mt-4 rounded-xl bg-red-600 px-4 py-2 font-semibold text-white disabled:opacity-60"
+        >
+          {savingLogin ? 'Saving…' : 'Save login'}
+        </button>
+      </form>
 
       <form onSubmit={save} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-200" htmlFor="facebook-page-url">

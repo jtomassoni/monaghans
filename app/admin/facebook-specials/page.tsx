@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { getPermissions } from '@/lib/permissions';
 import { FACEBOOK_PUBLIC_PAGE_KEY } from '@/lib/facebook-public-page';
 import { groupPollsByDay, readPollResults } from '@/lib/facebook-special-poll';
-import { loadSpecialsReader } from '@/lib/facebook-specials-reader';
+import { loadVisitorLogin } from '@/lib/facebook-specials-reader';
 import { getCompanyTimezone } from '@/lib/timezone';
 import AdminPageHeader from '@/components/admin-page-header';
 import FacebookSpecialsPanel from './facebook-specials-panel';
@@ -23,9 +23,9 @@ export default async function FacebookSpecialsPage({
   if (!permissions.canManageMenu && !permissions.canAccessAdmin) redirect('/admin');
 
   const query = await searchParams;
-  const [setting, reader, polls, timeZone] = await Promise.all([
+  const [setting, login, polls, timeZone] = await Promise.all([
     prisma.setting.findUnique({ where: { key: FACEBOOK_PUBLIC_PAGE_KEY } }),
-    loadSpecialsReader(),
+    loadVisitorLogin(),
     prisma.facebookSpecialPoll.findMany({ orderBy: { ranAt: 'desc' }, take: 500 }),
     getCompanyTimezone(),
   ]);
@@ -40,7 +40,7 @@ export default async function FacebookSpecialsPage({
         <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
           <FacebookSpecialsPanel
             initialUrl={setting?.value || ''}
-            account={reader ? { name: reader.name, expiresAt: reader.expiresAt } : null}
+            loginSavedAt={login?.savedAt || null}
             timeZone={timeZone}
             notice={query.connected ? 'connected' : query.error || null}
             days={groupPollsByDay(
