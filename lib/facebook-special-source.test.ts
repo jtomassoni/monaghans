@@ -1,6 +1,51 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { specialFromModelJson } from './interpret-facebook-special';
 import { parseSpecialText, specialScanLabel } from './facebook-special-source';
+
+describe('specialFromModelJson', () => {
+  const postedAt = new Date('2026-11-18T18:00:00.000Z');
+
+  it('reads a food special the rules parser missed', () => {
+    const parsed = specialFromModelJson(
+      JSON.stringify({
+        kind: 'food',
+        title: 'Smothered carnitas chimichanga',
+        description: 'Come hungry and say hi to Susan behind the bar.',
+        price: '',
+      }),
+      postedAt,
+      'America/Denver'
+    );
+    assert.equal(parsed?.kind, 'food');
+    if (parsed?.kind === 'food') {
+      assert.equal(parsed.food.title, 'Smothered carnitas chimichanga');
+      assert.equal(parsed.food.priceNotes, '$14');
+    }
+  });
+
+  it('keeps a football game and leaves other posts alone', () => {
+    const game = specialFromModelJson(
+      JSON.stringify({
+        kind: 'football',
+        opponent: 'Chiefs',
+        houseMeal: 'green chile',
+        kickoffLocal: '2026-11-22T14:00',
+      }),
+      postedAt,
+      'America/Denver'
+    );
+    assert.equal(game?.kind, 'football');
+    if (game?.kind === 'football') {
+      assert.equal(game.football.opponent, 'Chiefs');
+      assert.equal(game.football.houseMeal, 'green chile');
+    }
+    assert.equal(
+      specialFromModelJson(JSON.stringify({ kind: 'none' }), postedAt, 'America/Denver'),
+      null
+    );
+  });
+});
 
 describe('specialScanLabel', () => {
   const postedAt = new Date('2026-11-18T18:00:00.000Z');

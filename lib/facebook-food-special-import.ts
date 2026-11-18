@@ -2,9 +2,10 @@ import { createHmac, timingSafeEqual } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { Resend } from 'resend';
 import { prisma } from '@/lib/prisma';
-import { parseSpecialText, reviewMessage, specialScanLabel } from '@/lib/facebook-special-source';
+import { reviewMessage, specialScanLabel, type ParsedSpecialSource } from '@/lib/facebook-special-source';
+import { interpretFacebookSpecial } from '@/lib/interpret-facebook-special';
 import { FACEBOOK_PUBLIC_PAGE_KEY } from '@/lib/facebook-public-page';
-import { pollExcerpt, type FacebookSpecialPollRecord, type FacebookSpecialPollResult } from '@/lib/facebook-special-poll';
+import { isPageCode, pollExcerpt, type FacebookSpecialPollRecord, type FacebookSpecialPollResult } from '@/lib/facebook-special-poll';
 import { readSpecialsPage } from '@/lib/facebook-specials-reader';
 import { readImageText } from '@/lib/read-image-text';
 import {
@@ -337,16 +338,22 @@ async function classifySpecial(input: {
     return { outcome: 'empty', detail: 'No caption or photo.' };
   }
 
-  let parsed = input.caption ? parseSpecialText(input.caption, input.postedAt, input.timezone) : null;
-  let imageText: string | null = null;
-  if (!parsed && input.imageUrl) {
-    if (input.imageReads() >= MAX_IMAGE_READS) {
-      return { outcome: 'image-limit', detail: 'Photo reading paused. This scan already read 6 photos.' };
-    }
-    input.useImageRead();
-    imageText = await readImageText(input.imageUrl);
-    if (imageText) parsed = parseSpecialText(imageText, input.postedAt, input.timezone);
-  }
+  const read = await understandPost({
+    caption: input.caption,
+    imageUrl: input.imageUrl,
+    postedAt: input.postedAt,
+    timezone: input.timezone,
+    imageLimitDetail: 'Photo reading paused. This scan already read 6 photos.',
+    imageReads: input.imageReads,
+    useImageRead: input.useImageRead,
+  });
+  if (read.status === 'image-limit') return { outcome: 'image-limit', detail: read.detail };
+  if (read.status === 'error') return { outcome: 'error', detail: read.detail };
+  if (read.status === 'page-code') return { outcome: 'not-a-special', detail: 'Page code, not a caption.' };
+  if (read.status === 'empty') return { outcome: 'empty', detail: 'No caption or photo.' };
+
+  const parsed = read.status === 'parsed' ? read.parsed : null;
+  const imageText = read.imageText;
   if (!parsed && input.imageUrl && !input.caption && !imageText) {
     return { outcome: 'not-a-special', detail: 'The photo had no readable text.' };
   }
@@ -369,6 +376,55 @@ async function classifySpecial(input: {
     outcome: label.outcome,
     detail: notes.length ? `${label.detail} ${notes.join(' ')}` : label.detail,
   };
+}
+
+async function understandPost(input: {
+  caption: string;
+  imageUrl: string | null;
+  postedAt: Date;
+  timezone: string;
+  imageLimitDetail: string;
+  imageReads: () => number;
+  useImageRead: () => void;
+}): Promise<
+  | { status: 'parsed'; parsed: ParsedSpecialSource; imageText: string | null }
+  | { status: 'none'; imageText: string | null }
+  | { status: 'error'; detail: string }
+  | { status: 'image-limit'; detail: string }
+  | { status: 'page-code' }
+  | { status: 'empty' }
+> {
+  const caption = input.caption.trim();
+  const usableCaption = caption && !isPageCode(caption) ? caption : '';
+  if (!usableCaption && !input.imageUrl) {
+    return caption ? { status: 'page-code' } : { status: 'empty' };
+  }
+
+  if (usableCaption) {
+    const read = await interpretFacebookSpecial({
+      text: usableCaption,
+      postedAt: input.postedAt,
+      timezone: input.timezone,
+    });
+    if (read.error) return { status: 'error', detail: read.error };
+    if (read.parsed) return { status: 'parsed', parsed: read.parsed, imageText: null };
+  }
+
+  if (!input.imageUrl) return { status: 'none', imageText: null };
+  if (input.imageReads() >= MAX_IMAGE_READS) {
+    return { status: 'image-limit', detail: input.imageLimitDetail };
+  }
+  input.useImageRead();
+  const imageText = await readImageText(input.imageUrl);
+  if (!imageText) return { status: 'none', imageText: null };
+  const read = await interpretFacebookSpecial({
+    text: imageText,
+    postedAt: input.postedAt,
+    timezone: input.timezone,
+  });
+  if (read.error) return { status: 'error', detail: read.error };
+  if (!read.parsed) return { status: 'none', imageText };
+  return { status: 'parsed', parsed: read.parsed, imageText };
 }
 
 const POLL_HISTORY_DAYS = 180;
@@ -440,28 +496,31 @@ async function considerSpecial(input: {
     return { emailed: false, outcome: 'posted-by-site', detail: 'This site published the post, so it was skipped.' };
   }
 
-  let parsed = input.caption ? parseSpecialText(input.caption, input.postedAt, input.timezone) : null;
-  let imageText: string | null = null;
-  if (!parsed && input.imageUrl) {
-    if (input.imageReads() >= MAX_IMAGE_READS) {
-      return {
-        emailed: false,
-        outcome: 'image-limit',
-        detail: 'Photo reading paused until the next hour. This check already read 6 photos.',
-      };
-    }
-    input.useImageRead();
-    imageText = await readImageText(input.imageUrl);
-    if (imageText) parsed = parseSpecialText(imageText, input.postedAt, input.timezone);
+  const read = await understandPost({
+    caption: input.caption,
+    imageUrl: input.imageUrl,
+    postedAt: input.postedAt,
+    timezone: input.timezone,
+    imageLimitDetail: 'Photo reading paused until the next hour. This check already read 6 photos.',
+    imageReads: input.imageReads,
+    useImageRead: input.useImageRead,
+  });
+  if (read.status === 'image-limit' || read.status === 'error') {
+    return { emailed: false, outcome: read.status === 'image-limit' ? 'image-limit' : 'error', detail: read.detail };
   }
-  if (!parsed) {
-    const detail = imageText
+  if (read.status === 'page-code') {
+    return { emailed: false, outcome: 'not-a-special', detail: 'Page code, not a caption.' };
+  }
+  if (read.status === 'empty' || read.status === 'none') {
+    const detail = read.status === 'none' && read.imageText
       ? 'The photo was read. It was not a food special or a Broncos pot luck.'
       : input.caption
         ? 'The caption was not a food special or a Broncos pot luck.'
         : 'The photo had no readable text.';
     return { emailed: false, outcome: 'not-a-special', detail };
   }
+  const parsed = read.parsed;
+  const imageText = read.imageText;
 
   const football = parsed.kind === 'football' ? parsed.football : null;
   const food = parsed.kind === 'food' ? parsed.food : null;

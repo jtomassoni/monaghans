@@ -33,7 +33,7 @@ export function readablePollExcerpt(excerpt: string): { text: string; pageCode: 
   return { text, pageCode: false };
 }
 
-function isPageCode(text: string): boolean {
+export function isPageCode(text: string): boolean {
   if (text.startsWith('{') || text.startsWith('[')) return true;
   if (text.includes('routing_namespace') || text.includes('__fb-') || text.includes('--fds-')) return true;
   return text.includes(':root') && /--|__fb/.test(text);
