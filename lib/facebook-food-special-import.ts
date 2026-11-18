@@ -2,8 +2,11 @@ import { createHmac, timingSafeEqual } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { Resend } from 'resend';
 import { prisma } from '@/lib/prisma';
-import { getPageAccessToken } from '@/lib/facebook-helpers';
 import { parseSpecialText, reviewMessage } from '@/lib/facebook-special-source';
+import {
+  FACEBOOK_PUBLIC_PAGE_KEY,
+  fetchPublicFacebookPosts,
+} from '@/lib/facebook-public-page';
 import { readImageText } from '@/lib/read-image-text';
 import {
   footballGameDescription,
@@ -21,7 +24,6 @@ import {
 
 const LOOKBACK_MS = 36 * 60 * 60 * 1000;
 const MAX_IMAGE_READS = 6;
-const GRAPH_VERSION = 'v21.0';
 const TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const DEFAULT_NOTIFY_EMAIL = 'jtomassoni@gmail.com';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -91,49 +93,39 @@ export async function pollFacebookForFoodSpecials(): Promise<{
   checked: number;
   emailed: number;
 }> {
-  const connection = await loadFacebookConnection();
-  if (!connection) {
-    return { ok: false, reason: 'Facebook is not connected', checked: 0, emailed: 0 };
+  const pageUrl = await loadPublicPageUrl();
+  if (!pageUrl) {
+    return {
+      ok: false,
+      reason: 'Paste the public Facebook page URL on the Facebook specials page.',
+      checked: 0,
+      emailed: 0,
+    };
   }
 
-  const posts = await fetchRecentPagePosts(connection);
-  const stories = await fetchRecentStories(connection);
+  const { posts, blocked } = await fetchPublicFacebookPosts(pageUrl);
+  if (blocked) {
+    return { ok: false, reason: 'Facebook did not return that public page.', checked: 0, emailed: 0 };
+  }
+
   const timezone = await getCompanyTimezone();
   const seen = new Set<string>();
   let imageReads = 0;
   let emailed = 0;
 
   for (const post of posts) {
+    const postedAt = post.createdTime ? new Date(post.createdTime) : new Date();
+    if (Number.isNaN(postedAt.getTime())) continue;
+    if (post.createdTime && Date.now() - postedAt.getTime() > LOOKBACK_MS) continue;
     const didEmail = await considerSpecial({
       timezone,
       seen,
       facebookPostId: post.id,
-      permalink: post.permalink_url || null,
-      imageUrl: post.full_picture || null,
-      caption: (post.message || '').trim(),
-      postedAt: post.created_time ? new Date(post.created_time) : new Date(),
-      imageLabel: 'Text read from the photo',
-      imageReads: () => imageReads,
-      useImageRead: () => {
-        imageReads += 1;
-      },
-    });
-    if (didEmail) emailed += 1;
-  }
-
-  for (const story of stories) {
-    const postedAt = storyDate(story);
-    if (Date.now() - postedAt.getTime() > LOOKBACK_MS) continue;
-    const media = await fetchStoryImage(connection, story);
-    const didEmail = await considerSpecial({
-      timezone,
-      seen,
-      facebookPostId: story.post_id || story.media_id,
-      permalink: story.url || null,
-      imageUrl: media?.imageUrl || null,
-      caption: '',
+      permalink: post.permalink,
+      imageUrl: post.imageUrl,
+      caption: post.message.trim(),
       postedAt,
-      imageLabel: media?.label || 'Text read from the story',
+      imageLabel: post.imageLabel,
       imageReads: () => imageReads,
       useImageRead: () => {
         imageReads += 1;
@@ -142,7 +134,13 @@ export async function pollFacebookForFoodSpecials(): Promise<{
     if (didEmail) emailed += 1;
   }
 
-  return { ok: true, checked: posts.length + stories.length, emailed };
+  return { ok: true, checked: posts.length, emailed };
+}
+
+async function loadPublicPageUrl(): Promise<string | null> {
+  const setting = await prisma.setting.findUnique({ where: { key: FACEBOOK_PUBLIC_PAGE_KEY } });
+  const url = setting?.value?.trim();
+  return url || null;
 }
 
 async function considerSpecial(input: {
@@ -488,141 +486,6 @@ async function sendFoodSpecialReadyEmail(row: FacebookFoodSpecialImportRecord): 
     console.error('Food special email failed:', error);
     return false;
   }
-}
-
-interface FacebookConnection {
-  pageId: string;
-  accessToken: string;
-  userAccessToken?: string;
-}
-
-async function loadFacebookConnection(): Promise<FacebookConnection | null> {
-  const setting = await prisma.setting.findUnique({ where: { key: 'facebook_connection' } });
-  if (!setting) return null;
-  let data: {
-    connected?: boolean;
-    pageId?: string;
-    accessToken?: string;
-    userAccessToken?: string;
-    expiresAt?: string;
-  };
-  try {
-    data = JSON.parse(setting.value);
-  } catch {
-    return null;
-  }
-  if (!data.connected || !data.pageId || !data.accessToken) return null;
-  if (data.expiresAt && new Date(data.expiresAt) < new Date()) {
-    throw new Error('Facebook connection expired. Reconnect the page in Settings.');
-  }
-
-  let accessToken = data.accessToken;
-  if (data.userAccessToken) {
-    try {
-      accessToken = await getPageAccessToken(data.userAccessToken, data.pageId);
-    } catch (error) {
-      console.warn('Using the stored Facebook page token:', error);
-    }
-  }
-  return { pageId: data.pageId, accessToken, userAccessToken: data.userAccessToken };
-}
-
-interface GraphPost {
-  id: string;
-  message?: string;
-  permalink_url?: string;
-  full_picture?: string;
-  created_time?: string;
-}
-
-interface GraphStory {
-  post_id?: string;
-  media_id: string;
-  media_type?: string;
-  creation_time?: string;
-  url?: string;
-  status?: string;
-}
-
-async function fetchRecentStories(connection: FacebookConnection): Promise<GraphStory[]> {
-  const since = Math.floor((Date.now() - LOOKBACK_MS) / 1000);
-  try {
-    const response = await fetch(
-      `https://graph.facebook.com/${GRAPH_VERSION}/${connection.pageId}/stories?` +
-        `fields=post_id,status,creation_time,media_type,media_id,url&since=${since}` +
-        `&access_token=${encodeURIComponent(connection.accessToken)}`
-    );
-    const data = await response.json();
-    if (!response.ok || data.error) {
-      console.error('Facebook stories could not be read:', data.error?.message || response.statusText);
-      return [];
-    }
-    return Array.isArray(data.data) ? data.data : [];
-  } catch (error) {
-    console.error('Facebook stories could not be read:', error);
-    return [];
-  }
-}
-
-async function fetchStoryImage(
-  connection: FacebookConnection,
-  story: GraphStory
-): Promise<{ imageUrl: string; label: string } | null> {
-  if (!story.media_id) return null;
-  const video = story.media_type === 'video';
-  const fields = video ? 'picture,thumbnails' : 'images,picture';
-  try {
-    const response = await fetch(
-      `https://graph.facebook.com/${GRAPH_VERSION}/${story.media_id}?fields=${fields}` +
-        `&access_token=${encodeURIComponent(connection.accessToken)}`
-    );
-    const data = await response.json();
-    if (!response.ok || data.error) {
-      console.error('Facebook story image could not be read:', data.error?.message || response.statusText);
-      return null;
-    }
-    if (video) {
-      const thumb = Array.isArray(data.thumbnails?.data) ? data.thumbnails.data[0]?.uri : null;
-      const imageUrl = data.picture || thumb || null;
-      return imageUrl ? { imageUrl, label: 'Text read from the story video still' } : null;
-    }
-    const images = Array.isArray(data.images) ? data.images : [];
-    const largest = images.reduce(
-      (best: { source?: string; width?: number } | null, image: { source?: string; width?: number }) => {
-        if (!best || (image.width || 0) > (best.width || 0)) return image;
-        return best;
-      },
-      null
-    );
-    const imageUrl = largest?.source || data.picture || null;
-    return imageUrl ? { imageUrl, label: 'Text read from the story' } : null;
-  } catch (error) {
-    console.error('Facebook story image could not be read:', error);
-    return null;
-  }
-}
-
-function storyDate(story: GraphStory): Date {
-  const raw = Number(story.creation_time);
-  if (Number.isFinite(raw) && raw > 0) {
-    return new Date(raw > 10_000_000_000 ? raw : raw * 1000);
-  }
-  return new Date();
-}
-
-async function fetchRecentPagePosts(connection: FacebookConnection): Promise<GraphPost[]> {
-  const since = Math.floor((Date.now() - LOOKBACK_MS) / 1000);
-  const response = await fetch(
-    `https://graph.facebook.com/v18.0/${connection.pageId}/posts?` +
-      `fields=id,message,permalink_url,full_picture,created_time&limit=15&since=${since}` +
-      `&access_token=${encodeURIComponent(connection.accessToken)}`
-  );
-  const data = await response.json();
-  if (!response.ok || data.error) {
-    const message = data.error?.message || response.statusText;
-    throw new Error(`Facebook posts could not be read: ${message}`);
-  }
-  return Array.isArray(data.data) ? data.data : [];
 }
 
 export function footballOpponentDefault(title: string): string {

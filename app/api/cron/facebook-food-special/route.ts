@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
 
 /**
- * Hourly check of the bar's Facebook page for a new food special.
+ * Hourly check of the pasted public Facebook page for a new food or football special.
  * Vercel Cron calls GET with `Authorization: Bearer $CRON_SECRET`.
  */
 async function run(req: NextRequest) {

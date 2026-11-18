@@ -119,6 +119,7 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
       items: [
         ...(permissions.canManageMenu ? [{ href: '/admin/menu', label: 'Menu', icon: FaUtensils }] : []),
         ...(permissions.canManageMenu ? [{ href: '/admin/food-specials', label: 'Food Specials', icon: FaDrumstickBite }] : []),
+        ...(permissions.canManageMenu ? [{ href: '/admin/facebook-specials', label: 'Facebook Page', icon: FaFacebook }] : []),
         ...(permissions.canManageMenu ? [{ href: '/admin/drink-specials', label: 'Drink Specials', icon: FaWineGlass }] : []),
       ],
     },
@@ -491,6 +492,7 @@ export default function AdminNav({ userRole, userName, userEmail }: AdminNavProp
     if (path === '/admin' || path === '/admin/overview') return 'Overview';
     if (path?.startsWith('/admin/signage')) return 'Digital Signage';
     if (path?.startsWith('/admin/food-specials')) return 'Food Specials';
+    if (path?.startsWith('/admin/facebook-specials')) return 'Facebook Page';
     if (path?.startsWith('/admin/drink-specials')) return 'Drink Specials';
     if (path?.startsWith('/admin/menu')) return 'Menu';
     if (path?.startsWith('/admin/staff')) return 'Staff & Scheduling';

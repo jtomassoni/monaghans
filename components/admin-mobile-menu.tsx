@@ -20,6 +20,7 @@ import {
   FaMoon,
   FaHistory,
   FaShareAlt,
+  FaFacebook,
   FaTimes,
   FaChartLine,
   FaClock,
@@ -117,6 +118,7 @@ export default function AdminMobileMenu({
       items: [
         ...(permissions.canManageMenu ? [{ href: '/admin/menu', label: 'Menu', icon: FaUtensils }] : []),
         ...(permissions.canManageMenu ? [{ href: '/admin/food-specials', label: 'Food Specials', icon: FaDrumstickBite }] : []),
+        ...(permissions.canManageMenu ? [{ href: '/admin/facebook-specials', label: 'Facebook Page', icon: FaFacebook }] : []),
         ...(permissions.canManageMenu ? [{ href: '/admin/drink-specials', label: 'Drink Specials', icon: FaWineGlass }] : []),
       ],
     },
