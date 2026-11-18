@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { reviewMessage, specialScanLabel, type ParsedSpecialSource } from '@/lib/facebook-special-source';
 import { interpretFacebookSpecial } from '@/lib/interpret-facebook-special';
 import { FACEBOOK_PUBLIC_PAGE_KEY } from '@/lib/facebook-public-page';
-import { isPageCode, pollExcerpt, type FacebookSpecialPollRecord, type FacebookSpecialPollResult } from '@/lib/facebook-special-poll';
+import { isPageCode, pollPostText, type FacebookSpecialPollRecord, type FacebookSpecialPollResult } from '@/lib/facebook-special-poll';
 import { readSpecialsPage } from '@/lib/facebook-specials-reader';
 import { readImageText } from '@/lib/read-image-text';
 import {
@@ -170,12 +170,13 @@ async function checkFacebookSpecials(): Promise<FacebookSpecialPollRecord> {
   let emailed = 0;
 
   for (const post of read.posts) {
-    const excerpt = pollExcerpt(post.message);
+    const text = pollPostText(post.message);
     const postedAt = post.createdTime ? new Date(post.createdTime) : new Date();
     if (Number.isNaN(postedAt.getTime())) {
       results.push({
         postId: post.id,
-        excerpt,
+        excerpt: text.excerpt,
+        message: text.message,
         permalink: post.permalink,
         outcome: 'error',
         detail: 'Facebook returned a post time that could not be read.',
@@ -185,7 +186,8 @@ async function checkFacebookSpecials(): Promise<FacebookSpecialPollRecord> {
     if (post.createdTime && Date.now() - postedAt.getTime() > LOOKBACK_MS) {
       results.push({
         postId: post.id,
-        excerpt,
+        excerpt: text.excerpt,
+        message: text.message,
         permalink: post.permalink,
         outcome: 'too-old',
         detail: 'Older than 36 hours, so it was left alone.',
@@ -209,7 +211,8 @@ async function checkFacebookSpecials(): Promise<FacebookSpecialPollRecord> {
     if (check.emailed) emailed += 1;
     results.push({
       postId: post.id,
-      excerpt,
+      excerpt: text.excerpt,
+      message: text.message,
       permalink: post.permalink,
       outcome: check.outcome,
       detail: check.detail,
@@ -253,12 +256,13 @@ async function classifyRecentSpecials(): Promise<FacebookSpecialPollRecord> {
   const results: FacebookSpecialPollResult[] = [];
 
   for (const post of read.posts) {
-    const excerpt = pollExcerpt(post.message);
+    const text = pollPostText(post.message);
     const postedAt = post.createdTime ? new Date(post.createdTime) : new Date();
     if (Number.isNaN(postedAt.getTime())) {
       results.push({
         postId: post.id,
-        excerpt,
+        excerpt: text.excerpt,
+        message: text.message,
         permalink: post.permalink,
         outcome: 'error',
         detail: 'Facebook returned a post time that could not be read.',
@@ -268,7 +272,8 @@ async function classifyRecentSpecials(): Promise<FacebookSpecialPollRecord> {
     if (post.createdTime && Date.now() - postedAt.getTime() > SCAN_LOOKBACK_MS) {
       results.push({
         postId: post.id,
-        excerpt,
+        excerpt: text.excerpt,
+        message: text.message,
         permalink: post.permalink,
         outcome: 'too-old',
         detail: 'Older than 24 hours, so this scan left it out.',
@@ -289,7 +294,8 @@ async function classifyRecentSpecials(): Promise<FacebookSpecialPollRecord> {
     });
     results.push({
       postId: post.id,
-      excerpt,
+      excerpt: text.excerpt,
+      message: text.message,
       permalink: post.permalink,
       outcome: classified.outcome,
       detail: classified.detail,
@@ -306,8 +312,8 @@ async function classifyRecentSpecials(): Promise<FacebookSpecialPollRecord> {
   const countLabel = recent.length === 1 ? '1 post from the last 24 hours' : `${recent.length} posts from the last 24 hours`;
   const foundLabel = found.length ? found.join(', ') : 'No food specials or football games';
   const summary = recent.length === 0
-    ? 'Last 24 hours scan. No posts from the last 24 hours. Nothing was emailed.'
-    : `Last 24 hours scan. ${countLabel}. ${foundLabel}. Nothing was emailed.`;
+    ? 'Last 24 hours scan. No posts from the last 24 hours. This scan does not send email.'
+    : `Last 24 hours scan. ${countLabel}. ${foundLabel}. This scan does not send email.`;
   return {
     ok: true,
     summary: read.storiesNote ? `${summary} ${read.storiesNote}` : summary,

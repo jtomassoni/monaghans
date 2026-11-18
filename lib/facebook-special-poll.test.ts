@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { chooseManagedPage, oauthQueryValue, type ManagedPage } from './facebook-specials-reader';
-import { groupPollsByDay, oauthStatePurpose, readablePollExcerpt, readablePollSummary } from './facebook-special-poll';
+import { groupPollsByDay, oauthStatePurpose, pollPostText, readablePollExcerpt, readablePollSummary } from './facebook-special-poll';
 
 describe('oauthQueryValue', () => {
   it('keeps a plus sign in the Facebook code', () => {
@@ -51,6 +51,13 @@ describe('readable poll log', () => {
       '2 posts from the last 24 hours. Nothing was emailed.'
     );
     assert.equal(readablePollSummary('Facebook returned no posts.'), 'Facebook returned no posts.');
+  });
+
+  it('keeps the full post and a short line', () => {
+    const text = pollPostText(`${'Carnitas chimichanga. '.repeat(20)}Come hungry.`);
+    assert.ok(text.message.includes('Come hungry.'));
+    assert.ok(text.excerpt.endsWith('...'));
+    assert.ok(text.excerpt.length < text.message.length);
   });
 
   it('keeps a real caption and hides page code', () => {

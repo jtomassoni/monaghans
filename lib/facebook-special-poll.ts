@@ -3,6 +3,7 @@ import { getCompanyTimezoneDateString } from '@/lib/timezone';
 export interface FacebookSpecialPollResult {
   postId: string;
   excerpt: string;
+  message: string;
   permalink: string | null;
   outcome: string;
   detail: string;
@@ -16,10 +17,13 @@ export interface FacebookSpecialPollRecord {
   results: FacebookSpecialPollResult[];
 }
 
-export function pollExcerpt(message: string): string {
-  const text = message.replace(/\s+/g, ' ').trim();
-  if (text.length <= 140) return text;
-  return `${text.slice(0, 137)}...`;
+export function pollPostText(message: string): { excerpt: string; message: string } {
+  const full = message.replace(/\r/g, '').trim().slice(0, 4000);
+  const single = full.replace(/\s+/g, ' ').trim();
+  return {
+    excerpt: single.length <= 180 ? single : `${single.slice(0, 177)}...`,
+    message: full,
+  };
 }
 
 export function readablePollSummary(summary: string): string {
@@ -88,6 +92,7 @@ export function readPollResults(raw: string): FacebookSpecialPollResult[] {
       return [{
         postId: row.postId,
         excerpt: typeof row.excerpt === 'string' ? row.excerpt : '',
+        message: typeof row.message === 'string' ? row.message : '',
         permalink: typeof row.permalink === 'string' ? row.permalink : null,
         outcome: typeof row.outcome === 'string' ? row.outcome : 'error',
         detail: row.detail,

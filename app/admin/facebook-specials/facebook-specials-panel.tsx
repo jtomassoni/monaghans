@@ -62,6 +62,8 @@ export default function FacebookSpecialsPanel({
   const [disconnecting, setDisconnecting] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [openDays, setOpenDays] = useState<string[]>(() => (days[0] ? [days[0].date] : []));
+  const [openChecks, setOpenChecks] = useState<string[]>(() => (days[0]?.polls[0] ? [days[0].polls[0].id] : []));
+  const [openPosts, setOpenPosts] = useState<string[]>([]);
   const announced = useRef(false);
   const clock = new Intl.DateTimeFormat('en-US', { timeZone, hour: 'numeric', minute: '2-digit' });
   const dayStamp = new Intl.DateTimeFormat('en-US', { timeZone, month: 'long', day: 'numeric', year: 'numeric' });
@@ -237,7 +239,9 @@ export default function FacebookSpecialsPanel({
 
       <section>
         <h2 className="text-sm font-medium text-gray-700 dark:text-gray-200">Check history</h2>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Each check is listed under its day.</p>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          Open a check, then open any post for the full text. Expand posts opens every post in that check.
+        </p>
         {days.length === 0 ? (
           <p className="mt-4 rounded-2xl border border-dashed border-gray-300 px-4 py-6 text-sm text-gray-500 dark:border-gray-600 dark:text-gray-400">
             No checks yet. Scan the last 24 hours, or wait for the next hourly check.
@@ -264,21 +268,34 @@ export default function FacebookSpecialsPanel({
                     {day.polls.length === 1 ? '1 check' : `${day.polls.length} checks`}
                   </span>
                 </summary>
-                <div className="divide-y divide-gray-200 border-t border-gray-200 px-4 dark:divide-gray-700 dark:border-gray-700">
-                  {day.polls.map((poll) => (
-                    <article key={poll.id} className="py-3">
-                      <div className="flex gap-3">
+                <div className="space-y-3 border-t border-gray-200 px-4 py-3 dark:border-gray-700">
+                  {day.polls.map((poll) => {
+                    const checkOpen = openChecks.includes(poll.id);
+                    const postKeys = poll.results.map((_, index) => `${poll.id}-${index}`);
+                    const allPostsOpen = postKeys.length > 0 && postKeys.every((key) => openPosts.includes(key));
+                    return (
+                      <article key={poll.id} className="flex gap-3">
                         <time
                           dateTime={poll.ranAt}
-                          className="w-20 shrink-0 pt-0.5 text-sm font-semibold tabular-nums text-gray-900 dark:text-white"
+                          className="w-16 shrink-0 pt-2 text-sm font-semibold tabular-nums text-gray-900 dark:text-white"
                         >
                           {clock.format(new Date(poll.ranAt))}
                         </time>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-start justify-between gap-3">
-                            <p className={`text-sm leading-snug break-words ${poll.ok ? 'text-gray-900 dark:text-gray-100' : 'text-red-700 dark:text-red-300'}`}>
+                        <div className="min-w-0 flex-1 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
+                          <div className="flex items-start gap-2 bg-gray-50 px-3 py-2 dark:bg-gray-900/40">
+                            <button
+                              type="button"
+                              aria-expanded={checkOpen}
+                              onClick={() => setOpenChecks((current) => (
+                                current.includes(poll.id)
+                                  ? current.filter((id) => id !== poll.id)
+                                  : [...current, poll.id]
+                              ))}
+                              className={`min-w-0 flex-1 text-left text-sm leading-snug break-words ${poll.ok ? 'text-gray-900 dark:text-gray-100' : 'text-red-700 dark:text-red-300'}`}
+                            >
+                              <span className="mr-1.5 text-gray-400" aria-hidden="true">{checkOpen ? '▾' : '▸'}</span>
                               {readablePollSummary(poll.summary)}
-                            </p>
+                            </button>
                             <span
                               className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
                                 poll.ok
@@ -288,46 +305,76 @@ export default function FacebookSpecialsPanel({
                             >
                               {poll.ok ? 'OK' : 'Problem'}
                             </span>
+                            {postKeys.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => setOpenPosts((current) => (
+                                  allPostsOpen
+                                    ? current.filter((key) => !postKeys.includes(key))
+                                    : [...new Set([...current, ...postKeys])]
+                                ))}
+                                className="shrink-0 text-xs font-medium text-gray-600 underline dark:text-gray-300"
+                              >
+                                {allPostsOpen ? 'Collapse posts' : 'Expand posts'}
+                              </button>
+                            )}
                           </div>
-                          {poll.results.length > 0 && (
-                            <ul className="mt-2 space-y-2">
+                          {checkOpen && poll.results.length > 0 && (
+                            <ul className="divide-y divide-gray-200 dark:divide-gray-700">
                               {poll.results.map((result, index) => {
-                                const excerpt = readablePollExcerpt(result.excerpt);
+                                const key = `${poll.id}-${index}`;
+                                const postOpen = openPosts.includes(key);
+                                const full = readablePollExcerpt(result.message || result.excerpt);
+                                const line = readablePollExcerpt(result.excerpt);
                                 return (
-                                  <li
-                                    key={`${poll.id}-${result.postId}-${index}`}
-                                    className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/40"
-                                  >
-                                    <div className="flex items-center justify-between gap-3">
-                                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${outcomeTone(result.outcome)}`}>
+                                  <li key={key}>
+                                    <button
+                                      type="button"
+                                      aria-expanded={postOpen}
+                                      onClick={() => setOpenPosts((current) => (
+                                        current.includes(key)
+                                          ? current.filter((item) => item !== key)
+                                          : [...current, key]
+                                      ))}
+                                      className="flex w-full items-center gap-2 px-3 py-2 text-left"
+                                    >
+                                      <span className="text-gray-400" aria-hidden="true">{postOpen ? '▾' : '▸'}</span>
+                                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${outcomeTone(result.outcome)}`}>
                                         {OUTCOMES[result.outcome] || 'Result'}
                                       </span>
-                                      {result.permalink && (
-                                        <a
-                                          href={result.permalink}
-                                          target="_blank"
-                                          rel="noreferrer"
-                                          className="shrink-0 text-xs font-medium text-red-700 underline dark:text-red-300"
-                                        >
-                                          Open post
-                                        </a>
-                                      )}
-                                    </div>
-                                    {excerpt.text ? (
-                                      <p className={`mt-1.5 text-sm leading-snug break-words ${excerpt.pageCode ? 'italic text-gray-500 dark:text-gray-400' : 'text-gray-800 dark:text-gray-100'}`}>
-                                        {excerpt.text}
-                                      </p>
-                                    ) : null}
-                                    <p className="mt-1 text-xs leading-snug text-gray-500 dark:text-gray-400">{result.detail}</p>
+                                      <span className={`min-w-0 flex-1 truncate text-sm ${line.pageCode ? 'italic text-gray-500 dark:text-gray-400' : 'text-gray-800 dark:text-gray-100'}`}>
+                                        {line.text || result.detail}
+                                      </span>
+                                    </button>
+                                    {postOpen && (
+                                      <div className="space-y-2 px-9 pb-3">
+                                        {full.text ? (
+                                          <p className={`whitespace-pre-wrap text-sm leading-relaxed break-words ${full.pageCode ? 'italic text-gray-500 dark:text-gray-400' : 'text-gray-800 dark:text-gray-100'}`}>
+                                            {full.text}
+                                          </p>
+                                        ) : null}
+                                        <p className="text-xs leading-snug text-gray-500 dark:text-gray-400">{result.detail}</p>
+                                        {result.permalink && (
+                                          <a
+                                            href={result.permalink}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="inline-block text-xs font-medium text-red-700 underline dark:text-red-300"
+                                          >
+                                            Open post
+                                          </a>
+                                        )}
+                                      </div>
+                                    )}
                                   </li>
                                 );
                               })}
                             </ul>
                           )}
                         </div>
-                      </div>
-                    </article>
-                  ))}
+                      </article>
+                    );
+                  })}
                 </div>
               </details>
             ))}
