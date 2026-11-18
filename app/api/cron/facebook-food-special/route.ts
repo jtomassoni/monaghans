@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { pollFacebookForFoodSpecials } from '@/lib/facebook-food-special-import';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 /**
  * Hourly check of the bar's Facebook page for a new food special.

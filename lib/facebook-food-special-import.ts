@@ -3,8 +3,8 @@ import { Prisma } from '@prisma/client';
 import { Resend } from 'resend';
 import { prisma } from '@/lib/prisma';
 import { getPageAccessToken } from '@/lib/facebook-helpers';
-import { parseFacebookFoodSpecial } from '@/lib/parse-facebook-food-special';
-import { parseFacebookFootballPost } from '@/lib/parse-facebook-football';
+import { parseSpecialText, reviewMessage } from '@/lib/facebook-special-source';
+import { readImageText } from '@/lib/read-image-text';
 import {
   footballGameDescription,
   footballGameTitle,
@@ -20,6 +20,8 @@ import {
 } from '@/lib/timezone';
 
 const LOOKBACK_MS = 36 * 60 * 60 * 1000;
+const MAX_IMAGE_READS = 6;
+const GRAPH_VERSION = 'v21.0';
 const TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const DEFAULT_NOTIFY_EMAIL = 'jtomassoni@gmail.com';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -95,62 +97,129 @@ export async function pollFacebookForFoodSpecials(): Promise<{
   }
 
   const posts = await fetchRecentPagePosts(connection);
+  const stories = await fetchRecentStories(connection);
   const timezone = await getCompanyTimezone();
+  const seen = new Set<string>();
+  let imageReads = 0;
   let emailed = 0;
 
   for (const post of posts) {
-    const message = (post.message || '').trim();
-    if (!message) continue;
-
-    const existing = await prisma.facebookFoodSpecialImport.findUnique({
-      where: { facebookPostId: post.id },
+    const didEmail = await considerSpecial({
+      timezone,
+      seen,
+      facebookPostId: post.id,
+      permalink: post.permalink_url || null,
+      imageUrl: post.full_picture || null,
+      caption: (post.message || '').trim(),
+      postedAt: post.created_time ? new Date(post.created_time) : new Date(),
+      imageLabel: 'Text read from the photo',
+      imageReads: () => imageReads,
+      useImageRead: () => {
+        imageReads += 1;
+      },
     });
-    if (existing?.notifiedAt || existing?.status === 'applied' || existing?.status === 'dismissed') {
-      continue;
-    }
-
-    const postedByApp = await prisma.facebookPost.findUnique({
-      where: { postId: post.id },
-      select: { id: true },
-    });
-    if (postedByApp) continue;
-
-    const postedAt = post.created_time ? new Date(post.created_time) : new Date();
-    const football = parseFacebookFootballPost(message, postedAt, timezone);
-    const food = football ? null : parseFacebookFoodSpecial(message);
-    if (!football && !food) continue;
-
-    const row =
-      existing ??
-      (await createImport({
-        facebookPostId: post.id,
-        permalink: post.permalink_url || null,
-        imageUrl: post.full_picture || null,
-        rawMessage: message,
-        kind: football ? 'football' : 'food',
-        title: football
-          ? football.opponent
-            ? footballGameTitle(football.opponent)
-            : 'Broncos Game'
-          : food!.title,
-        description: football ? football.houseMeal : food!.description,
-        priceNotes: football ? football.kickoffLocal : food!.priceNotes,
-        postedAt,
-      }));
-
-    if (!row) continue;
-
-    const sent = await sendFoodSpecialReadyEmail(row);
-    if (sent) {
-      await prisma.facebookFoodSpecialImport.update({
-        where: { id: row.id },
-        data: { notifiedAt: new Date() },
-      });
-      emailed += 1;
-    }
+    if (didEmail) emailed += 1;
   }
 
-  return { ok: true, checked: posts.length, emailed };
+  for (const story of stories) {
+    const postedAt = storyDate(story);
+    if (Date.now() - postedAt.getTime() > LOOKBACK_MS) continue;
+    const media = await fetchStoryImage(connection, story);
+    const didEmail = await considerSpecial({
+      timezone,
+      seen,
+      facebookPostId: story.post_id || story.media_id,
+      permalink: story.url || null,
+      imageUrl: media?.imageUrl || null,
+      caption: '',
+      postedAt,
+      imageLabel: media?.label || 'Text read from the story',
+      imageReads: () => imageReads,
+      useImageRead: () => {
+        imageReads += 1;
+      },
+    });
+    if (didEmail) emailed += 1;
+  }
+
+  return { ok: true, checked: posts.length + stories.length, emailed };
+}
+
+async function considerSpecial(input: {
+  timezone: string;
+  seen: Set<string>;
+  facebookPostId: string;
+  permalink: string | null;
+  imageUrl: string | null;
+  caption: string;
+  postedAt: Date;
+  imageLabel: string;
+  imageReads: () => number;
+  useImageRead: () => void;
+}): Promise<boolean> {
+  if (!input.facebookPostId || input.seen.has(input.facebookPostId)) return false;
+  input.seen.add(input.facebookPostId);
+  if (!input.caption && !input.imageUrl) return false;
+
+  const existing = await prisma.facebookFoodSpecialImport.findUnique({
+    where: { facebookPostId: input.facebookPostId },
+  });
+  if (existing?.notifiedAt || existing?.status === 'applied' || existing?.status === 'dismissed') {
+    return false;
+  }
+
+  const postedByApp = await prisma.facebookPost.findUnique({
+    where: { postId: input.facebookPostId },
+    select: { id: true },
+  });
+  if (postedByApp) return false;
+
+  let parsed = input.caption ? parseSpecialText(input.caption, input.postedAt, input.timezone) : null;
+  let imageText: string | null = null;
+  if (!parsed && input.imageUrl) {
+    if (input.imageReads() >= MAX_IMAGE_READS) {
+      console.warn('Photo text paused until the next hour. The image limit for this check was reached.');
+      return false;
+    }
+    input.useImageRead();
+    imageText = await readImageText(input.imageUrl);
+    if (imageText) parsed = parseSpecialText(imageText, input.postedAt, input.timezone);
+  }
+  if (!parsed) return false;
+
+  const football = parsed.kind === 'football' ? parsed.football : null;
+  const food = parsed.kind === 'food' ? parsed.food : null;
+  const row =
+    existing ??
+    (await createImport({
+      facebookPostId: input.facebookPostId,
+      permalink: input.permalink,
+      imageUrl: input.imageUrl,
+      rawMessage: reviewMessage({
+        caption: input.caption,
+        imageLabel: imageText ? input.imageLabel : null,
+        imageText,
+      }),
+      kind: football ? 'football' : 'food',
+      title: football
+        ? football.opponent
+          ? footballGameTitle(football.opponent)
+          : 'Broncos Game'
+        : food!.title,
+      description: football ? football.houseMeal : food!.description,
+      priceNotes: football ? football.kickoffLocal : food!.priceNotes,
+      postedAt: input.postedAt,
+    }));
+
+  if (!row) return false;
+
+  const sent = await sendFoodSpecialReadyEmail(row);
+  if (!sent) return false;
+  await prisma.facebookFoodSpecialImport.update({
+    where: { id: row.id },
+    data: { notifiedAt: new Date() },
+  });
+  return true;
 }
 
 export async function applyFacebookFoodSpecialImport(input: {
@@ -464,6 +533,81 @@ interface GraphPost {
   permalink_url?: string;
   full_picture?: string;
   created_time?: string;
+}
+
+interface GraphStory {
+  post_id?: string;
+  media_id: string;
+  media_type?: string;
+  creation_time?: string;
+  url?: string;
+  status?: string;
+}
+
+async function fetchRecentStories(connection: FacebookConnection): Promise<GraphStory[]> {
+  const since = Math.floor((Date.now() - LOOKBACK_MS) / 1000);
+  try {
+    const response = await fetch(
+      `https://graph.facebook.com/${GRAPH_VERSION}/${connection.pageId}/stories?` +
+        `fields=post_id,status,creation_time,media_type,media_id,url&since=${since}` +
+        `&access_token=${encodeURIComponent(connection.accessToken)}`
+    );
+    const data = await response.json();
+    if (!response.ok || data.error) {
+      console.error('Facebook stories could not be read:', data.error?.message || response.statusText);
+      return [];
+    }
+    return Array.isArray(data.data) ? data.data : [];
+  } catch (error) {
+    console.error('Facebook stories could not be read:', error);
+    return [];
+  }
+}
+
+async function fetchStoryImage(
+  connection: FacebookConnection,
+  story: GraphStory
+): Promise<{ imageUrl: string; label: string } | null> {
+  if (!story.media_id) return null;
+  const video = story.media_type === 'video';
+  const fields = video ? 'picture,thumbnails' : 'images,picture';
+  try {
+    const response = await fetch(
+      `https://graph.facebook.com/${GRAPH_VERSION}/${story.media_id}?fields=${fields}` +
+        `&access_token=${encodeURIComponent(connection.accessToken)}`
+    );
+    const data = await response.json();
+    if (!response.ok || data.error) {
+      console.error('Facebook story image could not be read:', data.error?.message || response.statusText);
+      return null;
+    }
+    if (video) {
+      const thumb = Array.isArray(data.thumbnails?.data) ? data.thumbnails.data[0]?.uri : null;
+      const imageUrl = data.picture || thumb || null;
+      return imageUrl ? { imageUrl, label: 'Text read from the story video still' } : null;
+    }
+    const images = Array.isArray(data.images) ? data.images : [];
+    const largest = images.reduce(
+      (best: { source?: string; width?: number } | null, image: { source?: string; width?: number }) => {
+        if (!best || (image.width || 0) > (best.width || 0)) return image;
+        return best;
+      },
+      null
+    );
+    const imageUrl = largest?.source || data.picture || null;
+    return imageUrl ? { imageUrl, label: 'Text read from the story' } : null;
+  } catch (error) {
+    console.error('Facebook story image could not be read:', error);
+    return null;
+  }
+}
+
+function storyDate(story: GraphStory): Date {
+  const raw = Number(story.creation_time);
+  if (Number.isFinite(raw) && raw > 0) {
+    return new Date(raw > 10_000_000_000 ? raw : raw * 1000);
+  }
+  return new Date();
 }
 
 async function fetchRecentPagePosts(connection: FacebookConnection): Promise<GraphPost[]> {
