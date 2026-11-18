@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { normalizeFacebookPageUrl, parsePublicFacebookHtml } from './facebook-public-page';
+import { facebookPageTarget, normalizeFacebookPageUrl, pageRequiresLogin, parsePublicFacebookHtml } from './facebook-public-page';
 
 describe('normalizeFacebookPageUrl', () => {
   it('accepts a public Facebook page URL', () => {
@@ -13,6 +13,14 @@ describe('normalizeFacebookPageUrl', () => {
   it('rejects anything that is not a Facebook page', () => {
     assert.equal(normalizeFacebookPageUrl('https://example.com/page'), null);
     assert.equal(normalizeFacebookPageUrl('https://facebook.com'), null);
+  });
+
+  it('reads the page id from a public page URL', () => {
+    assert.deepEqual(
+      facebookPageTarget('https://www.facebook.com/p/Monaghans-Bar-and-Grill-100063611261508/'),
+      { id: '100063611261508', slug: null }
+    );
+    assert.deepEqual(facebookPageTarget('https://www.facebook.com/monaghans'), { id: null, slug: 'monaghans' });
   });
 });
 
@@ -50,6 +58,12 @@ describe('parsePublicFacebookHtml', () => {
 
   it('ignores Facebook’s error page', () => {
     const html = '<!DOCTYPE html><html><head><title>Error</title></head><body>Sorry</body></html>';
+    assert.deepEqual(parsePublicFacebookHtml(html), []);
+  });
+
+  it('recognizes the logged-out page shell', () => {
+    const html = '<html><title>Facebook</title>"ssrEnabled":false,"haste_session":"comet_loggedout_pkg"</html>';
+    assert.equal(pageRequiresLogin(html), true);
     assert.deepEqual(parsePublicFacebookHtml(html), []);
   });
 });

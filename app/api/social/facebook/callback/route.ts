@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { oauthStatePurpose } from '@/lib/facebook-special-poll';
+import { finishSpecialsFacebookLogin } from '@/lib/facebook-specials-reader';
 
 const FACEBOOK_APP_ID = process.env.FACEBOOK_APP_ID;
 const FACEBOOK_APP_SECRET = process.env.FACEBOOK_APP_SECRET;
@@ -20,6 +22,11 @@ export async function GET(req: NextRequest) {
   const error = searchParams.get('error');
   const errorReason = searchParams.get('error_reason');
   const errorDescription = searchParams.get('error_description');
+
+  if (oauthStatePurpose(state) === 'specials') {
+    const result = await finishSpecialsFacebookLogin({ code, error, errorDescription });
+    return NextResponse.redirect(`${NEXTAUTH_URL}${result.path}`);
+  }
 
   if (error) {
     let errorMessage = error;

@@ -123,6 +123,20 @@ model FacebookFoodSpecialImport {
   @@index([status])
 }
 
+// One row per hourly Facebook specials check, so the admin log can be read later.
+model FacebookSpecialPoll {
+  id       String   @id @default(cuid())
+  ranAt    DateTime @default(now())
+  ok       Boolean
+  summary  String
+  checked  Int      @default(0)
+  emailed  Int      @default(0)
+  results  String
+  createdAt DateTime @default(now())
+
+  @@index([ranAt])
+}
+
 model MenuSection {
   id           String     @id @default(cuid())
   name         String // e.g., "Starters", "Burgers", "Mexican"

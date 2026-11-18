@@ -14,6 +14,26 @@ export interface PublicFacebookPost {
 const BROWSER =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
+export function facebookPageTarget(pageUrl: string): { id: string | null; slug: string | null } {
+  let url: URL;
+  try {
+    url = new URL(pageUrl);
+  } catch {
+    return { id: null, slug: null };
+  }
+  const idParam = url.searchParams.get('id');
+  if (idParam && /^\d{5,}$/.test(idParam)) return { id: idParam, slug: null };
+  const parts = url.pathname.split('/').filter(Boolean);
+  const last = decodeURIComponent(parts[parts.length - 1] || '');
+  const trailing = last.match(/(\d{8,})$/);
+  if (trailing) return { id: trailing[1], slug: null };
+  if (/^\d{5,}$/.test(last)) return { id: last, slug: null };
+  if (last && !['p', 'pages', 'people'].includes(last.toLowerCase())) {
+    return { id: null, slug: last };
+  }
+  return { id: null, slug: null };
+}
+
 export function normalizeFacebookPageUrl(input: string): string | null {
   const trimmed = input.trim();
   if (!trimmed) return null;
@@ -57,24 +77,32 @@ export function parsePublicFacebookHtml(html: string): PublicFacebookPost[] {
   return [...found.values()];
 }
 
+export function pageRequiresLogin(html: string): boolean {
+  return /comet_loggedout_pkg|login_form|\/login\/\?next=/i.test(html);
+}
+
 export async function fetchPublicFacebookPosts(pageUrl: string): Promise<{
   posts: PublicFacebookPost[];
   blocked: boolean;
+  needsLogin: boolean;
 }> {
   const posts = new Map<string, PublicFacebookPost>();
   let sawPage = false;
+  let sawLoginWall = false;
 
   for (const url of pageCandidates(pageUrl)) {
     const html = await fetchHtml(url);
     if (!html) continue;
     if (isFacebookBlock(html)) continue;
     sawPage = true;
+    if (pageRequiresLogin(html)) sawLoginWall = true;
     for (const post of parsePublicFacebookHtml(html)) {
       posts.set(post.id, post);
     }
   }
 
-  return { posts: [...posts.values()], blocked: !sawPage };
+  const found = [...posts.values()];
+  return { posts: found, blocked: !sawPage, needsLogin: found.length === 0 && sawLoginWall };
 }
 
 function pageCandidates(pageUrl: string): string[] {
@@ -92,14 +120,19 @@ async function fetchHtml(url: string): Promise<string | null> {
     const response = await fetch(url, {
       headers: {
         'User-Agent': BROWSER,
-        Accept: 'text/html',
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Upgrade-Insecure-Requests': '1',
       },
       redirect: 'follow',
       signal: AbortSignal.timeout(15_000),
     });
-    if (response.url.includes('/login')) return null;
-    return await response.text();
+    const html = await response.text();
+    if (response.url.includes('/login')) return html;
+    return html;
   } catch (error) {
     console.error('Public Facebook page could not be read:', error);
     return null;

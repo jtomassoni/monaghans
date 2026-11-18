@@ -17,6 +17,30 @@ export function parseSpecialText(
   return null;
 }
 
+export function specialScanLabel(
+  parsed: ParsedSpecialSource | null,
+  readFromPhoto: boolean
+): { outcome: string; detail: string } {
+  if (!parsed) {
+    return {
+      outcome: 'not-a-special',
+      detail: readFromPhoto
+        ? 'The photo was read. It was not a food special or a Broncos pot luck.'
+        : 'Not a food special or a Broncos pot luck.',
+    };
+  }
+  const prefix = readFromPhoto ? 'Read from the photo. ' : '';
+  if (parsed.kind === 'football') {
+    const opponent = parsed.football.opponent ? `Broncos vs ${parsed.football.opponent}` : 'Broncos game';
+    const meal = parsed.football.houseMeal
+      ? `House meal: ${parsed.football.houseMeal}.`
+      : 'House meal was not named.';
+    return { outcome: 'football', detail: `${prefix}Football game: ${opponent}. ${meal}` };
+  }
+  const price = parsed.food.priceNotes ? ` Price ${parsed.food.priceNotes}.` : '';
+  return { outcome: 'food', detail: `${prefix}Food special: ${parsed.food.title}.${price}` };
+}
+
 export function reviewMessage(input: {
   caption: string;
   imageLabel: string | null;

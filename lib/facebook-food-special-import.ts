@@ -2,11 +2,10 @@ import { createHmac, timingSafeEqual } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { Resend } from 'resend';
 import { prisma } from '@/lib/prisma';
-import { parseSpecialText, reviewMessage } from '@/lib/facebook-special-source';
-import {
-  FACEBOOK_PUBLIC_PAGE_KEY,
-  fetchPublicFacebookPosts,
-} from '@/lib/facebook-public-page';
+import { parseSpecialText, reviewMessage, specialScanLabel } from '@/lib/facebook-special-source';
+import { FACEBOOK_PUBLIC_PAGE_KEY } from '@/lib/facebook-public-page';
+import { pollExcerpt, type FacebookSpecialPollRecord, type FacebookSpecialPollResult } from '@/lib/facebook-special-poll';
+import { readSpecialsPage } from '@/lib/facebook-specials-reader';
 import { readImageText } from '@/lib/read-image-text';
 import {
   footballGameDescription,
@@ -23,6 +22,7 @@ import {
 } from '@/lib/timezone';
 
 const LOOKBACK_MS = 36 * 60 * 60 * 1000;
+const SCAN_LOOKBACK_MS = 24 * 60 * 60 * 1000;
 const MAX_IMAGE_READS = 6;
 const TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const DEFAULT_NOTIFY_EMAIL = 'jtomassoni@gmail.com';
@@ -90,34 +90,108 @@ export async function loadFoodSpecialImport(token: string): Promise<FacebookFood
 export async function pollFacebookForFoodSpecials(): Promise<{
   ok: boolean;
   reason?: string;
+  summary: string;
   checked: number;
   emailed: number;
 }> {
+  let record: FacebookSpecialPollRecord;
+  try {
+    record = await checkFacebookSpecials();
+  } catch (error) {
+    record = {
+      ok: false,
+      summary: error instanceof Error ? error.message : 'The Facebook check failed.',
+      checked: 0,
+      emailed: 0,
+      results: [],
+    };
+  }
+  await saveSpecialPoll(record);
+  return {
+    ok: record.ok,
+    reason: record.ok ? undefined : record.summary,
+    summary: record.summary,
+    checked: record.checked,
+    emailed: record.emailed,
+  };
+}
+
+export async function scanFacebookSpecialsLastDay(): Promise<{
+  ok: boolean;
+  reason?: string;
+  summary: string;
+  checked: number;
+  emailed: number;
+}> {
+  let record: FacebookSpecialPollRecord;
+  try {
+    record = await classifyRecentSpecials();
+  } catch (error) {
+    record = {
+      ok: false,
+      summary: `Last 24 hours scan. ${error instanceof Error ? error.message : 'The scan failed.'}`,
+      checked: 0,
+      emailed: 0,
+      results: [],
+    };
+  }
+  await saveSpecialPoll(record);
+  return {
+    ok: record.ok,
+    reason: record.ok ? undefined : record.summary,
+    summary: record.summary,
+    checked: record.checked,
+    emailed: 0,
+  };
+}
+
+async function checkFacebookSpecials(): Promise<FacebookSpecialPollRecord> {
   const pageUrl = await loadPublicPageUrl();
   if (!pageUrl) {
     return {
       ok: false,
-      reason: 'Paste the public Facebook page URL on the Facebook specials page.',
+      summary: 'Paste the public Facebook page URL on the Facebook specials page.',
       checked: 0,
       emailed: 0,
+      results: [],
     };
   }
 
-  const { posts, blocked } = await fetchPublicFacebookPosts(pageUrl);
-  if (blocked) {
-    return { ok: false, reason: 'Facebook did not return that public page.', checked: 0, emailed: 0 };
+  const read = await readSpecialsPage(pageUrl);
+  if (!read.ok) {
+    return { ok: false, summary: read.reason, checked: 0, emailed: 0, results: [] };
   }
 
   const timezone = await getCompanyTimezone();
   const seen = new Set<string>();
   let imageReads = 0;
+  const results: FacebookSpecialPollResult[] = [];
   let emailed = 0;
 
-  for (const post of posts) {
+  for (const post of read.posts) {
+    const excerpt = pollExcerpt(post.message);
     const postedAt = post.createdTime ? new Date(post.createdTime) : new Date();
-    if (Number.isNaN(postedAt.getTime())) continue;
-    if (post.createdTime && Date.now() - postedAt.getTime() > LOOKBACK_MS) continue;
-    const didEmail = await considerSpecial({
+    if (Number.isNaN(postedAt.getTime())) {
+      results.push({
+        postId: post.id,
+        excerpt,
+        permalink: post.permalink,
+        outcome: 'error',
+        detail: 'Facebook returned a post time that could not be read.',
+      });
+      continue;
+    }
+    if (post.createdTime && Date.now() - postedAt.getTime() > LOOKBACK_MS) {
+      results.push({
+        postId: post.id,
+        excerpt,
+        permalink: post.permalink,
+        outcome: 'too-old',
+        detail: 'Older than 36 hours, so it was left alone.',
+      });
+      continue;
+    }
+    const check = await considerSpecial({
       timezone,
       seen,
       facebookPostId: post.id,
@@ -131,10 +205,190 @@ export async function pollFacebookForFoodSpecials(): Promise<{
         imageReads += 1;
       },
     });
-    if (didEmail) emailed += 1;
+    if (check.emailed) emailed += 1;
+    results.push({
+      postId: post.id,
+      excerpt,
+      permalink: post.permalink,
+      outcome: check.outcome,
+      detail: check.detail,
+    });
   }
 
-  return { ok: true, checked: posts.length, emailed };
+  const countLabel = results.length === 1 ? '1 post' : `${results.length} posts`;
+  const emailLabel = emailed === 1 ? 'Emailed 1.' : `Emailed ${emailed}.`;
+  const summary = results.length === 0
+    ? 'Facebook returned no posts.'
+    : `Checked ${countLabel}. ${emailLabel}`;
+  return {
+    ok: true,
+    summary: read.storiesNote ? `${summary} ${read.storiesNote}` : summary,
+    checked: results.length,
+    emailed,
+    results,
+  };
+}
+
+async function classifyRecentSpecials(): Promise<FacebookSpecialPollRecord> {
+  const pageUrl = await loadPublicPageUrl();
+  if (!pageUrl) {
+    return {
+      ok: false,
+      summary: 'Last 24 hours scan. Paste the public Facebook page URL on the Facebook specials page.',
+      checked: 0,
+      emailed: 0,
+      results: [],
+    };
+  }
+
+  const read = await readSpecialsPage(pageUrl, { posts: 25, stories: 10 });
+  if (!read.ok) {
+    return { ok: false, summary: `Last 24 hours scan. ${read.reason}`, checked: 0, emailed: 0, results: [] };
+  }
+
+  const timezone = await getCompanyTimezone();
+  const seen = new Set<string>();
+  let imageReads = 0;
+  const results: FacebookSpecialPollResult[] = [];
+
+  for (const post of read.posts) {
+    const excerpt = pollExcerpt(post.message);
+    const postedAt = post.createdTime ? new Date(post.createdTime) : new Date();
+    if (Number.isNaN(postedAt.getTime())) {
+      results.push({
+        postId: post.id,
+        excerpt,
+        permalink: post.permalink,
+        outcome: 'error',
+        detail: 'Facebook returned a post time that could not be read.',
+      });
+      continue;
+    }
+    if (post.createdTime && Date.now() - postedAt.getTime() > SCAN_LOOKBACK_MS) {
+      results.push({
+        postId: post.id,
+        excerpt,
+        permalink: post.permalink,
+        outcome: 'too-old',
+        detail: 'Older than 24 hours, so this scan left it out.',
+      });
+      continue;
+    }
+    const classified = await classifySpecial({
+      timezone,
+      seen,
+      facebookPostId: post.id,
+      caption: post.message.trim(),
+      imageUrl: post.imageUrl,
+      postedAt,
+      imageReads: () => imageReads,
+      useImageRead: () => {
+        imageReads += 1;
+      },
+    });
+    results.push({
+      postId: post.id,
+      excerpt,
+      permalink: post.permalink,
+      outcome: classified.outcome,
+      detail: classified.detail,
+    });
+  }
+
+  const recent = results.filter((result) => result.outcome !== 'too-old' && result.outcome !== 'error');
+  const food = results.filter((result) => result.outcome === 'food').length;
+  const football = results.filter((result) => result.outcome === 'football').length;
+  const found = [
+    food ? `${food} food ${food === 1 ? 'special' : 'specials'}` : '',
+    football ? `${football} football ${football === 1 ? 'game' : 'games'}` : '',
+  ].filter(Boolean);
+  const countLabel = recent.length === 1 ? '1 post from the last 24 hours' : `${recent.length} posts from the last 24 hours`;
+  const foundLabel = found.length ? found.join(', ') : 'No food specials or football games';
+  const summary = recent.length === 0
+    ? 'Last 24 hours scan. No posts from the last 24 hours. Nothing was emailed.'
+    : `Last 24 hours scan. ${countLabel}. ${foundLabel}. Nothing was emailed.`;
+  return {
+    ok: true,
+    summary: read.storiesNote ? `${summary} ${read.storiesNote}` : summary,
+    checked: recent.length,
+    emailed: 0,
+    results,
+  };
+}
+
+async function classifySpecial(input: {
+  timezone: string;
+  seen: Set<string>;
+  facebookPostId: string;
+  caption: string;
+  imageUrl: string | null;
+  postedAt: Date;
+  imageReads: () => number;
+  useImageRead: () => void;
+}): Promise<{ outcome: string; detail: string }> {
+  if (!input.facebookPostId) {
+    return { outcome: 'error', detail: 'Facebook did not include a post id.' };
+  }
+  if (input.seen.has(input.facebookPostId)) {
+    return { outcome: 'duplicate', detail: 'This post was already in this scan.' };
+  }
+  input.seen.add(input.facebookPostId);
+  if (!input.caption && !input.imageUrl) {
+    return { outcome: 'empty', detail: 'No caption or photo.' };
+  }
+
+  let parsed = input.caption ? parseSpecialText(input.caption, input.postedAt, input.timezone) : null;
+  let imageText: string | null = null;
+  if (!parsed && input.imageUrl) {
+    if (input.imageReads() >= MAX_IMAGE_READS) {
+      return { outcome: 'image-limit', detail: 'Photo reading paused. This scan already read 6 photos.' };
+    }
+    input.useImageRead();
+    imageText = await readImageText(input.imageUrl);
+    if (imageText) parsed = parseSpecialText(imageText, input.postedAt, input.timezone);
+  }
+  if (!parsed && input.imageUrl && !input.caption && !imageText) {
+    return { outcome: 'not-a-special', detail: 'The photo had no readable text.' };
+  }
+
+  const label = specialScanLabel(parsed, Boolean(imageText));
+  const notes: string[] = [];
+  const existing = await prisma.facebookFoodSpecialImport.findUnique({
+    where: { facebookPostId: input.facebookPostId },
+    select: { status: true, notifiedAt: true },
+  });
+  if (existing?.status === 'applied') notes.push('This post was already added.');
+  else if (existing?.status === 'dismissed') notes.push('This post was skipped earlier.');
+  else if (existing?.notifiedAt) notes.push('A review email was already sent.');
+  const postedByApp = await prisma.facebookPost.findUnique({
+    where: { postId: input.facebookPostId },
+    select: { id: true },
+  });
+  if (postedByApp) notes.push('This site published the post.');
+  return {
+    outcome: label.outcome,
+    detail: notes.length ? `${label.detail} ${notes.join(' ')}` : label.detail,
+  };
+}
+
+const POLL_HISTORY_DAYS = 180;
+
+async function saveSpecialPoll(record: FacebookSpecialPollRecord): Promise<void> {
+  try {
+    await prisma.facebookSpecialPoll.create({
+      data: {
+        ok: record.ok,
+        summary: record.summary.slice(0, 500),
+        checked: record.checked,
+        emailed: record.emailed,
+        results: JSON.stringify(record.results),
+      },
+    });
+    const cutoff = new Date(Date.now() - POLL_HISTORY_DAYS * 24 * 60 * 60 * 1000);
+    await prisma.facebookSpecialPoll.deleteMany({ where: { ranAt: { lt: cutoff } } });
+  } catch (error) {
+    console.error('Facebook specials check could not be saved to the history log:', error);
+  }
 }
 
 async function loadPublicPageUrl(): Promise<string | null> {
@@ -154,36 +408,60 @@ async function considerSpecial(input: {
   imageLabel: string;
   imageReads: () => number;
   useImageRead: () => void;
-}): Promise<boolean> {
-  if (!input.facebookPostId || input.seen.has(input.facebookPostId)) return false;
+}): Promise<{ emailed: boolean; outcome: string; detail: string }> {
+  if (!input.facebookPostId) {
+    return { emailed: false, outcome: 'error', detail: 'Facebook did not include a post id.' };
+  }
+  if (input.seen.has(input.facebookPostId)) {
+    return { emailed: false, outcome: 'duplicate', detail: 'This post was already in this check.' };
+  }
   input.seen.add(input.facebookPostId);
-  if (!input.caption && !input.imageUrl) return false;
+  if (!input.caption && !input.imageUrl) {
+    return { emailed: false, outcome: 'empty', detail: 'No caption or photo.' };
+  }
 
   const existing = await prisma.facebookFoodSpecialImport.findUnique({
     where: { facebookPostId: input.facebookPostId },
   });
   if (existing?.notifiedAt || existing?.status === 'applied' || existing?.status === 'dismissed') {
-    return false;
+    const detail = existing.status === 'applied'
+      ? 'This post was already added.'
+      : existing.status === 'dismissed'
+        ? 'This post was skipped earlier.'
+        : 'A review email was already sent.';
+    return { emailed: false, outcome: 'already-seen', detail };
   }
 
   const postedByApp = await prisma.facebookPost.findUnique({
     where: { postId: input.facebookPostId },
     select: { id: true },
   });
-  if (postedByApp) return false;
+  if (postedByApp) {
+    return { emailed: false, outcome: 'posted-by-site', detail: 'This site published the post, so it was skipped.' };
+  }
 
   let parsed = input.caption ? parseSpecialText(input.caption, input.postedAt, input.timezone) : null;
   let imageText: string | null = null;
   if (!parsed && input.imageUrl) {
     if (input.imageReads() >= MAX_IMAGE_READS) {
-      console.warn('Photo text paused until the next hour. The image limit for this check was reached.');
-      return false;
+      return {
+        emailed: false,
+        outcome: 'image-limit',
+        detail: 'Photo reading paused until the next hour. This check already read 6 photos.',
+      };
     }
     input.useImageRead();
     imageText = await readImageText(input.imageUrl);
     if (imageText) parsed = parseSpecialText(imageText, input.postedAt, input.timezone);
   }
-  if (!parsed) return false;
+  if (!parsed) {
+    const detail = imageText
+      ? 'The photo was read. It was not a food special or a Broncos pot luck.'
+      : input.caption
+        ? 'The caption was not a food special or a Broncos pot luck.'
+        : 'The photo had no readable text.';
+    return { emailed: false, outcome: 'not-a-special', detail };
+  }
 
   const football = parsed.kind === 'football' ? parsed.football : null;
   const food = parsed.kind === 'food' ? parsed.food : null;
@@ -209,15 +487,20 @@ async function considerSpecial(input: {
       postedAt: input.postedAt,
     }));
 
-  if (!row) return false;
+  if (!row) {
+    return { emailed: false, outcome: 'error', detail: 'The review could not be saved.' };
+  }
 
   const sent = await sendFoodSpecialReadyEmail(row);
-  if (!sent) return false;
+  if (!sent) {
+    return { emailed: false, outcome: 'email-failed', detail: 'The review email did not send.' };
+  }
   await prisma.facebookFoodSpecialImport.update({
     where: { id: row.id },
     data: { notifiedAt: new Date() },
   });
-  return true;
+  const kind = football ? 'football game' : 'food special';
+  return { emailed: true, outcome: 'emailed', detail: `Emailed a ${kind} for review: ${row.title}` };
 }
 
 export async function applyFacebookFoodSpecialImport(input: {
