@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { chooseManagedPage, oauthQueryValue, type ManagedPage } from './facebook-specials-reader';
-import { groupPollsByDay, oauthStatePurpose } from './facebook-special-poll';
+import { groupPollsByDay, oauthStatePurpose, readablePollExcerpt, readablePollSummary } from './facebook-special-poll';
 
 describe('oauthQueryValue', () => {
   it('keeps a plus sign in the Facebook code', () => {
@@ -41,6 +41,31 @@ describe('oauthStatePurpose', () => {
     assert.equal(oauthStatePurpose(null), null);
     const social = Buffer.from(JSON.stringify({ userId: 'abc+def/ghi' })).toString('base64');
     assert.equal(oauthStatePurpose(social), null);
+  });
+});
+
+describe('readable poll log', () => {
+  it('drops the repeated scan prefix', () => {
+    assert.equal(
+      readablePollSummary('Last 24 hours scan. 2 posts from the last 24 hours. Nothing was emailed.'),
+      '2 posts from the last 24 hours. Nothing was emailed.'
+    );
+    assert.equal(readablePollSummary('Facebook returned no posts.'), 'Facebook returned no posts.');
+  });
+
+  it('keeps a real caption and hides page code', () => {
+    assert.deepEqual(
+      readablePollExcerpt("Wednesday at Monaghan's. Today's special is carnitas."),
+      { text: "Wednesday at Monaghan's. Today's special is carnitas.", pageCode: false }
+    );
+    assert.deepEqual(
+      readablePollExcerpt('{"routing_namespace":"fb_comet","ghlss":"h1pLEp"}'),
+      { text: 'Page code, not a caption.', pageCode: true }
+    );
+    assert.deepEqual(
+      readablePollExcerpt('Facebook :root,.__fb-light-mode:root,--fds-black:#000000'),
+      { text: 'Page code, not a caption.', pageCode: true }
+    );
   });
 });
 

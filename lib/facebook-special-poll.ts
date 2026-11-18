@@ -22,6 +22,23 @@ export function pollExcerpt(message: string): string {
   return `${text.slice(0, 137)}...`;
 }
 
+export function readablePollSummary(summary: string): string {
+  return summary.replace(/^Last 24 hours scan\.\s*/, '').trim();
+}
+
+export function readablePollExcerpt(excerpt: string): { text: string; pageCode: boolean } {
+  const text = excerpt.replace(/\s+/g, ' ').trim();
+  if (!text) return { text: '', pageCode: false };
+  if (isPageCode(text)) return { text: 'Page code, not a caption.', pageCode: true };
+  return { text, pageCode: false };
+}
+
+function isPageCode(text: string): boolean {
+  if (text.startsWith('{') || text.startsWith('[')) return true;
+  if (text.includes('routing_namespace') || text.includes('__fb-') || text.includes('--fds-')) return true;
+  return text.includes(':root') && /--|__fb/.test(text);
+}
+
 export function oauthStatePurpose(state: string | null): string | null {
   if (!state) return null;
   try {

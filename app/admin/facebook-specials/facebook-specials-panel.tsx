@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { showToast } from '@/components/toast';
-import type { FacebookSpecialPollResult } from '@/lib/facebook-special-poll';
+import { readablePollExcerpt, readablePollSummary, type FacebookSpecialPollResult } from '@/lib/facebook-special-poll';
 
 interface PollView {
   id: string;
@@ -27,6 +27,19 @@ const OUTCOMES: Record<string, string> = {
   food: 'Food special',
   football: 'Football game',
 };
+
+function outcomeTone(outcome: string): string {
+  if (outcome === 'food' || outcome === 'emailed') {
+    return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200';
+  }
+  if (outcome === 'football') {
+    return 'bg-amber-100 text-amber-900 dark:bg-amber-900/50 dark:text-amber-100';
+  }
+  if (outcome === 'error' || outcome === 'email-failed') {
+    return 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200';
+  }
+  return 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200';
+}
 
 export default function FacebookSpecialsPanel({
   initialUrl,
@@ -251,37 +264,68 @@ export default function FacebookSpecialsPanel({
                     {day.polls.length === 1 ? '1 check' : `${day.polls.length} checks`}
                   </span>
                 </summary>
-                <div className="space-y-4 border-t border-gray-200 px-4 py-3 dark:border-gray-700">
+                <div className="divide-y divide-gray-200 border-t border-gray-200 px-4 dark:divide-gray-700 dark:border-gray-700">
                   {day.polls.map((poll) => (
-                    <article key={poll.id}>
-                      <p className={`text-sm ${poll.ok ? 'text-gray-900 dark:text-white' : 'text-red-700 dark:text-red-300'}`}>
-                        <span className="font-medium">{clock.format(new Date(poll.ranAt))}</span>
-                        {' '}
-                        {poll.summary}
-                      </p>
-                      {poll.results.length > 0 && (
-                        <ul className="mt-2 space-y-2">
-                          {poll.results.map((result, index) => (
-                            <li key={`${poll.id}-${result.postId}-${index}`} className="text-sm text-gray-600 dark:text-gray-300">
-                              <span className="font-medium text-gray-800 dark:text-gray-100">
-                                {OUTCOMES[result.outcome] || 'Result'}
-                              </span>
-                              {result.excerpt ? ` — ${result.excerpt}` : ''}
-                              <span className="block text-gray-500 dark:text-gray-400">{result.detail}</span>
-                              {result.permalink && (
-                                <a
-                                  href={result.permalink}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="text-red-700 underline dark:text-red-300"
-                                >
-                                  Open post
-                                </a>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
+                    <article key={poll.id} className="py-3">
+                      <div className="flex gap-3">
+                        <time
+                          dateTime={poll.ranAt}
+                          className="w-20 shrink-0 pt-0.5 text-sm font-semibold tabular-nums text-gray-900 dark:text-white"
+                        >
+                          {clock.format(new Date(poll.ranAt))}
+                        </time>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-3">
+                            <p className={`text-sm leading-snug break-words ${poll.ok ? 'text-gray-900 dark:text-gray-100' : 'text-red-700 dark:text-red-300'}`}>
+                              {readablePollSummary(poll.summary)}
+                            </p>
+                            <span
+                              className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
+                                poll.ok
+                                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200'
+                                  : 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200'
+                              }`}
+                            >
+                              {poll.ok ? 'OK' : 'Problem'}
+                            </span>
+                          </div>
+                          {poll.results.length > 0 && (
+                            <ul className="mt-2 space-y-2">
+                              {poll.results.map((result, index) => {
+                                const excerpt = readablePollExcerpt(result.excerpt);
+                                return (
+                                  <li
+                                    key={`${poll.id}-${result.postId}-${index}`}
+                                    className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/40"
+                                  >
+                                    <div className="flex items-center justify-between gap-3">
+                                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${outcomeTone(result.outcome)}`}>
+                                        {OUTCOMES[result.outcome] || 'Result'}
+                                      </span>
+                                      {result.permalink && (
+                                        <a
+                                          href={result.permalink}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="shrink-0 text-xs font-medium text-red-700 underline dark:text-red-300"
+                                        >
+                                          Open post
+                                        </a>
+                                      )}
+                                    </div>
+                                    {excerpt.text ? (
+                                      <p className={`mt-1.5 text-sm leading-snug break-words ${excerpt.pageCode ? 'italic text-gray-500 dark:text-gray-400' : 'text-gray-800 dark:text-gray-100'}`}>
+                                        {excerpt.text}
+                                      </p>
+                                    ) : null}
+                                    <p className="mt-1 text-xs leading-snug text-gray-500 dark:text-gray-400">{result.detail}</p>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          )}
+                        </div>
+                      </div>
                     </article>
                   ))}
                 </div>
