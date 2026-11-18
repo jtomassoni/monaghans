@@ -447,9 +447,11 @@ async function sendStaffWelcomeEmail(email: string): Promise<void> {
   const textLines = [
     "You're verified to receive private dining lead notifications at Monaghan's.",
     '',
-    "Open the admin app to view and manage inquiries — full contact details stay in the app only.",
+    mappedUserId
+      ? 'Click the link to sign in automatically and open private dining leads.'
+      : "Open the admin app to view and manage inquiries. You'll be asked to sign in.",
     '',
-    leadsSectionUrl ? `Private dining leads: ${leadsSectionUrl}` : '',
+    leadsSectionUrl ? leadsSectionUrl : '',
   ].filter(Boolean);
 
   const innerHtml = `
@@ -461,11 +463,11 @@ async function sendStaffWelcomeEmail(email: string): Promise<void> {
       leadsSectionUrl
         ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 16px;"><tr><td>
             <a href="${escapeHtml(leadsSectionUrl)}" style="display:inline-block;background:#dc2626;color:#ffffff !important;padding:14px 28px;border-radius:10px;text-decoration:none;font-weight:600;font-size:15px;box-shadow:0 2px 6px rgba(220,38,38,0.35);">
-              Open private dining leads
+              ${mappedUserId ? 'Click to sign in' : 'Open private dining leads'}
             </a>
           </td></tr></table>
           <p style="margin:0;font-size:13px;color:#6b7280;">
-            ${mappedUserId ? 'This button signs you in.' : 'Sign in to the dashboard if prompted.'}
+            ${mappedUserId ? 'Clicking this button signs you in automatically.' : "You'll be asked to sign in."}
             Customer contact information is not included in email alerts.
           </p>`
         : '<p style="margin:0;color:#b45309;">Ask an admin to set NEXTAUTH_URL so links work.</p>'
@@ -670,7 +672,11 @@ export function composeStaffLeadNotificationEmail(lead: PrivateDiningLeadEmailPa
     `Preferred date: ${dateStr}`,
     `Message: ${messageText}`,
     '',
-    adminLeadUrl ? `Open in admin: ${adminLeadUrl}` : '',
+    adminLeadUrl
+      ? openUrl
+        ? `Click this link to sign in automatically and open the inquiry:\n${adminLeadUrl}`
+        : `Open in admin (you'll be asked to sign in):\n${adminLeadUrl}`
+      : '',
   ].filter(Boolean);
 
   const innerHtmlFragment = `
@@ -695,12 +701,11 @@ export function composeStaffLeadNotificationEmail(lead: PrivateDiningLeadEmailPa
       adminLeadUrl
         ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 16px;"><tr><td>
             <a href="${escapeHtml(adminLeadUrl)}" style="display:inline-block;background:#dc2626;color:#ffffff !important;padding:14px 28px;border-radius:10px;text-decoration:none;font-weight:600;font-size:15px;box-shadow:0 2px 6px rgba(220,38,38,0.35);">
-              Open in admin
+              ${openUrl ? 'Click to sign in' : 'Open in admin'}
             </a>
           </td></tr></table>
-          ${openUrl ? '' : `<p style="margin:0;font-size:12px;color:#6b7280;word-break:break-all;line-height:1.45;">${escapeHtml(adminLeadUrl)}</p>`}
           <p style="margin:8px 0 0;font-size:13px;color:#6b7280;">
-            ${openUrl ? 'This button signs you in as the person mapped to this email address.' : 'Sign in to the dashboard if prompted.'}
+            ${openUrl ? 'Clicking this button signs you in automatically and opens the inquiry.' : "You'll be asked to sign in."}
           </p>`
         : '<p style="margin:0;color:#b45309;">Configure NEXTAUTH_URL so the admin link works.</p>'
     }
