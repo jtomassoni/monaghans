@@ -14,8 +14,30 @@ export interface SpecialsReader {
   connectedAt: string;
 }
 
+export function oauthQueryValue(search: string, key: string): string | null {
+  const query = search.startsWith('?') ? search.slice(1) : search;
+  for (const part of query.split('&')) {
+    const eq = part.indexOf('=');
+    const rawKey = eq === -1 ? part : part.slice(0, eq);
+    let decodedKey = rawKey;
+    try {
+      decodedKey = decodeURIComponent(rawKey);
+    } catch {
+      decodedKey = rawKey;
+    }
+    if (decodedKey !== key) continue;
+    const rawValue = eq === -1 ? '' : part.slice(eq + 1);
+    try {
+      return decodeURIComponent(rawValue.replace(/\+/g, '%2B'));
+    } catch {
+      return rawValue;
+    }
+  }
+  return null;
+}
+
 export function facebookOAuthRedirectUri(): string {
-  const origin = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+  const origin = (process.env.NEXTAUTH_URL || 'http://localhost:3000').trim().replace(/\/+$/, '');
   return `${origin}/api/social/facebook/callback`;
 }
 
@@ -72,12 +94,7 @@ export async function finishSpecialsFacebookLogin(input: {
   }
 
   const redirectUri = facebookOAuthRedirectUri();
-  const shortLived = await graphGet('oauth/access_token', null, {
-    client_id: appId,
-    client_secret: appSecret,
-    redirect_uri: redirectUri,
-    code: input.code,
-  });
+  const shortLived = await exchangeFacebookCode(appId, appSecret, redirectUri, input.code);
   const shortToken = stringField(shortLived, 'access_token');
   if (!shortToken) {
     return { path: `/admin/facebook-specials?error=${encodeURIComponent(graphMessage(shortLived, 'Facebook did not return a login.'))}` };
@@ -249,6 +266,33 @@ function toPost(row: unknown, imageLabel: string): PublicFacebookPost[] {
 function directImage(url: string | null): string | null {
   if (!url) return null;
   return /fbcdn\.net|scontent/i.test(url) ? url : null;
+}
+
+async function exchangeFacebookCode(
+  appId: string,
+  appSecret: string,
+  redirectUri: string,
+  code: string
+): Promise<Record<string, unknown>> {
+  const body = new URLSearchParams({
+    client_id: appId,
+    client_secret: appSecret,
+    redirect_uri: redirectUri,
+    code,
+  });
+  try {
+    const response = await fetch(`${GRAPH}/oauth/access_token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+      signal: AbortSignal.timeout(20_000),
+    });
+    const data = await response.json().catch(() => null);
+    return data && typeof data === 'object' ? data as Record<string, unknown> : {};
+  } catch (error) {
+    console.error('Facebook login code exchange failed:', error instanceof Error ? error.message : error);
+    return { error: { message: 'Could not reach Facebook.' } };
+  }
 }
 
 async function graphGet(path: string, token: string | null, params: Record<string, string>): Promise<Record<string, unknown>> {

@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { oauthQueryValue } from './facebook-specials-reader';
 import { groupPollsByDay, oauthStatePurpose } from './facebook-special-poll';
+
+describe('oauthQueryValue', () => {
+  it('keeps a plus sign in the Facebook code', () => {
+    assert.equal(oauthQueryValue('?code=AQD+abc%2Fdef&state=x', 'code'), 'AQD+abc/def');
+  });
+});
 
 describe('oauthStatePurpose', () => {
   it('reads the specials login state', () => {

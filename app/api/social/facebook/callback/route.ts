@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { oauthStatePurpose } from '@/lib/facebook-special-poll';
-import { finishSpecialsFacebookLogin } from '@/lib/facebook-specials-reader';
+import { finishSpecialsFacebookLogin, oauthQueryValue } from '@/lib/facebook-specials-reader';
 
 const FACEBOOK_APP_ID = process.env.FACEBOOK_APP_ID;
 const FACEBOOK_APP_SECRET = process.env.FACEBOOK_APP_SECRET;
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   }
 
   const searchParams = req.nextUrl.searchParams;
-  const code = searchParams.get('code');
+  const code = oauthQueryValue(req.nextUrl.search, 'code') || searchParams.get('code');
   const state = searchParams.get('state');
   const error = searchParams.get('error');
   const errorReason = searchParams.get('error_reason');
