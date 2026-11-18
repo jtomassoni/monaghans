@@ -39,14 +39,14 @@ export function parseFacebookFoodSpecial(message: string | null | undefined): Pa
 
   if (SKIP_POST.test(text) && !hasSpecial) return null;
   if (drinkOnly) return null;
-  if (!(hasSpecial && (hasFood || hasPrice)) && !(hasFood && hasPrice)) return null;
+  if (!hasSpecial && !(hasFood && hasPrice)) return null;
 
   const priceMatch = text.match(PRICE);
   const priceNotes = priceMatch ? priceMatch[0].replace(/\s+/g, '') : null;
 
   const labelMatch = text.match(SPECIAL_LABEL);
   let body = labelMatch ? text.slice(labelMatch.index! + labelMatch[0].length).trim() : text;
-  body = body.replace(/^is\s+/i, '').trim();
+  body = body.replace(/^(?:is\s+)?(?:an?\s+)?/i, '').trim();
   if (!body) return null;
 
   const sentences = body.split(/(?<=[.!?])\s+/).map((part) => part.trim()).filter(Boolean);
@@ -71,6 +71,7 @@ function cleanTitle(raw: string): string {
   title = title.replace(/[\p{Extended_Pictographic}\p{Emoji_Presentation}]/gu, ' ');
   title = title.replace(/\s+/g, ' ').trim();
   title = title.replace(/^[\s:|\-–—.!]+/, '').replace(/[\s,;:\-–—.!|]+$/, '').trim();
+  if (title) title = title.charAt(0).toUpperCase() + title.slice(1);
   if (title.length > 90) {
     title = title.slice(0, 87).replace(/\s+\S*$/, '').trim();
   }

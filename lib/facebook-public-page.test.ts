@@ -94,6 +94,16 @@ describe('parsePublicFacebookHtml', () => {
     assert.match(posts[0].message, /pot roast/);
   });
 
+  it('ignores Facebook styling copied with the page', () => {
+    const html = `
+      <div>
+        <a href="/story.php?story_fbid=cssjunk&id=100">1 hr</a>
+        Facebook :root,:__fb-light-mode:root{--fds-black:#000000;--fds-black-alpha-05:rgba(0, 0, 0, .05)}
+      </div>
+    `;
+    assert.deepEqual(parsePublicFacebookHtml(html), []);
+  });
+
   it('recognizes the logged-out page shell', () => {
     const html = '<html><title>Facebook</title>"ssrEnabled":false,"haste_session":"comet_loggedout_pkg"</html>';
     assert.equal(pageRequiresLogin(html), true);

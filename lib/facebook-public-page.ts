@@ -208,6 +208,7 @@ function addPost(
   const permalink = findPermalink(around);
   const imageUrl = findImage(around);
   const createdTime = findCreatedTime(around);
+  if (looksLikePageChrome(message)) return;
   const id = findId(around, permalink, message);
   if (found.has(id)) return;
   found.set(id, {
@@ -246,6 +247,10 @@ function findCreatedTime(around: string): string | null {
   return looseFacebookTime(textFromHtml(around), new Date());
 }
 
+function looksLikePageChrome(message: string): boolean {
+  return /--fds-|__fb-|:root\b|\{--/.test(message);
+}
+
 function visiblePostText(chunk: string): string {
   const lines = textFromHtml(chunk).split('\n').map((line) => line.trim()).filter(Boolean);
   const useful = lines.filter((line) => {
@@ -253,6 +258,7 @@ function visiblePostText(chunk: string): string {
     if (/^(like|comment|share|follow|following|full story|see more|more|message|photos|about|posts|reels|mentions|reviews|followers|log in|sign up|facebook)$/i.test(line)) {
       return false;
     }
+    if (/--fds-|__fb-|:root\b|\{--/.test(line)) return false;
     return !/^\d+\s*(?:hrs?|hours?|mins?|minutes?|days?)$/i.test(line);
   });
   return useful.slice(0, 6).join('\n').slice(0, 2000);

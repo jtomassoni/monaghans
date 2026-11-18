@@ -40,6 +40,16 @@ describe('parseFacebookFoodSpecial', () => {
     );
   });
 
+  it('reads a labeled special that has no price', () => {
+    const parsed = parseFacebookFoodSpecial(
+      "Wednesday at Monaghan's Bar & Grill! Today's special is a smothered carnitas chimichanga. Come hungry and say hi to Susan behind the bar."
+    );
+    assert.ok(parsed);
+    assert.equal(parsed.title, 'Smothered carnitas chimichanga');
+    assert.equal(parsed.priceNotes, null);
+    assert.match(parsed.description || '', /Susan behind the bar/);
+  });
+
   it('ignores a food mention that is not offered as a special', () => {
     assert.equal(parseFacebookFoodSpecial('Come get a burger and watch the game with us'), null);
   });
