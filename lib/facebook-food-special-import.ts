@@ -4,11 +4,19 @@ import { Resend } from 'resend';
 import { prisma } from '@/lib/prisma';
 import { getPageAccessToken } from '@/lib/facebook-helpers';
 import { parseFacebookFoodSpecial } from '@/lib/parse-facebook-food-special';
+import { parseFacebookFootballPost } from '@/lib/parse-facebook-football';
+import {
+  footballGameDescription,
+  footballGameTitle,
+  withFootballGameTags,
+} from '@/lib/football-games';
+import { findNflTeam } from '@/lib/nfl-teams';
 import { logActivity } from '@/lib/api-helpers';
 import {
   getCompanyTimezone,
   getCompanyTimezoneDateString,
   parseAnyDateAsMountainTime,
+  parseDateTimeLocalAsCompanyTimezone,
 } from '@/lib/timezone';
 
 const LOOKBACK_MS = 36 * 60 * 60 * 1000;
@@ -22,6 +30,7 @@ export interface FacebookFoodSpecialImportRecord {
   permalink: string | null;
   imageUrl: string | null;
   rawMessage: string;
+  kind: string;
   title: string;
   description: string | null;
   priceNotes: string | null;
@@ -86,6 +95,7 @@ export async function pollFacebookForFoodSpecials(): Promise<{
   }
 
   const posts = await fetchRecentPagePosts(connection);
+  const timezone = await getCompanyTimezone();
   let emailed = 0;
 
   for (const post of posts) {
@@ -105,10 +115,11 @@ export async function pollFacebookForFoodSpecials(): Promise<{
     });
     if (postedByApp) continue;
 
-    const parsed = parseFacebookFoodSpecial(message);
-    if (!parsed) continue;
-
     const postedAt = post.created_time ? new Date(post.created_time) : new Date();
+    const football = parseFacebookFootballPost(message, postedAt, timezone);
+    const food = football ? null : parseFacebookFoodSpecial(message);
+    if (!football && !food) continue;
+
     const row =
       existing ??
       (await createImport({
@@ -116,9 +127,14 @@ export async function pollFacebookForFoodSpecials(): Promise<{
         permalink: post.permalink_url || null,
         imageUrl: post.full_picture || null,
         rawMessage: message,
-        title: parsed.title,
-        description: parsed.description,
-        priceNotes: parsed.priceNotes,
+        kind: football ? 'football' : 'food',
+        title: football
+          ? football.opponent
+            ? footballGameTitle(football.opponent)
+            : 'Broncos Game'
+          : food!.title,
+        description: football ? football.houseMeal : food!.description,
+        priceNotes: football ? football.kickoffLocal : food!.priceNotes,
         postedAt,
       }));
 
@@ -158,6 +174,11 @@ export async function applyFacebookFoodSpecialImport(input: {
   const description = blankToNull(input.description, 2000);
   const priceNotes = blankToNull(input.priceNotes, 80);
   const timezone = await getCompanyTimezone();
+
+  if (row.kind === 'football') {
+    return applyFootballImport(row, { title, description, priceNotes, timezone });
+  }
+
   const dateStr = getCompanyTimezoneDateString(row.postedAt, timezone);
   const day = parseAnyDateAsMountainTime(dateStr);
   if (!day) return { ok: false, error: 'Could not read the day of that Facebook post.' };
@@ -199,6 +220,71 @@ export async function applyFacebookFoodSpecialImport(input: {
       special.title,
       undefined,
       `added food special "${special.title}" from a Facebook post`
+    );
+  }
+
+  return { ok: true, already: false };
+}
+
+async function applyFootballImport(
+  row: FacebookFoodSpecialImportRecord,
+  input: {
+    title: string;
+    description: string | null;
+    priceNotes: string | null;
+    timezone: string;
+  }
+): Promise<{ ok: true; already: boolean } | { ok: false; error: string }> {
+  const opponentName = findNflTeam(input.title)?.name ?? input.title;
+  const houseMeal = input.description?.trim() || '';
+  const kickoff = input.priceNotes?.trim() || '';
+  if (!/^\d{4}-\d{2}-\d{2}T(?:11:00|14:00|18:00)$/.test(kickoff)) {
+    return { ok: false, error: 'Kickoff is 11:00 AM, 2:00 PM, or 6:00 PM.' };
+  }
+  if (houseMeal.length < 2) {
+    return { ok: false, error: 'Add what the house is providing for the pot luck.' };
+  }
+
+  const start = parseDateTimeLocalAsCompanyTimezone(kickoff, input.timezone);
+  const end = new Date(start.getTime() + 3.5 * 60 * 60 * 1000);
+  const eventTitle = footballGameTitle(opponentName);
+  const event = await prisma.event.create({
+    data: {
+      title: eventTitle,
+      description: footballGameDescription(houseMeal),
+      startDateTime: start,
+      endDateTime: end,
+      venueArea: 'bar',
+      isAllDay: false,
+      tags: JSON.stringify(withFootballGameTags([], houseMeal)),
+      isActive: true,
+    },
+  });
+
+  await prisma.facebookFoodSpecialImport.update({
+    where: { id: row.id },
+    data: {
+      status: 'applied',
+      specialId: event.id,
+      title: eventTitle,
+      description: houseMeal,
+      priceNotes: kickoff,
+    },
+  });
+
+  const actor = await prisma.user.findFirst({
+    where: { isActive: true, role: 'admin' },
+    select: { id: true },
+  });
+  if (actor) {
+    await logActivity(
+      actor.id,
+      'create',
+      'event',
+      event.id,
+      event.title,
+      undefined,
+      `added football game "${event.title}" from a Facebook post`
     );
   }
 
@@ -254,9 +340,19 @@ export function buildFoodSpecialReviewEmail(input: {
   postedLabel: string;
 }): { subject: string; text: string; html: string } {
   const { row, link, postedLabel } = input;
+  const football = row.kind === 'football';
   const description = row.description?.trim() || '(none)';
   const price = row.priceNotes?.trim() || '(none)';
-  const subject = `Food special ready: ${row.title}`;
+  const parsedLines = football
+    ? [
+        'Kind: Football special',
+        `Opponent: ${footballOpponentDefault(row.title) || '(none)'}`,
+        `House meal: ${description}`,
+        `Kickoff: ${formatKickoff(price)}`,
+      ]
+    : [`Name: ${row.title}`, `Description: ${description}`, `Price: ${price}`];
+  const subject = football ? `Football special ready: ${row.title}` : `Food special ready: ${row.title}`;
+  const action = football ? 'Add this football game' : 'Add it for that day';
 
   const text = [
     `A Facebook post is ready to review.`,
@@ -269,11 +365,9 @@ export function buildFoodSpecialReviewEmail(input: {
     row.rawMessage,
     ``,
     `What the parser pulled out`,
-    `Name: ${row.title}`,
-    `Description: ${description}`,
-    `Price: ${price}`,
+    ...parsedLines,
     ``,
-    `Add it for that day: ${link}`,
+    `${action}: ${link}`,
   ].join('\n');
 
   const html = `
@@ -284,10 +378,8 @@ export function buildFoodSpecialReviewEmail(input: {
     <p style="margin:0;padding:12px 14px;background:#f9fafb;border-radius:10px;white-space:pre-wrap;color:#111827;">${escapeHtml(row.rawMessage)}</p>
     ${row.permalink ? `<p style="margin:12px 0 0;font-size:13px;"><a href="${escapeHtml(row.permalink)}">View on Facebook</a></p>` : '<p style="margin:12px 0 0;font-size:13px;color:#6b7280;">No Facebook link</p>'}
     <p style="margin:22px 0 8px;font-size:13px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:#6b7280;">What the parser pulled out</p>
-    <p style="margin:0 0 4px;"><strong>Name:</strong> ${escapeHtml(row.title)}</p>
-    <p style="margin:0 0 4px;"><strong>Description:</strong> ${escapeHtml(description)}</p>
-    <p style="margin:0 0 16px;"><strong>Price:</strong> ${escapeHtml(price)}</p>
-    <p style="margin:0;"><a href="${escapeHtml(link)}" style="display:inline-block;background:#dc2626;color:#ffffff;text-decoration:none;font-weight:700;padding:12px 18px;border-radius:10px;">Add this food special</a></p>
+    ${parsedLines.map((line) => `<p style="margin:0 0 4px;">${escapeHtml(line)}</p>`).join('')}
+    <p style="margin:16px 0 0;"><a href="${escapeHtml(link)}" style="display:inline-block;background:#dc2626;color:#ffffff;text-decoration:none;font-weight:700;padding:12px 18px;border-radius:10px;">${escapeHtml(action)}</a></p>
   `;
 
   return { subject, text, html };
@@ -389,11 +481,33 @@ async function fetchRecentPagePosts(connection: FacebookConnection): Promise<Gra
   return Array.isArray(data.data) ? data.data : [];
 }
 
+export function footballOpponentDefault(title: string): string {
+  const vs = title.match(/^broncos\s+vs\.?\s+(.+)$/i);
+  if (vs) return vs[1].trim();
+  if (/^broncos game$/i.test(title)) return '';
+  return title;
+}
+
+function formatKickoff(value: string): string {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
+  if (!match) return value;
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]), Number(match[4]), Number(match[5])));
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'UTC',
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date);
+}
+
 async function createImport(data: {
   facebookPostId: string;
   permalink: string | null;
   imageUrl: string | null;
   rawMessage: string;
+  kind: string;
   title: string;
   description: string | null;
   priceNotes: string | null;

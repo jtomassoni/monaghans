@@ -102,13 +102,14 @@ model FacebookPost {
   @@index([pageId])
 }
 
-// A food special parsed from a Facebook page post, waiting for a one-click confirm.
+// A Facebook post waiting for a one-click confirm. kind is "food" or "football".
 model FacebookFoodSpecialImport {
   id             String    @id @default(cuid())
   facebookPostId String    @unique
   permalink      String?
   imageUrl       String?
   rawMessage     String
+  kind           String    @default("food") // food, football
   title          String
   description    String?
   priceNotes     String?
