@@ -1,4 +1,10 @@
 {
   "buildCommand": "npm run build",
-  "installCommand": "bash scripts/install-for-vercel.sh"
+  "installCommand": "bash scripts/install-for-vercel.sh",
+  "crons": [
+    {
+      "path": "/api/cron/facebook-food-special",
+      "schedule": "0 * * * *"
+    }
+  ]
 }

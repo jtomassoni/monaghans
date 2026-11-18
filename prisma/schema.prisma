@@ -102,6 +102,26 @@ model FacebookPost {
   @@index([pageId])
 }
 
+// A food special parsed from a Facebook page post, waiting for a one-click confirm.
+model FacebookFoodSpecialImport {
+  id             String    @id @default(cuid())
+  facebookPostId String    @unique
+  permalink      String?
+  imageUrl       String?
+  rawMessage     String
+  title          String
+  description    String?
+  priceNotes     String?
+  postedAt       DateTime
+  status         String    @default("pending") // pending, applied, dismissed
+  specialId      String?
+  notifiedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([status])
+}
+
 model MenuSection {
   id           String     @id @default(cuid())
   name         String // e.g., "Starters", "Burgers", "Mexican"
