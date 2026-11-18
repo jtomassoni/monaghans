@@ -1,11 +1,36 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { oauthQueryValue } from './facebook-specials-reader';
+import { chooseManagedPage, oauthQueryValue, type ManagedPage } from './facebook-specials-reader';
 import { groupPollsByDay, oauthStatePurpose } from './facebook-special-poll';
 
 describe('oauthQueryValue', () => {
   it('keeps a plus sign in the Facebook code', () => {
     assert.equal(oauthQueryValue('?code=AQD+abc%2Fdef&state=x', 'code'), 'AQD+abc/def');
+  });
+});
+
+describe('chooseManagedPage', () => {
+  const pageUrl = 'https://www.facebook.com/p/Monaghans-Bar-and-Grill-100063611261508/';
+  const monaghans: ManagedPage = {
+    id: '555',
+    name: "Monaghan's Bar & Grill",
+    accessToken: 'page-token',
+    username: null,
+  };
+
+  it('uses the managed page when the public URL id is different', () => {
+    const choice = chooseManagedPage([monaghans], pageUrl);
+    assert.equal(choice.ok, true);
+    if (choice.ok) assert.equal(choice.page.id, '555');
+  });
+
+  it('says when the login manages a different page', () => {
+    const choice = chooseManagedPage(
+      [{ id: '9', name: 'Other Spot', accessToken: 't', username: null }],
+      pageUrl
+    );
+    assert.equal(choice.ok, false);
+    if (!choice.ok) assert.match(choice.reason, /Other Spot/);
   });
 });
 

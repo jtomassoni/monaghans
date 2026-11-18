@@ -131,6 +131,42 @@ export async function finishSpecialsFacebookLogin(input: {
   return { path: '/admin/facebook-specials?connected=1' };
 }
 
+export interface ManagedPage {
+  id: string;
+  name: string;
+  accessToken: string;
+  username: string | null;
+}
+
+export function chooseManagedPage(pages: ManagedPage[], pageUrl: string):
+  | { ok: true; page: ManagedPage }
+  | { ok: false; reason: string } {
+  if (pages.length === 0) {
+    return {
+      ok: false,
+      reason: 'This Facebook account does not manage any pages. Connect an admin of the page, and choose that page when Facebook asks.',
+    };
+  }
+
+  const target = facebookPageTarget(pageUrl);
+  const byId = target.id ? pages.find((page) => page.id === target.id) : undefined;
+  if (byId) return { ok: true, page: byId };
+
+  const hint = pageNameHint(pageUrl);
+  const wanted = hint ? looseName(hint) : '';
+  const slug = target.slug ? looseName(target.slug) : '';
+  const named = pages.filter((page) => pageMatches(page, wanted, slug));
+  if (named.length === 1) return { ok: true, page: named[0] };
+  if (named.length > 1) {
+    return { ok: false, reason: `Several managed pages match that URL: ${pageList(named)}. Disconnect and connect the Monaghan's page only.` };
+  }
+
+  return {
+    ok: false,
+    reason: `This Facebook account manages ${pageList(pages)}, not the pasted page. Connect an admin of that page.`,
+  };
+}
+
 export async function readSpecialsPage(pageUrl: string, limits?: { posts?: number; stories?: number }): Promise<
   | { ok: true; posts: PublicFacebookPost[]; storiesNote: string | null }
   | { ok: false; reason: string }
@@ -139,35 +175,35 @@ export async function readSpecialsPage(pageUrl: string, limits?: { posts?: numbe
   if (!reader) {
     return { ok: false, reason: 'Connect a Facebook account on the Facebook specials page.' };
   }
-
-  const target = facebookPageTarget(pageUrl);
-  const pageId = target.id || (target.slug ? await resolveSlug(target.slug, reader.userAccessToken) : null);
-  if (!pageId) {
-    return { ok: false, reason: 'Could not find a Facebook page at that URL.' };
+  if (reader.expiresAt && Date.parse(reader.expiresAt) < Date.now()) {
+    return { ok: false, reason: 'The Facebook login expired. Connect the account again.' };
   }
 
-  const userExpired = reader.expiresAt ? Date.parse(reader.expiresAt) < Date.now() : false;
-  let token = reader.pageId === pageId ? reader.pageAccessToken : null;
-  if (!token) {
-    if (userExpired) {
-      return { ok: false, reason: 'The Facebook login expired. Connect the account again.' };
-    }
-    token = reader.userAccessToken;
+  const accounts = await graphGet('me/accounts', reader.userAccessToken, {
+    fields: 'id,name,access_token,username',
+    limit: '50',
+  });
+  if (accounts.error) {
+    return { ok: false, reason: graphMessage(accounts, 'Facebook did not list the pages this account manages.') };
+  }
+
+  const choice = chooseManagedPage(managedPagesFrom(accounts), pageUrl);
+  if (!choice.ok) return choice;
+
+  if (reader.pageId !== choice.page.id || reader.pageAccessToken !== choice.page.accessToken) {
+    await saveReader({
+      ...reader,
+      pageId: choice.page.id,
+      pageAccessToken: choice.page.accessToken,
+    });
   }
 
   const postLimit = limits?.posts ?? 10;
   const storyLimit = limits?.stories ?? 5;
-  let posts = await graphPosts(pageId, token, postLimit);
-  if (!posts.ok && reader.userAccessToken && !userExpired) {
-    const pageToken = await pageTokenFor(reader, pageId);
-    if (pageToken) {
-      token = pageToken;
-      posts = await graphPosts(pageId, pageToken, postLimit);
-    }
-  }
+  const posts = await graphPosts(choice.page.id, choice.page.accessToken, postLimit);
   if (!posts.ok) return posts;
 
-  const stories = await graphStories(pageId, token, storyLimit);
+  const stories = await graphStories(choice.page.id, choice.page.accessToken, storyLimit);
   return {
     ok: true,
     posts: [...posts.posts, ...stories.posts],
@@ -188,24 +224,66 @@ async function saveReader(reader: SpecialsReader): Promise<void> {
   });
 }
 
-async function resolveSlug(slug: string, token: string): Promise<string | null> {
-  const data = await graphGet(encodeURIComponent(slug), token, { fields: 'id' });
-  return stringField(data, 'id');
+function managedPagesFrom(data: Record<string, unknown>): ManagedPage[] {
+  const rows = Array.isArray(data.data) ? data.data : [];
+  const pages: ManagedPage[] = [];
+  for (const row of rows) {
+    const id = stringField(row, 'id');
+    const accessToken = stringField(row, 'access_token');
+    if (!id || !accessToken) continue;
+    pages.push({
+      id,
+      name: stringField(row, 'name') || 'Facebook page',
+      accessToken,
+      username: stringField(row, 'username'),
+    });
+  }
+  return pages;
 }
 
-async function pageTokenFor(reader: SpecialsReader, pageId: string): Promise<string | null> {
-  const accounts = await graphGet('me/accounts', reader.userAccessToken, {
-    fields: 'id,access_token',
-    limit: '50',
-  });
-  const pages = Array.isArray(accounts.data) ? accounts.data : [];
-  const match = pages.find((page) => page && typeof page === 'object' && (page as { id?: string }).id === pageId) as
-    | { access_token?: string }
-    | undefined;
-  const pageToken = match?.access_token;
-  if (!pageToken) return null;
-  await saveReader({ ...reader, pageId, pageAccessToken: pageToken });
-  return pageToken;
+function pageNameHint(pageUrl: string): string | null {
+  let url: URL;
+  try {
+    url = new URL(pageUrl);
+  } catch {
+    return null;
+  }
+  const parts = url.pathname.split('/').filter(Boolean);
+  const last = decodeURIComponent(parts[parts.length - 1] || '');
+  const target = facebookPageTarget(pageUrl);
+  const withoutId = target.id ? last.replace(new RegExp(`${target.id}$`), '').replace(/[-_]+$/, '') : last;
+  const hint = withoutId.replace(/[-_]+/g, ' ').trim();
+  return hint && !['p', 'pages', 'people'].includes(hint.toLowerCase()) ? hint : null;
+}
+
+function pageMatches(page: ManagedPage, wanted: string, slug: string): boolean {
+  const name = looseName(page.name);
+  const username = page.username ? looseName(page.username) : '';
+  return namesMatch(name, wanted) || namesMatch(username, wanted) || namesMatch(name, slug) || namesMatch(username, slug);
+}
+
+function namesMatch(left: string, right: string): boolean {
+  if (!left || !right) return false;
+  if (left === right) return true;
+  const shorter = left.length < right.length ? left : right;
+  const longer = left.length < right.length ? right : left;
+  return shorter.length >= 8 && longer.startsWith(shorter);
+}
+
+function looseName(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .split(' ')
+    .filter((word) => word && !['and', 'the', 'at', 'of'].includes(word))
+    .join('');
+}
+
+function pageList(pages: ManagedPage[]): string {
+  const names = pages.slice(0, 5).map((page) => page.name);
+  const extra = pages.length > 5 ? `, and ${pages.length - 5} more` : '';
+  return `${names.join(', ')}${extra}`;
 }
 
 async function graphPosts(pageId: string, token: string, limit: number): Promise<
