@@ -46,7 +46,7 @@ type LoadState = {
   verificationEmailSubject?: string;
 };
 
-export default function PrivateDiningCommunicationsPanel() {
+export default function PrivateDiningCommunicationsPanel({ canMapUsers = false }: { canMapUsers?: boolean }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [recipients, setRecipients] = useState<Recipient[]>([]);
@@ -292,7 +292,9 @@ export default function PrivateDiningCommunicationsPanel() {
         <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
           New recipients get a one-time notice email. Subject line:{' '}
           <span className="font-medium text-gray-600 dark:text-gray-300">{verificationEmailSubject}</span>
-          {' '}Map an address to a user when that person should be signed in from the inquiry email. Unmapped addresses still get the email and sign in with a password.
+          {canMapUsers
+            ? ' Map an address to a user when that person should be signed in from the inquiry email. Unmapped addresses still get the email and sign in with a password.'
+            : ''}
         </p>
       </div>
 
@@ -360,23 +362,25 @@ export default function PrivateDiningCommunicationsPanel() {
                         </span>
                       )}
                     </div>
-                    <label className="mt-2 block text-xs text-gray-500 dark:text-gray-400">
-                      Signs in as
-                      <select
-                        aria-label={`User for ${r.email}`}
-                        value={r.loginUserId || ''}
-                        disabled={mappingEmail === r.email || removingEmail === r.email}
-                        onChange={(event) => void mapUser(r.email, event.target.value)}
-                        className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-950 dark:text-white"
-                      >
-                        <option value="">Unmapped</option>
-                        {users.map((user) => (
-                          <option key={user.id} value={user.id}>
-                            {(user.name || user.email)} ({user.role})
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                    {canMapUsers && (
+                      <label className="mt-2 block text-xs text-gray-500 dark:text-gray-400">
+                        Signs in as
+                        <select
+                          aria-label={`User for ${r.email}`}
+                          value={r.loginUserId || ''}
+                          disabled={mappingEmail === r.email || removingEmail === r.email}
+                          onChange={(event) => void mapUser(r.email, event.target.value)}
+                          className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-950 dark:text-white"
+                        >
+                          <option value="">Unmapped</option>
+                          {users.map((user) => (
+                            <option key={user.id} value={user.id}>
+                              {(user.name || user.email)} ({user.role})
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
                   </td>
                   <td className="px-3 py-2.5 align-middle">
                     <label className="inline-flex w-full cursor-pointer items-center justify-center gap-2">

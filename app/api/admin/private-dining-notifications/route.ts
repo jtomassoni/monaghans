@@ -28,16 +28,21 @@ async function requireAdminAccess(_req: NextRequest) {
   return { session, permissions };
 }
 
-async function jsonResponse(recipients: Awaited<ReturnType<typeof listStaffRecipientsForAdmin>>) {
+async function jsonResponse(
+  recipients: Awaited<ReturnType<typeof listStaffRecipientsForAdmin>>,
+  includeMapping: boolean
+) {
   const resendConfigured = Boolean(
     process.env.RESEND_API_KEY?.trim() && process.env.RESEND_FROM?.trim()
   );
   const emails = recipients.map((r) => r.email);
-  const users = await listLoginUsers();
+  const visible = includeMapping
+    ? recipients
+    : recipients.map((recipient) => ({ ...recipient, loginUserId: null, loginUserLabel: null }));
   return NextResponse.json({
-    recipients,
+    recipients: visible,
     emails,
-    users,
+    users: includeMapping ? await listLoginUsers() : [],
     resendConfigured,
     verificationEmailSubject: STAFF_VERIFICATION_EMAIL_SUBJECT,
   });
@@ -54,7 +59,7 @@ export async function GET(_req: NextRequest) {
     assertResendFromEnvIfConfigured();
     await migrateLegacyNotificationRecipientsIfNeeded();
     const recipients = await listStaffRecipientsForAdmin();
-    return await jsonResponse(recipients);
+    return await jsonResponse(recipients, authResult.session.user.role === 'admin');
   } catch (error) {
     return handleError(error, 'Failed to load notification settings');
   }
@@ -101,7 +106,7 @@ export async function PUT(req: NextRequest) {
       'Updated private dining notification recipients'
     );
 
-    return await jsonResponse(recipients);
+    return await jsonResponse(recipients, authResult.session.user.role === 'admin');
   } catch (error) {
     return handleError(error, 'Failed to save notification settings');
   }
@@ -126,6 +131,9 @@ export async function PATCH(req: NextRequest) {
     const email = typeof body.email === 'string' ? body.email : '';
 
     if ('userId' in body) {
+      if (authResult.session.user.role !== 'admin') {
+        return NextResponse.json({ error: 'Only an admin can map email sign-in.' }, { status: 403 });
+      }
       const userId = body.userId === null || body.userId === '' ? null : String(body.userId);
       const updated = await updateStaffRecipientUser(email, userId);
       if (updated === 'invalid-user') {
@@ -145,7 +153,7 @@ export async function PATCH(req: NextRequest) {
           ? `Mapped ${email.trim()} to a user for email sign-in`
           : `Cleared the email sign-in user for ${email.trim()}`
       );
-      return await jsonResponse(updated);
+      return await jsonResponse(updated, authResult.session.user.role === 'admin');
     }
 
     const active = Boolean(body.active);
@@ -170,7 +178,7 @@ export async function PATCH(req: NextRequest) {
       `Set private dining email alerts ${active ? 'on' : 'off'} for ${email.trim()}`
     );
 
-    return await jsonResponse(updated);
+    return await jsonResponse(updated, authResult.session.user.role === 'admin');
   } catch (error) {
     return handleError(error, 'Failed to update recipient');
   }
@@ -221,7 +229,7 @@ export async function DELETE(req: NextRequest) {
 
     await migrateLegacyNotificationRecipientsIfNeeded();
     const recipients = await listStaffRecipientsForAdmin();
-    return await jsonResponse(recipients);
+    return await jsonResponse(recipients, authResult.session.user.role === 'admin');
   } catch (error) {
     return handleError(error, 'Failed to remove recipient');
   }

@@ -77,7 +77,7 @@ export default function PrivateDiningLeadsTabs({
         hidden={tab !== 'email'}
         className={tab !== 'email' ? 'hidden' : undefined}
       >
-        <PrivateDiningCommunicationsPanel />
+        <PrivateDiningCommunicationsPanel canMapUsers={userRole === 'admin'} />
       </div>
     </div>
   );
