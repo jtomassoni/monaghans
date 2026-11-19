@@ -15,6 +15,7 @@ interface PollView {
 
 const OUTCOMES: Record<string, string> = {
   emailed: 'Emailed',
+  waiting: 'Waiting until 7 AM',
   'already-seen': 'Already reviewed',
   'not-a-special': 'Not a special',
   'too-old': 'Too old',
@@ -31,6 +32,9 @@ const OUTCOMES: Record<string, string> = {
 function outcomeTone(outcome: string): string {
   if (outcome === 'food' || outcome === 'emailed') {
     return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200';
+  }
+  if (outcome === 'waiting') {
+    return 'bg-sky-100 text-sky-900 dark:bg-sky-900/50 dark:text-sky-100';
   }
   if (outcome === 'football') {
     return 'bg-amber-100 text-amber-900 dark:bg-amber-900/50 dark:text-amber-100';
@@ -207,7 +211,7 @@ export default function FacebookSpecialsPanel({
           Public Facebook page
         </label>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Paste the page URL. Scan the last 24 hours to see each post’s content type. The scan does not send email or add specials.
+          Paste the page URL. Scan the last 24 hours to see each post’s content type. The scan does not send email or add specials. The hourly check still runs overnight, and approval emails go out from 7:00 AM to 7:00 PM.
         </p>
         <input
           id="facebook-page-url"

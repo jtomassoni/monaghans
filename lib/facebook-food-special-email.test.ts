@@ -1,6 +1,15 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { buildFoodSpecialReviewEmail } from './facebook-food-special-import';
+import { approvalEmailAllowed, buildFoodSpecialReviewEmail } from './facebook-food-special-import';
+
+describe('approvalEmailAllowed', () => {
+  it('sends from 7:00 AM through 7:00 PM Denver time', () => {
+    assert.equal(approvalEmailAllowed(new Date('2026-11-19T13:00:00.000Z'), 'America/Denver'), false);
+    assert.equal(approvalEmailAllowed(new Date('2026-11-19T14:00:00.000Z'), 'America/Denver'), true);
+    assert.equal(approvalEmailAllowed(new Date('2026-11-20T02:00:00.000Z'), 'America/Denver'), true);
+    assert.equal(approvalEmailAllowed(new Date('2026-11-20T03:00:00.000Z'), 'America/Denver'), false);
+  });
+});
 
 describe('buildFoodSpecialReviewEmail', () => {
   it('puts the full post ahead of the parser fields', () => {

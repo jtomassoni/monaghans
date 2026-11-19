@@ -22,6 +22,8 @@ import {
   parseDateTimeLocalAsCompanyTimezone,
 } from '@/lib/timezone';
 
+const APPROVAL_EMAIL_START_HOUR = 7;
+const APPROVAL_EMAIL_END_HOUR = 19;
 const LOOKBACK_MS = 36 * 60 * 60 * 1000;
 const SCAN_LOOKBACK_MS = 24 * 60 * 60 * 1000;
 const MAX_IMAGE_READS = 6;
@@ -42,6 +44,17 @@ export interface FacebookFoodSpecialImportRecord {
   postedAt: Date;
   status: string;
   specialId: string | null;
+}
+
+export function approvalEmailAllowed(now: Date, timezone: string): boolean {
+  const hourPart = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    hour: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(now).find((part) => part.type === 'hour')?.value;
+  const hour = Number(hourPart);
+  const localHour = hour === 24 ? 0 : hour;
+  return localHour >= APPROVAL_EMAIL_START_HOUR && localHour <= APPROVAL_EMAIL_END_HOUR;
 }
 
 export function foodSpecialNotifyEmails(): string[] {
@@ -164,6 +177,7 @@ async function checkFacebookSpecials(): Promise<FacebookSpecialPollRecord> {
   }
 
   const timezone = await getCompanyTimezone();
+  const emailing = approvalEmailAllowed(new Date(), timezone);
   const seen = new Set<string>();
   let imageReads = 0;
   const results: FacebookSpecialPollResult[] = [];
@@ -196,6 +210,7 @@ async function checkFacebookSpecials(): Promise<FacebookSpecialPollRecord> {
     }
     const check = await considerSpecial({
       timezone,
+      emailing,
       seen,
       facebookPostId: post.id,
       permalink: post.permalink,
@@ -219,11 +234,31 @@ async function checkFacebookSpecials(): Promise<FacebookSpecialPollRecord> {
     });
   }
 
+  if (emailing) {
+    const sentIds = new Set(results.filter((result) => result.outcome === 'emailed').map((result) => result.postId));
+    const waiting = await prisma.facebookFoodSpecialImport.findMany({
+      where: { status: 'pending', notifiedAt: null },
+    });
+    for (const row of waiting) {
+      if (sentIds.has(row.facebookPostId)) continue;
+      const sent = await deliverReviewEmail(row);
+      if (!sent) continue;
+      emailed += 1;
+      sentIds.add(row.facebookPostId);
+    }
+  }
+
   const countLabel = results.length === 1 ? '1 post' : `${results.length} posts`;
+  const waitingCount = results.filter((result) => result.outcome === 'waiting').length;
   const emailLabel = emailed === 1 ? 'Emailed 1.' : `Emailed ${emailed}.`;
+  const waitingLabel = waitingCount === 0
+    ? ''
+    : waitingCount === 1
+      ? ' 1 approval email is waiting until 7:00 AM.'
+      : ` ${waitingCount} approval emails are waiting until 7:00 AM.`;
   const summary = results.length === 0
     ? 'Facebook returned no posts.'
-    : `Checked ${countLabel}. ${emailLabel}`;
+    : `Checked ${countLabel}. ${emailLabel}${waitingLabel}`;
   return {
     ok: true,
     summary: read.storiesNote ? `${summary} ${read.storiesNote}` : summary,
@@ -461,6 +496,7 @@ async function loadPublicPageUrl(): Promise<string | null> {
 
 async function considerSpecial(input: {
   timezone: string;
+  emailing: boolean;
   seen: Set<string>;
   facebookPostId: string;
   permalink: string | null;
@@ -556,16 +592,30 @@ async function considerSpecial(input: {
     return { emailed: false, outcome: 'error', detail: 'The review could not be saved.' };
   }
 
-  const sent = await sendFoodSpecialReadyEmail(row);
+  const kind = football ? 'football game' : 'food special';
+  if (!input.emailing) {
+    return {
+      emailed: false,
+      outcome: 'waiting',
+      detail: `Saved a ${kind} for review: ${row.title}. The approval email goes out between 7:00 AM and 7:00 PM.`,
+    };
+  }
+
+  const sent = await deliverReviewEmail(row);
   if (!sent) {
     return { emailed: false, outcome: 'email-failed', detail: 'The review email did not send.' };
   }
+  return { emailed: true, outcome: 'emailed', detail: `Emailed a ${kind} for review: ${row.title}` };
+}
+
+async function deliverReviewEmail(row: FacebookFoodSpecialImportRecord): Promise<boolean> {
+  const sent = await sendFoodSpecialReadyEmail(row);
+  if (!sent) return false;
   await prisma.facebookFoodSpecialImport.update({
     where: { id: row.id },
     data: { notifiedAt: new Date() },
   });
-  const kind = football ? 'football game' : 'food special';
-  return { emailed: true, outcome: 'emailed', detail: `Emailed a ${kind} for review: ${row.title}` };
+  return true;
 }
 
 export async function applyFacebookFoodSpecialImport(input: {
