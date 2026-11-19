@@ -28,7 +28,7 @@ describe('buildFoodSpecialReviewEmail', () => {
     assert.ok(postAt > -1 && parserAt > postAt);
     assert.match(text, /Come in hungry\./);
     assert.match(text, /Name: Fish and chips/);
-    assert.match(text, /Description: \(none\)/);
+    assert.doesNotMatch(text, /Description:/);
     assert.match(text, /Price: \$14/);
     assert.match(html, /What the parser pulled out/);
     assert.match(html, /Fish and chips/);

@@ -547,7 +547,7 @@ async function considerSpecial(input: {
           ? footballGameTitle(football.opponent)
           : 'Broncos Game'
         : food!.title,
-      description: football ? football.houseMeal : food!.description,
+      description: football ? football.houseMeal : null,
       priceNotes: football ? football.kickoffLocal : food!.priceNotes,
       postedAt: input.postedAt,
     }));
@@ -765,7 +765,7 @@ export function buildFoodSpecialReviewEmail(input: {
         `House meal: ${description}`,
         `Kickoff: ${formatKickoff(price)}`,
       ]
-    : [`Name: ${row.title}`, `Description: ${description}`, `Price: ${price}`];
+    : [`Name: ${row.title}`, `Price: ${price}`];
   const subject = football ? `Football special ready: ${row.title}` : `Food special ready: ${row.title}`;
   const action = football ? 'Add this football game' : 'Add it for that day';
 

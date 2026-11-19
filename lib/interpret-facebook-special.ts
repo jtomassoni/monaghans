@@ -12,7 +12,7 @@ const PROMPT = [
   'A Broncos announcement with a pot luck or a house meal is a football game.',
   'A Broncos food item, such as a Broncos burger, is a food special.',
   'Hiring, trivia, music, birthdays, drink specials, greetings, and page code are none.',
-  'For a food special, title is the dish and description is the leftover detail.',
+  'For a food special, title is only the dish. Do not put a description.',
   'Use the price written in the post. When a food special has no price, use $14.',
   'Taco Tuesday is the exception: keep a price written in the post, and leave price empty when it names none.',
   'For a football game, opponent is the other NFL team, houseMeal is what the house is bringing, and kickoffLocal is America/Denver local time as YYYY-MM-DDTHH:mm.',

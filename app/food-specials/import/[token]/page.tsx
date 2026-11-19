@@ -150,16 +150,6 @@ export default async function FacebookFoodSpecialImportPage({
                   />
                 </label>
                 <label className="block">
-                  <span className="block text-sm text-gray-300 mb-1">Description</span>
-                  <textarea
-                    name="description"
-                    defaultValue={row.description || ''}
-                    rows={3}
-                    maxLength={2000}
-                    className="w-full rounded-xl bg-white/10 border border-white/15 px-3 py-2 text-white"
-                  />
-                </label>
-                <label className="block">
                   <span className="block text-sm text-gray-300 mb-1">Price</span>
                   <input
                     name="priceNotes"
