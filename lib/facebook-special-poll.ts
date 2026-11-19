@@ -26,8 +26,24 @@ export function pollPostText(message: string): { excerpt: string; message: strin
   };
 }
 
-export function readablePollSummary(summary: string): string {
-  return summary.replace(/^Last 24 hours scan\.\s*/, '').trim();
+export function isLoggedPageCode(result: { excerpt?: string; message?: string; detail?: string; outcome?: string }): boolean {
+  if (result.outcome === 'page-code') return true;
+  if (result.detail === 'Page code, not a caption.') return true;
+  return isPageCode(result.message || '') || isPageCode(result.excerpt || '');
+}
+
+export function readablePollSummary(summary: string, hiddenPageCodes = 0): string {
+  let text = summary.replace(/^Last 24 hours scan\.\s*/, '').trim();
+  if (hiddenPageCodes <= 0) return text;
+  text = text.replace(/Checked (\d+) posts?/, (_, count) => {
+    const left = Math.max(0, Number(count) - hiddenPageCodes);
+    return left === 1 ? 'Checked 1 post' : `Checked ${left} posts`;
+  });
+  text = text.replace(/(\d+) posts from the last 24 hours/, (_, count) => {
+    const left = Math.max(0, Number(count) - hiddenPageCodes);
+    return left === 1 ? '1 post from the last 24 hours' : `${left} posts from the last 24 hours`;
+  });
+  return text;
 }
 
 export function readablePollExcerpt(excerpt: string): { text: string; pageCode: boolean } {

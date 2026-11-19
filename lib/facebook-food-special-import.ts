@@ -223,6 +223,7 @@ async function checkFacebookSpecials(): Promise<FacebookSpecialPollRecord> {
         imageReads += 1;
       },
     });
+    if (check.outcome === 'page-code') continue;
     if (check.emailed) emailed += 1;
     results.push({
       postId: post.id,
@@ -327,6 +328,7 @@ async function classifyRecentSpecials(): Promise<FacebookSpecialPollRecord> {
         imageReads += 1;
       },
     });
+    if (classified.outcome === 'page-code') continue;
     results.push({
       postId: post.id,
       excerpt: text.excerpt,
@@ -390,7 +392,7 @@ async function classifySpecial(input: {
   });
   if (read.status === 'image-limit') return { outcome: 'image-limit', detail: read.detail };
   if (read.status === 'error') return { outcome: 'error', detail: read.detail };
-  if (read.status === 'page-code') return { outcome: 'not-a-special', detail: 'Page code, not a caption.' };
+  if (read.status === 'page-code') return { outcome: 'page-code', detail: 'Page code, not a caption.' };
   if (read.status === 'empty') return { outcome: 'empty', detail: 'No caption or photo.' };
 
   const parsed = read.status === 'parsed' ? read.parsed : null;
@@ -551,7 +553,7 @@ async function considerSpecial(input: {
     return { emailed: false, outcome: read.status === 'image-limit' ? 'image-limit' : 'error', detail: read.detail };
   }
   if (read.status === 'page-code') {
-    return { emailed: false, outcome: 'not-a-special', detail: 'Page code, not a caption.' };
+    return { emailed: false, outcome: 'page-code', detail: 'Page code, not a caption.' };
   }
   if (read.status === 'empty' || read.status === 'none') {
     const detail = read.status === 'none' && read.imageText

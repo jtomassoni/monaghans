@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { chooseManagedPage, oauthQueryValue, type ManagedPage } from './facebook-specials-reader';
-import { groupPollsByDay, oauthStatePurpose, pollPostText, readablePollExcerpt, readablePollSummary } from './facebook-special-poll';
+import { groupPollsByDay, isLoggedPageCode, oauthStatePurpose, pollPostText, readablePollExcerpt, readablePollSummary } from './facebook-special-poll';
 
 describe('oauthQueryValue', () => {
   it('keeps a plus sign in the Facebook code', () => {
@@ -58,6 +58,15 @@ describe('readable poll log', () => {
     assert.ok(text.message.includes('Come hungry.'));
     assert.ok(text.excerpt.endsWith('...'));
     assert.ok(text.excerpt.length < text.message.length);
+  });
+
+  it('drops page code from the log and leaves other results', () => {
+    assert.equal(isLoggedPageCode({ excerpt: '{"routing_namespace":"x"}', detail: 'Something new.' }), true);
+    assert.equal(isLoggedPageCode({ excerpt: "Thursday's special is a French Dip.", detail: 'Already reviewed.', outcome: 'already-seen' }), false);
+    assert.equal(
+      readablePollSummary('Checked 2 posts. Emailed 0.', 1),
+      'Checked 1 post. Emailed 0.'
+    );
   });
 
   it('keeps a real caption and hides page code', () => {

@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { showToast } from '@/components/toast';
-import { readablePollExcerpt, readablePollSummary, type FacebookSpecialPollResult } from '@/lib/facebook-special-poll';
+import { isLoggedPageCode, readablePollExcerpt, readablePollSummary, type FacebookSpecialPollResult } from '@/lib/facebook-special-poll';
 
 interface PollView {
   id: string;
@@ -275,7 +275,9 @@ export default function FacebookSpecialsPanel({
                 <div className="space-y-3 border-t border-gray-200 px-4 py-3 dark:border-gray-700">
                   {day.polls.map((poll) => {
                     const checkOpen = openChecks.includes(poll.id);
-                    const postKeys = poll.results.map((_, index) => `${poll.id}-${index}`);
+                    const posts = poll.results.filter((result) => !isLoggedPageCode(result));
+                    const hiddenPageCodes = poll.results.length - posts.length;
+                    const postKeys = posts.map((_, index) => `${poll.id}-${index}`);
                     const allPostsOpen = postKeys.length > 0 && postKeys.every((key) => openPosts.includes(key));
                     return (
                       <article key={poll.id} className="flex gap-3">
@@ -298,7 +300,7 @@ export default function FacebookSpecialsPanel({
                               className={`min-w-0 flex-1 text-left text-sm leading-snug break-words ${poll.ok ? 'text-gray-900 dark:text-gray-100' : 'text-red-700 dark:text-red-300'}`}
                             >
                               <span className="mr-1.5 text-gray-400" aria-hidden="true">{checkOpen ? '▾' : '▸'}</span>
-                              {readablePollSummary(poll.summary)}
+                              {readablePollSummary(poll.summary, hiddenPageCodes)}
                             </button>
                             <span
                               className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -323,9 +325,9 @@ export default function FacebookSpecialsPanel({
                               </button>
                             )}
                           </div>
-                          {checkOpen && poll.results.length > 0 && (
+                          {checkOpen && posts.length > 0 && (
                             <ul className="divide-y divide-gray-200 dark:divide-gray-700">
-                              {poll.results.map((result, index) => {
+                              {posts.map((result, index) => {
                                 const key = `${poll.id}-${index}`;
                                 const postOpen = openPosts.includes(key);
                                 const full = readablePollExcerpt(result.message || result.excerpt);
